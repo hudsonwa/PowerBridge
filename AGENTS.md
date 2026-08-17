@@ -427,9 +427,7 @@ captures-less clone never reports a false failure. See
 
 - **Headline parity captures are excluded.** The per-bar MultiCharts ground-truth
   captures are private and not shipped; capture-gated tests **skip** (they do not fail).
-- **A private production-strategy parity suite is excluded** by design; nothing shipped
-  depends on it.
-- **The development/orchestration machinery is not part of this export.**
+- **This tree is the library, tests, and docs.** Internal build tooling is not shipped.
 - **Validation scope = intraday index futures only** (1-minute @NQ and @ES). Other
   instruments/timeframes are **untested** — behaviour there is unverified.
 - **Python input is a bounded mirror dialect**, not arbitrary Python: `py_front`/`py_to_el`
