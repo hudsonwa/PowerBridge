@@ -1,0 +1,204 @@
+# MC builtins that were each hand-checked to have a genuine, defined entry in the
+# MultiCharts keyword reference (a heading together with a synopsis or usage line, not a
+# mere passing mention). Consumed by mc_ground_check.py, which reads only the bare token
+# ahead of the '#'; everything after the '#' is a human-readable note and is ignored.
+#
+# Line shape:  tokenname  # verified 2026-06 — <plain-language restatement of behaviour>
+# Tokens are arranged in ascending alphabetical order (our own arrangement). Each note is
+# an original paraphrase of what the keyword does, its inputs, and what it yields — it is
+# NOT a quotation, and no source line numbers are cited.
+#
+# `Yesterday` is intentionally left off this list. Its only reference entry is a
+# backward-compatibility stub with no synopsis, and it throws a syntax error in MC, so
+# GTA5 substitutes CloseD(1) for it instead.
+
+abort                         # verified 2026-06 — halts the running study's calculation on the spot
+alertenabled                  # verified 2026-06 — flag telling whether alerting is currently switched on
+array_compare                 # verified 2026-06 — checks whether a run of elements in one array matches a run in another, given both start offsets and an element count
+array_contains                # verified 2026-06 — reports whether a given value occurs anywhere inside an array
+array_copy                    # verified 2026-06 — duplicates a span of elements out of one array into another at a chosen offset
+array_getbooleanvalue         # verified 2026-06 — fetches the boolean stored at an index of a dynamic array
+array_getfloatvalue           # verified 2026-06 — fetches the floating-point number stored at an index of a dynamic array
+array_getintegervalue         # verified 2026-06 — fetches the integer stored at an index of a dynamic array
+array_getmaxindex             # verified 2026-06 — gives the top usable index of a dynamic array
+array_getstringvalue          # verified 2026-06 — fetches the text stored at an index of a dynamic array
+array_gettype                 # verified 2026-06 — reports an array's element-type code (2, 3 or 7)
+array_indexof                 # verified 2026-06 — locates the position at which a value first appears in an array
+array_setbooleanvalue         # verified 2026-06 — stores a boolean at an index of a dynamic array
+array_setfloatvalue           # verified 2026-06 — stores a floating-point number at an index of a dynamic array
+array_setintegervalue         # verified 2026-06 — stores an integer at an index of a dynamic array
+array_setmaxindex             # verified 2026-06 — resizes a dynamic array by setting its highest index
+array_setstringvalue          # verified 2026-06 — stores text at an index of a dynamic array
+array_setvalrange             # verified 2026-06 — writes one value across a chosen index range of an array
+array_sort                    # verified 2026-06 — orders a chosen index range of an array, ascending or descending
+array_sum                     # verified 2026-06 — totals the elements across a chosen index range of an array
+arw_new                       # verified 2026-06 — draws an arrow at a bar date, time and price pointing a given direction, returning its numeric object id
+arw_new_s                     # verified 2026-06 — arrow-creation variant taking a seconds-precision time, returning a numeric object id
+avgbarseventrade              # verified 2026-06 — mean number of bars held over the breakeven trades
+avgbarslostrade               # verified 2026-06 — mean number of bars held over the losing trades
+avgbarswintrade               # verified 2026-06 — mean number of bars held over the winning trades
+avglist                       # verified 2026-06 — arithmetic mean of the supplied argument values
+barinterval                   # verified 2026-06 — how many resolution units make up a single bar
+barssinceexit                 # verified 2026-06 — count of bars elapsed since the last full exit of a position
+barstatus                     # verified 2026-06 — processing state of the current bar for a named data stream
+bartype                       # verified 2026-06 — code classifying the bar's resolution category
+bartype_ex                    # verified 2026-06 — extended form of the bar-type classification code
+basedatanumber                # verified 2026-06 — data-stream number belonging to the base series
+bigpointvalue                 # verified 2026-06 — currency worth of a one-point move across the whole contract
+buytocover                    # verified 2026-06 — order that buys back a short position, optionally named and tied to a specific entry
+category                      # verified 2026-06 — study's numeric category code, ranging 0 through 14
+commandline                   # verified 2026-06 — runs a supplied command-line expression string
+cotangent                     # verified 2026-06 — cotangent of an angle expressed in degrees
+currentbar                    # verified 2026-06 — sequence number of the bar presently being computed
+currentdatanumber             # verified 2026-06 — data-stream number of the bar being processed right now
+currententries                # verified 2026-06 — how many entries make up the current open position
+currentshares                 # verified 2026-06 — share-oriented equivalent of CurrentContracts
+currenttime_s                 # verified 2026-06 — the current bar's closing time carried to the second (HHmmss)
+dailyclose                    # verified 2026-06 — most recent closing price of the active session
+dailyhigh                     # verified 2026-06 — highest traded price of the active session
+dailylow                      # verified 2026-06 — lowest traded price of the active session
+dailyopen                     # verified 2026-06 — opening price of the active trading session
+datetime                      # verified 2026-06 — reserved word for a combined date-and-time number; its whole part counts days while the fractional part encodes time within the day
+datetime2eltime               # verified 2026-06 — pulls the EL-style time out of a DateTime value
+datetime2eltime_s             # verified 2026-06 — pulls the EL-style time with seconds out of a DateTime value
+datetimetostring              # verified 2026-06 — renders a full DateTime as human-readable text
+datetimetostring_ms           # verified 2026-06 — renders a full DateTime as text down to the millisecond
+datetojulian                  # verified 2026-06 — converts a calendar date into its Julian-date number
+datetostring                  # verified 2026-06 — renders the date part of a DateTime as text
+dayfromdatetime               # verified 2026-06 — day-of-month number taken from a DateTime value
+dayofweekfromdatetime         # verified 2026-06 — weekday number taken from a DateTime value
+description                   # verified 2026-06 — descriptive text label assigned to the study
+eldatetodatetime              # verified 2026-06 — turns an EL date (YYYMMdd) into a DateTime value
+eltimetodatetime              # verified 2026-06 — turns an EL time (HHmm) into a DateTime value
+eltimetodatetime_s            # verified 2026-06 — turns an EL time with seconds (HHmmss) into a DateTime value
+encodedate                    # verified 2026-06 — assembles a date value out of separate year, month and day inputs
+encodetime                    # verified 2026-06 — assembles a time value out of separate hour, minute, second and millisecond inputs
+entrydate                     # verified 2026-06 — date on which a back-referenced entry was placed
+entrydatetime                 # verified 2026-06 — DateTime at which a back-referenced entry was placed
+entryname                     # verified 2026-06 — label attached to a back-referenced entry order
+entrytime                     # verified 2026-06 — time at which a back-referenced entry was placed
+execoffset                    # verified 2026-06 — offset applied to order execution
+exitdate                      # verified 2026-06 — date on which a back-referenced exit occurred
+exitdatetime                  # verified 2026-06 — DateTime at which a back-referenced exit occurred
+exitname                      # verified 2026-06 — label attached to a back-referenced exit order
+exittime                      # verified 2026-06 — time at which a back-referenced exit occurred
+expirationdate                # verified 2026-06 — expiration date of the traded contract
+fill_array                    # verified 2026-06 — sets every slot of an array to a single value
+formatdate                    # verified 2026-06 — formats the date part of a DateTime using a caller-supplied pattern string
+formattime                    # verified 2026-06 — formats the time part of a DateTime using a caller-supplied pattern string
+grossloss                     # verified 2026-06 — negative sum of the currency losses from all completed losing trades
+grossprofit                   # verified 2026-06 — sum of the currency gains from all completed winning trades
+hoursfromdatetime             # verified 2026-06 — hour component taken from a DateTime value
+incmonth                      # verified 2026-06 — shifts a Julian date forward by a given count of months
+intervaltype                  # verified 2026-06 — code identifying the chart's interval kind
+intervaltype_ex               # verified 2026-06 — extended form of the interval-type code
+juliantodate                  # verified 2026-06 — converts a Julian-date number back into an EL calendar date
+largestlostrade               # verified 2026-06 — loss of the single worst losing trade
+largestwintrade               # verified 2026-06 — profit of the single best winning trade
+lastcalcdatetime              # verified 2026-06 — DateTime of the most recent calculation pass
+lastcalcjdate                 # verified 2026-06 — Julian date of the most recent calculation pass
+lastcalcmmtime                # verified 2026-06 — minute-resolution time of the most recent calculation pass
+lastcalcmstime                # verified 2026-06 — millisecond-resolution time of the most recent calculation pass
+lastcalcsstime                # verified 2026-06 — second-resolution time of the most recent calculation pass
+maxbarsback                   # verified 2026-06 — how many prior bars the study needs loaded before it can compute
+maxbarsforward                # verified 2026-06 — how many forward bars the study reserves
+maxconseclosers               # verified 2026-06 — longest unbroken streak of losing trades
+maxconsecwinners              # verified 2026-06 — longest unbroken streak of winning trades
+maxcontractprofit             # verified 2026-06 — best profit ever earned on a single contract
+maxcontracts                  # verified 2026-06 — peak contract count of a position selected by look-back index
+maxcontractsheld              # verified 2026-06 — largest simultaneous holding of contracts (or shares) reached during the run
+maxentries                    # verified 2026-06 — number of entries taken for a position selected by look-back index
+maxiddrawdown                 # verified 2026-06 — deepest intraday drop in equity over the whole test
+maxlist2                      # verified 2026-06 — largest among the supplied argument values (alternate list form)
+maxpositionloss               # verified 2026-06 — worst loss of a position selected by look-back index
+maxpositionprofit             # verified 2026-06 — best profit of a position selected by look-back index
+maxpositionsago               # verified 2026-06 — how many positions back the peak position occurred
+maxshares                     # verified 2026-06 — share-oriented equivalent of MaxContracts
+maxsharesheld                 # verified 2026-06 — share-oriented equivalent of MaxContractsHeld
+millisecondsfromdatetime      # verified 2026-06 — millisecond component taken from a DateTime value
+minlist2                      # verified 2026-06 — smallest among the supplied argument values (alternate list form)
+minutesfromdatetime           # verified 2026-06 — minute component taken from a DateTime value
+monthfromdatetime             # verified 2026-06 — month number taken from a DateTime value
+nthmaxlist                    # verified 2026-06 — the Nth largest among the supplied argument values
+nthminlist                    # verified 2026-06 — the Nth smallest among the supplied argument values
+numeventrades                 # verified 2026-06 — count of trades that finished at breakeven
+numlostrades                  # verified 2026-06 — count of trades that finished as losses
+numwintrades                  # verified 2026-06 — count of trades that finished as wins
+openentriescount              # verified 2026-06 — number of currently open entries (mirrors CurrentEntries)
+openentrycontracts            # verified 2026-06 — contract quantity of a chosen open entry
+openentrydate                 # verified 2026-06 — date a chosen open entry was taken
+openentrymaxprofit            # verified 2026-06 — highest profit a chosen open entry has reached
+openentrymaxprofitpercontract # verified 2026-06 — highest per-contract profit a chosen open entry has reached
+openentryminprofit            # verified 2026-06 — lowest profit a chosen open entry has reached
+openentryminprofitpercontract # verified 2026-06 — lowest per-contract profit a chosen open entry has reached
+openentryprice                # verified 2026-06 — fill price of a chosen open entry
+openentryprofit               # verified 2026-06 — current profit or loss of a chosen open entry
+openentryprofitpercontract    # verified 2026-06 — per-contract profit or loss of a chosen open entry
+openentrytime                 # verified 2026-06 — time a chosen open entry was taken
+percentprofit                 # verified 2026-06 — proportion of trades that were profitable, as a percentage
+pointvalue                    # verified 2026-06 — currency worth of one full point, equal to big-point value divided by price scale
+positionprofit                # verified 2026-06 — realized profit or loss booked for a named closed position
+postradecount                 # verified 2026-06 — number of trades inside a position selected by look-back index
+postradeentrybar              # verified 2026-06 — entry bar number of a chosen trade within a chosen position
+postradeentrycategory         # verified 2026-06 — entry category code of a chosen trade within a chosen position
+postradeentrydatetime         # verified 2026-06 — entry DateTime of a chosen trade within a chosen position
+postradeentryname             # verified 2026-06 — entry order label of a chosen trade within a chosen position
+postradeentryprice            # verified 2026-06 — entry price of a chosen trade within a chosen position
+postradeexitbar               # verified 2026-06 — exit bar number of a chosen trade within a chosen position
+postradeexitcategory          # verified 2026-06 — exit category code of a chosen trade within a chosen position
+postradeexitdatetime          # verified 2026-06 — exit DateTime of a chosen trade within a chosen position
+postradeexitname              # verified 2026-06 — exit order label of a chosen trade within a chosen position
+postradeexitprice             # verified 2026-06 — exit price of a chosen trade within a chosen position
+postradeislong                # verified 2026-06 — whether a chosen trade within a chosen position was long
+postradeisopen                # verified 2026-06 — whether a chosen trade within a chosen position is still open
+postradeprofit                # verified 2026-06 — profit of a chosen trade within a chosen position
+postradesize                  # verified 2026-06 — contract size of a chosen trade within a chosen position
+pricescale                    # verified 2026-06 — fractional resolution of the instrument's displayed price
+sameexitfromoneentryonce      # verified 2026-06 — toggle limiting each entry to a single matching exit
+secondsfromdatetime           # verified 2026-06 — seconds component taken from a DateTime value
+sess1endtime                  # verified 2026-06 — closing time of the first session (legacy compatibility word)
+sess1firstbartime             # verified 2026-06 — time of the opening bar in the first session
+sess1starttime                # verified 2026-06 — opening time of the first session (legacy compatibility word)
+sess2endtime                  # verified 2026-06 — closing time of the second session (legacy compatibility word)
+sess2firstbartime             # verified 2026-06 — time of the opening bar in the second session
+sess2starttime                # verified 2026-06 — opening time of the second session (legacy compatibility word)
+sessioncount                  # verified 2026-06 — how many sessions exist for a given session type
+sessioncountms                # verified 2026-06 — millisecond-aware form of the session count
+sessionendday                 # verified 2026-06 — ending day of a session chosen by type and number
+sessionenddayms               # verified 2026-06 — millisecond-aware ending day of a session chosen by number
+sessionendtime                # verified 2026-06 — ending time of a session chosen by type and number
+sessionendtimems              # verified 2026-06 — millisecond-aware ending time of a session chosen by number
+sessionlastbar                # verified 2026-06 — flag marking the closing bar of a session
+sessionstartday               # verified 2026-06 — starting day of a session chosen by type and number
+sessionstartdayms             # verified 2026-06 — millisecond-aware starting day of a session chosen by number
+sessionstarttime              # verified 2026-06 — starting time of a session chosen by type and number
+sessionstarttimems            # verified 2026-06 — millisecond-aware starting time of a session chosen by number
+setbreakeven_pt               # verified 2026-06 — moves the stop to breakeven once profit has grown past a tick threshold
+setpercenttrailing_pt         # verified 2026-06 — exits once a set percentage of the peak profit (in ticks) has been given back
+setprofittarget_pt            # verified 2026-06 — exits the position once profit reaches a stated tick amount
+setstoploss_pt                # verified 2026-06 — exits the position once the loss reaches a stated tick amount
+settrailingstop_pt            # verified 2026-06 — dollar/tick trailing stop keyed to a tick amount; this is the index-listed name (the body usage header misprints it as SetDollarTrailing_pt, which the MC compiler rejects as unknown)
+stringtodate                  # verified 2026-06 — parses MM/dd/yyyy text into a date value
+stringtodatetime              # verified 2026-06 — parses combined date-and-time text into a DateTime value
+stringtodtformatted           # verified 2026-06 — parses text into a DateTime using a supplied format pattern
+stringtotime                  # verified 2026-06 — parses clock-time text into a time value
+sumlist                       # verified 2026-06 — adds up all the supplied argument values
+symbol                        # verified 2026-06 — the instrument's symbol text (equivalent to SymbolName)
+symbolcurrencycode            # verified 2026-06 — currency code of the traded instrument
+symbolname                    # verified 2026-06 — the instrument's symbol text
+text_new                      # verified 2026-06 — places a text label at a bar date, time and price, returning its numeric object id
+text_new_s                    # verified 2026-06 — text-label variant taking a seconds-precision time, returning a numeric object id
+tickid                        # verified 2026-06 — running identifier of the current tick
+time2time_s                   # verified 2026-06 — converts an HHmm time into an HHmmss (with-seconds) time
+time_s                        # verified 2026-06 — the current bar's closing time carried to the second (HHmmss); a zero-argument bar property
+time_s2time                   # verified 2026-06 — converts an HHmmss time back into an HHmm time
+timetostring                  # verified 2026-06 — renders the time part of a DateTime as text
+tl_new                        # verified 2026-06 — creates a trendline spanning two date/time/price endpoints, returning its numeric object id
+tl_new_s                      # verified 2026-06 — trendline variant taking seconds-precision times, returning a numeric object id
+totalbarseventrades           # verified 2026-06 — summed bar count across all breakeven trades
+totalbarslostrades            # verified 2026-06 — summed bar count across all losing trades
+totalbarswintrades            # verified 2026-06 — summed bar count across all winning trades
+tradedate                     # verified 2026-06 — date field carried on a quote
+tradetime                     # verified 2026-06 — time field carried on a quote
+tradevolume                   # verified 2026-06 — volume field carried on a quote
+yearfromdatetime              # verified 2026-06 — year number taken from a DateTime value

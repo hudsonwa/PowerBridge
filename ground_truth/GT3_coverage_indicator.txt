@@ -1,0 +1,154 @@
+{ ============================================================================
+  GT3 - Maximum language/function coverage ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  INDICATOR  (PowerLanguage Editor -> New -> Indicator)
+
+  PURPOSE
+    Pushes transpiler coverage as far as a single conflict-free script can: trig,
+    regression, bar/stat functions, date & string functions, IFF, CountIf, an
+    else-if cascade, the `not` operator, a DownTo loop, a While loop, and a
+    historical-of-function reference. Emits one comma-delimited row per bar
+    (INCLUDING OHLCV, so the file is self-contained as input + expected output).
+
+    Orders / position / money-management are covered by GT2 and GT_master; this
+    file deliberately adds NO orders (an indicator), so nothing can conflict.
+
+  GROUNDING
+    Every keyword / function / operator / bracket is grounded in the local refs:
+    the PowerLanguage Keyword Reference (the PowerLanguage keyword reference) and the
+    TradeStation EL reference (the TradeStation EL reference). Function
+    signatures come from the TS reference (the PL PDF does not index the function
+    library); MC-specific words from the PL PDF. See ground_truth/GROUNDING.md.
+
+  STYLE (KISS)
+    One value per line; the CSV row is a single FLAT concatenation of
+    NumToStr(var,..) terms - no nested calls, no conditionals inside the Print.
+    Assignment is '='  (never ':='). Single-level / cascade conditionals only.
+
+  RUN
+    Delete any old OutPath file first (Print(File()) appends). Apply to a fixed
+    symbol / interval / date-range and record them. Reload once to capture.
+============================================================================ }
+
+Inputs:
+	Len( 14 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GT3_coverage.csv" ) ;
+
+Vars:
+	Sine30( 0 ),
+	Cos60( 0 ),
+	Atan1( 0 ),
+	AvgPx( 0 ),
+	TrueHi( 0 ),
+	TrueLo( 0 ),
+	WAvg( 0 ),
+	LinReg( 0 ),
+	HiBar( 0 ),
+	LoBar( 0 ),
+	CountUp( 0 ),
+	HistHigh( 0 ),
+	IffUp( 0 ),
+	Band( 0 ),
+	NotUp( 0 ),
+	DownSum( 0 ),
+	WhileSum( 0 ),
+	Dow( 0 ),
+	MidS( "" ),
+	LowerS( "" ),
+	S2N( 0 ),
+	Idx( 0 ),
+	Line( "" ) ;
+
+{ ---- trig (degrees) - constant probes: Sine(30)=0.5, Cosine(60)=0.5, ArcTangent(1)=45 ---- }
+Sine30 = Sine( 30 ) ;
+Cos60 = Cosine( 60 ) ;
+Atan1 = ArcTangent( 1 ) ;
+
+{ ---- bar / price functions ---- }
+AvgPx = AvgPrice ;
+TrueHi = TrueHigh ;
+TrueLo = TrueLow ;
+WAvg = WAverage( Close, Len ) ;
+LinReg = LinearRegValue( Close, Len, 0 ) ;
+HiBar = HighestBar( High, Len ) ;
+LoBar = LowestBar( Low, Len ) ;
+CountUp = CountIf( Close > Open, Len ) ;
+
+{ ---- historical reference of a function value (one bar ago) ---- }
+HistHigh = Highest( High, Len )[1] ;
+
+{ ---- IFF function ---- }
+IffUp = IFF( Close > Open, 1, 0 ) ;
+
+{ ---- else-if cascade (multi-way, single chain) ---- }
+If Close > Open Then
+	Band = 1
+Else If Close < Open Then
+	Band = -1
+Else
+	Band = 0 ;
+
+{ ---- the `not` operator ---- }
+NotUp = 0 ;
+If not ( Close > Open ) Then
+	NotUp = 1 ;
+
+{ ---- For DownTo loop - constant probe: 5+4+3+2+1 = 15 ---- }
+DownSum = 0 ;
+For Idx = 5 DownTo 1 Begin
+	DownSum = DownSum + Idx ;
+End ;
+
+{ ---- While loop - constant probe: 0+1+2+3+4 = 10 ---- }
+WhileSum = 0 ;
+Idx = 0 ;
+While Idx < 5 Begin
+	WhileSum = WhileSum + Idx ;
+	Idx = Idx + 1 ;
+End ;
+
+{ ---- date / string functions ---- }
+Dow = DayOfWeek( Date ) ;
+MidS = MidStr( "abcdef", 2, 3 ) ;
+LowerS = LowerStr( "ABC" ) ;
+S2N = StrToNum( "123.5" ) ;
+
+{ ---- header row, written once ---- }
+Once Print( File( OutPath ), "bn,date,time,open,high,low,close,volume,sine30,cos60,atan1,avgpx,truehi,truelo,wavg,linreg,hibar,lobar,countup,histhigh,iffup,band,notup,downsum,whilesum,dow,mids,lowers,s2n" ) ;
+
+{ ---- build the CSV row: flat concatenation, no nesting ---- }
+Line = NumToStr( BarNumber, 0 ) + "," +
+	NumToStr( Date, 0 ) + "," +
+	NumToStr( Time, 0 ) + "," +
+	NumToStr( Open, Prec ) + "," +
+	NumToStr( High, Prec ) + "," +
+	NumToStr( Low, Prec ) + "," +
+	NumToStr( Close, Prec ) + "," +
+	NumToStr( Volume, 0 ) + "," +
+	NumToStr( Sine30, Prec ) + "," +
+	NumToStr( Cos60, Prec ) + "," +
+	NumToStr( Atan1, Prec ) + "," +
+	NumToStr( AvgPx, Prec ) + "," +
+	NumToStr( TrueHi, Prec ) + "," +
+	NumToStr( TrueLo, Prec ) + "," +
+	NumToStr( WAvg, Prec ) + "," +
+	NumToStr( LinReg, Prec ) + "," +
+	NumToStr( HiBar, 0 ) + "," +
+	NumToStr( LoBar, 0 ) + "," +
+	NumToStr( CountUp, 0 ) + "," +
+	NumToStr( HistHigh, Prec ) + "," +
+	NumToStr( IffUp, 0 ) + "," +
+	NumToStr( Band, 0 ) + "," +
+	NumToStr( NotUp, 0 ) + "," +
+	NumToStr( DownSum, 0 ) + "," +
+	NumToStr( WhileSum, 0 ) + "," +
+	NumToStr( Dow, 0 ) + "," +
+	MidS + "," +
+	LowerS + "," +
+	NumToStr( S2N, Prec ) ;
+
+Print( File( OutPath ), Line ) ;
+
+{ visible plot so the indicator is obviously calculating on the chart }
+Plot1( WAvg ) ;

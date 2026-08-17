@@ -1,0 +1,109 @@
+{ ============================================================================
+  GT2 - Strategy / Orders / Position-info ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  SIGNAL  (PowerLanguage Editor -> New -> Signal)
+
+  WHAT IT DOES
+    A deterministic MA-cross reversal system with protective stops. Appends one
+    comma-delimited row per bar recording position state and order intent. That
+    file is the ground truth for the transpiler's order / position model.
+
+  STYLE (KISS)
+    - One value per line; CSV row is a single flat concatenation, no nesting.
+    - Order syntax is fixed word order: verb ("label") qty contract(s) action.
+    - Money-management Set* commands sit at the TOP LEVEL, not inside an If.
+    - Assignment is '='  (never ':=').
+
+  RUN
+    Strategy properties: 1 contract, commission = 0, slippage = 0, bar
+    magnifier OFF (deterministic fills). Delete any old OutPath file first
+    (Print(File()) appends). Record symbol / interval / date-range. Reload once.
+============================================================================ }
+Inputs:
+	FastLen( 10 ),
+	SlowLen( 30 ),
+	StopLossAmt( 1000 ),
+	ProfitTgtAmt( 2000 ),
+	TrailFloor( 1500 ),
+	TrailPct( 30 ),
+	BreakEvenAmt( 800 ),
+	OutPath( "C:\pl_gt\GT2_strategy.csv" ) ;
+
+Vars:
+	FastMA( 0 ),
+	SlowMA( 0 ),
+	GoLong( false ),
+	GoShort( false ),
+	OrderTag( "" ),
+	Line( "" ) ;
+
+FastMA = average(close, FastLen) ;
+SlowMA = average(close, SlowLen) ;
+
+GoLong = FastMA crosses above SlowMA ;
+GoShort = FastMA crosses below SlowMA ;
+
+{ ---- entries: reversal (opposite signal flattens then flips) ---- }
+OrderTag = "" ;
+
+If GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE" ) 1 contract next bar at market ;
+	OrderTag = "BUY_LE" ;
+End ;
+
+If GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE" ) 1 contract next bar at market ;
+	OrderTag = "SHORT_SE" ;
+End ;
+
+{ ---- money management: set every bar, at top level ---- }
+SetStopContract ;
+SetStopLoss( StopLossAmt ) ;
+SetProfitTarget( ProfitTgtAmt ) ;
+SetPercentTrailing( TrailFloor, TrailPct ) ;
+SetBreakEven( BreakEvenAmt ) ;
+SetExitOnClose ;
+
+{ ---- alert on a cross ---- }
+If GoLong or GoShort Then Alert( "MA cross" ) ;
+
+{ ---- header row, written once ---- }
+Once Print( File(OutPath),
+	"bn,date,time,close,fastma,slowma,ordertag,marketpos,curcontracts,entryprice,barssinceentry,openposprofit,netprofit,totaltrades"
+	) ;
+
+{ ---- build the CSV row: flat concatenation, no nesting ---- }
+Line = numtostr(barnumber, 0) + "," + numtostr(date, 0) + "," + numtostr(time, 0) + "," +
+	numtostr(close, 4) + "," + numtostr(FastMA, 4) + "," + numtostr(SlowMA, 4) + "," + OrderTag + "," +
+	numtostr(MarketPosition, 0) + "," + numtostr(currentcontracts, 0) + "," + numtostr(entryprice, 4) +
+	"," + numtostr(barssinceentry, 0) + "," + numtostr(OpenPositionProfit, 2) + "," +
+	numtostr(netprofit, 2) + "," + numtostr(totaltrades, 0) ;
+
+Print( File(OutPath), Line ) ;
+{ ============================================================================
+  ORDER-FORM SYNTAX REFERENCE  (reference only - do NOT uncomment here; the
+  forms would create conflicting orders. Use them as transpiler test inputs.)
+
+    { entries }
+    Buy ( "LE_limit" ) 1 contract next bar at Low limit ;
+    Buy ( "LE_stop" )  1 contract next bar at High stop ;
+    Buy ( "LE_qty" )   2 contracts next bar at market ;
+    SellShort ( "SE_limit" ) 1 contract next bar at High limit ;
+    SellShort ( "SE_stop" )  1 contract next bar at Low stop ;
+
+    { explicit exits }
+    Sell ( "LX" )        next bar at market ;
+    Sell ( "LX_stop" )   next bar at EntryPrice - 2 stop ;
+    Sell ( "LX_limit" )  next bar at EntryPrice + 4 limit ;
+    BuyToCover ( "SX" )       next bar at market ;
+    BuyToCover ( "SX_stop" )  next bar at EntryPrice + 2 stop ;
+
+    { this-bar-on-close timing }
+    Buy ( "LE_close" )  1 contract this bar on close ;
+    Sell ( "LX_close" ) this bar on close ;
+
+    { other money-management forms }
+    SetStopShare ;
+    SetDollarTrailing( 1200 ) ;
+    SetStopPosition ;
+============================================================================ }

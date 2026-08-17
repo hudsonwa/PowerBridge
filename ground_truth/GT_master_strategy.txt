@@ -1,0 +1,227 @@
+{ ============================================================================
+  GT_master - comprehensive single-script ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  SIGNAL  (PowerLanguage Editor -> New -> Signal)
+
+  WHAT IT DOES
+    Exercises as much of the language surface as one strategy can, and appends
+    one comma-delimited row per bar (INCLUDING OHLCV) for bar-by-bar validation.
+
+  ORDER MODES (a single strategy cannot fire market + limit + stop + on-close +
+  exits at once without conflicts, so only the order block is gated by OrderMode;
+  the calculation battery runs every bar). Run once per mode, changing OutPath:
+    0 = MA-cross reversal, next bar at market   (default)
+    1 = limit entries
+    2 = stop entries
+    3 = this-bar-on-close entries
+    4 = explicit exits with stop / limit prices
+
+  STYLE (KISS)
+    - One value per line; CSV row is a single flat concatenation, no nesting.
+    - Single-level conditionals only; order syntax is fixed word order.
+    - Assignment is '='  (never ':=').
+
+  GROUNDING
+    Every keyword, function, operator and bracket below is grounded in the
+    official PowerLanguage Keyword Reference and/or TradeStation help; see
+    ground_truth/GROUNDING.md for the per-token citation table.
+
+  RUN
+    1 contract, commission = 0, slippage = 0, bar magnifier OFF. Delete the
+    target OutPath file first (Print(File()) appends). Reload once to capture.
+============================================================================ }
+
+Inputs:
+	Len( 14 ),
+	FastLen( 10 ),
+	SlowLen( 30 ),
+	StopLossAmt( 1000 ),
+	ProfitTgtAmt( 2000 ),
+	TrailFloor( 1500 ),
+	TrailPct( 30 ),
+	BreakEvenAmt( 800 ),
+	OrderMode( 0 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GT_master_m0.csv" ) ;
+
+Vars:
+	Counter( 0 ),
+	RunSum( 0 ),
+	PrevClose( 0 ),
+	PrevCounter( 0 ),
+	OnceInit( 0 ),
+	IfElseOut( 0 ),
+	ForSum( 0 ),
+	SmaManual( 0 ),
+	WhileSum( 0 ),
+	EvenSum( 0 ),
+	FastMA( 0 ),
+	SlowMA( 0 ),
+	AvgC( 0 ),
+	AtrC( 0 ),
+	GoLong( false ),
+	GoShort( false ),
+	OrderTag( "" ),
+	LimitBuyPx( 0 ),
+	StopBuyPx( 0 ),
+	LimitShortPx( 0 ),
+	StopShortPx( 0 ),
+	Idx( 0 ),
+	Line( "" ) ;
+
+Arrays:
+	Buf[200]( 0 ) ;
+
+{ ---- cross-bar persistence + history ---- }
+Counter = Counter + 1 ;
+RunSum = RunSum + Close ;
+PrevClose = Close[1] ;
+PrevCounter = Counter[1] ;
+
+{ ---- once: freeze the first bar's close ---- }
+Once OnceInit = Close ;
+
+{ ---- single-level If / Then / Else ---- }
+If Close > Open Then
+	IfElseOut = 1
+Else
+	IfElseOut = -1 ;
+
+{ ---- For loop + array: manual SMA of the last Len closes ---- }
+ForSum = 0 ;
+For Idx = 0 To Len - 1 Begin
+	Buf[Idx] = Close[Idx] ;
+	ForSum = ForSum + Buf[Idx] ;
+End ;
+SmaManual = ForSum / Len ;
+
+{ ---- While loop: 0+1+2+3+4 = 10 ---- }
+WhileSum = 0 ;
+Idx = 0 ;
+While Idx < 5 Begin
+	WhileSum = WhileSum + Idx ;
+	Idx = Idx + 1 ;
+End ;
+
+{ ---- conditional accumulation inside a For loop: sum even Idx 0..5 -> 0+2+4 = 6 ---- }
+EvenSum = 0 ;
+For Idx = 0 To 5 Begin
+	If Mod( Idx, 2 ) = 0 Then
+		EvenSum = EvenSum + Idx ;
+End ;
+
+{ ---- indicators ---- }
+FastMA = Average( Close, FastLen ) ;
+SlowMA = Average( Close, SlowLen ) ;
+AvgC = Average( Close, Len ) ;
+AtrC = AvgTrueRange( Len ) ;
+
+GoLong = FastMA crosses above SlowMA ;
+GoShort = FastMA crosses below SlowMA ;
+
+{ ---- prices used by the limit / stop order modes ---- }
+LimitBuyPx = Low ;
+StopBuyPx = High ;
+LimitShortPx = High ;
+StopShortPx = Low ;
+
+{ ---- orders, gated by OrderMode via flat compound conditions (no nesting) ---- }
+OrderTag = "" ;
+
+{ mode 0 - next bar at market }
+If OrderMode = 0 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_MKT" ) 1 contract next bar at market ;
+	OrderTag = "LE_MKT" ;
+End ;
+If OrderMode = 0 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_MKT" ) 1 contract next bar at market ;
+	OrderTag = "SE_MKT" ;
+End ;
+
+{ mode 1 - limit entries }
+If OrderMode = 1 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_LMT" ) 1 contract next bar at LimitBuyPx limit ;
+	OrderTag = "LE_LMT" ;
+End ;
+If OrderMode = 1 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_LMT" ) 1 contract next bar at LimitShortPx limit ;
+	OrderTag = "SE_LMT" ;
+End ;
+
+{ mode 2 - stop entries }
+If OrderMode = 2 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_STP" ) 1 contract next bar at StopBuyPx stop ;
+	OrderTag = "LE_STP" ;
+End ;
+If OrderMode = 2 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_STP" ) 1 contract next bar at StopShortPx stop ;
+	OrderTag = "SE_STP" ;
+End ;
+
+{ mode 3 - this bar on close }
+If OrderMode = 3 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "LE_CLS" ;
+End ;
+If OrderMode = 3 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "SE_CLS" ;
+End ;
+
+{ mode 4 - explicit exits with stop / limit prices }
+If OrderMode = 4 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE4" ) 1 contract next bar at market ;
+	OrderTag = "LE4" ;
+End ;
+If OrderMode = 4 and MarketPosition = 1 Then
+	Sell ( "LX_STP" ) next bar at EntryPrice - 2 stop ;
+If OrderMode = 4 and MarketPosition = 1 Then
+	Sell ( "LX_LMT" ) next bar at EntryPrice + 4 limit ;
+
+{ ---- money management: set every bar, at top level ---- }
+SetStopContract ;
+SetStopLoss( StopLossAmt ) ;
+SetProfitTarget( ProfitTgtAmt ) ;
+SetPercentTrailing( TrailFloor, TrailPct ) ;
+SetBreakEven( BreakEvenAmt ) ;
+SetExitOnClose ;
+
+{ ---- alert on a cross ---- }
+If GoLong or GoShort Then
+	Alert( "MA cross" ) ;
+
+{ ---- header row, written once ---- }
+Once Print( File( OutPath ), "bn,date,time,open,high,low,close,volume,counter,prevcounter,prevclose,runsum,onceinit,ifelse,smamanual,whilesum,evensum,fastma,slowma,avg,atr,ordertag,marketpos,curcontracts,entryprice,barssinceentry,openposprofit,netprofit,totaltrades" ) ;
+
+{ ---- build the CSV row: flat concatenation, no nesting ---- }
+Line = NumToStr( BarNumber, 0 ) + "," +
+	NumToStr( Date, 0 ) + "," +
+	NumToStr( Time, 0 ) + "," +
+	NumToStr( Open, Prec ) + "," +
+	NumToStr( High, Prec ) + "," +
+	NumToStr( Low, Prec ) + "," +
+	NumToStr( Close, Prec ) + "," +
+	NumToStr( Volume, 0 ) + "," +
+	NumToStr( Counter, 0 ) + "," +
+	NumToStr( PrevCounter, 0 ) + "," +
+	NumToStr( PrevClose, Prec ) + "," +
+	NumToStr( RunSum, Prec ) + "," +
+	NumToStr( OnceInit, Prec ) + "," +
+	NumToStr( IfElseOut, 0 ) + "," +
+	NumToStr( SmaManual, Prec ) + "," +
+	NumToStr( WhileSum, 0 ) + "," +
+	NumToStr( EvenSum, 0 ) + "," +
+	NumToStr( FastMA, Prec ) + "," +
+	NumToStr( SlowMA, Prec ) + "," +
+	NumToStr( AvgC, Prec ) + "," +
+	NumToStr( AtrC, Prec ) + "," +
+	OrderTag + "," +
+	NumToStr( MarketPosition, 0 ) + "," +
+	NumToStr( CurrentContracts, 0 ) + "," +
+	NumToStr( EntryPrice, Prec ) + "," +
+	NumToStr( BarsSinceEntry, 0 ) + "," +
+	NumToStr( OpenPositionProfit, 2 ) + "," +
+	NumToStr( NetProfit, 2 ) + "," +
+	NumToStr( TotalTrades, 0 ) ;
+
+Print( File( OutPath ), Line ) ;

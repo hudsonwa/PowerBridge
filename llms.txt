@@ -1,0 +1,25 @@
+# PowerBridge
+
+> A bidirectional EasyLanguage / PowerLanguage ⇄ Python transpiler for MultiCharts and TradeStation. It converts Python trading strategies — written in its supported mirror dialect — into compile-safe EasyLanguage/PowerLanguage, and converts EasyLanguage/PowerLanguage the other way into Python. Everything is pure Python standard library: no network access, no third-party runtime dependencies. PowerBridge is an independent open-source project and is not affiliated with, endorsed by, or sponsored by TradeStation Technologies, Inc. or MultiCharts (MCT Limited).
+
+PowerBridge exists so that strategy research can happen in Python (including with LLM assistance) while live execution stays on MultiCharts or TradeStation, and so that proprietary strategy logic never has to leave the local machine. The forward direction (EL → Python) runs strategies bar-by-bar over your own OHLCV data through a pure-Python runtime and fill engine; the reverse direction (Python → EL) emits canonical, compile-safe EasyLanguage.
+
+## Scope and honesty
+
+- **Mirror dialect, not arbitrary Python.** The Python → EL direction reads back only the specific clean "mirror dialect" that the forward transpiler itself emits (see [the LLM dialect cheatsheet](docs/LLM_DIALECT.md)). General, hand-written Python is out of scope and raises rather than guessing.
+- **Fail-loud by design.** An unsupported EasyLanguage construct, or Python outside the mirror dialect, raises an error instead of producing plausible-but-wrong output. See the README Limitations section for the residual gaps (for example, undeclared identifiers).
+- **Validation scope is narrow and stated.** Parity is verified against 1-minute @NQ and @ES intraday index-futures bars only. Other instruments, timeframes, and data types are untested and should be treated as unverified.
+- **The parity captures are private.** The per-bar MultiCharts ground-truth captures that back the exact-match parity gates are not shipped; the capture-dependent tests skip cleanly on a fresh clone. You can attach your own captures — see [docs/CAPTURES.md](docs/CAPTURES.md).
+- **`pl_run` executes generated Python.** Running a strategy executes code on your machine; only run files you trust. Transpiling or converting a file alone never executes it. PowerBridge runs generated Python with no isolation.
+
+## Documentation
+
+- [README](README.md): install, both conversion workflows, worked quickstart, verification tiers, keyword catalog, and the full Limitations section.
+- [AGENTS](AGENTS.md): the machine-facing contract — API surface, CLI specifications, invariants, and error semantics for agents using the tool.
+- [LLM dialect cheatsheet](docs/LLM_DIALECT.md): a copy-pasteable system prompt that constrains an LLM to emit only the supported mirror dialect, with a worked example and the fail-loud contract.
+- [Bring-your-own captures](docs/CAPTURES.md): the bar/data format and how to attach your own MultiCharts captures to run the full parity tier.
+
+## Licensing
+
+- [LICENSE](LICENSE): Apache License, Version 2.0.
+- [NOTICE](NOTICE): attribution and the third-party reference-materials carve-out.

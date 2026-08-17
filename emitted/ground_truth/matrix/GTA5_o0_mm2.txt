@@ -1,0 +1,456 @@
+{ ============================================================================
+  GTA5 - comprehensive FULLY-GROUNDED ground-truth strategy  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  SIGNAL  (PowerLanguage Editor -> New -> Signal)
+
+  WHAT IT DOES
+    The most comprehensive single-strategy language-surface capture in this repo.
+    Extends GT_master with: multi-data accessors (Data2), session/time functions,
+    all five order fill modes (incl. reversal + a 2-contract entry with FIFO
+    partial close + explicit named exits from entry), the full money-management
+    stop matrix in BOTH dollar and point (_pt) forms, the "stub" performance
+    columns (ExitPrice/BarsSinceExit/PositionProfit/GrossProfit/GrossLoss/
+    MaxContractsHeld/MaxIDDrawDown/AvgEntryPrice), a calculation battery
+    (pivots/swings, daily accessors, NthMax/MinList, DateTime decomposition,
+    contract spec, PercentChange/PercentR, ParabolicSAR/KeltnerChannel/AccumDist),
+    and per-bar DEFERRED-INDICATOR DIAGNOSTICS (raw windowed sums for Correlation,
+    raw HH/LL/%K + Smooth/Slow for Stochastic) so the exact MC formula is derivable.
+    Appends one comma-delimited row per bar (INCLUDING OHLCV) for validation.
+
+  ORDER MODES  (a single strategy cannot fire market + limit + stop + on-close +
+  exits at once without conflicts, so ONLY the order block is gated by OrderMode;
+  the calc battery + diagnostics run every bar). Run once per mode, changing OutPath:
+    0 = MA-cross REVERSAL, next bar at market  (Buy reverses short / SellShort
+        reverses long) PLUS a 2-contract long entry + a 1-contract partial Sell
+        to exercise FIFO partial close.                                  (default)
+    1 = limit entries        (deterministic price: Low buy-limit, High short-limit)
+    2 = stop entries         (deterministic price: High buy-stop, Low short-stop)
+    3 = this-bar-on-close entries
+    4 = explicit NAMED exits with stop / limit prices using `from entry("label")`
+
+  MM VARIANTS  (isolate one stop family per run so the capture tells you which
+  fired). ONLY the MM block is gated by MMVariant; set it per run:
+    0 = none
+    1 = SetStopLoss(dollar)        2 = SetStopLoss_pt(point)
+    3 = SetProfitTarget(dollar)    4 = SetProfitTarget_pt(point)
+    5 = SetBreakEven(dollar)       6 = SetBreakEven_pt(point)
+    7 = SetPercentTrailing(dollar) 8 = SetPercentTrailing_pt(point)
+    9 = SetDollarTrailing(dollar) 10 = SetTrailingStop_pt(point)
+  (The basis switch SetStopContract / SetStopShare / SetStopPosition is selected
+   by StopBasis and applied in every non-zero MM variant.)
+
+  STYLE (KISS)
+    - One value per line; CSV row is a single flat concatenation, no nesting.
+    - Single-level conditionals only; order syntax is fixed word order.
+    - Assignment is '='  (never ':=').  Gated blocks use compound `and` conditions.
+
+  GROUNDING
+    Every keyword, function, operator and bracket is grounded in the official
+    PowerLanguage Keyword Reference (the PowerLanguage keyword reference) and/or the
+    TradeStation EL reference (the TradeStation EL reference); see
+    ground_truth/GTA5_GROUNDING.md for the per-token citation table.
+
+  RUN
+    Requires a 2-data-stream chart (Data1 = primary, Data2 = second symbol/series)
+    for the multi-data columns. 1 contract base, commission = 0, slippage = 0,
+    bar magnifier OFF. Delete the target OutPath file first (Print(File()) appends).
+    Reload once to capture. See ground_truth/GTA5_RUNSHEET.md for the exact matrix.
+============================================================================ }
+Inputs:
+	Len( 14 ),
+	FastLen( 10 ),
+	SlowLen( 30 ),
+	PivLen( 21 ),
+	PivStrength( 2 ),
+	SwingStrength( 4 ),
+	CorrLen( 7 ),
+	StochLen( 14 ),
+	StochLen1( 3 ),
+	StochLen2( 3 ),
+	StopLossAmt( 1000 ),
+	ProfitTgtAmt( 2000 ),
+	TrailFloor( 1500 ),
+	TrailPct( 30 ),
+	BreakEvenAmt( 800 ),
+	PtAmt( 8 ),
+	OrderMode( 0 ),
+	MMVariant( 2 ),
+	StopBasis( 0 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GTA5_o0_mm2.csv" ) ;
+
+{ Data2-tied variable: initial value taken from the Data2 series (PL-Ref 5658) }
+Vars: D2Close( close, Data2 ) ;
+
+Vars:
+	Counter( 0 ),
+	OnceInit( 0 ),
+	IfElseOut( 0 ),
+	FastMA( 0 ),
+	SlowMA( 0 ),
+	AvgC( 0 ),
+	AtrC( 0 ),
+	GoLong( false ),
+	GoShort( false ),
+	OrderTag( "" ),
+	LimitBuyPx( 0 ),
+	StopBuyPx( 0 ),
+	LimitShortPx( 0 ),
+	StopShortPx( 0 ) ;
+
+{ ---- multi-data accessors (require a 2-data chart) ---- }
+Vars:
+	D2C( 0 ),
+	D2H( 0 ),
+	D2L( 0 ),
+	D2CN( 0 ) ;
+
+{ ---- session / time ---- }
+Vars:
+	SessStart( 0 ),
+	SessEnd( 0 ),
+	Sess1Start( 0 ),
+	CurSess( 0 ),
+	BarIntv( 0 ),
+	CalcD( 0 ),
+	CalcT( 0 ),
+	Dow( 0 ),
+	MinFromMid( 0 ),
+	TimeBack( 0 ) ;
+
+{ ---- calc battery ---- }
+Vars:
+	DOpen( 0 ),
+	DHigh( 0 ),
+	DLow( 0 ),
+	DClose( 0 ),
+	OpD0( 0 ),
+	HiD0( 0 ),
+	LoD0( 0 ),
+	ClD0( 0 ),
+	Yest( 0 ),
+	PrevC( 0 ),
+	NthMax( 0 ),
+	NthMin( 0 ),
+	DfDt( 0 ),
+	MfDt( 0 ),
+	YfDt( 0 ),
+	HfDt( 0 ),
+	MinfDt( 0 ),
+	SfDt( 0 ),
+	JulD( 0 ),
+	JtoD( 0 ),
+	PtVal( 0 ),
+	BigPt( 0 ),
+	MinMv( 0 ),
+	PrScale( 0 ),
+	PctChg( 0 ),
+	PctR( 0 ),
+	HhPr( 0 ),
+	LlPr( 0 ),
+	KcMid( 0 ),
+	KcAtr( 0 ),
+	KcUp( 0 ),
+	KcDn( 0 ),
+	AdV( 0 ) ;
+
+{ ---- deferred-indicator diagnostics ---- }
+Vars:
+	CorrMC( 0 ),
+	SumX( 0 ),
+	SumY( 0 ),
+	SumXY( 0 ),
+	SumX2( 0 ),
+	SumY2( 0 ),
+	NObs( 0 ),
+	Xv( 0 ),
+	Yv( 0 ),
+	Kdx( 0 ),
+	StochRet( 0 ),
+	oFastK( 0 ),
+	oFastD( 0 ),
+	oSlowK( 0 ),
+	oSlowD( 0 ),
+	HH( 0 ),
+	LL( 0 ),
+	RawK( 0 ) ;
+
+{ ---- output ---- }
+Vars:
+	Idx( 0 ),
+	Line( "" ) ;
+
+{ ---- cross-bar persistence + once ---- }
+Counter = Counter + 1 ;
+Once OnceInit = close ;
+
+{ ---- single-level If / Then / Else ---- }
+If close > open Then IfElseOut = 1 ;
+Else IfElseOut = -1 ;
+
+{ ---- indicators / signals ---- }
+FastMA = average(close, FastLen) ;
+SlowMA = average(close, SlowLen) ;
+AvgC = average(close, Len) ;
+AtrC = avgtruerange(Len) ;
+GoLong = FastMA crosses above SlowMA ;
+GoShort = FastMA crosses below SlowMA ;
+
+{ ---- deterministic order prices ---- }
+LimitBuyPx = low ;
+StopBuyPx = high ;
+LimitShortPx = high ;
+StopShortPx = low ;
+
+{ ============================================================================
+  MULTI-DATA ACCESSORS  (Data2 required on the chart)
+============================================================================ }
+D2Close = close of Data2 ;
+D2C = close of Data2 ;
+D2H = high of Data2 ;
+D2L = low of Data2 ;
+D2CN = close of Data2 ;
+
+{ ============================================================================
+  SESSION / TIME
+============================================================================ }
+SessStart = SessionStartTime(1, 1) ;
+SessEnd = SessionEndTime(1, 1) ;
+Sess1Start = sess1starttime ;
+CurSess = currentsession(1) ;
+BarIntv = BarInterval ;
+CalcD = calcdate(date, -14) ;
+CalcT = calctime(time, -15) ;
+Dow = DayOfWeek(date) ;
+
+{ TimeToMinutes(Time) inlined: Time is HHmm -> minutes since midnight
+  = HH*60 + mm, where HH = IntPortion(Time/100), mm = Time - HH*100 }
+MinFromMid = IntPortion(time / 100) * 60 + (time - IntPortion(time / 100) * 100) ;
+
+{ MinutesToTime(MinFromMid) inlined: minutes -> HHmm
+  = HH*100 + mm, where HH = IntPortion(min/60), mm = min - HH*60 }
+TimeBack = IntPortion(MinFromMid / 60) * 100 + (MinFromMid - IntPortion(MinFromMid / 60) * 60) ;
+
+{ ============================================================================
+  CALC BATTERY  (runs EVERY bar regardless of OrderMode / MMVariant)
+============================================================================ }
+{ ---- pivot / swing family DROPPED: PivotHighVS/PivotLowVS(+Bar) and
+  SwingHigh/SwingLow(+Bar) have NO keyword-reference entry in the PowerLanguage keyword reference
+  (zero mentions) and are not cleanly inlineable; see GTA5_GROUNDING.md "Dropped". }
+{ ---- daily / secondary accessors ---- }
+DOpen = dailyopen ;
+DHigh = dailyhigh ;
+DLow = dailylow ;
+DClose = dailyclose ;
+OpD0 = opend(0) ;
+HiD0 = highd(0) ;
+LoD0 = lowd(0) ;
+ClD0 = closed(0) ;
+
+{ Yesterday inlined: it is a TS-EL word MC does NOT implement (throws a syntax
+  error); the prior trading day's close is CloseD(1). See lessons.md / GROUNDING. }
+Yest = closed(1) ;
+PrevC = prevclose ;
+
+{ ---- variadic NthMaxList / NthMinList ---- }
+NthMax = NthMaxList(2, open, high, low, close) ;
+NthMin = NthMinList(2, open, high, low, close) ;
+
+{ ---- DateTime decomposition (argument = the DateTime reserved word) ---- }
+DfDt = DayFromDateTime(datetime) ;
+MfDt = MonthFromDateTime(datetime) ;
+YfDt = YearFromDateTime(datetime) ;
+HfDt = HoursFromDateTime(datetime) ;
+MinfDt = MinutesFromDateTime(datetime) ;
+SfDt = SecondsFromDateTime(datetime) ;
+JulD = DateToJulian(date) ;
+JtoD = JulianToDate(JulD) ;
+
+{ ---- contract specification ---- }
+PtVal = pointvalue ;
+BigPt = bigpointvalue ;
+MinMv = minmove ;
+PrScale = pricescale ;
+
+{ ---- percent functions (inlined from proven primitives) ---- }
+{ PercentChange(Close, Len) = ((Close - Close[Len]) / Close[Len]) * 100 }
+PctChg = iff(close[Len] <> 0, (close - close[Len]) / close[Len] * 100, 0) ;
+
+{ PercentR(Len) = Williams %R = (HH - Close)/(HH - LL) * 100 over Len bars
+  HhPr = Highest(High,Len), LlPr = Lowest(Low,Len) (vars below) }
+HhPr = highest(high, Len) ;
+LlPr = lowest(low, Len) ;
+PctR = iff(HhPr - LlPr <> 0, (HhPr - close) / (HhPr - LlPr) * 100, 0) ;
+
+{ ---- ParabolicSAR DROPPED: no keyword-reference entry in the PowerLanguage keyword reference
+  (zero mentions); var-parameter multi-output, not cleanly inlineable.
+  See GTA5_GROUNDING.md "Dropped". }
+{ ---- Keltner channel inlined: Average(Close,Len) +/- NumATRs * AvgTrueRange(Len) ---- }
+KcMid = average(close, Len) ;
+KcAtr = avgtruerange(Len) ;
+KcUp = KcMid + 1.5 * KcAtr ;
+KcDn = KcMid - 1.5 * KcAtr ;
+
+{ ---- AccumDist inlined as cumulative money-flow:
+  per-bar ((Close-Low)-(High-Close))/(High-Low)*Volume, summed cross-bar ---- }
+If high - low <> 0 Then AdV = AdV + (close - low - (high - close)) / (high - low) * volume ;
+
+{ ============================================================================
+  DEFERRED-INDICATOR DIAGNOSTICS  (emit RAW inputs so MC's formula is derivable)
+  Per reviews/DEFERRED_INDICATORS.md: do NOT fabricate formulas - just emit
+  MC's value alongside the windowed raw inputs / intermediates.
+============================================================================ }
+{ ---- Correlation(Close, Open, CorrLen): MC value + windowed sums ---- }
+CorrMC = correlation(close, open, CorrLen) ;
+SumX = 0 ;
+SumY = 0 ;
+SumXY = 0 ;
+SumX2 = 0 ;
+SumY2 = 0 ;
+NObs = CorrLen ;
+For Idx = 0 to CorrLen - 1 Begin
+	Xv = close[Idx] ;
+	Yv = open[Idx] ;
+	SumX = SumX + Xv ;
+	SumY = SumY + Yv ;
+	SumXY = SumXY + Xv * Yv ;
+	SumX2 = SumX2 + Xv * Xv ;
+	SumY2 = SumY2 + Yv * Yv ;
+End ;
+
+{ ---- Stochastic: MC %K/%D + raw HH/LL/raw%K ---- }
+StochRet = Stochastic(high, low, close, StochLen, StochLen1, StochLen2, 1, oFastK, oFastD, oSlowK,
+	oSlowD) ;
+HH = highest(high, StochLen) ;
+LL = lowest(low, StochLen) ;
+RawK = 0 ;
+If HH - LL > 0 Then RawK = (close - LL) / (HH - LL) * 100 ;
+
+{ ============================================================================
+  ORDER BLOCK  (gated by OrderMode; single-level compound conditions)
+============================================================================ }
+OrderTag = "" ;
+
+{ mode 0 - MA-cross reversal at market + 2-contract entry + FIFO partial close }
+If OrderMode = 0 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_MKT" ) 2 contracts next bar at market ;
+	OrderTag = "LE_MKT" ;
+End ;
+
+If OrderMode = 0 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_MKT" ) 1 contract next bar at market ;
+	OrderTag = "SE_MKT" ;
+End ;
+
+If OrderMode = 0 and MarketPosition = 1 and currentcontracts = 2 Then Sell ( "LX_PART" ) 1 contract
+	next bar at market ;
+
+{ mode 1 - limit entries }
+If OrderMode = 1 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_LMT" ) 1 contract next bar at LimitBuyPx limit ;
+	OrderTag = "LE_LMT" ;
+End ;
+
+If OrderMode = 1 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_LMT" ) 1 contract next bar at LimitShortPx limit ;
+	OrderTag = "SE_LMT" ;
+End ;
+
+{ mode 2 - stop entries }
+If OrderMode = 2 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_STP" ) 1 contract next bar at StopBuyPx stop ;
+	OrderTag = "LE_STP" ;
+End ;
+
+If OrderMode = 2 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_STP" ) 1 contract next bar at StopShortPx stop ;
+	OrderTag = "SE_STP" ;
+End ;
+
+{ mode 3 - this bar on close }
+If OrderMode = 3 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "LE_CLS" ;
+End ;
+
+If OrderMode = 3 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "SE_CLS" ;
+End ;
+
+{ mode 4 - explicit named exits from entry, with stop / limit prices }
+If OrderMode = 4 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE4" ) 1 contract next bar at market ;
+	OrderTag = "LE4" ;
+End ;
+
+If OrderMode = 4 and MarketPosition = 1 Then Sell ( "LX_STP" ) from entry ( "LE4" ) next bar at
+	entryprice - 2 stop ;
+If OrderMode = 4 and MarketPosition = 1 Then Sell ( "LX_LMT" ) from entry ( "LE4" ) next bar at
+	entryprice + 4 limit ;
+
+{ ============================================================================
+  MONEY-MANAGEMENT BLOCK  (gated by MMVariant; basis by StopBasis; top level)
+============================================================================ }
+{ stop basis: 0 = per-contract, 1 = per-share, 2 = per-position }
+If MMVariant > 0 and StopBasis = 0 Then SetStopContract ;
+If MMVariant > 0 and StopBasis = 1 Then SetStopShare ;
+If MMVariant > 0 and StopBasis = 2 Then SetStopPosition ;
+
+If MMVariant = 1 Then SetStopLoss( StopLossAmt ) ;
+If MMVariant = 2 Then SetStopLoss_pt(PtAmt) ;
+If MMVariant = 3 Then SetProfitTarget( ProfitTgtAmt ) ;
+If MMVariant = 4 Then SetProfitTarget_pt(PtAmt) ;
+If MMVariant = 5 Then SetBreakEven( BreakEvenAmt ) ;
+If MMVariant = 6 Then SetBreakEven_pt(PtAmt) ;
+If MMVariant = 7 Then SetPercentTrailing( TrailFloor, TrailPct ) ;
+If MMVariant = 8 Then SetPercentTrailing_pt(PtAmt, TrailPct) ;
+If MMVariant = 9 Then SetDollarTrailing( TrailFloor ) ;
+If MMVariant = 10 Then SetTrailingStop_pt(PtAmt) ;
+
+SetExitOnClose ;
+
+{ ---- alert on a cross ---- }
+If GoLong or GoShort Then Alert( "MA cross" ) ;
+
+{ ============================================================================
+  CSV OUTPUT
+============================================================================ }
+{ ---- header row, written once ---- }
+Once Print( File(OutPath),
+	"bn,date,time,open,high,low,close,volume,counter,onceinit,ifelse,fastma,slowma,avg,atr,ordertag,d2close,d2c,d2h,d2l,d2cn,sessstart,sessend,sess1start,cursess,barintv,calcdate,calctime,dow,minfrommid,timeback,dopen,dhigh,dlow,dclose,opd0,hid0,lod0,cld0,yest,prevc,nthmax,nthmin,dfdt,mfdt,yfdt,hfdt,minfdt,sfdt,juld,jtod,ptval,bigpt,minmv,prscale,pctchg,pctr,kcup,kcdn,ad,corrmc,sumx,sumy,sumxy,sumx2,sumy2,nobs,stochret,ofastk,ofastd,oslowk,oslowd,hh,ll,rawk,marketpos,curcontracts,entryprice,avgentryprice,barssinceentry,exitprice,barssinceexit,openposprofit,positionprofit,netprofit,grossprofit,grossloss,totaltrades,maxcontractsheld,maxiddrawdown"
+	) ;
+
+{ ---- build the CSV row: flat concatenation, no nesting ---- }
+Line = numtostr(barnumber, 0) + "," + numtostr(date, 0) + "," + numtostr(time, 0) + "," +
+	numtostr(open, Prec) + "," + numtostr(high, Prec) + "," + numtostr(low, Prec) + "," +
+	numtostr(close, Prec) + "," + numtostr(volume, 0) + "," + numtostr(Counter, 0) + "," +
+	numtostr(OnceInit, Prec) + "," + numtostr(IfElseOut, 0) + "," + numtostr(FastMA, Prec) + "," +
+	numtostr(SlowMA, Prec) + "," + numtostr(AvgC, Prec) + "," + numtostr(AtrC, Prec) + "," + OrderTag +
+	"," + numtostr(D2Close, Prec) + "," + numtostr(D2C, Prec) + "," + numtostr(D2H, Prec) + "," +
+	numtostr(D2L, Prec) + "," + numtostr(D2CN, Prec) + "," + numtostr(SessStart, 0) + "," +
+	numtostr(SessEnd, 0) + "," + numtostr(Sess1Start, 0) + "," + numtostr(CurSess, 0) + "," +
+	numtostr(BarIntv, 0) + "," + numtostr(CalcD, 0) + "," + numtostr(CalcT, 0) + "," + numtostr(Dow, 0)
+	+ "," + numtostr(MinFromMid, 0) + "," + numtostr(TimeBack, 0) + "," + numtostr(DOpen, Prec) + "," +
+	numtostr(DHigh, Prec) + "," + numtostr(DLow, Prec) + "," + numtostr(DClose, Prec) + "," +
+	numtostr(OpD0, Prec) + "," + numtostr(HiD0, Prec) + "," + numtostr(LoD0, Prec) + "," +
+	numtostr(ClD0, Prec) + "," + numtostr(Yest, Prec) + "," + numtostr(PrevC, Prec) + "," +
+	numtostr(NthMax, Prec) + "," + numtostr(NthMin, Prec) + "," + numtostr(DfDt, 0) + "," +
+	numtostr(MfDt, 0) + "," + numtostr(YfDt, 0) + "," + numtostr(HfDt, 0) + "," + numtostr(MinfDt, 0) +
+	"," + numtostr(SfDt, 0) + "," + numtostr(JulD, 0) + "," + numtostr(JtoD, 0) + "," + numtostr(PtVal,
+	Prec) + "," + numtostr(BigPt, Prec) + "," + numtostr(MinMv, Prec) + "," + numtostr(PrScale, 0) +
+	"," + numtostr(PctChg, Prec) + "," + numtostr(PctR, Prec) + "," + numtostr(KcUp, Prec) + "," +
+	numtostr(KcDn, Prec) + "," + numtostr(AdV, Prec) + "," + numtostr(CorrMC, Prec) + "," +
+	numtostr(SumX, Prec) + "," + numtostr(SumY, Prec) + "," + numtostr(SumXY, Prec) + "," +
+	numtostr(SumX2, Prec) + "," + numtostr(SumY2, Prec) + "," + numtostr(NObs, 0) + "," +
+	numtostr(StochRet, 0) + "," + numtostr(oFastK, Prec) + "," + numtostr(oFastD, Prec) + "," +
+	numtostr(oSlowK, Prec) + "," + numtostr(oSlowD, Prec) + "," + numtostr(HH, Prec) + "," +
+	numtostr(LL, Prec) + "," + numtostr(RawK, Prec) + "," + numtostr(MarketPosition, 0) + "," +
+	numtostr(currentcontracts, 0) + "," + numtostr(entryprice, Prec) + "," + numtostr(AvgEntryPrice,
+	Prec) + "," + numtostr(barssinceentry, 0) + "," + numtostr(ExitPrice, Prec) + "," +
+	numtostr(barssinceexit, 0) + "," + numtostr(OpenPositionProfit, 2) + "," + numtostr(PositionProfit,
+	2) + "," + numtostr(netprofit, 2) + "," + numtostr(grossprofit, 2) + "," + numtostr(grossloss, 2) +
+	"," + numtostr(totaltrades, 0) + "," + numtostr(maxcontractsheld, 0) + "," +
+	numtostr(maxiddrawdown, 2) ;
+
+Print( File(OutPath), Line ) ;

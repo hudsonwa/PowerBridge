@@ -1,0 +1,12 @@
+{ Tiny sample strategy that calls a Group-1 unimplemented stub (ARW_GetColor).
+  Used by tools/strategy_report.py to confirm the linter flags STUB-LOUD calls
+  as RISK. ARW_GetColor is a charting/arrow-object accessor whose runtime value
+  cannot be trusted, so any trade decision derived from it is unsafe until
+  cross-checked in MultiCharts. }
+
+Variables: ArrowColor(0);
+
+ArrowColor = ARW_GetColor(0);
+
+if Close > Open and ArrowColor = Red then
+    Buy next bar at market;

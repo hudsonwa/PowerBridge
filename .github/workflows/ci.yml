@@ -1,0 +1,17 @@
+name: Public tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  public-tier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run public test tier
+        run: python3 tests/run_public_tier.py
