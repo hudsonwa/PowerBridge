@@ -460,6 +460,16 @@ format_digest(*, fills, round_turns, sha256) -> str
 fills_sha256(fills) -> str
     # SHA-256 of ordered canonical fill lines
     #   "{type}\\t{signal}\\t{date}\\t{time}\\t{price.hex()}\\t{contracts}\\n"
+    #   {type} is the buy/sell SIDE, not a position label: "EntryLong" = buy side
+    #   (Buy, BuyToCover), "ExitLong" = sell side (Sell, SellShort). A SellShort
+    #   from flat hashes as "ExitLong". Frozen: every pinned digest depends on it.
+fill_trade_types(fills) -> list[str]
+    # Position-aware label per fill (EntryLong / ExitLong / EntryShort / ExitShort),
+    # replayed from flat. Reversals split into exit records then entry records.
+    # Not hashed; same result for native and Python records.
+write_fills_csv(path, fills)
+    # Readable fill log: order_no,trade_type,side,signal,date,time,price,contracts,
+    # position_after. Used by --fills-csv.
 window_bars(bars, from_date=None, to_date=None, extra=None)
     -> (sliced_bars, sliced_extra)
 data2_closes_from_bars(bars, data2_bars) -> list[float]
@@ -620,7 +630,7 @@ python3 -m pl_transpiler.tools.pl_run \
 ```text
 pl_oracle <el_file> <bars_csv> [--config NAME] [--from-date ELINT | --from-bar N]
           [--to-date ELINT] [--seed-warmup] [--data2 CSV] [--native | --python] [-o OUT]
-          [--compare FILE] [--dump FILE]
+          [--compare FILE] [--dump FILE] [--fills-csv FILE]
 python3 -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> ...
 
   el_file      : EL/PowerLanguage source file.
@@ -641,7 +651,12 @@ python3 -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> ...
   --python     : force the reference Python path.
   -o OUT       : also write the digest to OUT (stdout always gets it).
   --compare F  : exit 1 if the produced digest differs from F (byte-for-byte).
-  --dump FILE  : write the canonical fill lines (the hashed payload) to FILE.
+  --dump FILE  : write the canonical fill lines (the hashed payload) to FILE. Their
+                 first field is the buy/sell side ("EntryLong" = buy, "ExitLong" = sell),
+                 not a position label.
+  --fills-csv FILE : write a readable fill log CSV with a position-aware trade_type
+                 column (EntryLong / ExitLong / EntryShort / ExitShort). Not hashed;
+                 the digest is unchanged.
 
   stdout : the four-line digest (powerbridge-trade-digest v1 / fills / round_turns / sha256).
   stderr : a one-line "[pl_oracle] N bars, F fills, R round-turns [native|python]" status line.

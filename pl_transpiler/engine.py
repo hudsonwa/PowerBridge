@@ -318,6 +318,8 @@ class FillEngine:
         self._fill(action, qty, close_price, barnumber,
                    date=date_str, time=time_str, label=label, cat=3)
         filled_qty = abs(self.contracts - prev_contracts) or qty
+        # 'type' is the buy/sell side (hashed by pl_oracle), not a position
+        # label; pl_oracle.fill_trade_types derives EntryShort/ExitShort.
         mc_type = 'EntryLong' if action in ('buy', 'buytocover') else 'ExitLong'
         for _ in range(filled_qty):
             self.fills.append({
@@ -418,6 +420,7 @@ class FillEngine:
                    date=date_str, time=time_str, label=label, cat=3)
         filled_qty = abs(self.contracts - prev_contracts)
         if filled_qty:
+            # Buy/sell side, not a position label (see _fill_close_order).
             mc_type = 'EntryLong' if action in ('buy', 'buytocover') else 'ExitLong'
             for _ in range(filled_qty):
                 self.fills.append({
@@ -930,7 +933,11 @@ class FillEngine:
         return d
     
     def get_mc_trades(self):
-        """Return list of MC-format trade dicts: order_no, type, signal, date, time, price, contracts."""
+        """Return list of MC-format trade dicts: order_no, type, signal, date, time, price, contracts.
+
+        ``type`` is the order side: 'EntryLong' = buy side (Buy/BuyToCover),
+        'ExitLong' = sell side (Sell/SellShort). See pl_oracle.fill_trade_types
+        for the position-aware label."""
         trades = []
         for i, fill in enumerate(self.fills):
             trades.append({

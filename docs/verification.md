@@ -79,6 +79,16 @@ pl_oracle ground_truth/GT2_strategy_orders_position.txt examples/NQ_sample_bars.
 code must be byte-identical, and any performance change must leave the digest
 unchanged.
 
+Each hashed fill line starts with the order's buy/sell side, not a position
+label: `EntryLong` means a buy-side fill (Buy or BuyToCover) and `ExitLong` a
+sell-side fill (Sell or SellShort), so a SellShort from flat hashes as
+`ExitLong`. This field is frozen because every pinned digest depends on it.
+For a readable fill log with the real position effect, add `--fills-csv FILE`:
+its `trade_type` column is `EntryLong`, `ExitLong`, `EntryShort` or
+`ExitShort`, replayed from the position before and after each fill (a reversal
+becomes exit rows followed by entry rows). It is a new file and does not change
+the digest.
+
 `pl_oracle` uses the Rust kernel automatically when the `accel` module is
 installed, and says so on stderr (`[native]`). `--python` forces the reference
 Python path; the sha256 must match. Whenever a run ends up on the Python path,

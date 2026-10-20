@@ -27,6 +27,11 @@ writes) and prints a canonical digest:
 
 The sha256 is the SHA-256 of the ordered fill tuples
 ``(type, signal, date, time, price, contracts)``, one canonical line per fill.
+The hashed ``type`` field is the order's buy/sell SIDE, not a position label:
+``EntryLong`` means a buy-side fill (Buy or BuyToCover) and ``ExitLong`` a
+sell-side fill (Sell or SellShort). It is kept that way so the frozen digests
+stay valid. For the position-aware label (EntryLong / ExitLong / EntryShort /
+ExitShort) use ``fill_trade_types`` or ``--fills-csv``; it is not hashed.
 Two runs on unchanged code produce byte-identical digest text. Changes that may
 affect fills should cite the before/after digest.
 
@@ -41,10 +46,12 @@ Library:
 CLI:
     python -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> [--config NQ] \\
         [--from-date ELINT | --from-bar N] [--to-date ELINT] [--seed-warmup] \\
-        [--data2 CSV] [-o digest.txt] [--compare FILE] [--dump FILE]
+        [--data2 CSV] [-o digest.txt] [--compare FILE] [--dump FILE] \\
+        [--fills-csv FILE]
 """
 import argparse
 import contextlib
+import csv
 import hashlib
 import os
 import sys
@@ -83,12 +90,71 @@ AUDIT_REF_3_DIGEST = (
 )
 
 
+# Hashed fill ``type`` values. They name the order SIDE, not the position effect.
+BUY_SIDE = "EntryLong"
+SELL_SIDE = "ExitLong"
+
+
 def canonical_fill_line(fill):
-    """One stable line for one FillEngine fill / get_mc_trades() dict."""
+    """One stable line for one FillEngine fill / get_mc_trades() dict.
+
+    The first field is the buy/sell side (``EntryLong`` = buy side,
+    ``ExitLong`` = sell side) exactly as both engines emit it, so a SellShort
+    from flat hashes as ``ExitLong``. Do not change it: every pinned digest
+    depends on it. See ``fill_trade_types`` for the position-aware label.
+    """
     return (
         f"{fill['type']}\t{fill['signal']}\t{fill['date']}\t{fill['time']}\t"
         f"{float(fill['price']).hex()}\t{int(fill['contracts'])}"
     )
+
+
+def fill_trade_types(fills):
+    """Position-aware label for each fill: EntryLong, ExitLong, EntryShort or ExitShort.
+
+    Not part of the digest. Each record is one contract; the position is
+    replayed from flat with buy side = +contracts and sell side = -contracts.
+    A buy while short is ExitShort, otherwise EntryLong; a sell while long is
+    ExitLong, otherwise EntryShort. Because a reversal is logged one contract
+    per record, it splits into exit records followed by entry records. Works
+    the same on Python and native records, since both carry the same side.
+    """
+    labels = []
+    position = 0
+    for fill in fills:
+        qty = int(fill["contracts"])
+        if fill["type"] == BUY_SIDE:
+            labels.append("ExitShort" if position < 0 else "EntryLong")
+            position += qty
+        elif fill["type"] == SELL_SIDE:
+            labels.append("ExitLong" if position > 0 else "EntryShort")
+            position -= qty
+        else:
+            raise ValueError(f"unknown fill side {fill['type']!r}")
+    return labels
+
+
+FILLS_CSV_COLUMNS = ("order_no", "trade_type", "side", "signal", "date", "time",
+                     "price", "contracts", "position_after")
+
+
+def write_fills_csv(path, fills):
+    """Write the human-facing fill log: one row per fill, with ``trade_type``.
+
+    ``side`` is the hashed buy/sell field (``buy`` / ``sell``); ``trade_type``
+    is from ``fill_trade_types``; ``position_after`` is the signed position.
+    """
+    position = 0
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(FILLS_CSV_COLUMNS)
+        for i, (fill, label) in enumerate(zip(fills, fill_trade_types(fills)), 1):
+            qty = int(fill["contracts"])
+            buy = fill["type"] == BUY_SIDE
+            position += qty if buy else -qty
+            writer.writerow([i, label, "buy" if buy else "sell", fill["signal"],
+                             fill["date"], fill["time"], repr(float(fill["price"])),
+                             qty, position])
 
 
 def fills_sha256(fills):
@@ -417,7 +483,11 @@ def _build_parser():
     ap.add_argument("--compare", default=None,
                     help="exit 1 if the produced digest differs from this file.")
     ap.add_argument("--dump", default=None,
-                    help="write the canonical fill lines (the hashed payload) here.")
+                    help="write the canonical fill lines (the hashed payload) here. "
+                         "Their first field is the buy/sell side, not a position label.")
+    ap.add_argument("--fills-csv", dest="fills_csv", default=None,
+                    help="write a readable fill log CSV with a position-aware "
+                         "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
     return ap
 
 
@@ -462,6 +532,8 @@ def main(argv=None):
         with open(args.dump, "w", encoding="utf-8") as f:
             for rec in result["records"]:
                 f.write(canonical_fill_line(rec) + "\n")
+    if args.fills_csv:
+        write_fills_csv(args.fills_csv, result["records"])
 
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")

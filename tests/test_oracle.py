@@ -37,10 +37,12 @@ from tests import capture_gate  # noqa: E402
 from tests.skip_messages import AUDIT_TAPE_SKIP  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import (  # noqa: E402
-    canonical_fill_line, fills_sha256, format_digest,
+    canonical_fill_line, fills_sha256, format_digest, fill_trade_types,
+    write_fills_csv,
     run_oracle, window_bars, main as oracle_main,
     AUDIT_REF_3_DIGEST, AUDIT_REF_3_FILLS, AUDIT_REF_3_ROUND_TURNS, AUDIT_REF_3_SHA256,
 )
+from pl_transpiler.runtime.accel import accel_available  # noqa: E402
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars, load_bars_csv, run_el  # noqa: E402
 
@@ -154,6 +156,57 @@ def test_hasher_matches_payload():
     assert fills_sha256(fills) == hashlib.sha256(payload.encode("utf-8")).hexdigest()
     assert fills_sha256([]) == EMPTY_SHA256
     print("  [ok] sha256 is SHA-256 of canonical fill lines")
+
+
+def _side_fills(sides):
+    """Synthetic one-contract records from a 'B'/'S' side string."""
+    return [{"type": "EntryLong" if c == "B" else "ExitLong", "signal": "X",
+             "date": 1240102, "time": 930 + i, "price": 1.0, "contracts": 1}
+            for i, c in enumerate(sides)]
+
+
+def test_trade_type_short_from_flat():
+    # SellShort from flat hashes as sell side but is an entry-short.
+    assert fill_trade_types(_side_fills("S")) == ["EntryShort"]
+    assert fill_trade_types(_side_fills("SS")) == ["EntryShort", "EntryShort"]
+    print("  [ok] sell from flat -> EntryShort")
+
+
+def test_trade_type_buy_to_cover():
+    # BuyToCover hashes as buy side but exits the short.
+    assert fill_trade_types(_side_fills("SB")) == ["EntryShort", "ExitShort"]
+    assert fill_trade_types(_side_fills("BS")) == ["EntryLong", "ExitLong"]
+    print("  [ok] buy while short -> ExitShort")
+
+
+def test_trade_type_reversal_splits():
+    # Long 1 -> SellShort 1 is two sell-side records: exit the long, enter short.
+    assert fill_trade_types(_side_fills("BSSBB")) == [
+        "EntryLong", "ExitLong", "EntryShort", "ExitShort", "EntryLong"]
+    print("  [ok] reversal -> exit then entry")
+
+
+def test_fills_csv_keeps_digest_and_matches_native():
+    el = open(GT2, encoding="utf-8").read()
+    bars = load_bars_csv(SAMPLE)
+    py = run_oracle(el, bars, NQ, use_native=False)
+    assert py["text"] == GT2_SAMPLE_DIGEST
+    labels = fill_trade_types(py["records"])
+    assert labels[:4] == ["EntryShort", "ExitShort", "EntryShort", "ExitShort"], labels[:4]
+    if accel_available():
+        nat = run_oracle(el, bars, NQ, use_native=True)
+        assert nat["text"] == GT2_SAMPLE_DIGEST
+        assert fill_trade_types(nat["records"]) == labels
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "fills.csv")
+        write_fills_csv(path, py["records"])
+        rows = open(path, encoding="utf-8").read().splitlines()
+    assert rows[0] == ("order_no,trade_type,side,signal,date,time,price,"
+                       "contracts,position_after")
+    assert rows[1].startswith("1,EntryShort,sell,SE,1240102,1001,"), rows[1]
+    assert rows[1].endswith(",1,-1"), rows[1]
+    assert len(rows) == len(py["records"]) + 1
+    print("  [ok] GT2 labels shorts correctly; digest unchanged; native == python")
 
 
 def test_gt2_sample_digest_frozen():
@@ -405,6 +458,10 @@ def main():
         test_empty_tape_digest,
         test_count_strategy_needs_persist,
         test_hasher_matches_payload,
+        test_trade_type_short_from_flat,
+        test_trade_type_buy_to_cover,
+        test_trade_type_reversal_splits,
+        test_fills_csv_keeps_digest_and_matches_native,
         test_gt2_sample_digest_frozen,
         test_window_identity_and_disagreement,
         test_cli_digest_and_compare,
