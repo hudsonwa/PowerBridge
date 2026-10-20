@@ -39,6 +39,18 @@ from tests import capture_gate
 SCRATCH = os.path.join(REPO, ".scratch")
 os.makedirs(SCRATCH, exist_ok=True)
 
+try:
+    import pytest
+except ImportError:  # plain `python tests/test_failloud.py` needs no pytest
+    pytest = None
+
+if pytest is not None:
+    # Under pytest, main()'s capture gate is bypassed, so apply the same gate
+    # here: every test needs the pinned GT1 MultiCharts capture.
+    pytestmark = pytest.mark.skipif(
+        not capture_gate.captures_present(),
+        reason=capture_gate.skip_message("FAIL-LOUD tests"))
+
 # A transpile() stand-in that yields a strategy raising on EVERY bar.
 _THROWING_SRC = (
     "def strategy(*a, **kw):\n"
