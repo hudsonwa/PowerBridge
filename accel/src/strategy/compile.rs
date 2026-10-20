@@ -167,6 +167,10 @@ pub(crate) enum RiskOp {
     BreakEven,
     PercentTrailing,
     ExitOnClose,
+    StopLossPt,
+    ProfitTargetPt,
+    BreakEvenPt,
+    PercentTrailingPt,
     Noop,
 }
 
@@ -756,7 +760,19 @@ impl Compiler {
                 self.compile_risk_arg(stmt)?;
                 self.instrs.push(Instr::RiskSet(RiskOp::BreakEven));
             }
-            "setpercenttrailing" => {
+            "setstoploss_pt" => {
+                self.compile_risk_arg(stmt)?;
+                self.instrs.push(Instr::RiskSet(RiskOp::StopLossPt));
+            }
+            "setprofittarget_pt" => {
+                self.compile_risk_arg(stmt)?;
+                self.instrs.push(Instr::RiskSet(RiskOp::ProfitTargetPt));
+            }
+            "setbreakeven_pt" => {
+                self.compile_risk_arg(stmt)?;
+                self.instrs.push(Instr::RiskSet(RiskOp::BreakEvenPt));
+            }
+            "setpercenttrailing" | "setpercenttrailing_pt" => {
                 let args = stmt
                     .get("args")
                     .and_then(Json::as_array)
@@ -768,7 +784,12 @@ impl Compiler {
                 }
                 self.compile_expr(&args[0], false)?;
                 self.compile_expr(&args[1], false)?;
-                self.instrs.push(Instr::RiskSet(RiskOp::PercentTrailing));
+                self.instrs
+                    .push(Instr::RiskSet(if func == "setpercenttrailing" {
+                        RiskOp::PercentTrailing
+                    } else {
+                        RiskOp::PercentTrailingPt
+                    }));
             }
             "setexitonclose" => {
                 self.instrs.push(Instr::RiskSet(RiskOp::ExitOnClose));

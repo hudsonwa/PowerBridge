@@ -465,7 +465,7 @@ fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
         Instr::Call(_, n) => (*n as i32, 1),
         Instr::EmitOrder { has_price, .. } => (if *has_price { 3 } else { 2 }, 0),
         Instr::RiskSet(op) => match op {
-            RiskOp::PercentTrailing => (2, 0),
+            RiskOp::PercentTrailing | RiskOp::PercentTrailingPt => (2, 0),
             RiskOp::ExitOnClose | RiskOp::Noop => (0, 0),
             _ => (1, 0),
         },

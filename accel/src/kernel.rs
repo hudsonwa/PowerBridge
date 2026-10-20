@@ -223,7 +223,8 @@ impl FillEngine {
             }
         }
         self.pending_orders = pending;
-        self.risk.update(output.risk);
+        self.risk
+            .update(output.risk.resolve_points(self.instrument.point_value));
         self.compute_pnl(bar.close);
         Ok(())
     }

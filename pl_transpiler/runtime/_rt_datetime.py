@@ -278,6 +278,19 @@ def pl_filedelete(*args, **kwargs):
     return 0
 
 def pl_fill_array(*args, **kwargs):
+    # Fill_Array(ArrayName, Value): set every element of the array to Value,
+    # recursing into nested lists so multi-dimensional arrays fill too.
+    if len(args) < 2 or not isinstance(args[0], list):
+        return 0
+    value = args[1]
+
+    def _fill(arr):
+        for i, item in enumerate(arr):
+            if isinstance(item, list):
+                _fill(item)
+            else:
+                arr[i] = value
+    _fill(args[0])
     return 0
 
 def pl_formatdate(*args, **kwargs):
@@ -1034,9 +1047,6 @@ def pl_sessionstarttimems(*args, **kwargs):
     # Session opens 0830. Constant chart config.
     return 830
 
-def pl_setbreakeven_pt(*args, **kwargs):
-    return 0
-
 def pl_setcustomfitnessvalue(*args, **kwargs):
     return 0
 
@@ -1046,16 +1056,7 @@ def pl_setfpcompareaccuracy(*args, **kwargs):
 def pl_setmaxbarsback(*args, **kwargs):
     return 0
 
-def pl_setpercenttrailing_pt(*args, **kwargs):
-    return 0
-
-def pl_setprofittarget_pt(*args, **kwargs):
-    return 0
-
 def pl_setstopcontract(*args, **kwargs):
-    return 0
-
-def pl_setstoploss_pt(*args, **kwargs):
     return 0
 
 def pl_setstopshare(*args, **kwargs):

@@ -464,6 +464,20 @@ impl<'a> Interpreter<'a> {
                     RiskOp::ExitOnClose => {
                         self.risk.exit_on_close = Some(true);
                     }
+                    RiskOp::StopLossPt => {
+                        self.risk.stop_loss_pt = Some(self.stack.pop().unwrap().as_f64()?);
+                    }
+                    RiskOp::ProfitTargetPt => {
+                        self.risk.profit_target_pt = Some(self.stack.pop().unwrap().as_f64()?);
+                    }
+                    RiskOp::BreakEvenPt => {
+                        self.risk.breakeven_pt = Some(self.stack.pop().unwrap().as_f64()?);
+                    }
+                    RiskOp::PercentTrailingPt => {
+                        let pct = self.stack.pop().unwrap().as_f64()?;
+                        let floor = self.stack.pop().unwrap().as_f64()?;
+                        self.risk.percent_trailing_pt = Some((floor, pct));
+                    }
                     RiskOp::Noop => {}
                 },
                 Instr::Nop => {}

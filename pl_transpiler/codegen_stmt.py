@@ -414,6 +414,18 @@ class _StmtMixin:
             self.emit("_risk['stop_share'] = True")
         elif func == 'setbreakeven':
             self.emit(f"_risk['breakeven'] = {self.gen_expr(node['arg'])}")
+        # MultiCharts point-based variants: the amount is in price points; the
+        # engine converts it to currency (points * BigPointValue) when it folds
+        # the risk update, so it then behaves exactly like the dollar form.
+        elif func == 'setstoploss_pt':
+            self.emit(f"_risk['stop_loss_pt'] = {self.gen_expr(node['arg'])}")
+        elif func == 'setprofittarget_pt':
+            self.emit(f"_risk['profit_target_pt'] = {self.gen_expr(node['arg'])}")
+        elif func == 'setbreakeven_pt':
+            self.emit(f"_risk['breakeven_pt'] = {self.gen_expr(node['arg'])}")
+        elif func == 'setpercenttrailing_pt':
+            args = node['args']
+            self.emit(f"_risk['percent_trailing_pt'] = ({self.gen_expr(args[0])}, {self.gen_expr(args[1])})")
 
     # ---- Plot ----
     def gen_plot(self, node):

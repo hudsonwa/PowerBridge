@@ -685,8 +685,8 @@ class Parser:
                 self.expect(TT_RPAREN)
             self.match(TT_SEMICOLON)
             return {'type': 'risk', 'func': name, 'arg': None}
-        elif name == 'setpercenttrailing':
-            # Two-arg form: SetPercentTrailing(Profit, Pct)
+        elif name in ('setpercenttrailing', 'setpercenttrailing_pt'):
+            # Two-arg form: SetPercentTrailing(Profit, Pct) / SetPercentTrailing_pt(Points, Pct)
             self.expect(TT_LPAREN)
             arg1 = self.parse_expression()
             self.expect(TT_COMMA)

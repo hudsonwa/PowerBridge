@@ -266,8 +266,36 @@ class FillEngine:
             else:
                 pending.append(o)
         self._pending_orders = pending
-        self._risk.update(risk)
+        self._risk.update(self._resolve_point_risk(risk))
         self._compute_pnl(close_price)
+
+    # SetStopLoss_pt & co. (MultiCharts point-based variants): risk key -> the
+    # currency key it arms once the amount is scaled by BigPointValue.
+    _POINT_RISK_KEYS = (
+        ('stop_loss_pt', 'stop_loss'),
+        ('profit_target_pt', 'profit_target'),
+        ('breakeven_pt', 'breakeven'),
+    )
+
+    def _resolve_point_risk(self, risk):
+        """Convert this bar's point-based risk settings to currency amounts.
+
+        A ``*_pt`` amount is in price points, so it arms the same level as the
+        dollar form given ``points * BigPointValue``; SetPercentTrailing_pt's
+        profit threshold is scaled the same way and its percent is unchanged.
+        Risk dicts with no ``*_pt`` key are returned untouched.
+        """
+        if not any(k.endswith('_pt') for k in risk):
+            return risk
+        risk = dict(risk)
+        pv = self.point_value
+        for pt_key, key in self._POINT_RISK_KEYS:
+            if pt_key in risk:
+                risk[key] = risk.pop(pt_key) * pv
+        if 'percent_trailing_pt' in risk:
+            pts, pct = risk.pop('percent_trailing_pt')
+            risk['percent_trailing'] = (pts * pv, pct)
+        return risk
 
     def _execute_onclose_pending(self):
         """Apply any 'this bar on close' fills stashed at the previous bar's close.

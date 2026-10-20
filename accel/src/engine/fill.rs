@@ -211,7 +211,8 @@ impl FillEngine {
     /// Seeded-prefix bars must keep money-management state (`SetStopLoss`,
     /// `SetExitOnClose`, ...) while fills stay suppressed.
     pub(crate) fn apply_risk(&mut self, update: RiskUpdate) {
-        self.risk.update(update);
+        self.risk
+            .update(update.resolve_points(self.instrument.point_value));
     }
 
     pub(crate) fn into_ledgers(self) -> (Vec<Fill>, Vec<ClosedPosition>) {

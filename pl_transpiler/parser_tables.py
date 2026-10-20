@@ -16,7 +16,7 @@
 
 # Order-related keywords
 ORDER_ACTIONS = {'buy', 'sell', 'sellshort', 'buytocover'}
-RISK_FUNCS = {'setstoploss', 'setprofittarget', 'setexitonclose', 'setdollartrailing', 'setpercenttrailing', 'setstopposition', 'setbreakeven', 'setstopcontract', 'setstopshare', 'setstopposition'}
+RISK_FUNCS = {'setbreakeven', 'setbreakeven_pt', 'setdollartrailing', 'setexitonclose', 'setpercenttrailing', 'setpercenttrailing_pt', 'setprofittarget', 'setprofittarget_pt', 'setstopcontract', 'setstoploss', 'setstoploss_pt', 'setstopposition', 'setstopshare'}
 PLOT_NAMES = {f'plot{i}' for i in range(1, 10)} | {'plotpb'}
 
 # Built-in data series
@@ -528,14 +528,10 @@ BUILTIN_FUNC_MAP = {
     'sessionstartdayms': 'pl_sessionstartdayms',
     'sessionstarttime': 'pl_sessionstarttime',
     'sessionstarttimems': 'pl_sessionstarttimems',
-    'setbreakeven_pt': 'pl_setbreakeven_pt',
     'setcustomfitnessvalue': 'pl_setcustomfitnessvalue',
     'setfpcompareaccuracy': 'pl_setfpcompareaccuracy',
     'setmaxbarsback': 'pl_setmaxbarsback',
-    'setpercenttrailing_pt': 'pl_setpercenttrailing_pt',
-    'setprofittarget_pt': 'pl_setprofittarget_pt',
     'setstopcontract': 'pl_setstopcontract',
-    'setstoploss_pt': 'pl_setstoploss_pt',
     'setstopshare': 'pl_setstopshare',
     'settrailingstop_pt': 'pl_settrailingstop_pt',
     'sine': 'pl_sine',

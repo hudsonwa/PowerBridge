@@ -173,6 +173,10 @@ _RISK_KEY_TO_FUNC = {
     'dollar_trailing': 'setdollartrailing',
     'percent_trailing': 'setpercenttrailing',
     'breakeven': 'setbreakeven',
+    'stop_loss_pt': 'setstoploss_pt',
+    'profit_target_pt': 'setprofittarget_pt',
+    'breakeven_pt': 'setbreakeven_pt',
+    'percent_trailing_pt': 'setpercenttrailing_pt',
 }
 
 _ORDER_ACTIONS = {'buy', 'sell', 'sellshort', 'buytocover'}
@@ -849,9 +853,10 @@ def _inv_risk_assign(key, value):
         if isinstance(value, ast.Constant) and value.value is True:
             return {'type': 'risk', 'func': func, 'arg': None}
         return {'type': 'risk', 'func': func, 'arg': inv_expr(value)}
-    if func == 'setpercenttrailing':
+    if func in ('setpercenttrailing', 'setpercenttrailing_pt'):
         if not (isinstance(value, ast.Tuple) and len(value.elts) == 2):
-            raise PyFrontError(f"SetPercentTrailing expects a 2-tuple{_ln(value)}")
+            name = 'SetPercentTrailing_pt' if func.endswith('_pt') else 'SetPercentTrailing'
+            raise PyFrontError(f"{name} expects a 2-tuple{_ln(value)}")
         return {'type': 'risk', 'func': func,
                 'args': [inv_expr(value.elts[0]), inv_expr(value.elts[1])]}
     return {'type': 'risk', 'func': func, 'arg': inv_expr(value)}
