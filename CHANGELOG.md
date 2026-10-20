@@ -1,18 +1,74 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-10-20
+
+### Changed
+
+- **Strict mode is now the default.** A run that calls an EasyLanguage builtin
+  the runtime does not implement stops with a one-line error (the builtin's
+  name, its first source line and how to opt out) instead of silently using
+  0 or ''. To get the old behaviour, pass `--lenient` to `pl_run` / `pl_oracle`
+  or set `PL_STRICT=0`. Cosmetic builtins (drawing, sound, print) never stop a
+  run. `PL_STRICT=0` / `false` / `no` / `off` now also turn off the per-bar
+  re-raise in the bar loop instead of enabling it. (#31)
+- `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit` print
+  `<tool>: error: <message>` and exit 2 for common mistakes (EL syntax error,
+  missing input file, unknown `--config`, malformed bars CSV) instead of a
+  traceback. `PB_DEBUG=1` shows the full traceback. `-o -` writes to stdout.
+  `[accel] skip-region` diagnostics print only with `pl_oracle --verbose` or
+  `PB_DEBUG=1`. (#58)
+- `pl_run --columns` rejects unknown column names with close-match suggestions
+  (it used to print 0 on every bar) and accepts EasyLanguage spellings such as
+  `MarketPosition` and `NetProfit`. (#56)
+- The pure-Python bar loop is now linear in bar count: 128,000 bars of the GT2
+  sample take about 3 s instead of 57 s. Emitted Python and results are
+  unchanged. (#51)
+- Internal refactors with byte-identical output: `runtime/pl_runtime.py`,
+  `codegen.py`, `parser.py` and `engine.py` are split into smaller modules.
+  (#19, #21, #22, #23)
+- Plain-language check messages, a simpler first-run Quickstart, and cleaned-up
+  docs, comments and help text. (#18, #24, #30, #48, #50)
+
+### Added
 
 - Release workflow: publishing a GitHub Release attaches the sdist, the pure
   wheel and prebuilt abi3 `powerbridge-accel` wheels (macOS arm64/x86_64,
-  Windows x64, Linux x86_64/aarch64) to it, then publishes `powerbridge` and
-  `powerbridge-accel` to PyPI through trusted publishing. The README documents
-  installing from a tag and from a release wheel URL.
-- Strict mode is now the default: a run that calls an EasyLanguage builtin the
-  runtime does not implement stops with a one-line error (builtin name, first
-  source line, how to opt out) instead of using 0/''. Opt out with `--lenient`
-  on `pl_run` / `pl_oracle` or `PL_STRICT=0`. Cosmetic builtins (drawing, sound,
-  print) never stop a run. `PL_STRICT=0` / `false` / `no` / `off` now also turn
-  off the per-bar re-raise in the bar loop instead of enabling it.
+  Windows x64, Linux x86_64/aarch64), then publishes `powerbridge` and
+  `powerbridge-accel` to PyPI through trusted publishing. (#52)
+- Builtins: `SetDollarTrailing` and `SetTrailingStop_pt` in both engines (#46);
+  `TickID` and `ExecOffset` (0 on every historical bar, as in a MultiCharts
+  backtest) (#44); `Symbol`, `SymbolName`, `Description`, `Category`,
+  `SymbolCurrencyCode` and `ExpirationDate` (#39); `MaxShares`,
+  `MaxSharesHeld`, `OpenEntriesCount`, `MillisecondsFromDateTime` and
+  `SessionStartDay` (#38); `Array_Compare`, `Array_Copy`, `Array_SetValRange`
+  and `Array_Sort` (#37); `Fill_Array` and the point-based `Set*_pt` stops
+  (#35); the computer-clock builtins `CurrentTime_s`, `ComputerDateTime` and
+  `LastCalc*` (#33).
+- `pl_oracle --fills-csv FILE` writes a readable fill log, and
+  `pl_oracle.fill_trade_types` derives the position-aware trade type
+  (EntryLong / ExitLong / EntryShort / ExitShort). The hashed fill field is
+  unchanged and now documented as the buy/sell side. (#45)
+- `tools/bench_native.py`, a reproducible Python-vs-Rust timing with a
+  fill-identity check, and a CI matrix on Linux, macOS and Windows with
+  Python 3.9 and 3.13. (#12)
+- CI runs the full pytest suite and ruff. (#16)
+
+### Fixes
+
+- `EntryDate(n)`, `EntryTime(n)`, `EntryPrice(n)`, `ExitDate(n)`,
+  `ExitTime(n)` and `ExitPrice(n)` now return values for past positions
+  instead of 0 or the current position. (#26)
+- Array builtins (`Array_Get*Value` / `Array_Set*Value`, `Array_IndexOf`,
+  `Array_Sum`, `Array_Highest`, `Array_Lowest`, `SortArray`, `VarianceArray`,
+  `Array_SetMaxIndex`) now address the same elements as direct `A[i]` access.
+  (#43)
+- The Rust accelerator loads deeply nested programs (such as long else-if
+  chains) instead of failing with a recursion-limit error. (#28)
+- First-run problems: the missing `examples/ma_cross.el` demo file and a
+  Python 3.13 failure in the f32 test oracle. (#12)
+- Test suite: the generated tests and `test_failloud.py` run by default and
+  pass, the public tier runs on shipped files only with actionable skips, and
+  `ground_truth/captures/` is ignored again. (#13, #14, #42, #55)
 
 ## 0.2.0 — 2026-10-20
 

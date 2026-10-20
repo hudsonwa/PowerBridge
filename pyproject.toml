@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "powerbridge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Bidirectional EasyLanguage/PowerLanguage to Python transpiler for MultiCharts and TradeStation."
 requires-python = ">=3.9"
 license = "Apache-2.0"

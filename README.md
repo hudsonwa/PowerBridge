@@ -21,7 +21,7 @@
 
 EasyLanguage / PowerLanguage to Python transpiler, and back.
 
-**Status: 0.2.0 preview.** Trade lists match MultiCharts fill-for-fill on the
+**Status: 0.3.0 preview.** Trade lists match MultiCharts fill-for-fill on the
 1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
 multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
 runs the same backtest about 20x faster on 20,000 bars, and about 100x on
@@ -68,16 +68,19 @@ It would rather stop than guess. Unsupported keywords are reported in one pass.
 
 ## Install
 
-Python 3.9 or newer, no other dependencies. Install a tagged release straight
-from the repository:
+Python 3.9 or newer, no other dependencies. Install from PyPI:
 
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.2.0"
+pip install powerbridge
+pip install powerbridge-accel   # optional native fast path (prebuilt wheels)
 ```
 
-Once the first release is published to PyPI, `pip install powerbridge` (and
-`pip install powerbridge-accel` for the native fast path) will work as well.
-Until then, use the GitHub install above.
+If PyPI is not reachable from your machine, install the tagged release
+straight from the repository instead:
+
+```bash
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.3.0"
+```
 
 To work on PowerBridge itself, or to follow the walkthrough below with the
 bundled examples, clone the repository and use the quickstart.
@@ -228,7 +231,8 @@ fast path is a Rust crate in `accel/` that builds the module
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
 
-**Prebuilt wheel (no Rust needed).** Each GitHub Release from v0.2.1 on
+**Prebuilt wheel (no Rust needed).** `pip install powerbridge-accel` installs
+the prebuilt wheel for your platform from PyPI. Each GitHub Release from v0.3.0 on also
 carries one `powerbridge-accel` wheel per platform, built for CPython 3.9 and
 newer (abi3). The asset URL follows this pattern:
 
