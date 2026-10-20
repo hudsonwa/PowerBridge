@@ -14,13 +14,15 @@
 
 """Shared error handling for the console entry points.
 
-User mistakes (an EL syntax error, a missing input file, an unknown --config,
+User mistakes (an EL syntax error, an unimplemented EL keyword or undeclared
+variable, a missing input file, an unknown --config,
 a malformed bars CSV) print ``<tool>: error: <message>`` to stderr and exit 2
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
 import os
 import sys
 
+from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.lexer import PLSyntaxError
 
 
@@ -63,7 +65,7 @@ def run(prog, fn, *args):
     """Run ``fn(*args)`` and return its rc, reporting user errors in one line (rc 2)."""
     try:
         return fn(*args)
-    except (PLSyntaxError, OSError, CliError) as exc:
+    except (PLSyntaxError, OSError, CliError, UnimplementedKeywordError) as exc:
         if debug_enabled():
             raise
         print("%s: error: %s" % (prog, _describe(exc)), file=sys.stderr)

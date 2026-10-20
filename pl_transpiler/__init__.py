@@ -23,6 +23,7 @@ __path__ = _extend_path(__path__, __name__)
 from .lexer import tokenise
 from .parser import parse
 from .codegen import generate
+from .errors import UnimplementedKeywordError, restore_spelling, unimplemented_message
 
 def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
     """Convert PowerLanguage source string to Python source string.
@@ -36,4 +37,12 @@ def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
     strict default (partial=False) stays byte-identical."""
     tokens, positions = tokenise(pl_source)
     ast = parse(tokens, positions=positions, source=pl_source)
-    return generate(ast, trace=trace, partial=partial, persist=persist)
+    try:
+        out = generate(ast, trace=trace, partial=partial, persist=persist)
+    except UnimplementedKeywordError as exc:
+        if not any(e.get('kind') for e in exc.errors):
+            raise
+        restore_spelling(exc.errors, pl_source)
+        raise UnimplementedKeywordError(unimplemented_message(exc.errors),
+                                        errors=exc.errors) from None
+    return out

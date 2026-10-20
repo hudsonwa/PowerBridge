@@ -52,8 +52,10 @@ from pl_transpiler.tools import _cli  # noqa: E402
 def _print_strict_report(in_path, errors):
     """Complete report to stderr: every unimplemented keyword, name + line."""
     n = len(errors)
-    print(f"pl_transpile: cannot transpile {in_path!r}: "
-          f"{n} unimplemented EL keyword(s):", file=sys.stderr)
+    what = ("error(s)" if any(e.get('kind') for e in errors)
+            else "unimplemented EL keyword(s)")
+    print(f"pl_transpile: cannot transpile {in_path!r}: {n} {what}:",
+          file=sys.stderr)
     for txt in format_error_lines(errors):
         print(f"  {txt}", file=sys.stderr)
     print("no output written (strict mode). Re-run with --partial to emit "

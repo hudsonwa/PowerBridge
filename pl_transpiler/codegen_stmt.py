@@ -14,11 +14,24 @@
 
 """Statement generation for CodeGen (mixin; see codegen.py)."""
 
+from . import catalog as _catalog
 from .codegen_util import (
     _expr_already_f32,
     _is_numeric_literal_node,
     _f32_literal_const,
 )
+
+# EasyLanguage strategy-performance reserved words missing from the keyword
+# catalog. Assigning to one is an unimplemented-keyword error, not an
+# undeclared variable (see gen_assign).
+_EL_RESERVED_NOT_IN_CATALOG = frozenset((
+    'avgwintrade', 'avglostrade', 'avgtrade', 'grossprofit', 'grossloss',
+    'netprofit', 'numwintrades', 'numlostrades', 'numeventrades', 'totaltrades',
+    'percentprofit', 'largestwintrade', 'largestlostrade', 'maxconsecwinners',
+    'maxconseclosers', 'totalbarswintrades', 'totalbarslostrades',
+    'totalbarseventrades', 'entryprice', 'currentcontracts', 'tradestoday',
+))
+
 
 class _StmtMixin:
     def _emit_comment(self, text):
@@ -254,7 +267,19 @@ class _StmtMixin:
 
     # ---- Assignment ----
     def gen_assign(self, node):
+        before = len(self._unimpl_errors)
         target = self.gen_expr(node['target'])
+        # A plain identifier on the LEFT of `=` that is neither declared nor an EL
+        # keyword is an undeclared variable, not a missing builtin: tag it so the
+        # diagnostic says so.
+        tgt = node['target']
+        name = tgt.get('name')
+        if (tgt.get('type') == 'ident' and len(self._unimpl_errors) > before
+                and self._unimpl_errors[before]['name'] == name
+                and name not in _EL_RESERVED_NOT_IN_CATALOG
+                and _catalog.get(name) is None
+                and not self._is_known_bare_ident(name)):
+            self._unimpl_errors[before]['kind'] = 'undeclared'
         # Partial mode: if the assignment TARGET is itself an unimplemented keyword,
         # gen_expr returned a stub call `pl_partial_stub('<name>', <line>)()` (partial
         # mode only — strict records+raises at generate end and never reaches here).

@@ -275,6 +275,21 @@ def group_bare_python_builtin_collision_reported():
     assert "def strategy" in py, "runtime-bound reserved word NewLine wrongly flagged"
 
 
+def group_undeclared_assignment_target():
+    """Assigning to a name that is neither declared nor a recognized EL word is
+    reported as an undeclared variable (source spelling kept), not as an
+    unimplemented keyword; a recognized keyword target stays a keyword error."""
+    e = _collect("Vars: X(0);\nMyTotal = 3;\n")
+    assert e.errors == [{"name": "mytotal", "line": 2, "kind": "undeclared",
+                         "spelling": "MyTotal"}], repr(e.errors)
+    assert str(e) == "undeclared variable 'MyTotal' at line 2 (declare it under Vars:)", str(e)
+    e2 = _collect("Y = 3;\nValue1 = AvgWinTrade;\n")
+    assert str(e2) == ("cannot transpile: 2 errors: undeclared variable 'Y' at line 1 "
+                       "(declare it under Vars:); 'avgwintrade' at line 2"), str(e2)
+    e3 = _collect("AvgWinTrade = Close;\n")
+    assert str(e3) == "unimplemented EL keyword 'avgwintrade' at line 1", str(e3)
+
+
 GROUPS = [
     group_all_reported_one_pass,
     group_sort_contract_with_none,
@@ -289,6 +304,7 @@ GROUPS = [
     group_assigned_and_read_keyword_not_rescued,
     group_reserved_ident_no_binding_reported,
     group_bare_python_builtin_collision_reported,
+    group_undeclared_assignment_target,
 ]
 
 

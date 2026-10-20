@@ -104,3 +104,41 @@ def test_pl_run_summary_wording():
     assert proc.returncode == 0, proc.stderr
     summary = proc.stderr.strip().splitlines()[-1]
     assert " fills, " in summary and " round-turns" in summary, summary
+
+
+UNIMPL_EL = "Vars: X(0);\nX = TradesToday(0);\nIf X > 5 then Buy next bar at market;\n"
+UNDECLARED_EL = "Vars: X(0);\nMyTotal = 3;\n"
+
+
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle"])
+def test_unimplemented_keyword_one_line(tool, tmp_path):
+    el = tmp_path / "u.el"
+    el.write_text(UNIMPL_EL)
+    _assert_one_line(_run(tool, str(el), BARS), tool,
+                     "unimplemented EL keyword 'tradestoday' at line 2")
+
+
+def test_el_emit_unimplemented_keyword_no_traceback(tmp_path):
+    el = tmp_path / "u.el"
+    el.write_text(UNIMPL_EL)
+    proc = _run("el_emit", str(el))
+    assert "Traceback" not in proc.stderr
+    assert "tradestoday" in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle"])
+def test_undeclared_variable_one_line(tool, tmp_path):
+    el = tmp_path / "v.el"
+    el.write_text(UNDECLARED_EL)
+    _assert_one_line(_run(tool, str(el), BARS), tool,
+                     "undeclared variable 'MyTotal' at line 2 (declare it under Vars:)")
+
+
+def test_pl_transpile_undeclared_variable(tmp_path):
+    el = tmp_path / "v.el"
+    el.write_text(UNDECLARED_EL)
+    proc = _run("pl_transpile", str(el))
+    assert proc.returncode == 2
+    assert "Traceback" not in proc.stderr
+    assert "undeclared variable 'MyTotal' at line 2" in proc.stderr
+    assert "unimplemented EL keyword 'mytotal'" not in proc.stderr

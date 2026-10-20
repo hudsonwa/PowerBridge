@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Transpile-time diagnostic exceptions for the PowerLanguage code generator."""
+import re
 
 
 class UnimplementedKeywordError(Exception):
@@ -25,7 +26,9 @@ class UnimplementedKeywordError(Exception):
 
     Diagnostics are collect-all: a single transpile walks the ENTIRE program and
     reports EVERY unimplemented keyword at once. The `errors` attribute is a list
-    of ``{'name': str, 'line': int|None}`` dicts, deduplicated by ``(name, line)``
+    of ``{'name': str, 'line': int|None}`` dicts (plus ``'kind': 'undeclared'``
+    and its source ``'spelling'`` for an assignment to a variable that was never
+    declared), deduplicated by ``(name, line)``
     and sorted by ``(line, name)`` with ``None`` lines last."""
 
     def __init__(self, message, errors=None):
@@ -38,9 +41,43 @@ def format_error_lines(errors):
     deduped/sorted by the codegen) as ``"'<name>' at line <L>"`` strings — the
     per-keyword line format, reused by the CLI diagnostic reports and the
     partial-mode watermark/manifest so all three stay identical."""
-    lines = []
+    return [_describe(e) for e in errors]
+
+
+def _describe(e):
+    line = e.get('line')
+    where = f" at line {line}" if line else ""
+    if e.get('kind') == 'undeclared':
+        name = e.get('spelling', e['name'])
+        return f"undeclared variable '{name}'{where} (declare it under Vars:)"
+    return f"'{e['name']}'{where}"
+
+
+def unimplemented_message(errors):
+    """The one-line UnimplementedKeywordError message for ``errors``. A single
+    unimplemented keyword keeps the legacy byte-compatible format."""
+    if len(errors) == 1:
+        e = errors[0]
+        if e.get('kind') == 'undeclared':
+            return _describe(e)
+        where = f" at line {e['line']}" if e['line'] else ""
+        return f"unimplemented EL keyword '{e['name']}'{where}"
+    if any(e.get('kind') == 'undeclared' for e in errors):
+        return (f"cannot transpile: {len(errors)} errors: "
+                + "; ".join(_describe(e) for e in errors))
+    return (f"cannot transpile: {len(errors)} unimplemented keywords: "
+            + "; ".join(_describe(e) for e in errors))
+
+
+def restore_spelling(errors, source):
+    """Record each undeclared variable's spelling in ``source`` under the
+    ``'spelling'`` key (the lexer lowercases ``'name'``). Mutates ``errors``."""
+    lines = source.splitlines()
     for e in errors:
         line = e.get('line')
-        where = f" at line {line}" if line else ""
-        lines.append(f"'{e['name']}'{where}")
-    return lines
+        if e.get('kind') != 'undeclared' or not line or line > len(lines):
+            continue
+        m = re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])' % re.escape(e['name']),
+                      lines[line - 1], re.IGNORECASE)
+        if m:
+            e['spelling'] = m.group(0)

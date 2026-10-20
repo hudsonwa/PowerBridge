@@ -4,6 +4,12 @@
 
 ### Fixes
 
+- `pl_run` and `pl_oracle` now report an unimplemented EL keyword (for
+  example `TradesToday`) as one `<tool>: error: ...` line naming the keyword
+  and source line, exit 2, instead of a Python traceback.
+- Assigning to a variable that was never declared (`MyTotal = 3;` with no
+  `Vars: MyTotal`) is now reported as `undeclared variable 'MyTotal' at line N
+  (declare it under Vars:)` instead of `unimplemented EL keyword 'mytotal'`.
 - Fill log fix, trade digest v2: `FillEngine.fills` (hashed by `pl_oracle`,
   written by `--fills-csv` / `--dump`, returned by `run_el` as `trades`) now
   records every change of the signed position. A reversal logs its close leg

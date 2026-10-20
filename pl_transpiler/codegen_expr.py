@@ -14,7 +14,7 @@
 
 """Expression generation for CodeGen (mixin; see codegen.py)."""
 
-from .errors import UnimplementedKeywordError
+from .errors import UnimplementedKeywordError, unimplemented_message
 from .codegen_tables import BUILTIN_FUNC_MAP, COMPARE_OPS, _SERIES_PARAMS
 from .codegen_util import (
     _available_pl_targets,
@@ -324,7 +324,10 @@ class _ExprMixin:
             if key in seen:
                 continue
             seen.add(key)
-            errors.append({'name': e['name'], 'line': e['line']})
+            out = {'name': e['name'], 'line': e['line']}
+            if e.get('kind'):
+                out['kind'] = e['kind']
+            errors.append(out)
         errors.sort(key=lambda e: (e['line'] is None, e['line'] or 0, e['name']))
         return errors
 
@@ -354,20 +357,7 @@ class _ExprMixin:
         None lines last. Single-error message is the legacy byte-compatible format;
         N>1 uses the multi-keyword report format."""
         errors = self._sorted_unimpl()
-
-        def _one(e):
-            where = f" at line {e['line']}" if e['line'] else ""
-            return f"'{e['name']}'{where}"
-
-        if len(errors) == 1:
-            e = errors[0]
-            where = f" at line {e['line']}" if e['line'] else ""
-            message = f"unimplemented EL keyword '{e['name']}'{where}"
-        else:
-            message = (
-                f"cannot transpile: {len(errors)} unimplemented keywords: "
-                + "; ".join(_one(e) for e in errors)
-            )
+        message = unimplemented_message(errors)
         raise UnimplementedKeywordError(message, errors=errors)
 
     def _gen_call(self, node):
