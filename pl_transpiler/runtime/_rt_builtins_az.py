@@ -288,9 +288,6 @@ def pl_commentaryenabled(*args, **kwargs):
 def pl_commission(*args, **kwargs):
     return 0
 
-def pl_computerdatetime(*args, **kwargs):
-    return 0
-
 def pl_convert_currency(*args, **kwargs):
     return 0
 
@@ -309,12 +306,6 @@ def pl_cotangent(*args, **kwargs):
     return 0.0
 
 def pl_currentopenint(*args, **kwargs):
-    return 0
-
-def pl_currenttime_s(*args, **kwargs):
-    return 0
-
-def pl_currentdate_s(*args, **kwargs):
     return 0
 
 def pl_category(*args, **kwargs):

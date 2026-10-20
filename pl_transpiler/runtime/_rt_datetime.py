@@ -473,20 +473,71 @@ def pl_juliantodate(*args, **kwargs):
 def pl_last(*args, **kwargs):
     return 0
 
+# Computer-clock builtins. They read the local computer clock, never the bars,
+# so a backtest result cannot depend on them unless the strategy uses them on
+# purpose. Tests patch _clock_now to pin the time.
+def _clock_now():
+    import datetime as _dt
+    return _dt.datetime.now()
+
+
+def _ole_days(now):
+    """Days since 1899-12-30 plus the time of day as a fraction (EL DateTime)."""
+    import datetime as _dt
+    delta = now - _dt.datetime(1899, 12, 30)
+    return delta.days + (delta.seconds + delta.microseconds / 1e6) / 86400.0
+
+
+def pl_currentdate(*args, **kwargs):
+    """CurrentDate: computer date as YYYMMDD (year - 1900)."""
+    now = _clock_now()
+    return (now.year - 1900) * 10000 + now.month * 100 + now.day
+
+
+def pl_currentdate_s(*args, **kwargs):
+    """CurrentDate_s: same value as CurrentDate (EL dates have no seconds part)."""
+    return pl_currentdate()
+
+
+def pl_currenttime(*args, **kwargs):
+    """CurrentTime: computer time as HHMM."""
+    now = _clock_now()
+    return now.hour * 100 + now.minute
+
+
+def pl_currenttime_s(*args, **kwargs):
+    """CurrentTime_s: computer time as HHMMSS."""
+    now = _clock_now()
+    return now.hour * 10000 + now.minute * 100 + now.second
+
+
+def pl_computerdatetime(*args, **kwargs):
+    """ComputerDateTime: computer date and time as an EL DateTime double."""
+    return _ole_days(_clock_now())
+
+
+# LastCalc*: the time of the most recent calculation. Backtests pass these in
+# from the final bar (bar_loop); called on their own they use the clock.
 def pl_lastcalcdatetime(*args, **kwargs):
-    return 0
+    return _ole_days(_clock_now())
 
 def pl_lastcalcjdate(*args, **kwargs):
-    return 0
+    return int(_ole_days(_clock_now()))
+
+def _clock_secs():
+    now = _clock_now()
+    return now.hour * 3600 + now.minute * 60 + now.second
 
 def pl_lastcalcmmtime(*args, **kwargs):
-    return 0
+    return _clock_secs() // 60
 
 def pl_lastcalcmstime(*args, **kwargs):
-    return 0
+    now = _clock_now()
+    return ((now.hour * 3600 + now.minute * 60 + now.second) * 1000
+            + now.microsecond // 1000)
 
 def pl_lastcalcsstime(*args, **kwargs):
-    return 0
+    return _clock_secs()
 
 def pl_legacycolortorgb(*args, **kwargs):
     return 0
