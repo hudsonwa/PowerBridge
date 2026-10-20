@@ -68,10 +68,10 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
     AccelUnavailable,
     run_native,
 )
-from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
+from pl_transpiler.tools import _cli  # noqa: E402
 from pl_transpiler.tools.pl_run import (  # noqa: E402
     load_bars, resolve_trade_from, unimplemented_stop_message,
 )
@@ -491,6 +491,9 @@ def _build_parser():
     ap.add_argument("--dump", default=None,
                     help="write the canonical fill lines (the hashed payload) here. "
                          "Their first field is the buy/sell side, not a position label.")
+    ap.add_argument("-v", "--verbose", action="store_true",
+                    help="print native-kernel diagnostics (skip-region plan) "
+                         "to stderr; PB_DEBUG=1 does the same.")
     ap.add_argument("--fills-csv", dest="fills_csv", default=None,
                     help="write a readable fill log CSV with a position-aware "
                          "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
@@ -503,7 +506,7 @@ def main(argv=None):
     if args.lenient:
         set_strict_mode(False)
     try:
-        return _main(ap, args)
+        return _cli.run("pl_oracle", _main, ap, args)
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_oracle", exc, args.el_file), file=sys.stderr)
         return 2
@@ -514,11 +517,14 @@ def _main(ap, args):
         ap.error("a bars CSV is required: pl_oracle <el_file> <bars_csv> ...")
 
     el_source = open(args.el_file, encoding="utf-8").read()
-    bars = load_bars(args.bars_csv)
-    data2_bars = load_bars(args.data2) if args.data2 else None
+    bars = _cli.bars_or_error(load_bars, args.bars_csv)
+    data2_bars = _cli.bars_or_error(load_bars, args.data2) if args.data2 else None
     data2_closes = ([float(b["close"]) for b in data2_bars]
                     if data2_bars is not None else None)
-    config = get_config(args.config)
+    config = _cli.config_or_error(args.config)
+    output = _cli.output_path(args.output)
+    if args.verbose:
+        os.environ["PB_ACCEL_VERBOSE"] = "1"
 
     result = run_oracle(
         el_source, bars, config,
@@ -540,8 +546,8 @@ def _main(ap, args):
     text = result["text"]
 
     sys.stdout.write(text)
-    if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
             f.write(text)
 
     if args.dump:
@@ -558,7 +564,7 @@ def _main(ap, args):
         fast_note = f", {result['fast_path_hits']} fast-path"
     print(f"[pl_oracle] {result['n_bars']} bars{warmup_note}, {result['fills']} fills, "
           f"{result['round_turns']} round-turns{fast_note} [{path_note}]"
-          + (f" -> {args.output}" if args.output else ""), file=sys.stderr)
+          + (f" -> {output}" if output else ""), file=sys.stderr)
 
     if args.compare:
         want = open(args.compare, encoding="utf-8").read()

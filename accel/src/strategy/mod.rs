@@ -134,7 +134,9 @@ pub(crate) fn run_program_audit_packet(
         NQ_ROUND_TURN_COST,
     )?;
     let plan = strategy.skip_plan(series);
-    if !plan.proven {
+    if !crate::kernel::diagnostics_enabled() {
+        // [accel] diagnostics are opt-in (--verbose / PB_DEBUG).
+    } else if !plan.proven {
         eprintln!("[accel] skip-region: full evaluation — {}", plan.reason);
     } else if plan.eval_from > 0 {
         eprintln!(

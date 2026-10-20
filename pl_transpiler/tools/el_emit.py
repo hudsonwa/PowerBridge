@@ -34,7 +34,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, REPO)
 
 from pl_transpiler.reverse import py_to_el, el_roundtrip
-from pl_transpiler.tools import mc_ground_check
+from pl_transpiler.tools import _cli, mc_ground_check
 
 
 def main(argv=None):
@@ -43,7 +43,11 @@ def main(argv=None):
     ap.add_argument("-o", "--output", default=None,
                     help="output EL file (default: stdout)")
     args = ap.parse_args(argv)
+    return _cli.run("el_emit", _main, args)
 
+
+def _main(args):
+    output = _cli.output_path(args.output)
     with open(args.input, encoding="utf-8") as f:
         src = f.read()
 
@@ -52,10 +56,10 @@ def main(argv=None):
     else:
         el = el_roundtrip(src)
 
-    if args.output:
-        with open(args.output, "w", encoding="utf-8", newline="\n") as f:
+    if output:
+        with open(output, "w", encoding="utf-8", newline="\n") as f:
             f.write(el)
-        emitted_path = args.output
+        emitted_path = output
     else:
         sys.stdout.write(el)
         # mc_ground_check needs a real path; write a temp copy for the gate.
@@ -65,7 +69,7 @@ def main(argv=None):
         emitted_path = tf.name
 
     rc = mc_ground_check.check(emitted_path)
-    if not args.output:
+    if not output:
         os.unlink(emitted_path)
     return rc
 

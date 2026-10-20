@@ -41,6 +41,7 @@ if REPO not in sys.path:
 
 from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
+from pl_transpiler.tools import _cli  # noqa: E402
 
 
 def _print_strict_report(in_path, errors):
@@ -89,7 +90,11 @@ def _build_parser():
 def main(argv=None):
     ap = _build_parser()
     args = ap.parse_args(argv)
+    return _cli.run("pl_transpile", _main, args)
 
+
+def _main(args):
+    output = _cli.output_path(args.output)
     src = open(args.in_file, encoding="utf-8").read()
 
     # Detect unimplemented keywords via the strict transpile (collect-all).
@@ -112,10 +117,10 @@ def main(argv=None):
         if errors:
             _print_partial_manifest(args.in_file, errors)
 
-    if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
             f.write(out)
-        print(f"[pl_transpile] wrote {args.output}", file=sys.stderr)
+        print(f"[pl_transpile] wrote {output}", file=sys.stderr)
     else:
         sys.stdout.write(out)
     return 0

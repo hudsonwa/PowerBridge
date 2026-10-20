@@ -54,7 +54,6 @@ from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
@@ -63,6 +62,7 @@ from pl_transpiler.engine import (  # noqa: E402
     FillEngine, run_bar_loop, _parse_el_date, _parse_el_time,
 )
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
+from pl_transpiler.tools import _cli  # noqa: E402
 
 
 def unimplemented_stop_message(prog, exc, el_file):
@@ -90,22 +90,38 @@ def load_bars_csv(path):
     bars = []
     with open(path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
-        header = [h.strip().lower() for h in next(reader)]
-        idx = {name: header.index(name)
-               for name in ('date', 'time', 'open', 'high', 'low', 'close', 'volume')}
+        try:
+            header = [h.strip().lower() for h in next(reader)]
+        except StopIteration:
+            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS))
+        missing = [name for name in _CSV_COLUMNS if name not in header]
+        if missing:
+            raise ValueError("header is missing column(s) %s (want: %s)"
+                             % (",".join(missing), ",".join(_CSV_COLUMNS)))
+        idx = {name: header.index(name) for name in _CSV_COLUMNS}
         for row in reader:
             if not row:
                 continue
-            bars.append({
-                'date': _parse_el_date(row[idx['date']].strip()),
-                'time': _parse_el_time(row[idx['time']].strip()),
-                'open': float(row[idx['open']]),
-                'high': float(row[idx['high']]),
-                'low': float(row[idx['low']]),
-                'close': float(row[idx['close']]),
-                'volume': float(row[idx['volume']]),
-            })
+            try:
+                bars.append(_csv_bar(row, idx))
+            except (ValueError, IndexError) as exc:
+                raise ValueError("line %d: %s" % (reader.line_num, exc)) from exc
     return bars
+
+
+_CSV_COLUMNS = ('date', 'time', 'open', 'high', 'low', 'close', 'volume')
+
+
+def _csv_bar(row, idx):
+    return {
+        'date': _parse_el_date(row[idx['date']].strip()),
+        'time': _parse_el_time(row[idx['time']].strip()),
+        'open': float(row[idx['open']]),
+        'high': float(row[idx['high']]),
+        'low': float(row[idx['low']]),
+        'close': float(row[idx['close']]),
+        'volume': float(row[idx['volume']]),
+    }
 
 
 def pbar_for(path):
@@ -458,7 +474,7 @@ def main(argv=None):
     if args.lenient:
         set_strict_mode(False)
     try:
-        return _main(ap, args)
+        return _cli.run("pl_run", _main, ap, args)
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_run", exc, args.el_file), file=sys.stderr)
         return 2
@@ -472,9 +488,9 @@ def _main(ap, args):
                if args.columns else None)
 
     el_source = open(args.el_file, encoding="utf-8").read()
-    bars = load_bars(args.bars_csv)
-    config = get_config(args.config)
-    out_path = args.output
+    bars = _cli.bars_or_error(load_bars, args.bars_csv)
+    config = _cli.config_or_error(args.config)
+    out_path = _cli.output_path(args.output)
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout
     writer = csv.writer(out_f)
 
@@ -505,7 +521,7 @@ def _main(ap, args):
 
     warmup_note = (f", {result['n_warmup']} warmup" if result.get("n_warmup") else "")
     print(f"[pl_run] {len(bars)} bars{warmup_note}, {result['n_rows']} rows, "
-          f"{len(result['trades'])} trades"
+          f"{len(result['trades'])} fills, {len(result['trades']) // 2} round-turns"
           + (f" -> {out_path}" if out_path else ""), file=sys.stderr)
     return 0
 

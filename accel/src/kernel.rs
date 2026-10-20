@@ -875,6 +875,14 @@ fn post_entry_walk(path: &[f64], entry: f64) -> Vec<f64> {
     path.to_vec()
 }
 
+/// Whether to print `[accel]` diagnostics to stderr: set by the CLIs' `--verbose`
+/// (`PB_ACCEL_VERBOSE=1`) or by `PB_DEBUG=1`. Off by default.
+pub(crate) fn diagnostics_enabled() -> bool {
+    ["PB_ACCEL_VERBOSE", "PB_DEBUG"]
+        .iter()
+        .any(|k| std::env::var(k).is_ok_and(|v| !v.is_empty() && v != "0"))
+}
+
 /// Run a Rust strategy over an entire tape without leaving native code.
 pub(crate) fn run_native<S: NativeStrategy>(
     tape: &BarTape,
@@ -882,7 +890,9 @@ pub(crate) fn run_native<S: NativeStrategy>(
     strategy: &mut S,
 ) -> Result<KernelOutcome, KernelError> {
     let plan = strategy.skip_plan(tape);
-    if !plan.proven {
+    if !crate::kernel::diagnostics_enabled() {
+        // [accel] diagnostics are opt-in (--verbose / PB_DEBUG).
+    } else if !plan.proven {
         eprintln!("[accel] skip-region: full evaluation — {}", plan.reason);
     } else if plan.eval_from > 0 {
         eprintln!(

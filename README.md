@@ -118,7 +118,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 
 ```
 note: powerbridge-accel not installed; using the pure-Python engine (slower). See README#acceleration
-[pl_run] 140 bars, 140 rows, 3 trades -> run_out.csv
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> run_out.csv
 ```
 
 The `note:` line goes to stderr and is expected without the optional
