@@ -56,7 +56,7 @@ jobs:
       - name: Install core, then install the built wheel (the extra)
         run: |
           python -m pip install .
-          python -m pip install accel/target/wheels/accel-*.whl
+          python -m pip install accel/target/wheels/powerbridge_accel-*.whl
 
       - name: The extra MUST load (fail loudly if it silently does not)
         # Import from a cwd that is NOT the repo root: the repo's source
@@ -129,9 +129,9 @@ jobs:
         run: |
           python - <<'PY'
           import importlib.metadata as md
-          deps = md.requires('pl-transpiler') or []
+          deps = md.requires('powerbridge') or []
           assert not deps, f'core must declare zero dependencies, got {deps}'
-          print('OK: pl-transpiler declares zero third-party dependencies')
+          print('OK: powerbridge declares zero third-party dependencies')
           PY
 
       - name: Public test tier (extra absent)

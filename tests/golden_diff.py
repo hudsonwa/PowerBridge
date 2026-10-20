@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-golden_diff.py - validate the pl-transpiler against MultiCharts ground-truth captures.
+golden_diff.py - validate PowerBridge against MultiCharts ground-truth captures.
 
 The captures (ground_truth/captures/*.csv, see MANIFEST.md) are the authoritative
 per-bar output produced by running the GT scripts in MultiCharts. This tool has two

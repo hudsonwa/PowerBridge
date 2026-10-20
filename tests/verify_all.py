@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-verify_all.py — FULL-SUITE regression gate for the pl-transpiler.
+verify_all.py — FULL-SUITE regression gate for PowerBridge.
 
 This is the single definition of DONE. It runs the ENTIRE suite and prints a
 PASS/FAIL scoreboard, exiting non-zero if ANYTHING regresses:

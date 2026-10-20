@@ -16,7 +16,47 @@
 
 # PowerBridge
 
+[![Public tests](https://github.com/hudsonwa/PowerBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/hudsonwa/PowerBridge/actions/workflows/ci.yml)
+[![accel (Rust)](https://github.com/hudsonwa/PowerBridge/actions/workflows/accel.yml/badge.svg)](https://github.com/hudsonwa/PowerBridge/actions/workflows/accel.yml)
+
 EasyLanguage / PowerLanguage to Python transpiler, and back.
+
+**Status: 0.2.0 preview.** Trade lists match MultiCharts fill-for-fill on the
+1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
+multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
+runs the same backtest 13-97x faster with identical fills.
+
+## See it work
+
+`examples/ma_cross.el`:
+
+```
+Inputs: FastLen(9), SlowLen(21);
+Vars: Fast(0), Slow(0);
+Fast = Average(Close, FastLen);
+Slow = Average(Close, SlowLen);
+If Fast crosses above Slow Then Buy ("LE") Next Bar At Market;
+If Fast crosses below Slow Then Sell ("LX") Next Bar At Market;
+```
+
+`pl_transpile examples/ma_cross.el` emits plain Python (excerpt):
+
+```python
+fast = f32(pl_average(close, fastlen))
+slow = f32(pl_average(close, slowlen))
+if pl_crosses_above((_state['fast'] + [fast]), (_state['slow'] + [slow])):
+    _orders.append(('buy', 'market', 0, 'next', 'LE'))
+```
+
+`pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv` backtests it and
+prints an exact trade digest (the same on the Rust and Python paths):
+
+```
+powerbridge-trade-digest v1
+fills: 3
+round_turns: 1
+sha256: 239484d32aa2945dabac2f68d739786fea5388cdb150bc54e4d799bef344d06e
+```
 
 Write and test a strategy in Python, then emit EasyLanguage that passes name, argument-count and return-type checks for
 MultiCharts or TradeStation. Or take existing EL and run it bar-by-bar in Python.
@@ -33,7 +73,7 @@ Python 3.9 or newer.
 pip install .
 ```
 
-That installs the `pl_transpiler` package and four commands: `el_emit`,
+That installs the `powerbridge` distribution (import name `pl_transpiler`) and four commands: `el_emit`,
 `pl_run`, `pl_transpile`, and `pl_oracle`.
 
 Examples below use `ground_truth/GT2_strategy_orders_position.txt` (a small
@@ -54,7 +94,7 @@ Build it from a checkout (needs a Rust toolchain):
 pip install .                                    # core (pure stdlib)
 pip install maturin
 (cd accel && maturin build --release)            # accel wheel
-pip install accel/target/wheels/accel-*.whl      # the native module
+pip install accel/target/wheels/powerbridge_accel-*.whl      # the native module
 cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
 ```
 

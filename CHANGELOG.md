@@ -2,6 +2,8 @@
 
 ## 0.2.0 — 2026-10-20
 
+- Distribution renamed `pl-transpiler` -> `powerbridge`; the Rust wheel is `powerbridge-accel`.
+  The import name stays `pl_transpiler`.
 - Optional Rust fast path (`accel/`, module `pl_transpiler._accel`): native bar
   loop and fill engine in one FFI call, Data2 support, batched and threaded
   input sweeps, prefix-skip and slice-before-marshal, typed trace bridge,

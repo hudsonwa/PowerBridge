@@ -37,7 +37,7 @@ must honor around the optional fast path.
 ## The interface (frozen — shared across the kernel, CI, and test lanes)
 
 - The optional extra is named **`accel`** (`pip install .[accel]`; distribution
-  form `pl-transpiler[accel]`). Do not rename it.
+  form `powerbridge[accel]`). Do not rename it.
 - The native extension's import path is **`pl_transpiler._accel`**. Do not rename it.
 - **Extra absent** → `import pl_transpiler._accel` raises `ImportError`; callers
   **fall back to the Python path loudly** and results are **identical** — same

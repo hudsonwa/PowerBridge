@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "accel"
+name = "powerbridge-accel"
 version = "0.2.0"
 description = "PowerBridge native bar-loop and fill-engine kernel extra"
 requires-python = ">=3.9"

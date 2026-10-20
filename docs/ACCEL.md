@@ -36,7 +36,7 @@ them anywhere:
 
 | Fact | Value |
 |---|---|
-| Extra name | `accel` — `pip install .[accel]` (source tree) / `pl-transpiler[accel]` (distribution name) |
+| Extra name | `accel` — `pip install .[accel]` (source tree) / `powerbridge[accel]` (distribution name) |
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
@@ -204,8 +204,8 @@ reserved binding point and is not required by anything.
   ```bash
   cd accel
   maturin build --release
-  # -> accel/target/wheels/accel-0.2.0-cp39-cp39-macosx_11_0_arm64.whl
-  pip install ../target/wheels/accel-*.whl   # or pip install accel/target/wheels/*.whl from the root
+  # -> accel/target/wheels/powerbridge_accel-0.2.0-cp39-cp39-macosx_11_0_arm64.whl
+  pip install ../target/wheels/powerbridge_accel-*.whl   # or pip install accel/target/wheels/*.whl from the root
   ```
 
   The wheel contains `pl_transpiler/_accel*.so` (the mixed-layout `python-source`
