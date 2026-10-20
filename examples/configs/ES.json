@@ -1,0 +1,16 @@
+{
+  "name": "ES",
+  "bigpointvalue": 50,
+  "pointvalue": 0.5,
+  "minmove": 25,
+  "pricescale": 100,
+  "tick": 0.25,
+  "sess1starttime": 830,
+  "barinterval": 1,
+  "symccy": 1,
+  "symnm": "@ES#C",
+  "symalt": "@ES#C",
+  "descstr": "E-MINI S&P 500",
+  "expdate": 1130331,
+  "category": 0
+}

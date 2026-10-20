@@ -441,7 +441,9 @@ def _build_parser():
                          "or a .pbar produced by csv_to_pbar / "
                          "python -m pl_transpiler.runtime.bar_tape csv2pbar.")
     ap.add_argument("--config", default="NQ",
-                    help="instrument config name (default: NQ).")
+                    help="instrument config: a built-in name (NQ, ES) or a path to a "
+                         "JSON file with the same fields, e.g. examples/configs/ES.json "
+                         "(default: NQ).")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write predicted per-bar CSV here (default: stdout).")
     ap.add_argument("--columns", default=None,

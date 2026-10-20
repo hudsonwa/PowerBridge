@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Features
+
+- `--config` on `pl_run` and `pl_oracle` now also accepts a path to a JSON
+  instrument config with exactly the `InstrumentConfig` fields (#74). Unknown
+  or missing keys and wrong types are a one-line error, exit 2. The built-in
+  NQ and ES configs ship as `examples/configs/NQ.json` and `ES.json`; the
+  README's "Other instruments" section documents the format and the engine's
+  commission, slippage and position-limit assumptions.
+
 ### Fixes
 
 - `pl_run` and `pl_oracle` now report an unimplemented EL keyword (for

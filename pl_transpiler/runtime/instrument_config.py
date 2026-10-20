@@ -27,13 +27,17 @@ This module holds:
   * InstrumentConfig — an immutable dataclass of those constants.
   * NQ — the config reproducing today's exact validated @NQ#C values.
   * ES — @ES#C RTH 1-min.
-  * get_config(name) — select a config by name for a GT run.
+  * get_config(name) — select a config by name, or load it from a JSON file.
+  * load_config_file(path) — read an InstrumentConfig from a JSON file whose
+    keys are exactly the InstrumentConfig fields (examples/configs/*.json).
 
 Integrity note: these are KNOWN chart/instrument config (sourced from the chart
 spec, not from the capture under test), so injecting them per-run preserves the
 audited non-circular sourcing.
 """
-from dataclasses import dataclass
+import json
+import os
+from dataclasses import MISSING, dataclass, fields
 
 
 @dataclass(frozen=True)
@@ -107,10 +111,64 @@ _CONFIGS = {
 }
 
 
+class ConfigFileError(ValueError):
+    """A malformed instrument config JSON file (one-line message)."""
+
+
+def _type_ok(value, typ):
+    # bool is an int subclass but never a valid numeric config value.
+    if isinstance(value, bool):
+        return False
+    if typ is float:
+        return isinstance(value, (int, float))
+    return isinstance(value, typ)
+
+
+def load_config_file(path):
+    """Load an InstrumentConfig from the JSON object in `path`.
+
+    Keys are exactly the InstrumentConfig field names; `category` is optional
+    (default 0). Unknown keys, missing keys and wrong types raise
+    ConfigFileError; a missing file raises OSError.
+    """
+    with open(path, encoding="utf-8") as fh:
+        try:
+            data = json.load(fh)
+        except ValueError as exc:
+            raise ConfigFileError(f"bad config file {path}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ConfigFileError(f"bad config file {path}: expected a JSON object")
+    spec = {f.name: f for f in fields(InstrumentConfig)}
+    unknown = sorted(set(data) - set(spec))
+    if unknown:
+        raise ConfigFileError(
+            f"bad config file {path}: unknown key(s) {', '.join(unknown)}; "
+            f"allowed: {', '.join(spec)}")
+    missing = [n for n, f in spec.items() if n not in data and f.default is MISSING]
+    if missing:
+        raise ConfigFileError(
+            f"bad config file {path}: missing key(s) {', '.join(missing)}")
+    for name, value in data.items():
+        typ = spec[name].type
+        typ = {"float": float, "int": int, "str": str}.get(typ, typ)
+        if not _type_ok(value, typ):
+            raise ConfigFileError(
+                f"bad config file {path}: {name} must be {typ.__name__}, "
+                f"got {type(value).__name__} {value!r}")
+    return InstrumentConfig(**data)
+
+
 def get_config(name="NQ"):
-    """Return the InstrumentConfig registered under `name` (default 'NQ')."""
+    """Return the InstrumentConfig registered under `name` (default 'NQ').
+
+    A `name` ending in ``.json`` or naming an existing file is loaded with
+    load_config_file instead.
+    """
+    if name not in _CONFIGS and (name.lower().endswith(".json") or os.path.isfile(name)):
+        return load_config_file(name)
     try:
         return _CONFIGS[name]
     except KeyError:
         raise KeyError(
-            f"unknown instrument config {name!r}; known: {sorted(_CONFIGS)}")
+            f"unknown instrument config {name!r}; known: {sorted(_CONFIGS)} "
+            "or a path to a JSON config file")

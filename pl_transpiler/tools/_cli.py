@@ -15,7 +15,7 @@
 """Shared error handling for the console entry points.
 
 User mistakes (an EL syntax error, an unimplemented EL keyword or undeclared
-variable, a missing input file, an unknown --config,
+variable, a missing input file, an unknown --config or a malformed --config JSON file,
 a malformed bars CSV) print ``<tool>: error: <message>`` to stderr and exit 2
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
@@ -40,11 +40,13 @@ def output_path(path):
 
 
 def config_or_error(name):
-    from pl_transpiler.runtime.instrument_config import get_config
+    from pl_transpiler.runtime.instrument_config import ConfigFileError, get_config
     try:
         return get_config(name)
     except KeyError as exc:
         raise CliError(exc.args[0] if exc.args else str(exc)) from exc
+    except ConfigFileError as exc:
+        raise CliError(str(exc)) from exc
 
 
 def bars_or_error(load, path):

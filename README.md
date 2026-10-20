@@ -272,6 +272,55 @@ Agents and scripts: see [AGENTS.md](AGENTS.md). LLM dialect notes:
 [docs/LLM_DIALECT.md](docs/LLM_DIALECT.md). Bar and capture format:
 [docs/CAPTURES.md](docs/CAPTURES.md).
 
+### Other instruments
+
+`--config` takes a built-in name (`NQ`, the default, or `ES`) or a path to a
+JSON file. The file's keys are exactly the fields of
+`InstrumentConfig` in
+[`pl_transpiler/runtime/instrument_config.py`](pl_transpiler/runtime/instrument_config.py);
+`category` is optional (default 0). The built-ins ship as
+[`examples/configs/NQ.json`](examples/configs/NQ.json) and
+[`examples/configs/ES.json`](examples/configs/ES.json): copy one and edit
+`bigpointvalue` ($ per full point per contract), `pointvalue`, `minmove`,
+`pricescale`, `tick`, the session start and the symbol fields. An unknown key,
+a missing key or a wrong type stops the run with one `error:` line and exit 2.
+
+The same bars and strategy with the ES point value ($50 instead of $20):
+
+```bash
+pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
+    --config examples/configs/ES.json --columns MarketPosition,NetProfit -o es_out.csv
+```
+
+```
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> es_out.csv
+```
+
+<!-- readme-test: file es_out.csv -->
+```
+MarketPosition,NetProfit
+...
+0,3359.496093750022
+...
+```
+
+The trade list (and so the `pl_oracle` digest) does not depend on the point
+value; profit figures do.
+
+What the engine assumes, whatever the config:
+
+- **No commission and no slippage.** Profit is the fill-price difference times
+  `bigpointvalue` times contracts, with nothing deducted; `next bar at market`
+  fills at the next bar's open. The `Commission` and `Slippage` keywords
+  return 0, and the native kernel is passed commission 0 and slippage 0.
+- **No position limit.** Every `Buy` / `SellShort` fills and adds to the
+  position (there is no pyramiding cap); `Buy` while short and `SellShort`
+  while long reverse; `Sell` / `BuyToCover` only close.
+- `tick` is only used to round money-management stop and target fill prices
+  (`SetStopLoss`, `SetProfitTarget`, trailing, breakeven) to the price grid.
+- The session end is not configurable: it is 1515 (the @NQ#C / @ES#C close)
+  for the session-end keywords and the native kernel.
+
 ## Acceleration
 
 The optional `accel` fast path (Rust).
