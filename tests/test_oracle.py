@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_oracle.py — exact trade-list digest (issue #11).
+test_oracle.py — exact trade-list digest.
 
 The oracle runs persist=True / min-emit and prints a canonical digest.
 Two runs on unchanged code must be byte-identical. persist is required:

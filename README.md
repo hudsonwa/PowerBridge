@@ -74,6 +74,7 @@ Python 3.9 or newer, no other dependencies. Run these from the repository root.
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
+python -m pip install -U pip
 pip install .
 ```
 

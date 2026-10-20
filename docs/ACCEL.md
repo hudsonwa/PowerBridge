@@ -20,10 +20,9 @@
 > **Status note (0.2.0):** this file is the design record from the phase-1
 > rollout. The native kernel has since shipped strategy execution
 > (`run_program`, Data2, sweeps, trace). For current behaviour, read
-> `README.md` and `AGENTS.md` (`pl_transpiler.runtime.accel`). Issue numbers
-> refer to the original private tracker.
+> `README.md` and `AGENTS.md` (`pl_transpiler.runtime.accel`).
 
-This is the recorded decision behind issue [#17](https://github.com/hudsonwa/PowerBridge/issues/17):
+This is the recorded decision on
 the product shape of the optional native fast path, written **before** any kernel
 code exists, so the boundary is agreed rather than discovered later. It changes no
 behaviour. It promises no speed. This document is the contract; the kernel, CI, and
@@ -40,8 +39,8 @@ them anywhere:
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
-Because these three facts are shared verbatim with the kernel work (#18), the CI/wheel
-work (#21), and the tests, they are frozen here: renaming any of them in a later
+Because these three facts are shared verbatim with the kernel work, the CI/wheel
+work, and the tests, they are frozen here: renaming any of them in a later
 PR is a contract break, not a cleanup.
 
 The fallback rule in the third row is not decoration — it is the load-bearing
@@ -96,8 +95,8 @@ So the real mechanism is this: **`pip install .[accel]` works only by declaring
 one dependency that itself ships the native extension module
 `pl_transpiler._accel`** — a second, separately built distribution whose wheel
 installs that module into the `pl_transpiler` package directory. As of this
-writing **that distribution does not exist**: it is owned by issue #18 (the
-kernel), #21 (the wheel builds), and a publishing decision this document
+writing **that distribution does not exist**: it is owned by the kernel work,
+the wheel builds, and a publishing decision this document
 deliberately does **not** make.
 
 The rejected alternatives, and why — each is stated so nobody quietly ships a
@@ -124,11 +123,11 @@ Because none of those is both true and achievable inside this repository alone, 
 decision recorded here is the fourth option: **a second distribution, published
 separately, whose wheel provides `pl_transpiler._accel`.** Which artifact — name,
 index (PyPI-free, a private index, GitHub releases, or nothing yet), platform matrix,
-and who publishes it — is **an open product-level decision, flagged on issue #17**,
+and who publishes it — is **an open product-level decision**,
 not invented here. Until that decision lands and the artifact exists,
 `pip install .[accel]` is documented as *declared but not yet satisfiable*: it is
 reserved to make the future install honest, and the extra name `accel` is frozen so
-the kernel (#18), the CI/wheel build (#21), the conformance work (#20), and the
+the kernel, the CI/wheel build, the conformance work, and the
 tests can build against one shared name instead of four guesses.
 
 What is true *today*, verifiably, without the artifact:
@@ -157,7 +156,7 @@ the extra is trusting the wheel's publisher and its toolchain **in addition to**
 trusting the strategy file. If you cannot audit that, you should not accelerate.
 
 The equivalence bar: an `accel` run must produce the **exact same trade list** —
-same fills, same order, same count — as the Python path (the oracle digest of #11),
+same fills, same order, same count — as the Python path (the `pl_oracle` trade-list digest),
 not "close". A fast path that disagrees is a bug, not a feature, and the fail-loud
 rule above is what turns disagreement into an error instead of a silent wrong answer.
 
@@ -176,7 +175,7 @@ a one-line banner on stderr stating the path used — for example
 `[pl_run] path=accel (pl_transpiler._accel <version>)` or
 `[pl_run] path=python (accel extra not installed)` — and the kernel must provide a
 compatibility marker checked at import time so a wheel built for a different dialect
-version raises loudly instead of running stale semantics (see #21). A missing or
+version raises loudly instead of running stale semantics. A missing or
 broken accel must degrade to the Python path with a clear message — never crash,
 never silently produce a different result.
 
@@ -185,13 +184,13 @@ never silently produce a different result.
 Mirroring the test-tier map in [AGENTS.md](../AGENTS.md): the public tier
 (`python3 tests/run_public_tier.py`) exercises the Python path only and must stay
 green with or without the extra — it never requires Rust. The differential
-conformance harness (#20) and the full-tape fidelity gate (#19) are the gates that
+conformance harness and the full-tape fidelity gate are the gates that
 keep the fast path honest; until they exist, the accel path, if built, must not be
 trusted to run. Do not measure performance against the accel path while driving in
 conditions it has never been proven to match; this document makes **no**
 performance claims.
 
-## Wheels and CI (issue #21)
+## Wheels and CI
 
 The `accel` crate (`accel/` at the repo root) is a **separate distribution** whose
 wheel installs `pl_transpiler._accel` next to the core package. The root
@@ -213,7 +212,7 @@ reserved binding point and is not required by anything.
   from a cwd that is **not** the repo root, or the checkout's source `pl_transpiler`
   shadows the installed module (see `accel/README.md`).
 
-- **What CI runs** (`.github/workflows/accel.yml`, issue #21): two jobs.
+- **What CI runs** (`.github/workflows/accel.yml`): two jobs.
   `accel-macos-arm64` **runs the accel path**, not merely builds it — it installs
   the extra, imports `pl_transpiler._accel` from a non-repo cwd, asserts
   `ping() == 42` and `run()` raising `NotImplementedError`, then runs the public

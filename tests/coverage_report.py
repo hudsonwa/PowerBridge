@@ -615,7 +615,7 @@ def main():
                          "two writers on one predicted CSV corrupt both runs.")
     ap.add_argument("--parity-max-bars", type=int, default=3000, dest="max_bars",
                     help="bounded bar cap for the parity section (default 3000; the "
-                         "pure-Python runner is superlinear toward 249k — see #7).")
+                         "pure-Python runner is superlinear toward 249k).")
     ap.add_argument("--full", action="store_true",
                     help="run parity at the TRUE full range (slow; max_bars=None).")
     ap.add_argument("--roundtrip-max-bars", type=int, default=400,

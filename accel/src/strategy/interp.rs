@@ -15,7 +15,7 @@
 //! Bar-by-bar execution of a compiled program (see `super::compile`).
 //!
 //! The v2 program IR is lowered once (in `Interpreter::new`) into a flat
-//! `Vec<Instr>`, then specialised for the frozen Input vector (issue #23):
+//! `Vec<Instr>`, then specialised for the frozen Input vector:
 //! constants are folded in, no-ops and dead `Once` bodies are dropped, and
 //! common numeric sequences become a single opcode. Each `on_bar` walks the
 //! specialised stream — first-bar and rest are separate blocks, so there is
@@ -39,7 +39,7 @@ use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, S
 
 pub(crate) struct Interpreter<'a> {
     program: Program,
-    /// Specialised stream for this variant's Inputs (issue #23). Shared via
+    /// Specialised stream for this variant's Inputs. Shared via
     /// `Arc` so `run` can borrow it without `mem::take` of the opcode vec.
     code: Arc<Specialized>,
     #[allow(dead_code)]
@@ -173,7 +173,7 @@ impl<'a> Interpreter<'a> {
         self.position = position;
         self.orders.clear();
         self.risk = RiskUpdate::default();
-        // LoadVar is hoisted out of the specialised stream (issue #23): copy
+        // LoadVar is hoisted out of the specialised stream: copy
         // prev → vars here, including the f32 narrowing LoadVar used to do.
         for slot in 0..self.vars.len() {
             let prev = self.prev[slot].clone();

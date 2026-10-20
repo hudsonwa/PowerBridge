@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Identity cache for the FFI ``series`` dicts (issue #13 rank 4).
+"""Identity cache for the FFI ``series`` dicts.
 
 Boxing ~7 columns of a tape into Python lists is the marshal cost. A sweep
 of N variants over the same tape must marshal once, not N times. These tests

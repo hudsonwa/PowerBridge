@@ -186,7 +186,7 @@ pub(crate) fn skip_eval_from(
 /// Matches [`run_program_audit_packet`] byte-for-byte for the same `inputs` and
 /// `config` when `eval_from` is that program's proven prefix skip and
 /// `source_bar_count` is the full tape length — the slice-before-marshal solo
-/// reference (issue #50 re-scoped).
+/// reference.
 pub(crate) fn run_program_audit_packet_sliced(
     program_ir: &str,
     series: &BarTape,

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Slice-before-marshal audit-packet sweep (issue #50 re-scoped).
+"""Slice-before-marshal audit-packet sweep.
 
 Proves, on the fix-mid fixture and the shipped NQ EL, that the sliced batch is
 byte-identical to the full-tape packet (``sliced == full``), that the audit

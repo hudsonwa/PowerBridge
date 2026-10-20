@@ -313,8 +313,8 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     to_date       : optional inclusive EL-date upper bound (YYYMMDD).
     from_bar      : optional 0-based tape-index lower bound. Exclusive with
                     from_date.
-    seed_warmup   : False (default, issue #11): drop the prefix (tape slice).
-                    True (issue #12): keep the prefix, run it with fills
+    seed_warmup   : False (default): drop the prefix (tape slice).
+                    True: keep the prefix, run it with fills
                     suppressed so Once / lookback / Variables stay primed.
                     A windowed run that disagrees on trades is a
                     bug, not a speed win.

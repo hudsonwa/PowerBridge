@@ -427,7 +427,7 @@ fn unary_minus_input_default_matches_python() {
 fn average_of_variable_matches_python_numeric_history() {
     // `Average(Up, 3)` makes `Up` a NumericVar series source, so its `num_history`
     // (not the value history) is what Average reads. Must stay bit-exact after
-    // the per-slot history gating (issue #27).
+    // the per-slot history gating.
     let source = "Variables: Up(0), MA(0);\n\
                   Up = Close + 0.25;\n\
                   MA = Average(Up, 3);\n\

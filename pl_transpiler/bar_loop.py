@@ -109,7 +109,7 @@ def run_bar_loop(
     (no per-bar ``**`` copy). Hand-written ``def strategy(..., **kwargs)``
     callers still receive a copied unpack.
 
-    trade_from: first tape index that may fill or emit (issue #12 seeded warmup).
+    trade_from: first tape index that may fill or emit (seeded warmup).
     Bars before it still run the strategy, grow history, and persist `_state`
     (Once / Average / Close[1] / Variables see the prefix), but FillEngine fills
     are suppressed. The last warmup bar may queue "next bar" orders so a signal
@@ -205,12 +205,12 @@ def run_bar_loop(
 
     # Growing-history buffers. PAD=1 leading zero mirrors run_gt; init_hist lets a
     # caller pre-seed real pre-capture warmup bars (GTA5 Data1).
-    # Issue #13: these stay Python lists. Isolated FAST-LANE (856,914 bars):
+    # These stay Python lists. Isolated FAST-LANE (856,914 bars):
     # array.array append+[-1] is ~1.2× slower (re-boxes a float on every read);
     # a Python __getitem__ wrapper is ~2.7× slower; MaxBarsBack pop(0) cap is
     # noise on Audit Ref 3. strategy() wants Python floats; list.append stores the
     # tape's existing PyFloat. A contiguous buffer is the right FFI layout for
-    # the optional accel extra (#18) — do not silently switch this path.
+    # the optional accel extra — do not silently switch this path.
     if init_hist is not None:
         o_hist = init_hist['o']; h_hist = init_hist['h']; l_hist = init_hist['l']
         c_hist = init_hist['c']; v_hist = init_hist['v']

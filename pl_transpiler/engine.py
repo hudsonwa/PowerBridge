@@ -141,7 +141,7 @@ class FillEngine:
         self.entry_time = 0         # open position: entry bar EL time (HHMM)
         self.entry_name = ''        # open position: entry signal name
         self.entry_cat = 0          # open position: entry order category (3 = Market, pdf:11953)
-        # Fast-path instrumentation (#30): number of flat, no-work bars whose
+        # Fast-path instrumentation: number of flat, no-work bars whose
         # before_bar lifecycle was skipped. A public counter — the transition
         # tests and the oracle status line read it to prove the fast path fired.
         self.fast_path_hits = 0
@@ -166,7 +166,7 @@ class FillEngine:
         return bool(r.get('exit_on_close', False))
 
     def no_work_state(self):
-        """Exact predicate for the bar the engine can skip entirely (#30).
+        """Exact predicate for the bar the engine can skip entirely.
 
         True iff the position is flat, no next-bar or on-close order is queued,
         and no risk is armed. In that state every ``before_bar`` computation is

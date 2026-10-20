@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""accel_gate.py — the native-vs-Python canonical-digest gate (issue #5).
+"""accel_gate.py — the native-vs-Python canonical-digest gate.
 
 Standalone CI gate. Its first step builds/installs the native cdylib; then it
 runs the reference strategy through the NATIVE path and the Python path and

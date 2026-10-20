@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The native-vs-Python canonical-digest differential gate (issue #5).
+"""The native-vs-Python canonical-digest differential gate.
 
 One test: the native kernel and the Python path must produce the identical
 canonical digest for the same program over the same tape, AND the native path

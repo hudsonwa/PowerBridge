@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_seed_warmup.py — issue #12: opt-in run window with seeded warmup.
+test_seed_warmup.py — opt-in run window with seeded warmup.
 
 Default remains the full tape. A window is opt-in via from_date / from_bar.
 
@@ -25,7 +25,7 @@ Default remains the full tape. A window is opt-in via from_date / from_bar.
   state / history / Once stay primed. The last warmup bar may queue a
   "next bar" order that fills on the first trading bar.
 
-pl_oracle --from-date stays a tape slice (#11 FAST LANE). --seed-warmup opts
+pl_oracle --from-date stays a tape slice. --seed-warmup opts
 into the seeded path. pl_run --from-date defaults to seeded warmup; --slice
 drops the prefix.
 

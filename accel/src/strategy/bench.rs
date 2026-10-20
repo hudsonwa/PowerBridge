@@ -1,4 +1,4 @@
-// Temporary benchmark harness (issue #9 profiling). Not part of the shipped
+// Temporary benchmark harness (profiling). Not part of the shipped
 // test surface; wire via `#[cfg(test)] mod bench;` in strategy/mod.rs.
 
 use std::collections::HashMap;

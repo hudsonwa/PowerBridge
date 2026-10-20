@@ -343,7 +343,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # Clean (mirror) dialect keeps the list-only coercion — py_front reads
         # that exact prologue. persist/trace also accept array.array / memoryview
         # so a contiguous buffer can be passed in without being wrapped as a
-        # 1-element list (issue #13/#14). Engine still passes Python lists:
+        # 1-element list. Engine still passes Python lists:
         # array[-1] re-boxes a float and measured slower on Audit Ref 3.
         header = (
             sig

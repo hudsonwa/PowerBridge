@@ -131,7 +131,7 @@ pub(crate) struct FillEngine {
     entry_time: i64,
     entry_name: String,
     entry_category: i64,
-    // Fast-path instrumentation (#30): flat, no-work bars whose before_bar was
+    // Fast-path instrumentation: flat, no-work bars whose before_bar was
     // skipped. Mirrors the Python engine's `fast_path_hits` and kernel.rs.
     fast_path_hits: usize,
 }
@@ -303,7 +303,7 @@ impl FillEngine {
     }
 
     pub(crate) fn no_work_state(&self) -> bool {
-        // Exact mirror of the Python engine's `no_work_state` (#30).
+        // Exact mirror of the Python engine's `no_work_state`.
         self.market_position == 0
             && self.pending_orders.is_empty()
             && self.on_close_pending.is_empty()

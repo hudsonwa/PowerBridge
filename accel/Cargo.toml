@@ -17,7 +17,7 @@ serde = "1"
 serde_json = { version = "1", features = ["unbounded_depth"] }
 sha2 = "0.10"
 
-# Candidate #7 (issue #13): release-profile tuning for the SHIPPED extension.
+# Release-profile tuning for the SHIPPED extension.
 #
 # This is a dedicated profile, NOT `[profile.release]`, on purpose. Setting
 # `lto = "fat"` on the default release profile breaks `cargo test --release`

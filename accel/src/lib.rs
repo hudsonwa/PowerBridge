@@ -405,7 +405,7 @@ fn cell_to_python(py: Python<'_>, cell: strategy::Cell) -> PyResult<Py<PyAny>> {
 /// Execute a v2 `program_ir` natively and return the typed per-bar trace plus
 /// the ordered fills the same loop produced.
 ///
-/// This is the typed trace bridge (issue #42): one FFI crossing emits the
+/// This is the typed trace bridge: one FFI crossing emits the
 /// kernel's register values **typed** (not pre-formatted strings), so Python
 /// owns text rendering. It reproduces the `run_el` full-trace shape but typed,
 /// and is independent of the `audit-event-v1` packet (the measured sub-second

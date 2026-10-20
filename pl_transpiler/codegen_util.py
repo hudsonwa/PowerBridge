@@ -116,7 +116,7 @@ def _f32_literal_const(node):
 
     Bit-identical to calling ``pl_runtime.f32`` at run time. persist/trace use
     this for assignments like ``X = 0`` so they are not a ctypes round-trip
-    every bar (issue #15). The clean mirror dialect still emits ``f32(<lit>)``.
+    every bar. The clean mirror dialect still emits ``f32(<lit>)``.
     """
     from .runtime.pl_runtime import f32
     if node.get('type') == 'number':

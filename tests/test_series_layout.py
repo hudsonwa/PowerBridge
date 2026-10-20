@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_series_layout.py — issue #13 / #14: series contract + window bit-identity.
+test_series_layout.py — series contract + window bit-identity.
 
 The engine keeps growing Python lists (PAD=1, close[-1] = current bar). persist
 and trace strategies accept list / array.array / memoryview; the clean mirror

@@ -356,7 +356,7 @@ pub(crate) struct Program {
     // Per-slot flags: which slots must keep a growing bar history because their
     // value is observable as a series (BarRefVar read, average/crosses arg).
     // A variable that is only ever read as a scalar keeps no history at all —
-    // the interpreter retains only its current value across bars (issue #27).
+    // the interpreter retains only its current value across bars.
     pub(crate) var_needs_value_history: Vec<bool>,
     pub(crate) var_needs_numeric_history: Vec<bool>,
 
@@ -1367,7 +1367,7 @@ mod tests {
     }
 
     /// One numeric variable, only ever used as a scalar: neither history is
-    /// attached (issue #27 — the Audit Ref 3 shape).
+    /// attached (the Audit Ref 3 shape).
     #[test]
     fn scalar_only_variable_needs_no_history() {
         let (value, numeric) = needs(

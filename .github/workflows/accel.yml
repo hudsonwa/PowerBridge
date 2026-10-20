@@ -1,8 +1,8 @@
 name: accel extra (CI + wheels)
 
-# Issue #21 — CI and wheels for the optional `accel` fast path.
+# CI and wheels for the optional `accel` fast path.
 #
-# Product shape (locked by #17, docs/ACCEL.md): core `dependencies = []`
+# Product shape (locked by docs/ACCEL.md): core `dependencies = []`
 # (pure stdlib); the fast path is the opt-in `[accel]` extra; the native
 # module is `pl_transpiler._accel`; an absent extra is the documented normal
 # state (ImportError -> callers fall back to the Python path loudly).
@@ -80,14 +80,14 @@ jobs:
         run: python3 tests/run_public_tier.py
 
       - name: Differential conformance harness + wheel-load gate
-        # The python-vs-accel differential gate and the digest gate (issue #5) arm once
+        # The python-vs-accel differential gate and the digest gate arm once
         # the kernel's execution boundary is frozen; otherwise they skip cleanly from
         # the repo root (repo package shadows the installed module), exactly as their
         # authors designed. The wheel-load gate above is the load proof.
         run: python3 -m pytest tests/test_accel_conformance.py tests/test_accel_wheel.py tests/test_accel_digest_gate.py -q
 
       - name: Native-vs-Python digest gate (native path must be taken)
-        # Independent gate (issue #5): builds/installs the cdylib as its first step,
+        # Independent gate: builds/installs the cdylib as its first step,
         # runs both paths, and compares the canonical digest — AND asserts the native
         # path was actually taken (a silent Python fallback is a FAIL, not a pass).
         run: python3 tools/accel_gate.py

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Wheel-load gate for the optional accel extra (issue #21).
+"""Wheel-load gate for the optional accel extra.
 
 Proves the INSTALLED native module -- not the repo source tree -- actually
 loads and exposes the frozen phase-1 contract:

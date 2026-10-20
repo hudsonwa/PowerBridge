@@ -15,7 +15,7 @@
 -->
 
 
-# AGENTS.md addendum — the optional `accel` fast path (issue #17)
+# AGENTS.md addendum — the optional `accel` fast path
 
 > **Status note (0.2.0):** this file is the design record from the phase-1
 > rollout. The native kernel has since shipped strategy execution
@@ -28,7 +28,7 @@ Companion to [docs/ACCEL.md](../ACCEL.md) (the decision record) and
 machine-facing contract; this addendum states, in the same voice, the facts an agent
 must honor around the optional fast path.
 
-> **Editing note for the maintainer (#17).** The three facts below were to be
+> **Editing note for the maintainer.** The three facts below were to be
 > woven into the run_el paragraph of "Python API contracts", the "Invariants" list,
 > and the "Limitations (contract form)" list of this file. An approval gate on
 > protected agent-instruction files timed out during that change and the fold could
@@ -45,16 +45,14 @@ must honor around the optional fast path.
   The extra is opt-in; the default install stays pure standard library with
   `dependencies = []` (the product rule at the top of `pyproject.toml`).
 - **Extra present** → the kernel may run, and its trade list must equal the Python
-  path's **exactly** — same fills, same order, same count (the `pl_oracle` digest
-  of #11). "Close" is a divergence and a defect.
+  path's **exactly** — same fills, same order, same count (the `pl_oracle` digest). "Close" is a divergence and a defect.
 - No build requirement and no `[build-system]` entry of this distribution may ever
   pull the native kernel into the **core** install path. If the accel path cannot
   be produced by a second distribution plus one extra, that is a product decision
-  to flag on issue #17 — see docs/ACCEL.md for the mechanism analysis, the
+  to flag to the maintainer — see docs/ACCEL.md for the mechanism analysis, the
   rejected variants, and the open publishing decision. It is not for an agent to
   resolve silently.
-- **The accel wheel is a separate distribution and the extra stays optional
-  (issue #21).** The `accel/` crate builds a wheel (`maturin build --release`;
+- **The accel wheel is a separate distribution and the extra stays optional.** The `accel/` crate builds a wheel (`maturin build --release`;
   macOS arm64 is built and verified, other platforms are follow-ups). CI in
   `.github/workflows/accel.yml` RUNS the accel path — installs the wheel, imports
   `pl_transpiler._accel` from a non-repo cwd, asserts `ping()==42` and `run()`
@@ -89,7 +87,7 @@ Loudly means: an exception, or a clear stderr notice that the Python path ran �
 never a silent switch, never a silent approximation, never a result that merely
 looks right. An `accel` run whose trade list disagrees with the Python path is a
 bug to report through SECURITY.md, never a feature to rely on. Until the
-conformance harness (#20) and the fidelity gate (#19) exist, the accel path — if
+conformance harness and the fidelity gate exist, the accel path — if
 built at all — is not to be trusted to run.
 
 ## How to tell which path ran
@@ -104,12 +102,11 @@ python3 -c "import pl_transpiler._accel" 2>&1 | tail -1
 `ModuleNotFoundError` (CPython's default-importer "no module named …" error) is a
 subclass of `ImportError` — verified on the 3.9 floor this package supports — so
 catching `ImportError` per the contract catches every compliant importer's
-"extra absent" signal. When the kernel work (#18) lands, the run entry points
+"extra absent" signal. When the kernel work lands, the run entry points
 (`pl_run`, `pl_oracle`) print a one-line banner naming the path used — e.g.
 `[pl_run] path=accel (…)` vs `[pl_run] path=python (accel extra not installed)` —
 and the kernel exposes a compatibility marker checked at import time, so a wheel
-built against a different dialect raises rather than running stale semantics (see
-#21). Until then there is exactly one path, and it is the Python path.
+built against a different dialect raises rather than running stale semantics. Until then there is exactly one path, and it is the Python path.
 
 ## Limitations addendum (contract form)
 
@@ -117,5 +114,5 @@ built against a different dialect raises rather than running stale semantics (se
   (docs/ACCEL.md): it is reserved as the future binding point for the second
   distribution, not a no-op marker users may read as "the fast path is active".
 - No performance figures apply to the accel path. Any number seen in a future
-  change is to be taken from the measurement protocol of #19, never from an
-  estimate, and never before the conformance gate #20 is green.
+  change is to be taken from the full-tape measurement protocol, never from an
+  estimate, and never before the conformance gate is green.

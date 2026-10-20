@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-bar_tape.py — compact column-contiguous OHLCV tape (issue #23).
+bar_tape.py — compact column-contiguous OHLCV tape.
 
 On-disk ``.pbar`` is a little-endian struct-of-arrays dump of the *same*
 values ``load_bars_csv`` produces: EL-integer date/time and IEEE-754
@@ -26,7 +26,7 @@ field). The Python path may index a bar as a dict (lazy view) for callers
 that still walk ``list[dict]``; ``run_el`` / ``pl_oracle`` consume the
 columns directly and do not box a dict per bar.
 
-Series history buffers (#13) stay growing Python lists — this module owns
+Series history buffers stay growing Python lists — this module owns
 *bar input*, not indicator/history series.
 
 CSV remains the default. Nothing here is imported by ``load_bars_csv``.

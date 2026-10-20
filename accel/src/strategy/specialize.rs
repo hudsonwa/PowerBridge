@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Per-variant specialisation of a compiled [`Program`] (issue #23 / L3).
+//! Per-variant specialisation of a compiled [`Program`] (L3).
 //!
 //! Inputs and other proven constants are frozen at `from_program` time: they
 //! are folded into the instruction stream, constant branches and no-ops are

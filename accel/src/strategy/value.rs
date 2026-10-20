@@ -178,7 +178,7 @@ pub(crate) fn canonical_fill_line(fill: &Fill) -> String {
 }
 
 /// A series argument to a series function, resolved without copying the
-/// growing per-bar history when possible (issue #9: the lookback path was
+/// growing per-bar history when possible (the lookback path was
 /// quadratic because every bar cloned the full history into a fresh `Vec<f64>`).
 ///
 /// * [`SeriesView::Slice`] borrows a primary data-series column (`self.close`,

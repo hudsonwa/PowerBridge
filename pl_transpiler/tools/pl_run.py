@@ -23,7 +23,7 @@ GT_FILES machinery in tests/run_gt.py.
 
 It reuses the SAME bar-by-bar engine + FillEngine as the GT harness via the shared
 `run_bar_loop` core (the shipped `pl_transpiler.engine` module, which the GT harness
-re-exports), and the per-run instrument constants from the #4 InstrumentConfig —
+re-exports), and the per-run instrument constants from the InstrumentConfig —
 nothing is hard-coded and nothing is read from a capture. Unimplemented EL still
 RAISES inside the runtime (fail-loud).
 
@@ -116,7 +116,7 @@ def pbar_for(path):
 def load_bars(path, prefer_pbar=True):
     """Load OHLCV from a CSV or a ``.pbar``.
 
-    A ``.pbar`` is memory-mapped (issue #23): opening one is ~0.006 s against
+    A ``.pbar`` is memory-mapped: opening one is ~0.006 s against
     ~3.0 s to parse the equivalent 2.3M-bar CSV — 545x — so it is the PREFERRED
     form. Pass the CSV path and the sibling ``<stem>.pbar`` is used when it
     exists and is NOT older than the CSV. A stale sidecar is ignored LOUDLY and
@@ -216,7 +216,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     bars          : list of dicts with keys date,time,open,high,low,close,volume
                     (date as EL int YYMMDD, time as EL int HHMM — see load_bars_csv)
                     or a BarTape (column-contiguous .pbar view; same values).
-    config        : InstrumentConfig (the #4 per-run config; use get_config('NQ')).
+    config        : InstrumentConfig (the per-run config; use get_config('NQ')).
     trace_columns : optional list of trace keys to emit as output columns. When
                     None, the first bar's trace keys (sorted) define the columns.
     partial       : opt-in partial mode. When True, unimplemented EL keywords

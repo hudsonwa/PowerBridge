@@ -14,7 +14,7 @@ you trust. Transpiling a file does not execute it.
 ## The optional `accel` fast path is a different trust surface
 
 Today everything above refers to executing **generated Python** — source you
-can read before you run it. The optional `accel` extra (issue #17; the
+can read before you run it. The optional `accel` extra (the
 decision record is [docs/ACCEL.md](docs/ACCEL.md)) introduces a native
 kernel, the extension module `pl_transpiler._accel`. A compiled binary is not
 reviewable the way Python source is: you cannot read its arithmetic, its fill

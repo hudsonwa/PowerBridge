@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The Python-side native caller (issue #4): ``pl_transpiler.runtime.accel``.
+"""The Python-side native caller: ``pl_transpiler.runtime.accel``.
 
 Proves, when ``pl_transpiler._accel`` is built:
 

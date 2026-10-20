@@ -17,7 +17,7 @@ Homepage = "https://github.com/hudsonwa/PowerBridge"
 Repository = "https://github.com/hudsonwa/PowerBridge"
 
 [project.optional-dependencies]
-# OPTIONAL FAST PATH — issue #17, decision record: docs/ACCEL.md. Strictly additive.
+# OPTIONAL FAST PATH — decision record: docs/ACCEL.md. Strictly additive.
 # Interface frozen across the kernel, CI and test code; do not rename:
 #   extra name    -> `accel`        (pip install .[accel])
 #   native module -> `pl_transpiler._accel`
@@ -35,10 +35,10 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 # compile Rust, so no build requirement can truthfully yield `pl_transpiler._accel`
 # from this distribution alone. Installing the extra today therefore resolves to
 # nothing and behaviour stays bit-identical to `pip install .` — the ImportError
-# fallback above is the specified behaviour. When #18/#21 ship the native module,
+# fallback above is the specified behaviour. When the kernel and wheel work ship the native module,
 # bind this extra to that exact artifact here (name + pin), never to a direct VCS
 # URL (pip rejects those in dependency specifiers). The publishing decision (which
-# artifact, which index) is open and flagged on #17.
+# artifact, which index) is still open.
 accel = []
 
 [project.scripts]

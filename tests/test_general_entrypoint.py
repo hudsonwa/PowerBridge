@@ -19,7 +19,7 @@ reproduces the validated GT engine via existing ground truth, with NO captures o
 human input required.
 
 Strategy: feed an EXISTING GT script (GT2_strategy) + its real GT-aligned OHLCV
-(exported to a plain OHLCV CSV) + the NQ #4 config through run_el, and assert the
+(exported to a plain OHLCV CSV) + the NQ instrument config through run_el, and assert the
 ORDER / POSITION / TRADE columns match tests/run_gt.py's predicted output for GT2
 byte-identically. This shows the general path drives the SAME bar-by-bar engine +
 FillEngine as the capture harness — without the capture-coupled GT_FILES machinery.

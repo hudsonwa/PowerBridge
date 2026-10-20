@@ -4,7 +4,7 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 
-"""SPIKE tests for the typed audit-event-v1 packet (issue #43).
+"""SPIKE tests for the typed audit-event-v1 packet.
 
 Skipped when ``pl_transpiler._accel`` is not built.
 """

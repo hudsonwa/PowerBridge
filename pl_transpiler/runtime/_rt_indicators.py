@@ -24,7 +24,7 @@ def _valid_window(series, length):
     elements. If fewer than `length` valid elements exist, returns (window, <length).
 
     ``series`` may be a list, ``array.array``, or ``memoryview``. Results are
-    bit-identical across those types (issue #14); the helpers do not convert
+    bit-identical across those types; the helpers do not convert
     to list. Empty / too-short series still return 0.0 from the callers.
     """
     if not series or length <= 0:
@@ -113,7 +113,7 @@ def pl_true_range(high, low, prev_close):
     """True Range = max(high-low, abs(high-prev_close), abs(low-prev_close))"""
     return max(high - low, abs(high - prev_close), abs(low - prev_close))
 
-# ---- Incremental indicator cache (#7b vectorization) ----
+# ---- Incremental indicator cache (vectorization) ----
 # Recursive indicators (RSI/EMA) accumulate over the FULL history from the first
 # valid bar, so recomputing from scratch every bar is O(n^2). Because each series
 # (e.g. c_hist) is a single append-only list within one run_gt run, we carry the

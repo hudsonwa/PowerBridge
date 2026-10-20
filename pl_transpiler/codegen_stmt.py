@@ -284,7 +284,7 @@ class _StmtMixin:
         )
         # persist/trace: fold f32(<numeric literal>) to a bit-identical constant
         # so the two `X = 0` resets are not a ctypes round-trip every bar
-        # (issue #15). Clean dialect keeps `f32(<lit>)` — py_front already
+        # Clean dialect keeps `f32(<lit>)` — py_front already
         # strips that wrapper, and DIALECT_VERSION stays 3.
         if wrap_f32 and self.persist and _is_numeric_literal_node(value_node):
             value = _f32_literal_const(value_node)

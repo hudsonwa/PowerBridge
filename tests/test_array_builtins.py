@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_array_builtins.py — #36: Array_Compare, Array_Copy, Array_SetValRange
+"""test_array_builtins.py — Array_Compare, Array_Copy, Array_SetValRange
 and Array_Sort.
 
 These MultiCharts helpers act on index ranges of 1-D arrays. Each is checked

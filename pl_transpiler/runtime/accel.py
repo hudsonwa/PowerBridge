@@ -68,10 +68,10 @@ Public surface:
             -> (packets, eval_from, source_bar_count, skip_reason)
         Slice-before-marshal sweep: prove the skip, slice the columns to
         ``[eval_from:]`` BEFORE boxing them across the FFI, marshal once, emit
-        K packets. The single-process K-config path (issue #50 re-scoped).
+        K packets. The single-process K-config path.
     run_native_trace(el_source, bars, config, *, data2_bars=None)
         -> (columns, rows, fills)
-        The typed per-bar trace sink (issue #42): one FFI crossing emits the
+        The typed per-bar trace sink: one FFI crossing emits the
         kernel's register values typed (float/int/bool/str) instead of the
         pre-formatted 24-column text, so Python owns ``str(value)`` rendering.
         Returns the sorted columns, one typed row per evaluated bar, and the
@@ -338,7 +338,7 @@ def run_native(el_source, bars, config, *, data2_bars=None):
 def run_native_trace(el_source, bars, config, *, data2_bars=None):
     """Run ``el_source`` natively and return the typed per-bar trace + fills.
 
-    The typed trace sink (issue #42): one FFI crossing emits the kernel's
+    The typed trace sink: one FFI crossing emits the kernel's
     register values **typed** (``float`` / ``int`` / ``bool`` / ``str``), so
     text rendering (``str(value)``) is the caller's — the reverse of the
     pre-formatted 24-column text sink. Returns ``(columns, rows, fills)``:

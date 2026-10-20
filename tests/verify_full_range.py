@@ -136,7 +136,7 @@ def check_label(label, scratch, max_bars=None):
 
     t0 = time.time()
     # max_bars=None is the true full range, which the runner now completes after the
-    # #7 vectorization (incremental indicators + streaming output removed the OOM /
+    # Vectorization (incremental indicators + streaming output removed the OOM /
     # superlinearity). A bounded value is only a faster dev-iteration window.
     _silence(run_gt.run_gt, label, max_bars=max_bars, output_path=out, warmup=WARMUP)
     elapsed = time.time() - t0
@@ -212,7 +212,7 @@ def main():
                          "two writers on one predicted CSV corrupt both runs.")
     ap.add_argument("--max-bars", type=int, default=None, dest="max_bars",
                     help="cap bars (default: true full range). The default now runs the "
-                         "TRUE full 249k range: #7 vectorization (incremental indicators + "
+                         "TRUE full 249k range: vectorization (incremental indicators + "
                          "streaming output) removed the OOM/superlinearity, so the whole "
                          "set completes in ~1h (GTA5/GTA6 ~14min each at 249k bars). A "
                          "bounded value is only a faster dev-iteration window (e.g. 20000 "

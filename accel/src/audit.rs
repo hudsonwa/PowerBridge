@@ -21,8 +21,8 @@ use crate::types::{Bar, BarTape, Config, KernelError, KernelOutcome, PositionVie
 pub(crate) const MAGIC: &[u8; 8] = b"AUEVT1\0\0";
 pub(crate) const VERSION: u16 = 1;
 pub(crate) const HEADER_SIZE: usize = 256;
-/// Schema item 6 B (issue #51): drop `priorsessionweightedmean` and
-/// `c3entrylevel` (assigned in EL, never read, `dce_dead_stores` #23 zeroes
+/// Schema item 6 B: drop `priorsessionweightedmean` and
+/// `c3entrylevel` (assigned in EL, never read, `dce_dead_stores` zeroes
 /// them; they are not inputs to `trades.csv`). 120 B -> 104 B.
 pub(crate) const TRANSITION_SIZE: usize = 104;
 pub(crate) const TRADE_SIZE: usize = 88;
@@ -37,7 +37,7 @@ pub(crate) const NQ_ROUND_TURN_COST: f64 = 25.0;
 /// `totaltrades`, `_market_position`) are read from [`PositionView`], not here.
 ///
 /// Schema item 6 B deliberately omits `priorsessionweightedmean` and
-/// `c3entrylevel`: issue #23 `dce_dead_stores` drops their `StoreVar`, they
+/// `c3entrylevel`: `dce_dead_stores` drops their `StoreVar`, they
 /// are never read by later strategy logic, and they are not inputs to
 /// `trades.csv`. A formatter that needs either name must raise, not default.
 #[allow(dead_code)] // named in tests and is the schema checklist for SlotMap::bind

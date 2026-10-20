@@ -8,7 +8,7 @@
 """Decode a framed audit-event-v1 packet and format legacy trades.csv.
 
 Python owns legacy text rendering. The native collector never emits per-bar
-strings. Schema item 6 B (issue #51): TransitionEvent is 104 B and does not
+strings. Schema item 6 B: TransitionEvent is 104 B and does not
 carry `priorsessionweightedmean` or `c3entrylevel`.
 """
 from __future__ import annotations

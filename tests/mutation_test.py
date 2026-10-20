@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-mutation_test.py — proves the full-suite gate actually CATCHES regressions (#8).
+mutation_test.py — proves the full-suite gate actually CATCHES regressions.
 
 A gate that is always green is worthless if it would stay green when the runtime
 is broken. This harness deliberately perturbs ONE transpiler/runtime function at

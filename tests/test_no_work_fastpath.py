@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_no_work_fastpath.py — #30: the no-work flat-bar fast path.
+"""test_no_work_fastpath.py — the no-work flat-bar fast path.
 
 The engine runs the full before_bar lifecycle every bar even when flat with no
 pending/on-close order and no armed risk. This adds `FillEngine.no_work_state()`

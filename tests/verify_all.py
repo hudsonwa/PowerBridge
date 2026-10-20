@@ -138,7 +138,7 @@ def run_gt_checks(max_bars, scratch):
         out = os.path.join(scratch, f"verify_{label.lower()}.csv")
         _silence(run_gt.run_gt, label, max_bars=max_bars,
                  output_path=out, warmup=WARMUP)
-        # FAIL-LOUD gate (#1): a GT label FAILS if its strategy threw on ANY bar.
+        # FAIL-LOUD gate: a GT label FAILS if its strategy threw on ANY bar.
         # The real suite throws 0; a non-zero count means columns were silently
         # predicted 0 (the masked GTA6 cascade) and must NOT count as green.
         throws = run_gt.read_throws(out)

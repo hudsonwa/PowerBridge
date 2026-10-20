@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Typed per-bar trace — the `run_program_trace` sink contract (issue #42).
+//! Typed per-bar trace — the `run_program_trace` sink contract.
 //!
 //! The trace sink emits **typed** cells (not the pre-formatted `String` cells of
 //! [`crate::engine::report::format_trace_row`]): Rust returns the raw `f64` /
 //! `i64` / `bool` / `String` values in the kernel's registers, and Python owns
 //! text rendering (`str(value)`). This is the decision the reduced-trace gate
-//! (issue #36, "do not bridge the existing sink as-is") directs: the 24-column
+//! ("do not bridge the existing sink as-is") directs: the 24-column
 //! text CSV is the *consumer's* formatting problem, not the kernel's.
 //!
 //! The row set is the **full** per-bar trace (one row per evaluated bar), not

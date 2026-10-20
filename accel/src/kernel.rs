@@ -116,7 +116,7 @@ pub(crate) struct FillEngine {
     // engine; the `accel/engine` module fills it via
     // `SessionEngine::record_closed_trade` and it feeds `KernelOutcome`.
     closed_positions: Vec<ClosedPosition>,
-    // Fast-path instrumentation (#30): flat, no-work bars whose before_bar
+    // Fast-path instrumentation: flat, no-work bars whose before_bar
     // lifecycle was skipped. Mirrors the Python engine's `fast_path_hits`.
     fast_path_hits: usize,
 }
@@ -174,7 +174,7 @@ impl FillEngine {
     }
 
     fn no_work_state(&self) -> bool {
-        // Exact mirror of the Python engine's `no_work_state` (#30): flat, no
+        // Exact mirror of the Python engine's `no_work_state`: flat, no
         // next-bar or on-close order queued, and no armed money-management/
         // session risk. net_profit cannot have changed since the last drawdown
         // fold in this state (it mutates only via a fill or a session-rollover
@@ -985,7 +985,7 @@ where
 /// difference the engine computes), while the observer receives the ABSOLUTE
 /// 0-based index so a collector can stamp `bar_index`/`eval_from` correctly.
 /// Only the swept `run_native_from_observing` loop observes; this offset loop is
-/// the slice-before-marshal sweep seam (issue #50 re-scoped).
+/// the slice-before-marshal sweep seam.
 pub(crate) fn run_native_from_offset<S, F>(
     tape: &BarTape,
     instrument: Instrument,

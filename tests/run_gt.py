@@ -328,7 +328,7 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
         print(f"Unknown GT label: {gt_label}. Options: {list(GT_FILES.keys())}")
         return 1
 
-    # #7b: clear incremental indicator state so a recycled series id() from a prior
+    # Clear incremental indicator state so a recycled series id() from a prior
     # label's run can never serve a stale cache entry in this run.
     reset_indicator_caches()
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_fold_literal_f32.py — issue #15: fold literal-argument f32() in persist/trace.
+test_fold_literal_f32.py — fold literal-argument f32() in persist/trace.
 
 persist/trace emit a bit-identical constant for `X = <number>` instead of
 `f32(<number>)` every bar. History / series / expression wraps stay as

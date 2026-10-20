@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_bar_tape.py — issue #23: compact .pbar bar input (stdlib mmap / array).
+test_bar_tape.py — compact .pbar bar input (stdlib mmap / array).
 
 CSV remains the default. A .pbar stores the same values load_bars_csv
 produces (EL-int date/time, float64 OHLC/volume — never float32). Whole-tape
