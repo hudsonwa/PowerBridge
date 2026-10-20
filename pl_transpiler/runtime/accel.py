@@ -173,7 +173,7 @@ def warn_python_path(reason):
     _ACCEL_MISSING_WARNED = True
     import sys
     sys.stderr.write(
-        "[pl_transpiler] WARNING: running the PYTHON path (typically 10-100x slower "
+        "[pl_transpiler] WARNING: running the PYTHON path (typically 20-100x slower "
         "than the Rust kernel): %s\n" % reason)
 
 

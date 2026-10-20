@@ -16,6 +16,24 @@ jobs:
       - name: Run public test tier
         run: python3 tests/run_public_tier.py
 
+  # The same tier on every supported OS and the oldest/newest Python. f32 and
+  # struct overflow behaviour changed in 3.13; this is what catches that class.
+  public-tier-matrix:
+    name: public tier (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run public test tier
+        run: python tests/run_public_tier.py
+
   # The accel crate is an OPTIONAL extra, so nothing above touches it. That is exactly how a
   # lane got merged carrying 17 rustfmt diffs with every gate green: no job ever ran on it.
   #

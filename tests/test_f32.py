@@ -42,7 +42,11 @@ def _oracle(x):
         return 0.0
     try:
         return struct.unpack('f', struct.pack('f', float(x)))[0]
-    except (OverflowError, struct.error, ValueError, TypeError):
+    except OverflowError:
+        # Python >= 3.13 raises here for a finite value beyond the float32 range
+        # (older versions returned +-inf). IEEE-754 round-to-nearest gives +-inf.
+        return math.copysign(math.inf, float(x))
+    except (struct.error, ValueError, TypeError):
         return float(x)
 
 

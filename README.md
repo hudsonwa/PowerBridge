@@ -24,7 +24,8 @@ EasyLanguage / PowerLanguage to Python transpiler, and back.
 **Status: 0.2.0 preview.** Trade lists match MultiCharts fill-for-fill on the
 1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
 multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
-runs the same backtest 13-97x faster with identical fills.
+runs the same backtest about 20x faster on 20,000 bars, and about 100x on
+100,000 bars, with identical fills (`tools/bench_native.py`).
 
 ## See it work
 
@@ -101,10 +102,11 @@ cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
 Working inside the repo instead? `./tools/build_accel.sh` builds the same
 library and drops it next to the in-tree package, so tests run against it.
 
-Indicative speed, not a promise: on an Apple M-series laptop, the GT2 sample
-strategy over a 100,000-bar synthetic tape ran in 0.43 s native versus 42 s on
-the Python path, with identical fills. Your strategy and tape will differ.
-Reproduce with your own data before you rely on any ratio.
+Indicative speed, not a promise. `python tools/bench_native.py --bars 20000`
+times the GT2 sample strategy on a synthetic tape on both paths and checks the
+fills are identical. On an Apple M-series laptop: about 20x at 20,000 bars and
+about 100x at 100,000 bars (the Python path slows down faster than the bar
+count grows; see issue #4). Measure your own strategy before relying on a ratio.
 
 **Absent extra = identical behaviour.** Without the module, the auditable
 Python path runs and produces the same trades. Programs the native kernel
@@ -257,4 +259,5 @@ compatibility.
 See [CONTRIBUTING.md](CONTRIBUTING.md). Open an issue before a large change.
 Small fixes can be a pull request on their own.
 
-This repository starts at a single commit. Earlier history is not included.
+Development started in a private repository; this public repository begins at
+the 0.2.0 export. Changes since then are made here in the open.

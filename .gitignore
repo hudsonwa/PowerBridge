@@ -11,7 +11,11 @@ ground_truth/captures/*
 .DS_Store
 
 # EasyLanguage strategy source is proprietary -- never commit it.
+# (Case-insensitive filesystems match .el too, so re-allow the public folders.)
 *.EL
+!examples/**
+!ground_truth/**
+!emitted/**
 
 # Built native accel extension (tools/build_accel.sh installs the cdylib here).
 pl_transpiler/_accel*.so
