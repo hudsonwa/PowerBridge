@@ -144,7 +144,7 @@ def proven_set():
     except OSError:
         pass
     if rejected:
-        print("WARNING: allowlist tokens NOT in the PDF keyword index (rejected as unproven): "
+        print("WARNING: ignoring allowlist entries that are not known MultiCharts keywords: "
               + ", ".join(sorted(rejected)))
     return proven
 
@@ -335,8 +335,8 @@ def check(path):
     print(f"{path}: {len(cands)} builtins used | {proven_label} PROVEN | "
           f"{len(not_proven)} NOT-PROVEN | {len(arity_bad)} ARITY-BAD | {len(rettype_bad)} RETURN-TYPE-BAD")
     if name_proof_skipped:
-        print("  NOTE: name-proof SKIPPED -- compile-verified corpus (reserved-words list + "
-              "PROVEN_SCRIPTS) not on disk (installed wheel). Arity + return-type still enforced.")
+        print("  NOTE: Name check skipped (keyword index not installed); "
+              "argument count and return types checked.")
     if not_proven:
         print("\nNOT-PROVEN (verify each has a real MC keyword-reference entry, or replace/inline/drop):")
         for i in range(0, len(not_proven), 6):
@@ -355,11 +355,11 @@ def check(path):
         print("\nFAIL -- do not paste into MultiCharts until these are resolved.")
         return 1
     if name_proof_skipped:
-        print("OK -- arity + return-type vs var-type pass (builtin NAMES not proven: corpus absent).")
+        print("OK -- argument counts and return types pass (names not checked: keyword index not installed).")
     else:
-        print("OK -- every used builtin is proven MC-compile-safe (names + arity + return-type vs var-type).")
-    print("NOTE: this gate still does NOT check arg-TYPES of multi-arg fns (only arg-COUNT and "
-          "return-type-vs-var-type) -- verify those against the PL-Ref Usage lines. MC editor = final oracle.")
+        print("OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).")
+    print("NOTE: argument types are not checked; compare them with the keyword's reference page. "
+          "Compiling in the MultiCharts editor is the final check.")
     return 0
 
 
