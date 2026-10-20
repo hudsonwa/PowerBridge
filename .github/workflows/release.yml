@@ -7,6 +7,9 @@ name: release
 #   * workflow_dispatch  -> dry run: build and smoke-test only; the files are
 #                           kept as workflow artifacts. Nothing is attached to
 #                           a release and nothing goes to PyPI.
+#   * workflow_dispatch with `tag` -> re-publish an existing release: nothing
+#                           is rebuilt; the files already attached to that
+#                           GitHub Release are uploaded to PyPI.
 #
 # Artifacts:
 #   powerbridge        sdist + pure wheel (py3-none-any)
@@ -14,13 +17,20 @@ name: release
 #                      x86_64, Windows x64, Linux x86_64 and Linux aarch64
 #                      (manylinux)
 #
-# PyPI uses trusted publishing (OIDC): the `pypi` job runs in the `pypi`
-# environment and needs no token or secret.
+# PyPI uses trusted publishing (OIDC) and needs no token or secret. Each
+# project has its own job and GitHub environment (`pypi` for powerbridge,
+# `pypi-accel` for powerbridge-accel), so each PyPI publisher matches exactly
+# one job.
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to re-publish to PyPI (e.g. v0.3.0). Leave empty for a dry-run build."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -28,6 +38,7 @@ permissions:
 jobs:
   core:
     name: powerbridge sdist + wheel
+    if: inputs.tag == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -73,6 +84,7 @@ jobs:
 
   accel:
     name: powerbridge-accel (${{ matrix.name }})
+    if: inputs.tag == ''
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -137,35 +149,60 @@ jobs:
           ls -l dist
           gh release upload "$TAG" dist/* --clobber
 
+  # The publish jobs take their files from the GitHub Release, so a release
+  # event and a re-publish by tag upload exactly the same files.
   pypi:
-    name: publish to PyPI
-    if: github.event_name == 'release'
-    needs: [core, accel]
+    name: publish powerbridge to PyPI
+    needs: [github-release]
+    if: >-
+      always() &&
+      ((github.event_name == 'release' && needs.github-release.result == 'success') ||
+       (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
     runs-on: ubuntu-latest
     environment:
       name: pypi
     permissions:
+      contents: read
       id-token: write
     steps:
-      # One directory per project: each publish step mints its own
-      # short-lived token for the files it uploads.
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: dist-core
-          path: dist/core
-
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: dist-accel-*
-          path: dist/accel
-          merge-multiple: true
+      - name: Download powerbridge from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" --dir dist --pattern 'powerbridge-*'
+          ls -l dist
 
       - name: Publish powerbridge
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
-          packages-dir: dist/core/
+          packages-dir: dist/
+
+  pypi-accel:
+    name: publish powerbridge-accel to PyPI
+    needs: [github-release]
+    if: >-
+      always() &&
+      ((github.event_name == 'release' && needs.github-release.result == 'success') ||
+       (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-accel
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download powerbridge-accel from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" --dir dist --pattern 'powerbridge_accel-*'
+          ls -l dist
 
       - name: Publish powerbridge-accel
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
-          packages-dir: dist/accel/
+          packages-dir: dist/
