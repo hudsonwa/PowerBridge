@@ -104,3 +104,65 @@ If Cmp = 0 and FArr[0] = 2 and FArr[3] = 5 and MarketPosition = 0 Then
     Buy next bar at market ;
 """
     assert _trades(el), "array builtins did not produce the expected values"
+
+
+# ---- #40: every array builtin maps EL indexes like direct A[i] access ----
+
+def test_get_set_value_use_el_indexes():
+    arr = _el(10, 20, 30, 40)
+    assert rt.pl_array_getintegervalue(arr, 0) == 10
+    assert rt.pl_array_getfloatvalue(arr, 3) == 40
+    assert rt.pl_array_getintegervalue(arr, 4) == 0
+    assert rt.pl_array_getintegervalue(arr, -1) == 0
+    rt.pl_array_setintegervalue(arr, 1, 99)
+    assert arr == _el(10, 99, 30, 40)
+    assert rt.pl_array_setintegervalue(arr, 4, 1) == 0
+    assert arr == _el(10, 99, 30, 40)
+
+
+def test_sum_highest_lowest_indexof_use_el_indexes():
+    arr = _el(1, 5, -2, 8)
+    assert rt.pl_array_sum(arr, 0, 1) == 6
+    assert rt.pl_array_highest(arr, 0, 2) == 5
+    assert rt.pl_array_lowest(arr, 1, 3) == -2
+    assert rt.pl_array_indexof(arr, 8) == 3
+    assert rt.pl_array_indexof(arr, 7) == -1
+
+
+def test_setmaxindex_keeps_existing_elements():
+    arr = _el(1, 2)
+    assert rt.pl_array_setmaxindex(arr, 3)
+    assert arr == _el(1, 2, 0, 0)
+
+
+def test_sortarray_variancearray_use_el_indexes():
+    arr = _el(0, 3, 1, 2, 9)
+    rt.pl_sortarray(arr, 3, True)
+    assert arr == _el(0, 1, 2, 3, 9)
+    assert rt.pl_variancearray(_el(0, 1, 3, 100), 2) == 1.0
+
+
+def _strategy(cond, setup=""):
+    return f"""
+Vars: G(0) ;
+Arrays: A[3](0) ;
+A[0] = 10 ; A[1] = 20 ; A[2] = 30 ; A[3] = 40 ;
+{setup}
+If {cond} and MarketPosition = 0 Then Buy next bar at market ;
+"""
+
+
+def test_array_helpers_match_direct_indexing_in_strategy():
+    cases = [
+        ("Array_GetIntegerValue( A, 0 ) = A[0]", ""),
+        ("Array_GetFloatValue( A, 3 ) = A[3]", ""),
+        ("A[2] = 7 and A[1] = 20", "Array_SetIntegerValue( A, 2, 7 ) ;"),
+        ("Array_Sum( A, 0, 1 ) = A[0] + A[1]", ""),
+        ("Array_Highest( A, 0, 2 ) = A[2]", ""),
+        ("Array_Lowest( A, 1, 3 ) = A[1]", ""),
+        ("Array_IndexOf( A, A[1] ) = 1", ""),
+    ]
+    for cond, setup in cases:
+        # The control (a false condition) proves the check can fail.
+        assert _trades(_strategy(cond, setup)), cond
+        assert not _trades(_strategy(cond + " and A[0] = 0", setup)), cond

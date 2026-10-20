@@ -17,7 +17,7 @@ reserved words and daily session data.
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import f32
+from ._rt_core import f32, el_array_items, el_array_store
 
 # EL built-in constants
 newline = "\n"
@@ -30,8 +30,9 @@ minmove = 1  # 1 tick = 0.25 points for ES; used for chart drawing spacing
 def pl_array_setmaxindex(arr, max_idx):
     """Resize array to max_idx + 1 elements. Returns True on success per EL
     (pdf:6187-6188, 6199 'True - resize successful')."""
-    while len(arr) <= max_idx:
-        arr.append(0)
+    if len(arr) <= max_idx:
+        # The highest EL index is the first list item, so grow at the front.
+        arr[:0] = [0] * (max_idx + 1 - len(arr))
     return True
 
 
@@ -42,24 +43,24 @@ def pl_array_getmaxindex(arr):
 
 def pl_array_sum(arr, start, end):
     """Sum of array elements from start to end index."""
-    return sum(arr[start:end + 1])
+    return sum(el_array_items(arr)[start:end + 1])
 
 
 def pl_array_highest(arr, start, end):
     """Highest value in array from start to end."""
-    return max(arr[start:end + 1]) if start <= end < len(arr) else 0.0
+    return max(el_array_items(arr)[start:end + 1]) if start <= end < len(arr) else 0.0
 
 
 def pl_array_lowest(arr, start, end):
     """Lowest value in array from start to end."""
-    return min(arr[start:end + 1]) if start <= end < len(arr) else 0.0
+    return min(el_array_items(arr)[start:end + 1]) if start <= end < len(arr) else 0.0
 
 
 def pl_variancearray(arr, length):
     """Variance of first length elements (1-indexed)."""
     if length <= 0:
         return 0.0
-    window = arr[1:length + 1] if len(arr) > length else arr[1:]
+    window = el_array_items(arr)[1:length + 1]
     if not window:
         return 0.0
     mean = sum(window) / len(window)
@@ -70,9 +71,11 @@ def pl_sortarray(arr, length, ascending=True):
     """Sort first length elements (1-indexed) in place."""
     if length <= 0:
         return
-    sub = arr[1:length + 1]
+    items = el_array_items(arr)
+    sub = items[1:length + 1]
     sub.sort(reverse=not ascending)
-    arr[1:length + 1] = sub
+    items[1:length + 1] = sub
+    el_array_store(arr, items)
 
 
 # ---- Date / Time Functions ----

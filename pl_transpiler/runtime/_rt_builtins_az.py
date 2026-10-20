@@ -16,7 +16,7 @@
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import f32
+from ._rt_core import f32, el_array_items, el_array_pos, el_array_store
 
 # ============================================================
 # Auto-generated runtime stubs for all PL built-in functions
@@ -41,7 +41,7 @@ def pl_array_compare(*args, **kwargs):
     si, di, n = int(args[1]), int(args[3]), int(args[4])
     if si < 0 or di < 0 or n <= 0:
         return 0
-    src, dst = args[0][::-1], args[2][::-1]
+    src, dst = el_array_items(args[0]), el_array_items(args[2])
     for a, b in zip(src[si:si + n], dst[di:di + n]):
         if a != b:
             return 1 if a > b else -1
@@ -63,10 +63,10 @@ def pl_array_copy(*args, **kwargs):
     si, di, n = int(args[1]), int(args[3]), int(args[4])
     if si < 0 or di < 0 or n <= 0:
         return 0
-    dst = args[2][::-1]
-    chunk = args[0][::-1][si:si + n][:max(len(dst) - di, 0)]
+    dst = el_array_items(args[2])
+    chunk = el_array_items(args[0])[si:si + n][:max(len(dst) - di, 0)]
     dst[di:di + len(chunk)] = chunk
-    args[2][:] = dst[::-1]
+    el_array_store(args[2], dst)
     return 0
 
 def _pl_array_getval(args, default):
@@ -76,7 +76,8 @@ def _pl_array_getval(args, default):
     and zero the whole trace)."""
     if len(args) >= 2 and isinstance(args[0], list):
         try:
-            return args[0][int(args[1])]
+            arr = args[0]
+            return arr[el_array_pos(arr, args[1])]
         except (IndexError, ValueError, TypeError):
             return default
     return default
@@ -87,7 +88,8 @@ def _pl_array_setval(args, default):
     callers ignore the return)."""
     if len(args) >= 3 and isinstance(args[0], list):
         try:
-            args[0][int(args[1])] = args[2]
+            arr = args[0]
+            arr[el_array_pos(arr, args[1])] = args[2]
             return args[2]
         except (IndexError, ValueError, TypeError):
             return default
@@ -122,7 +124,7 @@ def pl_array_indexof(*args, **kwargs):
     contained (pdf:6139-6140)."""
     if len(args) >= 2 and isinstance(args[0], list):
         try:
-            return args[0].index(args[1])
+            return el_array_items(args[0]).index(args[1])
         except ValueError:
             return -1
     return -1
@@ -142,13 +144,12 @@ def pl_array_setstringvalue(*args, **kwargs):
 def _pl_array_set_range(args, fn):
     """Apply fn to the EL range Arr[BeginIdx..EndIdx] (inclusive, clipped).
 
-    Generated code stores EL index i at list position -(i + 1), so work on the
-    reversed list and write it back."""
-    arr = args[0][::-1]
+    Works on the elements in EL index order and writes them back."""
+    arr = el_array_items(args[0])
     lo, hi = max(int(args[1]), 0), min(int(args[2]), len(arr) - 1)
     if lo <= hi:
         arr[lo:hi + 1] = fn(arr[lo:hi + 1])
-        args[0][:] = arr[::-1]
+        el_array_store(args[0], arr)
 
 def pl_array_setvalrange(*args, **kwargs):
     """EL Array_SetValRange(Arr, BeginIdx, EndIdx, Value): set Arr[BeginIdx..

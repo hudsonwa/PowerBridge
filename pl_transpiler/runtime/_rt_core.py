@@ -34,6 +34,28 @@ def f32(x):
         except (OverflowError, ValueError, TypeError):
             return float(x)
 
+def el_array_pos(arr, i):
+    """List position of EL array element i.
+
+    Generated code stores EL index i at list position -(i + 1) (see
+    codegen_expr's subscript emission), so the last list item is A[0]. Raises
+    IndexError for an index outside 0..len(arr) - 1."""
+    i = int(i)
+    if not 0 <= i < len(arr):
+        raise IndexError(i)
+    return -(i + 1)
+
+
+def el_array_items(arr):
+    """The elements of an EL array as a new list in EL index order."""
+    return arr[::-1]
+
+
+def el_array_store(arr, items):
+    """Write items (in EL index order) back into arr in place."""
+    arr[:] = items[::-1]
+
+
 def el_round0(x):
     """EasyLanguage Round(x, 0): half-away-from-zero (NOT Python banker's rounding)."""
     import math
