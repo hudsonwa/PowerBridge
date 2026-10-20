@@ -20,7 +20,7 @@ Default remains the full tape. A window is opt-in via from_date / from_bar.
 
 * Tape slice (seed_warmup=False) drops the prefix. Strategies that use Once,
   Close[n], or a bar-1 cumulative then disagree with the full tape — that is a
-  failed ticket, not a speed win.
+  failed check, not a speed win.
 * Seeded warmup (seed_warmup=True) runs the prefix with fills suppressed so
   state / history / Once stay primed. The last warmup bar may queue a
   "next bar" order that fills on the first trading bar.
@@ -171,7 +171,7 @@ def test_late_window_is_failed_ticket():
     full = run_oracle(ONCE_EL, bars, NQ)
     late = run_oracle(ONCE_EL, bars, NQ, from_date=1240106, seed_warmup=True)
     assert late["text"] != full["text"]
-    print("  [ok] late window disagrees (failed ticket, not a speed win)")
+    print("  [ok] late window disagrees (failed check, not a speed win)")
 
 
 def test_run_el_default_unchanged_and_seed_window():

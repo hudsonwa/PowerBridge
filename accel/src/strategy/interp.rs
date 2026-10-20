@@ -84,7 +84,7 @@ impl<'a> Interpreter<'a> {
 
     /// Build an interpreter from an already-compiled [`Program`].
     ///
-    /// The sweep/batch lane compiles once and clones the program per variant
+    /// The sweep/batch path compiles once and clones the program per variant
     /// (swapping in the variant's resolved inputs) so it never re-walks the
     /// AST; this constructor is the seam it drives.
     pub(crate) fn from_program(

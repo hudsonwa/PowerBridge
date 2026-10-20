@@ -57,7 +57,7 @@ pub(crate) use value::{canonical_fill_line, Value};
 /// loudly. `inputs` overrides IR Input defaults (empty map = use the defaults
 /// in the program).
 ///
-/// The FFI `run_program` lane is the intended caller; unit tests drive it
+/// The FFI `run_program` entry point is the intended caller; unit tests drive it
 /// directly. `#[allow(dead_code)]` is for the cdylib build, which does not
 /// yet export this function.
 #[allow(dead_code)]
@@ -293,7 +293,7 @@ pub(crate) fn run_program_audit_packet_batch(
 ///
 /// Returns the ordered per-variant fills, `out[i] == run_program(...) fills`
 /// with the `i`-th variant's inputs — bit-for-bit. That invariant
-/// (`solo_digest == batch_digest`) is the correctness gate for the sweep lane.
+/// (`solo_digest == batch_digest`) is the correctness gate for the sweep/batch path.
 pub(crate) fn run_program_batch(
     program_ir: &str,
     series: &BarTape,

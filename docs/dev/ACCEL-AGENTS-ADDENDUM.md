@@ -28,13 +28,13 @@ Companion to [docs/ACCEL.md](../ACCEL.md) (the decision record) and
 machine-facing contract; this addendum states, in the same voice, the facts an agent
 must honor around the optional fast path.
 
-> **Editing note for the maintainer (lane #17).** The three facts below were to be
+> **Editing note for the maintainer (#17).** The three facts below were to be
 > woven into the run_el paragraph of "Python API contracts", the "Invariants" list,
 > and the "Limitations (contract form)" list of this file. An approval gate on
-> protected agent-instruction files timed out during that lane and the fold could
+> protected agent-instruction files timed out during that change and the fold could
 > not be applied, so the text ships here, complete, awaiting merge.
 
-## The interface (frozen — shared across the kernel, CI, and test lanes)
+## The interface (frozen — shared across the kernel, CI, and test code)
 
 - The optional extra is named **`accel`** (`pip install .[accel]`; distribution
   form `powerbridge[accel]`). Do not rename it.
@@ -104,7 +104,7 @@ python3 -c "import pl_transpiler._accel" 2>&1 | tail -1
 `ModuleNotFoundError` (CPython's default-importer "no module named …" error) is a
 subclass of `ImportError` — verified on the 3.9 floor this package supports — so
 catching `ImportError` per the contract catches every compliant importer's
-"extra absent" signal. When the kernel lane (#18) lands, the run entry points
+"extra absent" signal. When the kernel work (#18) lands, the run entry points
 (`pl_run`, `pl_oracle`) print a one-line banner naming the path used — e.g.
 `[pl_run] path=accel (…)` vs `[pl_run] path=python (accel extra not installed)` —
 and the kernel exposes a compatibility marker checked at import time, so a wheel
@@ -117,5 +117,5 @@ built against a different dialect raises rather than running stale semantics (se
   (docs/ACCEL.md): it is reserved as the future binding point for the second
   distribution, not a no-op marker users may read as "the fast path is active".
 - No performance figures apply to the accel path. Any number seen in a future
-  ticket is to be taken from the measurement protocol of #19, never from an
+  change is to be taken from the measurement protocol of #19, never from an
   estimate, and never before the conformance gate #20 is green.

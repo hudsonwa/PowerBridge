@@ -67,7 +67,7 @@ jobs:
         run: ruff check .
 
   # The accel crate is an OPTIONAL extra, so nothing above touches it. That is exactly how a
-  # lane got merged carrying 17 rustfmt diffs with every gate green: no job ever ran on it.
+  # branch got merged carrying 17 rustfmt diffs with every gate green: no job ever ran on it.
   #
   # Two jobs, deliberately split:
   #   - rustfmt and clippy are pure *checks* (no linking), so they run on the cheap Linux runner.

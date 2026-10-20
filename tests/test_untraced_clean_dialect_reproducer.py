@@ -15,7 +15,7 @@
 
 """Documented reproducer: running the clean mirror dialect as a strategy engine input.
 
-This lane's diagnosis is that the clean (trace=False, persist=False) dialect is being
+This test's diagnosis is that the clean (trace=False, persist=False) dialect is being
 executed in a bar loop where state persistence is required. That dialect intentionally
 does not persist EL Variables across bars, so a state-gated order system can silently
 emit zero trades.

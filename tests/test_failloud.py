@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_failloud.py — regression test for the FAIL-LOUD runner (GOAL unit #1).
+test_failloud.py — regression test for the FAIL-LOUD runner.
 
 Asserts that tests/run_gt.py no longer silently swallows per-bar strategy
 exceptions:

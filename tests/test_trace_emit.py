@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_trace_emit.py — F4: run_el formats trace cells identically whether it
+test_trace_emit.py — run_el formats trace cells identically whether it
 retains rows or streams them through row_sink.
 
 The default library call still returns list[list[str]]. A row_sink caller

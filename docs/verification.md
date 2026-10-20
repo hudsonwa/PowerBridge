@@ -103,7 +103,7 @@ Before merging engine, codegen, parser or runtime work, compare native and
 Default is still the full tape. `pl_run` seeds the discarded prefix (state and
 lookback stay primed, fills suppressed) unless you pass `--slice`. `pl_oracle
 --from-date` stays a tape slice; pass `--seed-warmup` to seed instead. A
-windowed run that disagrees on trades is a failed ticket, not a speed win.
+windowed run that disagrees on trades fails the check, not a speed win.
 
 ## MultiCharts captures
 

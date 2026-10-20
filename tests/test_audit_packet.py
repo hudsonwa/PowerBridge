@@ -13,7 +13,7 @@ import sys
 
 try:
     import pytest
-except ImportError:  # 3.14 lane image has no pytest
+except ImportError:  # 3.14 CI image has no pytest
     pytest = None
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

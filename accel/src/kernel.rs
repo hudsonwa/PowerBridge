@@ -112,8 +112,8 @@ pub(crate) struct FillEngine {
     on_close_pending: Vec<OnCloseOrder>,
     risk: RiskSettings,
     fills: Vec<Fill>,
-    // D4 closed-position ledger (contract freeze). Empty in this pre-D4
-    // engine; the `accel/engine` lane fills it via
+    // Closed-position ledger (contract freeze). Empty in this pre-ledger
+    // engine; the `accel/engine` module fills it via
     // `SessionEngine::record_closed_trade` and it feeds `KernelOutcome`.
     closed_positions: Vec<ClosedPosition>,
     // Fast-path instrumentation (#30): flat, no-work bars whose before_bar
@@ -964,9 +964,9 @@ where
         position,
         total_trades: engine.total_trades,
         max_id_drawdown: engine.max_id_drawdown,
-        // The D4 closed-position ledger (contract freeze output surface). The
-        // pre-D4 `FillEngine` above never records a closed trade yet — the
-        // `accel/engine` lane wires `SessionEngine::record_closed_trade` into
+        // The closed-position ledger (contract freeze output surface). The
+        // pre-ledger `FillEngine` above never records a closed trade yet — the
+        // `accel/engine` module wires `SessionEngine::record_closed_trade` into
         // the close paths, after which this is populated and
         // `closed_positions` becomes non-empty.
         closed_positions: engine.closed_positions,
@@ -1353,7 +1353,7 @@ mod tests {
 
     #[test]
     fn price_less_conditional_is_dropped_like_python() {
-        // Verifier D2: a limit/stop whose index-5 slot is non-numeric is
+        // A limit/stop whose index-5 slot is non-numeric is
         // silently DROPPED by Python (`engine.py:_execute_pending_fills`,
         // `price is None` -> continue). The old kernel aborted; this asserts
         // the Python behaviour the reference actually exhibits.
@@ -1386,7 +1386,7 @@ mod tests {
 
     #[test]
     fn next_bar_close_order_is_dropped_like_python() {
-        // Verifier D3: a `close`-type order with 'next' timing falls through
+        // A `close`-type order with 'next' timing falls through
         // every branch of Python's `_execute_pending_fills` and is silently
         // dropped. The old kernel aborted; this asserts the Python behaviour.
         let mut engine = FillEngine::new(Instrument::default());
@@ -1431,7 +1431,7 @@ mod tests {
 
     #[test]
     fn fractional_quantity_yields_zero_contracts_and_zero_fills() {
-        // Verifier D1 exact repro: `Buy (Risk / StopDistance) contracts`
+        // Exact repro: `Buy (Risk / StopDistance) contracts`
         // evaluating to 0.4. Python `_fill_at`: 0.4 != 0 -> qty = int(0.4) = 0
         // -> phantom position (market_position 1, contracts 0) and ZERO fill
         // records. The old `usize` kernel received a truncated 0 and mistook
@@ -1463,7 +1463,7 @@ mod tests {
 
     #[test]
     fn quantity_is_signed_and_truncates_toward_zero() {
-        // Verifier D1 probe table (Python `_fill_at`, single 'buy market <qty>'
+        // Probe table (Python `_fill_at`, single 'buy market <qty>'
         // from flat, fill at 100.0): 1 -> ct 1/fills 1; 0 -> ct 1/fills 1
         // (exit-all fallback from flat); 0.4 -> ct 0/fills 0; 2.7 -> ct 2/
         // fills 2; -3 -> ct -3/fills 3.
@@ -1496,11 +1496,11 @@ mod tests {
 
     #[test]
     fn mm_down_leg_selects_first_maximum_on_tie() {
-        // Verifier D5: Python's `max(reach, key=price)` keeps the FIRST
+        // Python's `max(reach, key=price)` keeps the FIRST
         // maximum in `_levels` construction order (profit-target, stop-loss,
         // breakeven, trailing); a stable-sorted last-element pick would invert
         // the down-leg tie-break. The tied records share a price, so the
-        // selection is unobservable through `close_at_stop` today, but D4's
+        // selection is unobservable through `close_at_stop` today, but the ledger's
         // exit-reason introspection would make it a real divergence.
         let down = vec![
             Level {

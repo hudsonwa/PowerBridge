@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""verify_full_range.py — FULL-CAPTURE-RANGE partitioned validation  (H3 / GOAL #3).
+"""verify_full_range.py — FULL-CAPTURE-RANGE partitioned validation.
 
 `verify_all.py` is the single definition of DONE and validates each GT over a
 verified-clean 1500-bar window (capture bars 301..1800) where every column matches
@@ -37,7 +37,7 @@ ADDITIONAL, stricter check that runs every GT across the **full capture range**
     verify_all.GT_EXPECT). The tolerance is reused verbatim and is NOT loosened;
     the deferral set is reused verbatim and does NOT grow here.
 
-Also reuses the H1 throw sidecar: at full range each label must report
+Also reuses the throw sidecar: at full range each label must report
 throw_count == 0, else it FAILS (a strategy that throws on bars silently leaves
 trace={} and predicts 0 — the masked GTA6 cascade).
 
@@ -84,7 +84,7 @@ from tests.verify_all import GT_EXPECT, WARMUP, _silence
 # left OUT (they are calc-style derived stats, not trade mechanics).
 # ---------------------------------------------------------------------------
 ORDER_POSITION_TRADE = {
-    # --- core, named explicitly in the H3 unit (GT2 / GT_master) ---
+    # --- core, named explicitly in the full-range requirement (GT2 / GT_master) ---
     "ordertag", "marketpos", "curcontracts", "entryprice",
     "barssinceentry", "openposprofit", "netprofit", "totaltrades",
 
@@ -141,7 +141,7 @@ def check_label(label, scratch, max_bars=None):
     _silence(run_gt.run_gt, label, max_bars=max_bars, output_path=out, warmup=WARMUP)
     elapsed = time.time() - t0
 
-    # H1 throw sidecar: must exist and report zero throws at full range.
+    # Throw sidecar: must exist and report zero throws at full range.
     throws = run_gt.read_throws(out)
     if throws is None:
         return False, f"throw sidecar missing ({elapsed:.0f}s)", {}
@@ -201,7 +201,7 @@ def _example(cols, c):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Full-capture-range partitioned validation (H3 / GOAL #3)")
+        description="Full-capture-range partitioned validation")
     ap.add_argument("--labels", default=None,
                     help="comma-separated subset (e.g. GT2,GT_master) for "
                          "iteration. DONE-criterion is the FULL set (omit this).")
@@ -275,7 +275,7 @@ def main():
     scope = "FULL SET" if not args.labels else f"SUBSET {labels}"
     print(f"\nOVERALL ({scope}): {'ALL GREEN' if all_ok else 'MISMATCH'}")
     if not args.labels:
-        print("This is the H3 done-criterion (every GT, full range, partitioned).")
+        print("This is the full-range done-criterion (every GT, full range, partitioned).")
     else:
         print("Subset run -- the DONE-criterion is the FULL set (omit --labels).")
     print("=" * 78)

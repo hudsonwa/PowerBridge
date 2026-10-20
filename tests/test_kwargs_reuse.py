@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_kwargs_reuse.py — F6: run_bar_loop mutates one kwargs dict in place.
+test_kwargs_reuse.py — run_bar_loop mutates one kwargs dict in place.
 
 Proves the reuse path keeps the old precedence:
   engine defaults < per_bar_extra < position kwargs < explicit barnumber/_state/...

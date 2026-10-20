@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The native sweep/batch lane (issue #24): ``run_program_batch`` /
+"""The native sweep/batch path (issue #24): ``run_program_batch`` /
 ``run_program_batch_parallel`` / ``run_program_inputs``.
 
 Proves, when ``pl_transpiler._accel`` is built:

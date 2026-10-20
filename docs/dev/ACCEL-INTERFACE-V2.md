@@ -19,7 +19,7 @@
 This is the refreeze of the optional native fast path: the interface the Rust
 kernel (`accel/`) exposes to Python once an EL program can be executed natively.
 It is the single source of truth for the names and shapes the FFI layer, the
-kernel lanes, and the Python fallback wiring all build against. It supplements
+kernel modules, and the Python fallback wiring all build against. It supplements
 `docs/ACCEL.md` (the decision record) and `types.rs` (the Rust-side contract
 invariants); `docs/ACCEL.md` remains authoritative for the *packaging* decision,
 and `types.rs` remains authoritative for the *Rust* semantics.

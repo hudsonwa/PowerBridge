@@ -27,7 +27,7 @@ sha2 = "0.10"
 # Inheriting keeps `cargo test` and `cargo test --release` working untouched.
 #
 # `target-cpu=native` is deliberately NOT set: it would make every build
-# host-specific (CI, wheels, the lane machines). It is measured separately.
+# host-specific (CI, wheels, the build machines). It is measured separately.
 [profile.release-lto]
 inherits = "release"
 lto = "fat"

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_collect_errors.py — collect-all transpile-time diagnostics (FL1).
+"""test_collect_errors.py — collect-all transpile-time diagnostics.
 
 One transpile() walks the ENTIRE program and reports EVERY unimplemented keyword
 at once (name + source line each), then fails loud with no Python output. Proves:
@@ -126,7 +126,7 @@ def group_valid_still_transpiles():
 
 
 def group_bare_marker_keyword_reported():
-    """F2: a bare BUILTIN_FUNC_MAP keyword whose internal `__marker__` py_name has
+    """A bare BUILTIN_FUNC_MAP keyword whose internal `__marker__` py_name has
     no faithful zero-arg expansion (e.g. `FastD`) must be COLLECTED as unimplemented
     under its EL name — never emitted as an undefined `__fastd__()` marker call."""
     e = _collect("Value1 = FastD;\n")
@@ -139,7 +139,7 @@ def group_bare_marker_keyword_reported():
 
 
 def group_bare_unimpl_ident_reported():
-    """F3: a bare unimplemented keyword used as a value (`AvgWinTrade`) is collected
+    """A bare unimplemented keyword used as a value (`AvgWinTrade`) is collected
     (not emitted as a raw lowercased identifier that NameErrors at runtime), and a
     program mixing a bare unknown with a call-form unknown reports BOTH."""
     e = _collect("Value1 = AvgWinTrade;\n")
@@ -152,7 +152,7 @@ def group_bare_unimpl_ident_reported():
 
 
 def group_declared_and_assigned_names_not_flagged():
-    """F3 must NOT false-positive: declared vars (incl. NESTED Variables blocks at
+    """This check must NOT false-positive: declared vars (incl. NESTED Variables blocks at
     any depth) and names defined purely by assignment stay valid — only names that
     are READ but never declared and never assigned are unimplemented."""
     # Nested Variables: block inside a Begin/End — declared, must transpile clean.
@@ -172,7 +172,7 @@ def group_declared_and_assigned_names_not_flagged():
 
 
 def group_nested_declared_shadows_builtin():
-    """FL5 RC2: a name declared in a NESTED Variables/Inputs/Arrays block that collides
+    """A name declared in a NESTED Variables/Inputs/Arrays block that collides
     with a builtin must resolve to the DECLARED local — never be mis-flagged as
     unimplemented (a __marker__ builtin like FastD), nor emit the builtin expansion and
     discard the declaration (a bare-computed reserved word like Range, or an indicator
@@ -199,7 +199,7 @@ def group_nested_declared_shadows_builtin():
 
 
 def group_lvalue_unimpl_keyword_collected():
-    """FL5 RC3: assignment to a recognized-but-unimplemented EL keyword (read-only in
+    """Assignment to a recognized-but-unimplemented EL keyword (read-only in
     EL) must COLLECT+RAISE in strict — a WRITE must not silently bypass the fail-loud
     that a READ of the same keyword already triggers. Genuine assigned-AND-read locals
     and runtime internals that surface write-only in round-tripped EL stay valid."""
@@ -217,7 +217,7 @@ def group_lvalue_unimpl_keyword_collected():
 
 
 def group_assigned_and_read_keyword_not_rescued():
-    """FL6 BUG C: the "assigned & read" lvalue rescue must not whitelist a
+    """The "assigned & read" lvalue rescue must not whitelist a
     recognized-but-unimplemented keyword nor a name that is READ before it is ever
     cleanly defined / is only self-referential — otherwise its bare read silently
     bypasses the strict fail-loud and drops from the collect-all report."""
@@ -244,7 +244,7 @@ def group_assigned_and_read_keyword_not_rescued():
 
 
 def group_reserved_ident_no_binding_reported():
-    """FL6 BUG D: a bare reserved identifier the parser recognizes but which has NO
+    """A bare reserved identifier the parser recognizes but which has NO
     pl_ target and NO runtime binding (e.g. Pi) would emit a raw undefined name ->
     NameError; it must instead COLLECT+RAISE like any unimplemented keyword. A
     reserved word that DOES bind at runtime (NewLine) stays valid."""
@@ -260,7 +260,7 @@ def group_reserved_ident_no_binding_reported():
 
 
 def group_bare_python_builtin_collision_reported():
-    """Audit a2-F1: a bare EL identifier that COLLIDES with a Python builtin name
+    """A bare EL identifier that COLLIDES with a Python builtin name
     (`all`, `any`, `sum`, `map`, `id`, `input`, ...) must NOT be trusted as a valid
     runtime binding just because `dir(builtins)` contains it. Emitting it raw would
     bind it to the Python builtin object (`Value1 = all;` -> `value1 = all`, the

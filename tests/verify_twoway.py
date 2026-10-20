@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""verify_twoway.py — BINDING two-way gate  (GOAL R4).
+"""verify_twoway.py — BINDING two-way gate.
 
 Closes the full loop through the *Python* side of the transpiler:
 
@@ -232,7 +232,7 @@ def run_default(max_bars, scratch):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Two-way binding gate (GOAL R4)")
+    ap = argparse.ArgumentParser(description="Two-way binding gate")
     ap.add_argument("--max-bars", type=int, default=None, dest="max_bars",
                     help="GT bars after warmup (default: verify_all.DEFAULT_GT_BARS).")
     ap.add_argument("--scratch", default=None,

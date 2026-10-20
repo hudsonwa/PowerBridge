@@ -16,7 +16,7 @@
 """
 test_untraced_dialect_reconciliation.py — pin the three-way dialect counts.
 
-This lane settled the withdrawn "untraced emits 0 trades" claim against Audit
+This test settles the withdrawn "untraced emits 0 trades" claim against Audit
 Ref 3. The three dialect modes are:
 
   traced            transpile(trace=True)            -> run_el          (fills N)

@@ -82,7 +82,7 @@ def group_singular_contract():
 
 def group_leading_blanks():
     """Leading blank lines at the top of the source are reproduced, and the
-    result is a re-emission fixed point (Rcyc-safe)."""
+    result is a re-emission fixed point (stable under re-emission)."""
     src = "\n\nValue1 = 5;\n"
     out = reverse.el_roundtrip(src)
     assert out.startswith("\n\n"), repr(out)

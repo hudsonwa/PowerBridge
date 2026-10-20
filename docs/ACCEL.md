@@ -27,9 +27,9 @@ This is the recorded decision behind issue [#17](https://github.com/hudsonwa/Pow
 the product shape of the optional native fast path, written **before** any kernel
 code exists, so the boundary is agreed rather than discovered later. It changes no
 behaviour. It promises no speed. This document is the contract; the kernel, CI, and
-conformance tickets implement against it.
+conformance work implements against it.
 
-## The interface (frozen — shared across the kernel, CI, and test lanes)
+## The interface (frozen — shared across the kernel, CI, and test code)
 
 These three facts are the whole public interface of the fast path. Do not rename
 them anywhere:
@@ -40,8 +40,8 @@ them anywhere:
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
-Because these three facts are shared verbatim with the kernel lane (#18), the CI/wheel
-lane (#21), and the test lane, they are frozen here: renaming any of them in a later
+Because these three facts are shared verbatim with the kernel work (#18), the CI/wheel
+work (#21), and the tests, they are frozen here: renaming any of them in a later
 PR is a contract break, not a cleanup.
 
 The fallback rule in the third row is not decoration — it is the load-bearing
@@ -96,7 +96,7 @@ So the real mechanism is this: **`pip install .[accel]` works only by declaring
 one dependency that itself ships the native extension module
 `pl_transpiler._accel`** — a second, separately built distribution whose wheel
 installs that module into the `pl_transpiler` package directory. As of this
-writing **that distribution does not exist**: it is owned by ticket #18 (the
+writing **that distribution does not exist**: it is owned by issue #18 (the
 kernel), #21 (the wheel builds), and a publishing decision this document
 deliberately does **not** make.
 
@@ -128,8 +128,8 @@ and who publishes it — is **an open product-level decision, flagged on issue #
 not invented here. Until that decision lands and the artifact exists,
 `pip install .[accel]` is documented as *declared but not yet satisfiable*: it is
 reserved to make the future install honest, and the extra name `accel` is frozen so
-the kernel lane (#18), the CI/wheel lane (#21), the conformance lane (#20), and the
-test lane can build against one shared name instead of four guesses.
+the kernel (#18), the CI/wheel build (#21), the conformance work (#20), and the
+tests can build against one shared name instead of four guesses.
 
 What is true *today*, verifiably, without the artifact:
 
@@ -171,7 +171,7 @@ python3 -c "import pl_transpiler._accel" 2>&1 | tail -1
 # ModuleNotFoundError: No module named 'pl_transpiler._accel' -> Python path.
 ```
 
-When the kernel lane lands, the run entry points (`pl_run`, `pl_oracle`) will print
+When the kernel lands, the run entry points (`pl_run`, `pl_oracle`) will print
 a one-line banner on stderr stating the path used — for example
 `[pl_run] path=accel (pl_transpiler._accel <version>)` or
 `[pl_run] path=python (accel extra not installed)` — and the kernel must provide a
@@ -223,9 +223,9 @@ reserved binding point and is not required by anything.
   `ImportError`, and the public tier + conformance harness stay green.
 
 - **Platform matrix.** macOS arm64 is the platform actually built and verified
-  (this lane's M5 Max evidence and the `accel-macos-arm64` CI job). Linux
+  (this change's M5 Max evidence and the `accel-macos-arm64` CI job). Linux
   x86_64/aarch64 and Windows wheels are **clearly-marked follow-ups** — nothing
-  in this lane claims a platform that was not built. Do not add an unbuilt
+  in this change claims a platform that was not built. Do not add an unbuilt
   platform to CI as if it worked.
 
 - **Phase-1 boundary.** The shipped crate exposes `ping()` (returns 42) and a

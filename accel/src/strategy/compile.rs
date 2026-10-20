@@ -338,7 +338,7 @@ pub(crate) enum Instr {
 /// The compiled program: a flat instruction stream plus the metadata the
 /// runtime needs to move values between bars (history, f32 narrowing, inputs).
 ///
-/// `Clone` exists only for the sweep/batch lane: the instruction stream and
+/// `Clone` exists only for the sweep/batch path: the instruction stream and
 /// per-variable metadata are identical across variants (an input override
 /// changes only `inputs`, see [`resolve_inputs`] / [`resolve_input_value`]);
 /// a batch runner clones the compiled program once per variant and swaps in the

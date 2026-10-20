@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_ast_retention.py — R1 parser-retention regression (reverse transpiler loop).
+test_ast_retention.py — parser-retention regression (reverse transpiler loop).
 
 The reverse emitter needs surface facts the parser historically DISCARDED. This
 test parses small EL snippets exercising each newly-retained field and asserts it
@@ -125,8 +125,8 @@ ast_nt = _parse('Buy( "LE" ) 100 shares next bar at market;')
 order_nt = next(_find(ast_nt, 'order'))
 check('total' not in order_nt, "order without 'total' does NOT grow total key")
 
-# ---- 6. R8: compact single-statement block flags ----
-print("6. Begin/End block-flag retention (R8):")
+# ---- 6. compact single-statement block flags ----
+print("6. Begin/End block-flag retention:")
 # compact single statement -> NO block flag
 ast = _parse("If c > 0 Then x = 1;")
 iff = next(_find(ast, 'if'))
@@ -147,8 +147,8 @@ ast_fc = _parse("For i = 1 To 3 x = 1;")
 forn_c = next(_find(ast_fc, 'for'))
 check('block' not in forn_c, "compact `For .. <stmt>` grows NO block flag")
 
-# ---- 7. R8: user-identifier original casing ----
-print("7. User-identifier original casing (_ident, R8):")
+# ---- 7. user-identifier original casing ----
+print("7. User-identifier original casing (_ident):")
 ast = _parse("Vars: FastMA( 0 );\nFastMA = Close;")
 vd = next(_find(ast, 'var_decl'))
 d = vd['decls'][0]

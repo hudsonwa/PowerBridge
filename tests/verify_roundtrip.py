@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""verify_roundtrip.py — BINDING round-trip gate  (GOAL R2a; harness FIRST).
+"""verify_roundtrip.py — BINDING round-trip gate (harness written before the emitter).
 
 Built BEFORE any emitter exists, and proven able to go RED. This is the gate that
 makes "the emitter round-trips" mean something: for every GT label it takes the
@@ -25,7 +25,7 @@ faithful, every label stays green; if it corrupts anything, labels go red.
       run_gt.GT_FILES[label] + golden_diff.GT_FILES[label] repointed at EL'  -->
       verify_all.run_gt_checks(max_bars, scratch)   [VERBATIM — zero new comparison logic]
 
-The real emitter (R2b, `transpiler/codegen_el.py: emit_el(ast)`) is now in place
+The real emitter (`transpiler/codegen_el.py: emit_el(ast)`) is now in place
 and takes the AST ONLY — no source text. This gate drives that live emitter: a
 green run means every emitted label reproduces its capture; a corrupting emitter
 would redden labels. The plumbing (repoint + rerun) is only meaningful alongside
@@ -92,8 +92,8 @@ def build_ast(source_text):
     return parse(tokens, positions=positions, source=source_text)
 
 
-# R2b: the real emitter is transpiler/codegen_el.py:emit_el(ast). It takes NO
-# source text — the round-trip below emits purely from the AST. (The R2a
+# The real emitter is transpiler/codegen_el.py:emit_el(ast). It takes NO
+# source text — the round-trip below emits purely from the AST. (The original
 # passthrough stub is gone; the negative-control corrupt stub below stays, as it
 # is what proves this gate can still go RED.)
 
@@ -171,7 +171,7 @@ def run_default(max_bars, scratch):
         print("=" * 70)
         print(f"ROUND-TRIP GATE (parse->emit->rerun)  labels={len(labels)}  "
               f"max_bars={max_bars}")
-        print("  emitter = pl_transpiler.codegen_el.emit_el (AST-only; R2b)")
+        print("  emitter = pl_transpiler.codegen_el.emit_el (AST-only)")
         print("=" * 70)
         results = run_gt_checks(max_bars, scratch)
     all_ok = True
@@ -217,7 +217,7 @@ def run_full_range(max_bars, scratch):
         print("=" * 70)
         print(f"ROUND-TRIP FULL-RANGE ORDER GATE  labels={len(labels)}  "
               f"max_bars={'ALL' if max_bars is None else max_bars}")
-        print("  emitter = pl_transpiler.codegen_el.emit_el (AST-only; R2b); check = "
+        print("  emitter = pl_transpiler.codegen_el.emit_el (AST-only); check = "
               "verify_all.run_order_fullrange_checks")
         print("=" * 70)
         results = run_order_fullrange_checks(scratch, max_bars=max_bars)
@@ -230,7 +230,7 @@ def run_full_range(max_bars, scratch):
     return 0 if all_ok else 1
 
 
-# --- R2b: reparse-fixpoint --------------------------------------------------
+# --- reparse-fixpoint ------------------------------------------------------
 # Keys the parser stamps for diagnostics / retained-symbol provenance that are
 # NOT part of the structural AST and are therefore stripped before comparison.
 # `_comments` (Rcmt) is the source-comment side-list attached to the program node —
@@ -327,7 +327,7 @@ def run_fixpoint():
     return 0 if all_ok else 1
 
 
-# --- R2b: mutation-reflect --------------------------------------------------
+# --- mutation-reflect ------------------------------------------------------
 _DECL_TYPES = {"input_decl", "var_decl", "array_decl"}
 
 
@@ -419,7 +419,7 @@ def run_mutation_reflect(scratch):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Round-trip binding gate (GOAL R2a)")
+    ap = argparse.ArgumentParser(description="Round-trip binding gate")
     ap.add_argument("--self-test", action="store_true",
                     help="NEGATIVE CONTROL: corrupt the emitted EL; pass iff every "
                          "label goes RED.")

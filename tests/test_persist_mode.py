@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_persist_mode.py — F2: runnable no-trace dialect.
+test_persist_mode.py — runnable no-trace dialect.
 
 transpile(trace=False) is the clean mirror dialect for py_front and does NOT
 persist EL Variables across bars (every var is re-initialised). That is
@@ -138,7 +138,7 @@ def test_persist_cli_flag_shape():
 
 
 def test_persist_first_bar_state_seed():
-    """F3: persist/trace seed `_state` once; they must not allocate `[init]`
+    """Persist/trace seed `_state` once; they must not allocate `[init]`
     via setdefault on every bar. Clean dialect is unchanged (no `_state`)."""
     persist = transpile(COUNT_EL, persist=True)
     traced = transpile(COUNT_EL, trace=True)

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-test_runtime_config.py — proves de-hardcoding is FUNCTIONAL (GOAL unit #4).
+test_runtime_config.py — proves de-hardcoding is FUNCTIONAL.
 
 The chart/instrument constants that made the runner NQ-specific now live in a
 per-run InstrumentConfig injected into the FillEngine — they are NOT baked into

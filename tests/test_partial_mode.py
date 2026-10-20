@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_partial_mode.py — opt-in --partial / partial= transpile mode (FL2).
+"""test_partial_mode.py — opt-in --partial / partial= transpile mode.
 
 With partial=True, an unimplemented EL keyword becomes an execution-time stub
 that RAISES UnimplementedKeywordError when evaluated (never a wrong value), under
@@ -152,7 +152,7 @@ def group_d_default_transpile_still_raises():
         assert e.errors and e.errors[0]["name"] == "fakeunknownkw", repr(e.errors)
 
 
-# F1: a Vars: initializer with an unimplemented keyword. In TRACE mode the var is
+# A Vars: initializer with an unimplemented keyword. In TRACE mode the var is
 # seeded from _state, so the stub for the unknown init keyword must live in the
 # state seed — otherwise the var silently starts at ''/0 and the run COMPLETES
 # with a wrong value instead of raising. Covers a plain call, a nested arithmetic
@@ -176,25 +176,25 @@ def group_e_var_init_stub_raises_not_wrong_value():
         code = transpile(src, trace=True, partial=True)
         seed = [ln for ln in code.splitlines()
                 if "pl_partial_stub" in ln and "_state[" in ln]
-        assert seed, f"F1 stub not in state seed for {src!r}:\n{code}"
+        assert seed, f"Stub not in state seed for {src!r}:\n{code}"
         assert f"'{kw}'" in code, f"watermark did not name {kw} for {src!r}"
         # strict transpile raises at transpile time (all-or-nothing).
         try:
             transpile(src, trace=True)
-            raise AssertionError(f"F1 strict transpile did not raise for {src!r}")
+            raise AssertionError(f"Strict transpile did not raise for {src!r}")
         except UnimplementedKeywordError:
             pass
         # run_el(partial=True) RAISES the moment the var initializes — no wrong value.
         try:
             run_el(src, bars, config, partial=True)
-            raise AssertionError(f"F1 run_el(partial) did not raise for {src!r}")
+            raise AssertionError(f"run_el(partial) did not raise for {src!r}")
         except UnimplementedKeywordError as e:
             assert "partial-mode stub executed" in str(e), repr(str(e))
             assert kw in str(e), f"raise did not name {kw}: {str(e)!r}"
 
 
 def group_f_argless_stub_raises_unimplemented_not_typeerror():
-    """F4: an emitted stub carries NO arguments, so a partial run raises
+    """An emitted stub carries NO arguments, so a partial run raises
     UnimplementedKeywordError — never an unrelated TypeError from evaluating the
     original argument expressions before the stub fires. Nested unknowns are still
     both collected (watermark complete) and the run still fails loud."""
@@ -207,11 +207,11 @@ def group_f_argless_stub_raises_unimplemented_not_typeerror():
     assert "pl_partial_stub('fakeoff', 1)()" in code, f"stub not argless:\n{code}"
     try:
         run_el(src, bars, config, partial=True)
-        raise AssertionError("F4 run_el(partial) did not raise")
+        raise AssertionError("run_el(partial) did not raise")
     except UnimplementedKeywordError as e:
         assert "partial-mode stub executed" in str(e), repr(str(e))
-    except TypeError as e:  # the exact bug F4 fixes
-        raise AssertionError(f"F4 regression: TypeError not UnimplementedKeywordError: {e!r}")
+    except TypeError as e:  # the exact bug this guards
+        raise AssertionError(f"Regression: TypeError not UnimplementedKeywordError: {e!r}")
 
     # Nested unknowns: BOTH named in the watermark, argless stub, still raises.
     nested = "Value1 = FakeOuter(FakeInner(Close));\n"
@@ -226,7 +226,7 @@ def group_f_argless_stub_raises_unimplemented_not_typeerror():
         assert names == {"fakeouter", "fakeinner"}, repr(e.errors)
 
 
-# FL5 RC1: an IMPLEMENTED enclosing keyword whose inline expansion DROPS, RELOCATES,
+# An IMPLEMENTED enclosing keyword whose inline expansion DROPS, RELOCATES,
 # or STRING-INTERPOLATES its argument text (CountIf keeps only args[1]; EntryName/
 # ExitName/BaseDataNumber/CurrentDate/Recalculate ignore args; BarNumberOfData
 # f-string-interpolates an arg) must not let a nested stub vanish or break the literal.
@@ -241,7 +241,7 @@ RC1_DROP_CASES = [
 
 
 def group_g_stub_survives_arg_dropping_expansions():
-    """FL5 RC1 (F1/F3): a nested unimplemented keyword inside an IMPLEMENTED call whose
+    """A nested unimplemented keyword inside an IMPLEMENTED call whose
     expansion drops/interpolates args collapses the WHOLE call to a standalone argless
     stub — the partial output COMPILES (no SyntaxError) and RAISES at execution (never
     completes with a wrong value), naming the nested keyword, not the enclosing one."""
@@ -249,9 +249,9 @@ def group_g_stub_survives_arg_dropping_expansions():
     config = get_config("NQ")
     for src, kw, enclosing in RC1_DROP_CASES:
         code = transpile(src, trace=True, partial=True)
-        compile(code, "<f>", "exec")  # F3: must not be a SyntaxError
+        compile(code, "<f>", "exec")  # Must not be a SyntaxError
         assert f"pl_partial_stub('{kw}'" in code, f"stub not named {kw}:\n{code}"
-        # F1: run RAISES (never completes with a real value); names the nested kw.
+        # Run RAISES (never completes with a real value); names the nested kw.
         try:
             run_el(src, bars, config, partial=True)
             raise AssertionError(f"partial run did not raise for {src!r}")
@@ -271,7 +271,7 @@ def group_g_stub_survives_arg_dropping_expansions():
 
 
 def group_h_stub_target_is_standalone_statement():
-    """FL5 RC1 (F2): an assignment whose TARGET is an unimplemented keyword emits the
+    """An assignment whose TARGET is an unimplemented keyword emits the
     stub as a STANDALONE statement, never `pl_partial_stub(...)() = rhs` (a Python
     SyntaxError). Partial output compiles and raises at execution."""
     bars = load_bars_csv(BARS_CSV)
@@ -291,7 +291,7 @@ def group_h_stub_target_is_standalone_statement():
 
 
 def group_i_boolean_nonshortcircuit_stub_raises():
-    """FL6 BUG A: EL/PL `and`/`or` are NON-short-circuit — both operands are always
+    """EL/PL `and`/`or` are NON-short-circuit — both operands are always
     evaluated. Python's `and`/`or` short-circuit, so a stub on the operand Python
     would skip would be BYPASSED and the boolean would silently yield a value
     instead of raising. Under partial the whole boolean must collapse to a single
@@ -318,7 +318,7 @@ def group_i_boolean_nonshortcircuit_stub_raises():
 
 
 def group_j_position_keyword_index_walks_nested_unknown():
-    """FL6 BUG B: the positions-ago INDEX of a single-arg position keyword must be
+    """The positions-ago INDEX of a single-arg position keyword must be
     WALKED so a nested unimplemented keyword is recorded (strict) and raises
     (partial). Previously the index was never visited: strict silently emitted
     kwargs.get(...) and partial reported '0 unimplemented constructs' (a watermark
@@ -345,7 +345,7 @@ def group_j_position_keyword_index_walks_nested_unknown():
 
 
 def group_k_switch_subject_stub_not_dropped():
-    """Audit a1-F1/F2: gen_switch emitted the switch SUBJECT only inside per-case
+    """gen_switch emitted the switch SUBJECT only inside per-case
     `if/elif <subj> == <val>:` lines. A Switch with ZERO case labels (empty body, or
     Default-only) therefore DROPPED the subject entirely — so a partial-mode stub in
     the subject was silently discarded (the run completed with a wrong value while the
@@ -360,7 +360,7 @@ def group_k_switch_subject_stub_not_dropped():
     ]
     for src in variants:
         code = transpile(src, trace=True, partial=True)
-        compile(code, "<f>", "exec")  # must not be a SyntaxError (a1-F2)
+        compile(code, "<f>", "exec")  # must not be a SyntaxError
         assert "pl_partial_stub('fakef'" in code, f"subject stub dropped:\n{code}"
         try:
             run_el(src, bars, config, partial=True)

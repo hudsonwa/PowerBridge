@@ -14,12 +14,12 @@
 
 //! Frozen Rust-side contract for the native accel kernel (interface v2).
 //!
-//! This module owns the *types and boundaries* the downstream lanes build
+//! This module owns the *types and boundaries* the downstream modules build
 //! against: the bar/series shapes, the order/fill/position surface, the
-//! closed-position ledger (verifier finding D4), the output/report surface,
+//! closed-position ledger, the output/report surface,
 //! the session/engine/interpreter seams, and the explicit instrument config.
 //! Nothing here executes a strategy — the fill engine, the IR interpreter and
-//! the harness are separate lanes that consume these types.
+//! the harness are separate modules that consume these types.
 //!
 //! Contract rules (see `docs/dev/ACCEL-INTERFACE-V2.md`):
 //!
@@ -33,7 +33,7 @@
 //!   bars may be defaulted inside Rust; a missing field must raise, never be
 //!   invented (v2 requirements 2-3). [`Config`] therefore has no `Default`.
 //! * **signed sizes** — Python-reachable negative and zero contract sizes are
-//!   `isize`, never unsigned (verifier D1).
+//!   `isize`, never unsigned.
 
 use std::error::Error;
 use std::fmt;
@@ -60,7 +60,7 @@ pub(crate) fn narrow_f32(value: f64) -> f64 {
 /// caller input (e.g. a column-length mismatch), `unsupported` = a construct
 /// outside the implemented surface (must be refused, never approximated),
 /// `strategy` = the strategy/interpreter raised. Constructors are `pub(crate)`
-/// so every lane builds the same error type instead of inventing a parallel one.
+/// so every module builds the same error type instead of inventing a parallel one.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct KernelError {
     message: String,
@@ -108,7 +108,7 @@ pub(crate) struct Bar {
     pub(crate) low: f64,
     pub(crate) close: f64,
     /// INVARIANT — `volume` is carried through the tape unchanged for the
-    /// engine lane; no current fill logic reads it. Kept because the FFI
+    /// engine; no current fill logic reads it. Kept because the FFI
     /// `series` bundle includes it.
     #[allow(dead_code)]
     pub(crate) volume: f64,
@@ -277,7 +277,7 @@ pub(crate) enum Timing {
 /// A single strategy order.
 ///
 /// INVARIANT — `quantity` is a SIGNED `f64` that preserves Python
-/// `FillEngine._fill_at` semantics exactly (verifier D1). A codegen `qty_expr`
+/// `FillEngine._fill_at` semantics exactly. A codegen `qty_expr`
 /// is an arbitrary EL numeric expression (e.g. `Buy (Risk/StopDistance)
 /// contracts`), so:
 ///
@@ -290,8 +290,8 @@ pub(crate) enum Timing {
 ///
 /// `quantity` MUST NOT be narrowed to an unsigned integer anywhere on the path
 /// to fill resolution — `usize` erased 0.4 into an "exit all" and minted a
-/// phantom contract (the D1 regression). `price` is `None` exactly when Python
-/// silently drops the order (a non-numeric index-5 slot, D2); it is never
+/// phantom contract (a past regression). `price` is `None` exactly when Python
+/// silently drops the order (a non-numeric index-5 slot); it is never
 /// guessed.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Order {
@@ -343,7 +343,7 @@ impl Order {
 /// turnover, typed by the action — that quirk is shared with Python, which is
 /// why `round_turns = len(fills) // 2` is a valid cross-check only because
 /// both sides reproduce it. `fill_type` is [`Action::python_fill_type`]
-/// (`"EntryLong"` / `"ExitLong"`). Signed sizing (D1) applies to position
+/// (`"EntryLong"` / `"ExitLong"`). Signed sizing applies to position
 /// `contracts`/`max_contracts_held` ([`PositionView`]), not to this per-record
 /// count.
 #[derive(Debug, Clone, PartialEq)]
@@ -362,7 +362,7 @@ pub(crate) struct Fill {
 /// INVARIANT — `contracts` and `max_contracts_held` are SIGNED (`isize`)
 /// because negative and zero sizes are reachable from Python (qty `-3` →
 /// `contracts = -3`; fractional `0.4` → phantom `contracts = 0`). They must
-/// never be narrowed to an unsigned type (D1). The remaining fields mirror the
+/// never be narrowed to an unsigned type. The remaining fields mirror the
 /// Python `FillEngine` position state at the same observation point;
 /// `exit_price`/`bars_since_exit` are 0 in the current engine (Python never
 /// sets them in `_reset_flat` either).
@@ -450,7 +450,7 @@ pub(crate) struct StrategyOutput {
 /// INVARIANT — mirrors the Python `FillEngine._record_closed_trade` dict
 /// (`engine.py:529-574`) field-for-field. It is the consumer of the engine's
 /// currently write-only `position_mfe_per_contract` /
-/// `position_mae_per_contract` excursion state (verifier D4): at close time
+/// `position_mae_per_contract` excursion state: at close time
 /// `mfe_pc`/`mae_pc` fold in the exit excursion at `f32(exit_price)`, because
 /// the exit fill is part of the held period. `contracts` is the MAX `isize`
 /// contracts held while open (`_pos_max_contracts`), `entries` the
@@ -460,7 +460,7 @@ pub(crate) struct StrategyOutput {
 /// `closed_positions` is NOT part of the trade digest. Entry context is
 /// snapshotted BEFORE `_reset_flat`.
 ///
-/// Not yet constructed by any code in this crate: the D4 engine lane populates
+/// Not yet constructed by any code in this crate: the engine populates
 /// it via [`SessionEngine::record_closed_trade`].
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -491,12 +491,12 @@ pub(crate) struct ClosedPosition {
 /// plus its per-contract excursions (`_pos_mfe_pc` / `_pos_mae_pc`).
 ///
 /// INVARIANT — `max_contracts` is the max contracts held while open
-/// (non-negative by construction but `isize` per the signed D1 contract);
+/// (non-negative by construction but `isize` per the signed-size contract);
 /// `entries` counts separate entry fills; `mfe_pc`/`mae_pc` are `$` per
 /// contract with `mae_pc <= 0`. These are the aggregates the GTA6 report
 /// columns read O(1) instead of rescanning the ledger.
 ///
-/// Maintained by the D4 engine lane; not yet constructed by this crate.
+/// Maintained by the engine; not yet constructed by this crate.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PositionAggregates {
@@ -516,7 +516,7 @@ pub(crate) struct PositionAggregates {
 /// `_st_*` fields rely on (`engine.py:575-602`). `largest_win`/`largest_loss`
 /// floor at 0.0 like Python.
 ///
-/// Maintained by the D4 engine lane; not yet constructed by this crate.
+/// Maintained by the engine; not yet constructed by this crate.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SessionStats {
@@ -537,7 +537,7 @@ pub(crate) struct SessionStats {
 /// The per-run output surface (contract v2 `run_program` return).
 ///
 /// INVARIANT — `fills` is the ordered trade list in the `FillEngine.fills`
-/// shape `pl_oracle` hashes; `closed_positions` is the D4 ledger whose LENGTH
+/// shape `pl_oracle` hashes; `closed_positions` is the closed-position ledger whose LENGTH
 /// is the `closed_positions` count `pl_oracle` reads
 /// (`closed_positions = len(FillEngine.closed_trades)`) — a scale-in ladder is
 /// one closed position, many fills. `position` is the final per-bar
@@ -569,7 +569,7 @@ pub(crate) struct KernelOutcome {
 /// These columns are what the caller actually consumes — leaving them out of
 /// the phase-1 freeze was the mistake the v2 refreeze exists to avoid.
 ///
-/// Produced by the interpreter/engine lane; not yet constructed by this crate.
+/// Produced by the interpreter/engine; not yet constructed by this crate.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TraceReport {
@@ -582,7 +582,7 @@ pub(crate) struct TraceReport {
 /// INVARIANT — session bounds are EXPLICIT config, never derived or guessed
 /// natively (v2 requirement 3: a program that reads session words must run
 /// against the right session, or be refused — never silently against the
-/// wrong one). The engine lane owns the session logic (`SetExitOnClose`
+/// wrong one). The engine module owns the session logic (`SetExitOnClose`
 /// rollover, `SessionLastBar`) built on these bounds.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -591,20 +591,20 @@ pub(crate) struct Session {
     pub(crate) end: i64,
 }
 
-/// The fill-engine boundary the `accel/engine/` lane implements and the bar
+/// The fill-engine boundary the `accel/engine/` module implements and the bar
 /// loop drives.
 ///
-/// INVARIANT — this is the single engine contract both builder lanes share, so
+/// INVARIANT — this is the single engine contract the engine and strategy modules share, so
 /// they cannot invent a parallel fill-engine type: the per-bar lifecycle
 /// (`before_bar` / `after_bar`), the strategy-observable [`PositionView`], the
-/// ordered trade list, and the D4 closed-position ledger with its
+/// ordered trade list, and the closed-position ledger with its
 /// `_record_closed_trade` entry point. `record_closed_trade` snapshots the
-/// just-closed position BEFORE the flat reset, exactly like Python; the D4
-/// lane wires the engine's close paths to call it and to maintain
+/// just-closed position BEFORE the flat reset, exactly like Python; the engine
+/// wires the engine's close paths to call it and to maintain
 /// [`PositionAggregates`] / [`SessionStats`].
 ///
-/// Not implemented yet: the existing `kernel::FillEngine` predates D4 and is
-/// the base the engine lane extends.
+/// Not implemented yet: the existing `kernel::FillEngine` predates the ledger and is
+/// the base the engine module extends.
 #[allow(dead_code)]
 pub(crate) trait SessionEngine {
     fn before_bar(&mut self, bar: Bar, bar_number: usize) -> Result<(), KernelError>;
@@ -620,7 +620,7 @@ pub(crate) trait SessionEngine {
     fn position_aggregates(&self) -> &PositionAggregates;
     fn session_stats(&self) -> &SessionStats;
 
-    /// The `_record_closed_trade` entry point (D4): snapshot the just-closed
+    /// The `_record_closed_trade` entry point: snapshot the just-closed
     /// position into the ledger. `exit_bar`/`exit_price`/`size`/`islong`/
     /// `exit_date`/`exit_time`/`exit_name`/`exit_cat` are the close-time
     /// context; the entry context is read from the engine's open-position
@@ -641,7 +641,7 @@ pub(crate) trait SessionEngine {
     );
 }
 
-/// The strategy/interpreter seam the `accel/strategy/` lane implements and the
+/// The strategy/interpreter seam the `accel/strategy/` module implements and the
 /// bar loop drives.
 ///
 /// INVARIANT — a pure Rust seam: no Python callbacks and no per-bar FFI
@@ -756,7 +756,7 @@ impl From<&Config> for Instrument {
 /// and warmup seed. [`From<&Config> for Instrument`] pins the narrowing-free
 /// mapping the engine consumes (`point_value = bigpointvalue`).
 ///
-/// Consumed by the FFI lane; not yet constructed by this crate.
+/// Consumed by the FFI layer; not yet constructed by this crate.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Config {
@@ -780,18 +780,18 @@ pub(crate) struct Config {
 }
 
 // ============================================================================
-// FROZEN CONTRACT ENDS HERE. Nothing above this line may be edited by a builder
-// lane. Two lanes work in parallel against this contract:
+// FROZEN CONTRACT ENDS HERE. Nothing above this line may be edited by an
+// implementation module. Two modules work in parallel against this contract:
 //
-//   ENGINE LANE   (accel/src/engine/**)   — fill engine, bar loop, session state
-//   STRATEGY LANE (accel/src/strategy/**) — the generated-strategy interpreter
+//   ENGINE   (accel/src/engine/**)   — fill engine, bar loop, session state
+//   STRATEGY (accel/src/strategy/**) — the generated-strategy interpreter
 //
-// Each lane appends ONLY inside its own region below. Two edits to the SAME file
+// Each module appends ONLY inside its own region below. Two edits to the SAME file
 // merge cleanly when they land in DIFFERENT regions (verified) and conflict when
 // both append at the same point — which is why the regions are separated here.
 //
 // If the frozen contract is genuinely wrong for what you need, STOP and say so in
-// your report. Do NOT silently widen it: two lanes independently widening the same
+// your report. Do NOT silently widen it: two modules independently widening the same
 // contract produce two half-contracts that each compile but disagree, and a clean
 // git merge of divergent semantics is worse than a conflict, because nothing flags
 // it.

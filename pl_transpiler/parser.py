@@ -1114,7 +1114,7 @@ class Parser:
 
         # Mod as a function form: Mod(a, b) -> a % b (same node the infix `mod` produces).
         # NOTE: matches Python % for non-negative operands (EL usage here); negative-operand
-        # EL Mod semantics are a runtime concern for U5.
+        # EL Mod semantics are a runtime concern.
         if tt == TT_KEYWORD and val == 'mod':
             self.advance()
             self.expect(TT_LPAREN)

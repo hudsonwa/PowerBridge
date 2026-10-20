@@ -114,7 +114,7 @@ def _dated_bars(n, date0=1240102):
 
 
 def test_reference_audit_citation_constants():
-    """The reference audit numbers later tickets must cite. The tape is not shipped; this
+    """The reference audit numbers later changes must cite. The tape is not shipped; this
     only checks the constant matches the formatter so a typo cannot drift."""
     assert AUDIT_REF_3_FILLS == 7364
     assert AUDIT_REF_3_ROUND_TURNS == 3682

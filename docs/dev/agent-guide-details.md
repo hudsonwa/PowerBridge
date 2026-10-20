@@ -394,7 +394,7 @@ Sweep/batch entry points — the prepared path the sweep runner uses:
 ```text
 run_native_inputs(el_source, bars, config, inputs, *, data2_bars=None) -> list[dict]
     # One variant run in isolation with explicit Input overrides (`inputs` is a
-    #   name -> number/bool/string mapping). The sweep lane's "solo" reference.
+    #   name -> number/bool/string mapping). The sweep/batch "solo" reference.
 
 run_native_sweep(el_source, bars, config, variants, *, data2_bars=None, threads=None)
     -> list[list[dict]]
@@ -413,7 +413,7 @@ variants, threads)`. The frozen `run_program` contract is untouched.
 
 ### `pl_transpiler.tools.pl_oracle`
 
-Exact trade-list digest. The merge gate for performance work: later tickets
+Exact trade-list digest. The merge gate for performance work: later changes
 must cite the before/after digest. **No digest, no merge.** Does not change the
 engine, the dialect, or `run_el`.
 
@@ -431,7 +431,7 @@ run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     #   zero lookback.
     # seed_warmup=True: keep the prefix, run it with fills suppressed (Once /
     #   lookback / Variables stay primed). A windowed run that disagrees on trades
-    #   is a failed ticket, not a speed win.
+    #   fails the check, not a speed win.
     # data2_closes: optional list[float] aligned with bars (Close of Data2).
     #   Drives the Python path's per-bar `data2_close`. The native path cannot
     #   reconstruct a full Data2 tape from closes-only and refuses that shape
@@ -450,7 +450,7 @@ run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     #   path.
     # records: FillEngine.get_mc_trades() list (ordered). On the native path the
     #   records are the kernel fills (no 'order_no') and closed_positions is None
-    #   (the FFI returns fills, not the D4 ledger -- neither is in the digest).
+    #   (the FFI returns fills, not the closed-position ledger -- neither is in the digest).
     # native: True iff the native kernel produced the digest.
     # native_fallback_reason: str when use_native requested but Python ran, else None.
     # text: canonical four-line digest (always ends with a newline).
@@ -483,7 +483,7 @@ every fill (entry and exit); `round_turns` is `len(fills) // 2` (one contract
 per fill record — Audit Ref 3: 7,364 fills / 3,682 round-turns). `closed_positions`
 is `len(FillEngine.closed_trades)` and is **not** in the digest (a scale-in
 ladder is one closed position but many round-turns). A windowed tape that
-disagrees on trades is a failed ticket, not a speed win — Audit Ref 3 is only safe
+disagrees on trades fails the check, not a speed win — Audit Ref 3 is only safe
 to **slice** because its EL has zero lookback; that property is *measured* by
 comparing digests, not assumed. Strategies that use Once, Close[n], Average, or
 a bar-1 cumulative need ``seed_warmup=True`` (or must not be windowed).
@@ -606,7 +606,7 @@ python3 -m pl_transpiler.tools.pl_run <el_file> <bars_csv> [--config NAME] [-o O
                at transpile time before any bar runs. NOT FAITHFUL — do not trust its output.
   --from-date / --from-bar : opt-in window start (EL YYYMMDD, or 0-based tape index).
                Default is the full tape. Seeded warmup (prefix runs, fills suppressed)
-               unless --slice. A window that disagrees on trades is a failed ticket.
+               unless --slice. A window that disagrees on trades fails the check.
   --slice    : drop the prefix instead of seeding warmup. Only equivalent when the
                trade-list oracle agrees.
 

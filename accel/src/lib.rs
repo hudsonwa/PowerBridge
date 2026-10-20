@@ -20,7 +20,7 @@
 //! strategy identifier, instrument configuration, or Data2. Hard-coding one
 //! strategy would silently return wrong trades for every other program, so
 //! phase 2 deliberately chooses the fail-loud fallback policy. The `engine`
-//! and `strategy` module skeletons are pre-wired for the two builder lanes.
+//! and `strategy` module skeletons are pre-wired for the engine and strategy implementations.
 
 use std::collections::HashMap;
 
@@ -29,9 +29,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
 /// Frozen shared contract (interface v2): bar/series shapes, the order/fill/
-/// position surface, the D4 closed-position ledger, the output/report surface,
+/// position surface, the closed-position ledger, the output/report surface,
 /// the session/engine/interpreter seams, and the explicit config. Re-exported
-/// at the crate root so the engine, strategy and FFI lanes name the shared
+/// at the crate root so the engine, strategy and FFI code name the shared
 /// types without a `types::` prefix.
 pub(crate) mod types;
 
@@ -41,15 +41,15 @@ pub(crate) mod types;
 #[allow(dead_code)]
 mod kernel;
 
-// Module skeletons owned by the two builder lanes (see `types` for the
-// contracts they implement against); created by the freeze so the lanes never
+// Module skeletons for the engine and strategy implementations (see `types` for the
+// contracts they implement against); created by the freeze so the modules never
 // contend for this file.
 mod audit;
 mod engine;
 mod strategy;
 
 // The shared contract, re-exported for the FFI layer. Some names are not yet
-// consumed by `lib.rs` — the future `run_program` lane reads them — hence the
+// consumed by `lib.rs` — the future `run_program` entry point reads them — hence the
 // `#[allow(unused_imports)]`.
 #[allow(unused_imports)]
 pub(crate) use types::{
@@ -222,7 +222,7 @@ fn run_program_audit_packet_core(
 }
 
 /// The pure-Rust seam behind the [`run_program_inputs`] pyfunction: a single
-/// variant with explicit input overrides (the sweep lane's "solo" reference).
+/// variant with explicit input overrides (the sweep/batch "solo" reference).
 fn run_variant_core(
     program_ir: &str,
     series: &BarTape,
@@ -498,7 +498,7 @@ fn extract_variants(
 }
 
 /// Execute a v2 `program_ir` over a `series` with explicit `config` AND explicit
-/// input overrides. This is the sweep lane's "solo" reference: one variant run
+/// input overrides. This is the sweep/batch "solo" reference: one variant run
 /// in isolation, against which the batch path must be bit-identical.
 #[pyfunction]
 #[pyo3(signature = (program_ir, series, data2=None, config=None, inputs=None))]

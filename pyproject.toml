@@ -18,7 +18,7 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 
 [project.optional-dependencies]
 # OPTIONAL FAST PATH — issue #17, decision record: docs/ACCEL.md. Strictly additive.
-# Interface frozen across the kernel/CI/test lanes; do not rename:
+# Interface frozen across the kernel, CI and test code; do not rename:
 #   extra name    -> `accel`        (pip install .[accel])
 #   native module -> `pl_transpiler._accel`
 #   extra absent  -> `import pl_transpiler._accel` raises ImportError; callers fall

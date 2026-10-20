@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""coverage_report.py — falsifiable coverage metric (GOAL item C / Ucov).
+"""coverage_report.py — falsifiable coverage metric.
 
 Makes "majority of EL" a MEASURED number, not an assertion. This is a
 READ-ONLY measurement: it changes NO runtime, captures, gates, or tolerance.
@@ -356,7 +356,7 @@ def roundtrip_coverage(scratch, max_bars):
 
 
 def sweep_stats():
-    """Read the R3 emission-sweep counts from reviews/EMISSION_SWEEP.md if present
+    """Read the emission-sweep counts from reviews/EMISSION_SWEEP.md if present
     (globbed / emitted / passed / BLOCKED_COUNT). Returns None when the file is
     absent so the section degrades gracefully."""
     if not os.path.exists(SWEEP_MD):
@@ -598,14 +598,14 @@ def render(kw, om, par_rows, unimpl_hit, max_bars, full, nk, rt, sweep):
     else:
         lines.append(
             "- **Emission sweep:** `reviews/EMISSION_SWEEP.md` not present — "
-            "run the R3 sweep to populate these counts.")
+            "run the emission sweep to populate these counts.")
     lines.append("")
 
     return "\n".join(lines) + "\n"
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Falsifiable EL coverage report (GOAL C).")
+    ap = argparse.ArgumentParser(description="Falsifiable EL coverage report.")
     ap.add_argument("--labels", default=None,
                     help="comma-separated subset for the parity section (default: all).")
     ap.add_argument("--scratch", default=None,

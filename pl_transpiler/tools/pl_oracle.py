@@ -471,7 +471,7 @@ def _build_parser():
     ap.add_argument("--seed-warmup", dest="seed_warmup", action="store_true",
                     help="run the discarded prefix with fills suppressed "
                          "(Once/lookback/Variables stay primed) instead of "
-                         "dropping it. A disagreeing digest is a failed ticket.")
+                         "dropping it. A disagreeing digest fails the check.")
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
                          "data2_close per bar on the Python path, and the full "

@@ -192,7 +192,7 @@ def zero_arg_violations(code):
 
 def load_signatures():
     """keyword(lower) -> {returns, min_arity, zero_arg_property} from pl_signatures.jsonl
-    (produced by unit H2x). Missing/unreadable -> {} (skip Pass 2/3b, don't fail hard)."""
+    (produced by the throw-sidecar writer). Missing/unreadable -> {} (skip Pass 2/3b, don't fail hard)."""
     sigs = {}
     try:
         for line in open(SIGNATURES, encoding='utf-8', errors='ignore'):

@@ -454,7 +454,7 @@ fn crosses_of_variables_match_python_numeric_history() {
 /// Data2 close. The limit price is the *narrowed* `D2C`, so the f32 narrowing
 /// point on the Data2 path is bit-exercised in every fill price, exactly like
 /// Python's `d2c = f32(kwargs.get('data2_close', close[-1]))`. The source lives
-/// in a committed fixture so later lanes reference it by path instead of
+/// in a committed fixture so later code references it by path instead of
 /// re-inlining it.
 const DATA2_FIXTURE: &str = include_str!("fixtures/data2_ref3_shape.txt");
 

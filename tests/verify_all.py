@@ -24,7 +24,7 @@ PASS/FAIL scoreboard, exiting non-zero if ANYTHING regresses:
     at their VERIFIED column counts. Deferred indicators
     (reviews/DEFERRED_INDICATORS.md: GT4 stochk/stochd) are NOT chased — they
     are subtracted from the required count, not from the comparator.
-  * REVERSE gates (GOAL R5): the ROUNDTRIP (verify_roundtrip) and TWOWAY
+  * REVERSE gates: the ROUNDTRIP (verify_roundtrip) and TWOWAY
     (verify_twoway) binding gates are folded in as permanent scoreboard sections
     so they always run (proof harnesses rot silently when nothing runs them).
     They are bounded-cost, so they run in --fast too; the full-range emitted
@@ -100,9 +100,9 @@ GT_EXPECT = {
 
 # GT runs use a post-warmup window of this many bars by default. Beyond this the
 # pure float32 step-accumulation of the unbounded `RunSum = RunSum + Close`
-# accumulator (a U5 calculation column, NOT an order/position column) drifts by
+# accumulator (a calculation column, NOT an order/position column) drifts by
 # a few float32 ULPs against the MultiCharts capture — a precision artifact that
-# is identical in the U5/U6 "DONE" baseline and independent of the FillEngine.
+# is identical in the accepted baseline and independent of the FillEngine.
 # 1500 bars (capture bars 301..1800) is the verified-clean scope where every GT
 # matches at its full count. Override with --max-bars (e.g. --max-bars 8100 to
 # stress the order/position columns, which match exactly out to full range).
@@ -285,7 +285,7 @@ def main():
             print("\n[--fast] skipped the full-range order-column gate "
                   "(NOT a DONE gate; run without --fast or use verify_full_range).")
 
-        # REVERSE gates (GOAL R5): fold the ROUNDTRIP + TWOWAY binding gates in as
+        # REVERSE gates: fold the ROUNDTRIP + TWOWAY binding gates in as
         # permanent scoreboard sections. Bounded-cost, so they run in --fast too;
         # the full-range emitted order check belongs to Rfull/the orchestrator, not
         # here. Imported LAZILY: each of those modules imports helpers back from
