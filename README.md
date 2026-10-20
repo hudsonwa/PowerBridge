@@ -110,6 +110,41 @@ pl_transpile examples/ma_cross.el -o ma_cross.py
 [pl_transpile] wrote ma_cross.py
 ```
 
+`ma_cross.py` is runnable: it defines `strategy(open, high, low, close, volume,
+date, time, kwargs)`, takes the bar series so far, and keeps its cross-bar
+state (`Vars`, lookback, `Inputs`) in `kwargs['_state']`. Pass the same
+`kwargs` dict on every bar. To see its order signals, save this as `run.py`
+next to `ma_cross.py` and run `python run.py` from the repository root:
+
+```python
+import csv
+from ma_cross import strategy
+
+cols = {k: [] for k in ("open", "high", "low", "close", "volume", "date", "time")}
+kwargs = {}  # strategy keeps its cross-bar state in kwargs['_state']
+with open("examples/NQ_sample_bars.csv") as f:
+    for row in csv.DictReader(f):
+        for k in ("open", "high", "low", "close", "volume"):
+            cols[k].append(float(row[k]))
+        cols["date"].append(int(row["date"]))
+        cols["time"].append(int(row["time"]))
+        out = strategy(*cols.values(), kwargs)
+        for order in out["orders"]:
+            print(row["date"], row["time"], order)
+```
+
+```
+1240102 954 ('sell', 'market', 0, 'next', 'LX')
+1240102 1029 ('buy', 'market', 0, 'next', 'LE')
+1240102 1104 ('sell', 'market', 0, 'next', 'LX')
+1240102 1140 ('buy', 'market', 0, 'next', 'LE')
+```
+
+These are raw signals: the first `LX` arrives while flat and fills nothing.
+For fills, positions and P&L use `pl_run` or `pl_oracle` below.
+`pl_transpile --no-persist` emits the clean mirror dialect for `el_emit`
+instead; that file is not runnable on its own.
+
 **3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
 generated Python on your machine, so only run files you trust (transpiling
 alone executes nothing).

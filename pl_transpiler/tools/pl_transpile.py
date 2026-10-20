@@ -15,7 +15,12 @@
 
 """pl_transpile.py — forward transpiler CLI (EL/PowerLanguage -> Python).
 
-    pl_transpile <in.txt> [-o out.py] [--trace] [--persist] [--partial]
+    pl_transpile <in.txt> [-o out.py] [--trace] [--no-persist] [--partial]
+
+The output is runnable by default: cross-bar state (Vars, lookback, Inputs)
+lives in a `_state` dict inside the caller's kwargs. --no-persist emits the
+clean mirror dialect (read back by el_emit / py_front), which is not runnable
+on its own. --persist is accepted as a no-op alias for the default.
 
 DEFAULT (strict) mode:
   * Valid source           -> exit 0, write Python (to -o, else stdout).
@@ -78,12 +83,16 @@ def _build_parser():
                     help="write Python here (default: stdout).")
     ap.add_argument("--trace", action="store_true",
                     help="emit trace-mode Python (per-bar variable capture).")
-    ap.add_argument("--persist", action="store_true",
-                    help="emit cross-bar _state even without --trace "
-                         "(runnable no-trace dialect). Default follows --trace.")
+    ap.add_argument("--no-persist", dest="persist", action="store_false",
+                    help="emit the clean mirror dialect without cross-bar _state "
+                         "(input for el_emit; NOT runnable as a backtest). "
+                         "Default: runnable output that keeps _state.")
+    ap.add_argument("--persist", dest="persist", action="store_true",
+                    help="no-op alias for the default (kept for compatibility).")
     ap.add_argument("--partial", action="store_true",
                     help="opt-in partial mode: unimplemented constructs become "
                          "execution-time stubs under a NOT-FAITHFUL watermark.")
+    ap.set_defaults(persist=True)
     return ap
 
 
