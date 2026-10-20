@@ -141,7 +141,9 @@ def test_set_profit_target_exits_logged():
 def test_native_fills_match_python():
     """With the native kernel installed, its fills and digest match Python."""
     if not accel_available():
-        if pytest is not None:
+        # pytest.skip only under pytest; as a plain script (the public tier)
+        # it would raise and count as a failure.
+        if pytest is not None and "PYTEST_CURRENT_TEST" in os.environ:
             pytest.skip(ACCEL_SKIP)
         print("  skip: " + ACCEL_SKIP)
         return
