@@ -16,7 +16,7 @@
 
 # Order-related keywords
 ORDER_ACTIONS = {'buy', 'sell', 'sellshort', 'buytocover'}
-RISK_FUNCS = {'setbreakeven', 'setbreakeven_pt', 'setdollartrailing', 'setexitonclose', 'setpercenttrailing', 'setpercenttrailing_pt', 'setprofittarget', 'setprofittarget_pt', 'setstopcontract', 'setstoploss', 'setstoploss_pt', 'setstopposition', 'setstopshare'}
+RISK_FUNCS = {'setbreakeven', 'setbreakeven_pt', 'setdollartrailing', 'setexitonclose', 'setpercenttrailing', 'setpercenttrailing_pt', 'setprofittarget', 'setprofittarget_pt', 'setstopcontract', 'setstoploss', 'setstoploss_pt', 'setstopposition', 'setstopshare', 'settrailingstop_pt'}
 PLOT_NAMES = {f'plot{i}' for i in range(1, 10)} | {'plotpb'}
 
 # Built-in data series
@@ -529,7 +529,6 @@ BUILTIN_FUNC_MAP = {
     'setmaxbarsback': 'pl_setmaxbarsback',
     'setstopcontract': 'pl_setstopcontract',
     'setstopshare': 'pl_setstopshare',
-    'settrailingstop_pt': 'pl_settrailingstop_pt',
     'sine': 'pl_sine',
     'slippage': 'pl_slippage',
     'squareroot': 'pl_squareroot',

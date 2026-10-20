@@ -58,7 +58,7 @@ RUNTIME_FILES = [sys.modules["pl_transpiler.runtime." + n].__file__
                  for n in rt_core._RUNTIME_SUBMODULES]
 
 # The documented number of loud stubs pl_runtime installs from its own source.
-EXPECTED_LOUD_STUBS = 341
+EXPECTED_LOUD_STUBS = 340
 
 
 def _installed_loud_stub_names():

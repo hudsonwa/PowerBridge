@@ -1066,9 +1066,6 @@ def pl_setstopcontract(*args, **kwargs):
 def pl_setstopshare(*args, **kwargs):
     return 0
 
-def pl_settrailingstop_pt(*args, **kwargs):
-    return 0
-
 def pl_sine(*args, **kwargs):
     import math
     if args:

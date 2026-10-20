@@ -26,6 +26,7 @@ struct RiskSettings {
     profit_target: Option<f64>,
     breakeven: Option<f64>,
     percent_trailing: Option<(f64, f64)>,
+    dollar_trailing: Option<f64>,
     exit_on_close: bool,
 }
 
@@ -43,6 +44,9 @@ impl RiskSettings {
         if let Some(value) = update.percent_trailing {
             self.percent_trailing = Some(value);
         }
+        if let Some(value) = update.dollar_trailing {
+            self.dollar_trailing = Some(value);
+        }
         if let Some(value) = update.exit_on_close {
             self.exit_on_close = value;
         }
@@ -53,6 +57,7 @@ impl RiskSettings {
         matches!(self.stop_loss, Some(v) if v > 0.0)
             || matches!(self.profit_target, Some(v) if v > 0.0)
             || matches!(self.breakeven, Some(v) if v > 0.0)
+            || matches!(self.dollar_trailing, Some(v) if v > 0.0)
             || matches!(self.percent_trailing, Some((_, pct)) if pct > 0.0)
             || self.exit_on_close
     }
@@ -854,6 +859,7 @@ impl FillEngine {
             .risk
             .percent_trailing
             .filter(|(_, percent)| *percent > 0.0);
+        let dollar_trailing = self.risk.dollar_trailing.filter(|amount| *amount > 0.0);
 
         let open = if bar.open > 0.0 { bar.open } else { bar.close };
         let high = if bar.high > 0.0 { bar.high } else { bar.close };
@@ -874,6 +880,7 @@ impl FillEngine {
             profit_target,
             breakeven,
             trailing,
+            dollar_trailing,
         )?;
         if open_levels.iter().any(|level| {
             (level.moves_up && open >= level.price - epsilon)
@@ -902,6 +909,7 @@ impl FillEngine {
                 profit_target,
                 breakeven,
                 trailing,
+                dollar_trailing,
             )?;
             let reachable: Vec<Level> = levels
                 .into_iter()
@@ -937,6 +945,7 @@ impl FillEngine {
         profit_target: Option<f64>,
         breakeven: Option<f64>,
         trailing: Option<(f64, f64)>,
+        dollar_trailing: Option<f64>,
     ) -> Result<Vec<Level>, KernelError> {
         let mut levels = Vec::with_capacity(4);
         if let Some(price) = profit_target {
@@ -975,6 +984,22 @@ impl FillEngine {
                     moves_up: !long,
                 });
             }
+        }
+        if let Some(amount) = dollar_trailing {
+            if point_value_contracts == 0.0 {
+                return Err(KernelError::unsupported(
+                    "dollar trailing requires nonzero point value times contracts",
+                ));
+            }
+            let offset = (peak - amount) / point_value_contracts;
+            levels.push(Level {
+                price: if long {
+                    self.snap(entry + offset, Snap::Down)?
+                } else {
+                    self.snap(entry - offset, Snap::Up)?
+                },
+                moves_up: !long,
+            });
         }
         Ok(levels)
     }

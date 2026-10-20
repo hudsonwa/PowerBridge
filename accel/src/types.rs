@@ -389,7 +389,8 @@ pub(crate) struct PositionView {
 ///
 /// INVARIANT — every field is optional per bar; `Some(v)` sets/overrides that
 /// risk level, `None` leaves it unchanged. `percent_trailing` is `(floor,
-/// percent)` mirroring Python's percent-trailing pair. `exit_on_close` arms
+/// percent)` mirroring Python's percent-trailing pair; `dollar_trailing` is the
+/// SetDollarTrailing giveback amount. `exit_on_close` arms
 /// the session-rollover flatten. The `*_pt` fields carry the MultiCharts
 /// point-based variants (`SetStopLoss_pt` & co.); [`RiskUpdate::resolve_points`]
 /// folds them into the currency fields before the engine applies the update.
@@ -399,11 +400,13 @@ pub(crate) struct RiskUpdate {
     pub(crate) profit_target: Option<f64>,
     pub(crate) breakeven: Option<f64>,
     pub(crate) percent_trailing: Option<(f64, f64)>,
+    pub(crate) dollar_trailing: Option<f64>,
     pub(crate) exit_on_close: Option<bool>,
     pub(crate) stop_loss_pt: Option<f64>,
     pub(crate) profit_target_pt: Option<f64>,
     pub(crate) breakeven_pt: Option<f64>,
     pub(crate) percent_trailing_pt: Option<(f64, f64)>,
+    pub(crate) trailing_stop_pt: Option<f64>,
 }
 
 impl RiskUpdate {
@@ -422,6 +425,9 @@ impl RiskUpdate {
         }
         if let Some((pts, pct)) = self.percent_trailing_pt.take() {
             self.percent_trailing = Some((pts * point_value, pct));
+        }
+        if let Some(pts) = self.trailing_stop_pt.take() {
+            self.dollar_trailing = Some(pts * point_value);
         }
         self
     }

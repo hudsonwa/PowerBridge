@@ -13,16 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_point_stops.py — #34: Fill_Array and the point-based Set*_pt stops.
+"""test_point_stops.py — #34: Fill_Array, SetDollarTrailing and the Set*_pt stops.
 
-SetStopLoss_pt / SetProfitTarget_pt / SetBreakEven_pt / SetPercentTrailing_pt
-are the MultiCharts point-based forms of the dollar stops:
+SetStopLoss_pt / SetProfitTarget_pt / SetBreakEven_pt / SetPercentTrailing_pt /
+SetTrailingStop_pt are the MultiCharts point-based forms of the dollar stops:
 the amount is in price points, so a `_pt` run must trade exactly like the
 dollar run given `points * BigPointValue` (NQ: 20). Each case checks that on a
 synthetic tape, that the stop actually changes the trade list, and (when the
 native extension is built) that the native kernel agrees with Python.
-SetTrailingStop_pt is not implemented (its dollar twin is inert) and stays a
-loud stub.
+SetDollarTrailing's exit price is checked exactly on hand-built bars.
 
 Stdlib + pytest only, synthetic bars, no captures.
 """
@@ -37,7 +36,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tests.skip_messages import ACCEL_SKIP  # noqa: E402
-from pl_transpiler.runtime import pl_runtime                         # noqa: E402
+from pl_transpiler.engine import FillEngine                          # noqa: E402
 from pl_transpiler.runtime._rt_datetime import pl_fill_array          # noqa: E402
 from pl_transpiler.runtime.accel import AccelRefused, run_native     # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config       # noqa: E402
@@ -93,6 +92,7 @@ CASES = [
     ("SetBreakEven_pt", f"SetBreakEven_pt( {PTS} ) ;", f"SetBreakEven( {DOLLARS} ) ;"),
     ("SetPercentTrailing_pt", f"SetPercentTrailing_pt( {PTS}, 50 ) ;",
      f"SetPercentTrailing( {DOLLARS}, 50 ) ;"),
+    ("SetTrailingStop_pt", f"SetTrailingStop_pt( {PTS} ) ;", f"SetDollarTrailing( {DOLLARS} ) ;"),
 ]
 
 
@@ -104,13 +104,79 @@ def test_point_stop_matches_dollar_twin(name, pt_stmt, dollar_stmt):
     assert pt != baseline, f"{name} never fired on the synthetic tape"
 
 
-def test_trailing_stop_pt_stays_a_loud_stub():
-    # SetDollarTrailing is inert in both engines, so SetTrailingStop_pt is not
-    # wired up: it must still hit the loud stub (which raises under PL_STRICT)
-    # rather than parse as a silently inert risk statement.
-    pl_runtime.pl_unimplemented_reset()
-    _trades(_el(f"SetTrailingStop_pt( {PTS} ) ;"))
-    assert pl_runtime.pl_unimplemented_report().get("pl_settrailingstop_pt", 0) > 0
+def _held(risk, long_pos=True, entry=100.0):
+    """A FillEngine holding one NQ contract entered on bar 1 at ``entry``."""
+    fe = FillEngine(config=NQ)
+    fe.market_position = 1 if long_pos else -1
+    fe.contracts = 1
+    fe.entry_price = entry
+    fe.entry_bar = 1
+    fe._risk.update(fe._resolve_point_risk(risk))
+    return fe
+
+
+def _exit_px(fe):
+    assert fe.market_position == 0, "the trail did not fire"
+    return fe.closed_trades[-1]["exit_px"]
+
+
+def test_dollar_trailing_long_ratchets_inside_bar():
+    # Open 100 is nearer the low: low 99 is above the $60 (3 pt) stop at 97,
+    # then the high 110 lifts the peak to $200 and the trail to 107, and the
+    # fall to the 104 close crosses it -> exit at 107 (+$140).
+    fe = _held({"dollar_trailing": 60})
+    fe._check_money_management_stops(110.0, 99.0, 104.0, 3, 100.0)
+    assert _exit_px(fe) == 107.0
+    assert fe.net_profit == 140.0
+
+
+def test_dollar_trailing_short_ratchets_inside_bar():
+    # Short at 100: high 101 stays under the stop at 103, the low 90 drops the
+    # trail to 93, and the rise to the 96 close crosses it -> exit at 93.
+    fe = _held({"dollar_trailing": 60}, long_pos=False)
+    fe._check_money_management_stops(101.0, 90.0, 96.0, 3, 100.0)
+    assert _exit_px(fe) == 93.0
+    assert fe.net_profit == 140.0
+
+
+def test_dollar_trailing_uses_prior_bar_peak_and_gaps_at_open():
+    # A prior-bar peak of $200 holds the long trail at 107; a gap open at 105
+    # is already through it, so the exit fills at the open.
+    fe = _held({"dollar_trailing": 60})
+    fe._peak_profit = 200.0
+    fe._check_money_management_stops(106.0, 104.0, 105.0, 3, 105.0)
+    assert _exit_px(fe) == 105.0
+
+
+def test_dollar_trailing_snaps_away_from_position():
+    # From a $200 peak a long trail sits at 100 + (200 - amount) / 20:
+    # $50 -> 107.5 and $55 -> 107.25 are on the tick grid; $57 -> 107.15 is
+    # floored to 107.0.
+    for amount, level in ((50, 107.5), (55, 107.25), (57, 107.0)):
+        fe = _held({"dollar_trailing": amount})
+        fe._peak_profit = 200.0
+        fe._check_money_management_stops(108.5, 101.0, 101.0, 3, 108.0)
+        assert _exit_px(fe) == level, amount
+
+
+def test_dollar_trailing_holds_when_not_crossed():
+    fe = _held({"dollar_trailing": 60})
+    fe._check_money_management_stops(110.0, 99.0, 108.0, 3, 100.0)
+    assert fe.market_position == 1
+    assert fe._peak_profit == 200.0
+
+
+def test_trailing_stop_pt_is_points_times_big_point_value():
+    fe = _held({"trailing_stop_pt": 3})
+    assert fe._risk["dollar_trailing"] == 3 * NQ.bigpointvalue
+    fe._check_money_management_stops(110.0, 99.0, 104.0, 3, 100.0)
+    assert _exit_px(fe) == 107.0
+
+
+def test_dollar_trailing_changes_the_trade_list():
+    # MM exits are not fill records, but freeing the position lets the next
+    # entry come earlier, so an armed trail must change the trades.
+    assert _trades(_el(f"SetDollarTrailing( {DOLLARS} ) ;")) != _trades(_el(""))
 
 
 def _accel_or_skip():

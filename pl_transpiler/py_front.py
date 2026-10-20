@@ -177,6 +177,7 @@ _RISK_KEY_TO_FUNC = {
     'profit_target_pt': 'setprofittarget_pt',
     'breakeven_pt': 'setbreakeven_pt',
     'percent_trailing_pt': 'setpercenttrailing_pt',
+    'trailing_stop_pt': 'settrailingstop_pt',
 }
 
 _ORDER_ACTIONS = {'buy', 'sell', 'sellshort', 'buytocover'}

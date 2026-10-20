@@ -171,6 +171,8 @@ pub(crate) enum RiskOp {
     ProfitTargetPt,
     BreakEvenPt,
     PercentTrailingPt,
+    DollarTrailing,
+    TrailingStopPt,
     Noop,
 }
 
@@ -794,7 +796,15 @@ impl Compiler {
             "setexitonclose" => {
                 self.instrs.push(Instr::RiskSet(RiskOp::ExitOnClose));
             }
-            "setstopcontract" | "setstopshare" | "setstopposition" | "setdollartrailing" => {
+            "setdollartrailing" => {
+                self.compile_risk_arg(stmt)?;
+                self.instrs.push(Instr::RiskSet(RiskOp::DollarTrailing));
+            }
+            "settrailingstop_pt" => {
+                self.compile_risk_arg(stmt)?;
+                self.instrs.push(Instr::RiskSet(RiskOp::TrailingStopPt));
+            }
+            "setstopcontract" | "setstopshare" | "setstopposition" => {
                 self.instrs.push(Instr::RiskSet(RiskOp::Noop));
             }
             other => {

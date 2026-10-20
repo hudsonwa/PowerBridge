@@ -426,6 +426,8 @@ class _StmtMixin:
         elif func == 'setpercenttrailing_pt':
             args = node['args']
             self.emit(f"_risk['percent_trailing_pt'] = ({self.gen_expr(args[0])}, {self.gen_expr(args[1])})")
+        elif func == 'settrailingstop_pt':
+            self.emit(f"_risk['trailing_stop_pt'] = {self.gen_expr(node['arg'])}")
 
     # ---- Plot ----
     def gen_plot(self, node):

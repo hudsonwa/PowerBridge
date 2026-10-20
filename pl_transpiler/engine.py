@@ -45,7 +45,7 @@ class FillEngine:
     - "next bar at market" fills at the next bar's Open price
     - Stop/limit fills are not yet implemented (deferred)
     - Money management stops: SetStopLoss, SetProfitTarget, SetBreakEven,
-      SetPercentTrailing, SetExitOnClose, SetStopContract
+      SetPercentTrailing, SetDollarTrailing, SetExitOnClose, SetStopContract
     - NQ point value multiplier = 20 (per contract, per full point)
     """
     
@@ -150,12 +150,12 @@ class FillEngine:
         """True iff any money-management / session risk setting is armed.
 
         Mirrors the native kernel's RiskSettings exactly (stop_loss,
-        profit_target, breakeven, percent_trailing with a positive percent, and
-        exit_on_close). A positive-value-zero-disabled setting (e.g.
+        profit_target, breakeven, dollar_trailing, percent_trailing with a
+        positive percent, and exit_on_close). A positive-value-zero-disabled setting (e.g.
         SetStopLoss(0)) is inert, matching ``_check_money_management_stops``.
         """
         r = self._risk
-        for key in ('stop_loss', 'profit_target', 'breakeven'):
+        for key in ('stop_loss', 'profit_target', 'breakeven', 'dollar_trailing'):
             v = r.get(key, 0) or 0
             if v > 0:
                 return True
@@ -278,6 +278,7 @@ class FillEngine:
         ('stop_loss_pt', 'stop_loss'),
         ('profit_target_pt', 'profit_target'),
         ('breakeven_pt', 'breakeven'),
+        ('trailing_stop_pt', 'dollar_trailing'),
     )
 
     def _resolve_point_risk(self, risk):
@@ -719,7 +720,8 @@ class FillEngine:
     
     def _check_money_management_stops(self, high, low, close_price, barnumber=None, open_price=None):
         """Close the position if the bar's intra-bar price path crosses any active
-        money-management stop (StopLoss / ProfitTarget / BreakEven / PercentTrailing).
+        money-management stop (StopLoss / ProfitTarget / BreakEven / PercentTrailing /
+        DollarTrailing).
 
         Unified intra-bar PATH WALK (bar magnifier OFF). MultiCharts evaluates the
         protective orders on EVERY bar the position is open — INCLUDING the entry
@@ -764,6 +766,10 @@ class FillEngine:
                          and len(pt_cfg) == 2 and float(pt_cfg[1]) > 0)
         trail_floor = float(pt_cfg[0]) if has_trail else 0.0
         trail_pct = float(pt_cfg[1]) if has_trail else 0.0
+        # SetDollarTrailing: exit once open profit gives back dt_amt from its
+        # peak since entry. Armed from entry (the peak starts at 0), so before
+        # any profit it sits dt_amt below entry like a stop-loss.
+        dt_amt = self._risk.get('dollar_trailing', 0) or 0
 
         # Fall back to close when an extreme is unavailable (OHLC-less captures).
         o = open_price if (open_price is not None and open_price > 0) else close_price
@@ -795,6 +801,10 @@ class FillEngine:
                 out.append((entry, 'breakeven', not long_pos))
             if has_trail and peak >= trail_floor:
                 out.append((_trail_price(peak), 'trailing_stop', not long_pos))
+            if dt_amt > 0:
+                base = (peak - dt_amt) / pv_ct
+                lv = self._snap(entry + base, 'down') if long_pos else self._snap(entry - base, 'up')
+                out.append((lv, 'dollar_trailing', not long_pos))
             return out
 
         eps = 1e-9

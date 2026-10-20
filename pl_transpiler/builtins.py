@@ -396,7 +396,6 @@ BUILTINS = {
     'setmaxbarsback': pl_setmaxbarsback,
     'setstopcontract': pl_setstopcontract,
     'setstopshare': pl_setstopshare,
-    'settrailingstop_pt': pl_settrailingstop_pt,
     'sine': pl_sine,
     'slippage': pl_slippage,
     'squareroot': pl_squareroot,

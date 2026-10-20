@@ -37,6 +37,7 @@ struct RiskSettings {
     profit_target: Option<f64>,
     breakeven: Option<f64>,
     percent_trailing: Option<(f64, f64)>,
+    dollar_trailing: Option<f64>,
     exit_on_close: bool,
 }
 
@@ -54,6 +55,9 @@ impl RiskSettings {
         if let Some(value) = update.percent_trailing {
             self.percent_trailing = Some(value);
         }
+        if let Some(value) = update.dollar_trailing {
+            self.dollar_trailing = Some(value);
+        }
         if let Some(value) = update.exit_on_close {
             self.exit_on_close = value;
         }
@@ -67,6 +71,7 @@ impl RiskSettings {
         matches!(self.stop_loss, Some(v) if v > 0.0)
             || matches!(self.profit_target, Some(v) if v > 0.0)
             || matches!(self.breakeven, Some(v) if v > 0.0)
+            || matches!(self.dollar_trailing, Some(v) if v > 0.0)
             || matches!(self.percent_trailing, Some((_, pct)) if pct > 0.0)
             || self.exit_on_close
     }
@@ -648,6 +653,7 @@ impl FillEngine {
             .risk
             .percent_trailing
             .filter(|(_, percent)| *percent > 0.0);
+        let dollar_trailing = self.risk.dollar_trailing.filter(|amount| *amount > 0.0);
         // Python's MM path alone substitutes Close for unavailable OHLC
         // values. Conditional orders and drawdown continue to use raw OHLC.
         let open = if bar.open > 0.0 { bar.open } else { bar.close };
@@ -689,6 +695,17 @@ impl FillEngine {
                         moves_up: !long,
                     });
                 }
+            }
+            if let Some(amount) = dollar_trailing {
+                let offset = (peak - amount) / point_value_contracts;
+                levels.push(Level {
+                    price: if long {
+                        engine.snap(entry + offset, Snap::Down)
+                    } else {
+                        engine.snap(entry - offset, Snap::Up)
+                    },
+                    moves_up: !long,
+                });
             }
             levels
         };
@@ -1262,6 +1279,36 @@ mod tests {
 
         assert_eq!(engine.market_position, 0);
         assert_eq!(engine.net_profit, 100.0);
+    }
+
+    #[test]
+    fn mm_dollar_trail_ratchets_inside_bar() {
+        // Peak $200 at the high (110) puts the $60 trail at 107; the drop to
+        // the close crosses it.
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        engine.risk.dollar_trailing = Some(60.0);
+        engine
+            .before_bar(bar(100.0, 110.0, 99.0, 104.0, 1240102, 932), 3)
+            .unwrap();
+
+        assert_eq!(engine.market_position, 0);
+        assert_eq!(engine.net_profit, 140.0);
+    }
+
+    #[test]
+    fn mm_dollar_trail_acts_as_stop_before_any_profit() {
+        // With no favorable excursion yet the trail sits $60 (3 points) below
+        // entry, so a gap open below it fills at the open.
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        engine.risk.dollar_trailing = Some(60.0);
+        engine
+            .before_bar(bar(96.0, 97.0, 95.0, 96.0, 1240102, 932), 3)
+            .unwrap();
+
+        assert_eq!(engine.market_position, 0);
+        assert_eq!(engine.net_profit, -80.0);
     }
 
     #[test]

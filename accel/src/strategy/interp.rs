@@ -478,6 +478,12 @@ impl<'a> Interpreter<'a> {
                         let floor = self.stack.pop().unwrap().as_f64()?;
                         self.risk.percent_trailing_pt = Some((floor, pct));
                     }
+                    RiskOp::DollarTrailing => {
+                        self.risk.dollar_trailing = Some(self.stack.pop().unwrap().as_f64()?);
+                    }
+                    RiskOp::TrailingStopPt => {
+                        self.risk.trailing_stop_pt = Some(self.stack.pop().unwrap().as_f64()?);
+                    }
                     RiskOp::Noop => {}
                 },
                 Instr::Nop => {}
