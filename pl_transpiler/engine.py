@@ -848,6 +848,8 @@ class FillEngine:
         d['market_position'] = self.market_position
         d['current_contracts'] = self.contracts
         d['entry_price'] = self.entry_price
+        d['entry_date'] = self.entry_date
+        d['entry_time'] = self.entry_time
         d['avgentryprice'] = self.avgentryprice
         d['bars_since_entry'] = self.bars_since_entry
         d['exit_price'] = self.exit_price

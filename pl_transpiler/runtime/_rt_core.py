@@ -130,6 +130,39 @@ def pl_unimplemented_warn(label='pl_transpiler', stream=None):
     return {n[3:]: c for n, c in hit.items()}
 
 
+# Position keyword -> FillEngine.closed_trades key, for the positions-ago form
+# EntryDate(n) / ExitPrice(n) / ... (see pl_pos_ago).
+_POS_AGO_FIELDS = {
+    'entry_date': 'entry_date',
+    'entry_time': 'entry_time',
+    'entry_price': 'entry_px',
+    'exit_date': 'exit_date',
+    'exit_time': 'exit_time',
+    'exit_price': 'exit_px',
+}
+
+
+def pl_pos_ago(kwargs, field, pos_ago):
+    """Positions-ago form of a position keyword, e.g. EntryDate(n).
+
+    n = 0 is the current position: the scalar kwarg the bare keyword reads.
+    n >= 1 is the n-th most recently closed position, read from the runner's
+    closed-position ledger (``kwargs['_closed_trades']``, FillEngine.closed_trades),
+    so ExitDate(1) is the last closed trade whether or not a position is open.
+    An index past the first closed position returns 0, as MultiCharts does.
+    """
+    try:
+        n = int(pos_ago)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return kwargs.get(field, 0)
+    closed = kwargs.get('_closed_trades') or ()
+    if n > len(closed):
+        return 0
+    return closed[-n][_POS_AGO_FIELDS[field]]
+
+
 def pl_pos_trade_field(kwargs, field, pos_ago=0, trade_number=0):
     """2-arg position keyword, e.g. PosTradeProfit(PosAgo, TradeNumber).
 

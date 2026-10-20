@@ -25,6 +25,8 @@ _POS_KWARGS = (
     ('market_position', 'market_position'),
     ('current_contracts', 'contracts'),
     ('entry_price', 'entry_price'),
+    ('entry_date', 'entry_date'),
+    ('entry_time', 'entry_time'),
     ('avgentryprice', 'avgentryprice'),
     ('bars_since_entry', 'bars_since_entry'),
     ('exit_price', 'exit_price'),
@@ -295,6 +297,9 @@ def run_bar_loop(
         'barnumber': 0,
         '_first_bar': True,
         '_state': state,
+        # Closed-position ledger for EntryDate(n)/ExitPrice(n)/... (pl_pos_ago).
+        # The engine appends to this list in place, so one reference suffices.
+        '_closed_trades': fill_engine.closed_trades,
         'time_s': 0,
         'market_position': 0,
         'current_contracts': 0,

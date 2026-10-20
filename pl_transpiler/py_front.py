@@ -63,7 +63,8 @@ the residue that the clean dialect cannot carry):
   * the inline `(((int(X)//100)*3600 + (int(X)%100)*60)/86400.0)` -> ELTimeToDateTime,
     `(X // 100)` -> Hour (codegen.py:1383-1433);
   * `pl_pos_trade_field(kwargs, '<name>', a, b)` -> position_kw_call (codegen 2-arg
-    PosTrade* form); zero-arg `pl_xxx()` emissions are bare reserved-word properties and
+    PosTrade* form); `pl_pos_ago(kwargs, '<kwarg>', n)` -> bar_ref(position_kw, n)
+    (EntryDate(n) and friends); zero-arg `pl_xxx()` emissions are bare reserved-word properties and
     invert to plain idents; `kwargs.get('current_data_number'/'base_data_number', 1)` ->
     the CurrentDataNumber/BaseDataNumber idents;
   * `pass  # Abort` (a `pass` sharing its block with real statements) -> an `abort` node;
@@ -647,6 +648,13 @@ def _inv_pl_call(name, args):
             and _is_name(args[0], 'kwargs') and isinstance(args[1], ast.Constant):
         return {'type': 'position_kw_call', 'kwarg': args[1].value,
                 'args': [inv_expr(a) for a in args[2:]]}
+    # Positions-ago keyword: pl_pos_ago(kwargs, '<kwarg>', n) -> bar_ref(position_kw, n)
+    # (codegen emits this for EntryDate(n)/ExitPrice(n)/...).
+    if name == 'pl_pos_ago' and len(args) == 3 \
+            and _is_name(args[0], 'kwargs') and isinstance(args[1], ast.Constant):
+        return {'type': 'bar_ref',
+                'series': {'type': 'position_kw', 'kwarg': args[1].value},
+                'index': inv_expr(args[2])}
     # high/low/close-injected indicators: strip the three leading series args.
     if name in _HLC_INJECTED:
         el = _HLC_INJECTED[name]

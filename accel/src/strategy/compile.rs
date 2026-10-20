@@ -1006,6 +1006,16 @@ impl Compiler {
                 .ok_or_else(|| KernelError::unsupported("position_kw missing kwarg"))?;
             let kind = position_kw_kind(kw)
                 .ok_or_else(|| KernelError::unsupported(format!("position/data keyword {kw:?}")))?;
+            // EntryPrice(n)/ExitPrice(n) with n != 0 read a closed position, which
+            // the strategy cannot see here (it gets only PositionView). Refuse so
+            // the run falls back to the Python path (pl_pos_ago, issue #9).
+            if matches!(kind, PositionKw::EntryPrice | PositionKw::ExitPrice)
+                && !is_literal_zero(node.get("index"))
+            {
+                return Err(KernelError::unsupported(format!(
+                    "positions-ago {kw:?}(n) with n != 0"
+                )));
+            }
             self.instrs.push(Instr::BarRefPositionKw(kind));
             return Ok(());
         }
@@ -1247,6 +1257,11 @@ fn eval_input_default(node: &Json) -> Result<Value, KernelError> {
     }
 }
 
+/// True when `node` is a number literal equal to 0 (e.g. the `0` in `EntryPrice(0)`).
+fn is_literal_zero(node: Option<&Json>) -> bool {
+    node.is_some_and(|n| node_type(n) == Some("number") && number_literal(n).ok() == Some(0.0))
+}
+
 fn number_literal(node: &Json) -> Result<f64, KernelError> {
     let raw = node
         .get("value")
@@ -1331,6 +1346,40 @@ mod tests {
         );
         assert_eq!(value, vec![false]);
         assert_eq!(numeric, vec![false]);
+    }
+
+    fn compile_entry_price_ref(index: &str) -> Result<Program, super::KernelError> {
+        let src = format!(
+            r#"{{"type":"program","body":[
+                {{"type":"var_decl","decls":[{{"name":"X","init":{{"type":"number","value":"0"}}}}]}},
+                {{"type":"assign","target":{{"type":"ident","name":"X"}},
+                 "value":{{"type":"bar_ref","series":{{"type":"position_kw","kwarg":"entry_price"}},
+                          "index":{index}}}}}
+            ]}}"#
+        );
+        let ast: Json = serde_json::from_str(&src).expect("valid program JSON");
+        compile(&ast, &HashMap::<String, Value>::new())
+    }
+
+    /// `EntryPrice(0)` is the open position and compiles; `EntryPrice(n)` for
+    /// n != 0 (or a non-literal n) needs the closed-position ledger and is
+    /// refused so the run falls back to Python (issue #9).
+    #[test]
+    fn positions_ago_entry_price_is_refused_unless_zero() {
+        assert!(compile_entry_price_ref(r#"{"type":"number","value":"0"}"#).is_ok());
+        for index in [
+            r#"{"type":"number","value":"1"}"#,
+            r#"{"type":"ident","name":"X"}"#,
+        ] {
+            let error = match compile_entry_price_ref(index) {
+                Ok(_) => panic!("EntryPrice({index}) must be refused"),
+                Err(error) => error.to_string(),
+            };
+            assert!(
+                error.contains("positions-ago"),
+                "unexpected refusal: {error}"
+            );
+        }
     }
 
     /// `X[n]` reads the value history (even for a numeric variable).

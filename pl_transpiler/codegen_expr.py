@@ -22,6 +22,13 @@ from .codegen_util import (
     _OHLCV_F32_NAMES,
 )
 
+# Position keywords whose positions-ago form (EntryDate(n), ...) reads the
+# closed-position ledger via pl_pos_ago (keys of runtime _rt_core._POS_AGO_FIELDS).
+_POS_AGO_KWARGS = frozenset((
+    'entry_date', 'entry_time', 'entry_price',
+    'exit_date', 'exit_time', 'exit_price',
+))
+
 class _ExprMixin:
     # ==== Expression Generation ====
     def gen_expr(self, node):
@@ -639,12 +646,18 @@ class _ExprMixin:
         # emitted value is discarded (the kwarg is a scalar with no history), but
         # its subtree is scanned exactly like any other arg; in partial mode, if the
         # index collected an unimplemented entry, emit the argless stub so it raises.
+        #
+        # Exception: EntryDate/EntryTime/EntryPrice/ExitDate/ExitTime/ExitPrice(n)
+        # DO have positions-ago history (the closed-position ledger), so they emit
+        # pl_pos_ago(kwargs, kwarg, n) instead of discarding n (issue #9).
         if series['type'] == 'position_kw':
             before = len(self._unimpl_errors)
-            self.gen_expr(index)
+            idx_expr = self.gen_expr(index)
             if self._partial and len(self._unimpl_errors) > before:
                 e = self._unimpl_errors[before]
                 return f"pl_partial_stub({e['name']!r}, {e['line']!r})()"
+            if series['kwarg'] in _POS_AGO_KWARGS:
+                return f"pl_pos_ago(kwargs, '{series['kwarg']}', {idx_expr})"
             return self.gen_expr(series)
 
         if series['type'] == 'ident' and series['name'] in self._stateful_vars and self.persist:
