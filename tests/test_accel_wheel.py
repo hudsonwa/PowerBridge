@@ -16,10 +16,12 @@
 """Wheel-load gate for the optional accel extra.
 
 Proves the INSTALLED native module -- not the repo source tree -- actually
-loads and exposes the frozen phase-1 contract:
+loads and exposes the current kernel contract:
 
     pl_transpiler._accel.ping() == 42
-    pl_transpiler._accel.run(...) raises NotImplementedError
+    pl_transpiler._accel.run_program is callable (strategy-bearing entry point)
+    pl_transpiler._accel.run(...) (bars only, no program) refuses with
+        NotImplementedError("ACCEL_FALLBACK_REQUIRED: ...")
 
 The probe runs in a fresh subprocess from a NON-repo cwd so the repo's source
 ``pl_transpiler`` package cannot shadow the installed ``_accel*.so`` (the exact
@@ -40,12 +42,13 @@ PROBE = (
     "import pl_transpiler._accel as accel\n"
     "assert accel.__name__ == 'pl_transpiler._accel'\n"
     "assert accel.ping() == 42\n"
+    "assert callable(accel.run_program)\n"
     "try:\n"
     "    accel.run([], [], [], [], [], [], [])\n"
-    "except NotImplementedError:\n"
-    "    pass\n"
+    "except NotImplementedError as exc:\n"
+    "    assert str(exc).startswith('ACCEL_FALLBACK_REQUIRED'), exc\n"
     "else:\n"
-    "    raise SystemExit('run() must raise NotImplementedError in phase 1')\n"
+    "    raise SystemExit('bars-only run() must refuse: it carries no program')\n"
     "print('ACCEL_LOAD_OK')\n"
 )
 

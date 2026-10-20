@@ -28,7 +28,7 @@ PASS/FAIL scoreboard, exiting non-zero if ANYTHING regresses:
     (verify_twoway) binding gates are folded in as permanent scoreboard sections
     so they always run (proof harnesses rot silently when nothing runs them).
     They are bounded-cost, so they run in --fast too; the full-range emitted
-    order check stays with Rfull / the orchestrator, not here.
+    order check runs in the full (non --fast) verify_all pass, not here.
 
 CAPTURE-GATING: the capture-dependent gates (the GT/reverse sections here, and
 the standalone verify_* gates) SKIP with a one-line docs/CAPTURES.md pointer when
@@ -287,8 +287,8 @@ def main():
 
         # REVERSE gates: fold the ROUNDTRIP + TWOWAY binding gates in as
         # permanent scoreboard sections. Bounded-cost, so they run in --fast too;
-        # the full-range emitted order check belongs to Rfull/the orchestrator, not
-        # here. Imported LAZILY: each of those modules imports helpers back from
+        # the full-range emitted order check (verify_roundtrip --full-range) is
+        # separate. Imported LAZILY: each of those modules imports helpers back from
         # this one, so a top-level import would be circular. They monkeypatch the
         # SHARED run_gt.GT_FILES / golden_diff.GT_FILES in place (repointing them at
         # the emitted EL), so snapshot BOTH and restore before each section —

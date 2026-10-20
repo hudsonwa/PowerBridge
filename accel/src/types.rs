@@ -567,7 +567,8 @@ pub(crate) struct KernelOutcome {
 /// per column. Cell format is unchanged from the Python path: a
 /// missing/`None` value renders as `'0'`, every other value as `str(value)`.
 /// These columns are what the caller actually consumes — leaving them out of
-/// the phase-1 freeze was the mistake the v2 refreeze exists to avoid.
+/// the original bars-only `run()` contract was the mistake the v2 refreeze
+/// exists to avoid.
 ///
 /// Produced by the interpreter/engine; not yet constructed by this crate.
 #[allow(dead_code)]

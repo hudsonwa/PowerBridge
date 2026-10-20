@@ -41,8 +41,8 @@ Fast gate (per-mutation RED detector):
 A genuine runtime mutation reddens this quickly (GT1 alone exercises TrueRange,
 Average, Summation, Highest, Lowest, RSI, and the crosses path). `--fast` is
 REQUIRED here: since e0927d4, plain verify_all also runs the full-range
-order-column gate (~75 min) — that thorough gate is the orchestrator's DONE
-gate, not this harness's red-detector. The final clean-revert proof below uses
+order-column gate (~75 min) — that thorough gate is the release-level check,
+not this harness's red-detector. The final clean-revert proof below uses
 `--fast` for the same reason (full window, all labels, no full-range
 order sweep); the byte-exact source comparison independently proves the revert.
 

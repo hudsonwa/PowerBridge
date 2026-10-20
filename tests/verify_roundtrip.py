@@ -48,8 +48,8 @@ CLI modes (exactly one path per run):
   (default)          full round-trip run; exit 0 iff every label green.
   --self-test        NEGATIVE CONTROL; exit 0 iff every label goes RED.
   --full-range       repoint at emitted files, then run
-                     verify_all.run_order_fullrange_checks against them (Rfull
-                     plumbing; reuses the exact same monkeypatch). Exit 0 iff green.
+                     verify_all.run_order_fullrange_checks against them (the
+                     full-range order-column check; reuses the exact same monkeypatch). Exit 0 iff green.
   --fixpoint         reparse-fixpoint: parse(emit_el(parse(src))) == parse(src)
                      modulo _line/_col/_warnings/_symbol, over every source
                      (structural only, no per-bar run).
@@ -210,7 +210,7 @@ def run_self_test(max_bars, scratch):
 
 
 def run_full_range(max_bars, scratch):
-    """Rfull plumbing: repoint at emitted files, then run the full-range order-column
+    """Full-range order-column check: repoint at emitted files, then run the full-range order-column
     gate against them (reuses the exact same monkeypatch as the round-trip run)."""
     texts = emit_texts(_emit_faithful, list(GT_EXPECT.keys()))
     with repoint_files(ROUNDTRIP_DIRNAME, texts) as labels:
@@ -425,7 +425,7 @@ def main():
                          "label goes RED.")
     ap.add_argument("--full-range", action="store_true",
                     help="repoint at emitted files, run the full-range order-column "
-                         "gate against them (Rfull plumbing).")
+                         "gate against them.")
     ap.add_argument("--fixpoint", action="store_true",
                     help="reparse-fixpoint: parse(emit_el(parse(src))) == parse(src) "
                          "modulo _line/_col/_warnings/_symbol, over every GT + matrix "

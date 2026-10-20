@@ -17,10 +17,11 @@
 
 # The optional `accel` fast path (decision record)
 
-> **Status note (0.2.0):** this file is the design record from the phase-1
-> rollout. The native kernel has since shipped strategy execution
-> (`run_program`, Data2, sweeps, trace). For current behaviour, read
-> `README.md` and `AGENTS.md` (`pl_transpiler.runtime.accel`).
+> **Status note:** this file is the original design record for the fast path.
+> The native kernel now executes strategies through `run_program` (Data2,
+> sweeps, trace); the bars-only `run()` described below remains and always
+> refuses. For current behaviour, read `README.md` and `AGENTS.md`
+> (`pl_transpiler.runtime.accel`).
 
 This is the recorded decision on
 the product shape of the optional native fast path, written **before** any kernel
@@ -94,10 +95,9 @@ decision this document deliberately does **not** make:
 So the real mechanism is this: **`pip install .[accel]` works only by declaring
 one dependency that itself ships the native extension module
 `pl_transpiler._accel`** — a second, separately built distribution whose wheel
-installs that module into the `pl_transpiler` package directory. As of this
-writing **that distribution does not exist**: it is owned by the kernel work,
-the wheel builds, and a publishing decision this document
-deliberately does **not** make.
+installs that module into the `pl_transpiler` package directory. That distribution is
+**`powerbridge-accel`**, built from `accel/` and published to PyPI alongside
+`powerbridge` by `.github/workflows/release.yml`.
 
 The rejected alternatives, and why — each is stated so nobody quietly ships a
 broken install or a fake fast path:
@@ -121,14 +121,12 @@ broken install or a fake fast path:
 
 Because none of those is both true and achievable inside this repository alone, the
 decision recorded here is the fourth option: **a second distribution, published
-separately, whose wheel provides `pl_transpiler._accel`.** Which artifact — name,
-index (PyPI-free, a private index, GitHub releases, or nothing yet), platform matrix,
-and who publishes it — is **an open product-level decision**,
-not invented here. Until that decision lands and the artifact exists,
-`pip install .[accel]` is documented as *declared but not yet satisfiable*: it is
-reserved to make the future install honest, and the extra name `accel` is frozen so
-the kernel, the CI/wheel build, the conformance work, and the
-tests can build against one shared name instead of four guesses.
+separately, whose wheel provides `pl_transpiler._accel`.** That distribution is
+`powerbridge-accel`, pinned by the extra to the same version as `powerbridge`
+(`accel = ["powerbridge-accel==<version>"]`), so `pip install powerbridge[accel]`
+installs the matching kernel wheel where one is published for the platform. The
+extra name `accel` stays frozen so the kernel, CI/wheel build, conformance work
+and tests share one name.
 
 What is true *today*, verifiably, without the artifact:
 
@@ -203,7 +201,7 @@ reserved binding point and is not required by anything.
   ```bash
   cd accel
   maturin build --release
-  # -> accel/target/wheels/powerbridge_accel-0.2.0-cp39-cp39-macosx_11_0_arm64.whl
+  # -> accel/target/wheels/powerbridge_accel-0.3.0-cp39-cp39-macosx_11_0_arm64.whl
   pip install ../target/wheels/powerbridge_accel-*.whl   # or pip install accel/target/wheels/*.whl from the root
   ```
 
@@ -215,7 +213,8 @@ reserved binding point and is not required by anything.
 - **What CI runs** (`.github/workflows/accel.yml`): two jobs.
   `accel-macos-arm64` **runs the accel path**, not merely builds it — it installs
   the extra, imports `pl_transpiler._accel` from a non-repo cwd, asserts
-  `ping() == 42` and `run()` raising `NotImplementedError`, then runs the public
+  `ping() == 42`, that `run_program` is present and that the bars-only `run()`
+  refuses with `ACCEL_FALLBACK_REQUIRED`, then runs the public
   test tier and the differential conformance harness. That job **fails if the
   extra silently does not load**. `core-no-accel` installs core without the extra
   and proves the zero-dependency promise is itself tested: the import raises
@@ -227,9 +226,11 @@ reserved binding point and is not required by anything.
   in this change claims a platform that was not built. Do not add an unbuilt
   platform to CI as if it worked.
 
-- **Phase-1 boundary.** The shipped crate exposes `ping()` (returns 42) and a
-  `run()` that raises `NotImplementedError` with the frozen bars-in/trades-out
-  signature. That is all — no kernel semantics, no fills, no performance claim.
-  The differential conformance harness's python-vs-accel gate arms in phase 2 once
-  the kernel's execution boundary is frozen; in phase 1 it skips cleanly from the
-  repo root, and the wheel-load gate is the phase-1 proof that the extra loaded.
+- **Kernel boundary.** The crate exposes `ping()` (returns 42) and the
+  original bars-only `run()`, which carries no program and therefore always
+  raises `NotImplementedError` with an `ACCEL_FALLBACK_REQUIRED` prefix.
+  Strategies execute through the `run_program` family (program IR + series +
+  config in, fills out; see [dev/ACCEL-INTERFACE-V2.md](dev/ACCEL-INTERFACE-V2.md)).
+  The differential conformance harness compares the Python and accel paths when
+  the extra is installed and skips cleanly when it is not; the wheel-load gate
+  proves the installed extra loaded.

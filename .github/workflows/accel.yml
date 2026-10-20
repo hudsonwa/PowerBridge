@@ -11,8 +11,8 @@ name: accel extra (CI + wheels)
 #   * accel-macos-arm64 — RUNS the accel path, not merely builds it: builds
 #     the wheel with maturin, installs core + the wheel, imports the native
 #     module from a NON-repo cwd (so the repo's source package cannot shadow
-#     the installed .so), asserts ping() == 42 and run() raising
-#     NotImplementedError, then runs the public test tier and the
+#     the installed .so), asserts ping() == 42, run_program is present and
+#     the bars-only run() refuses with ACCEL_FALLBACK_REQUIRED, then runs the public test tier and the
 #     differential conformance harness. The job FAILS if the extra silently
 #     does not load.
 #   * core-no-accel — the extra is ABSENT: proves the zero-dependency promise
@@ -67,13 +67,14 @@ jobs:
           python - <<'PY'
           import pl_transpiler._accel as accel
           assert accel.ping() == 42, 'ping() must return 42'
+          assert callable(accel.run_program), 'run_program must be exposed'
           try:
               accel.run([], [], [], [], [], [], [])
-          except NotImplementedError:
-              pass
+          except NotImplementedError as exc:
+              assert str(exc).startswith('ACCEL_FALLBACK_REQUIRED'), exc
           else:
-              raise SystemExit('run() must raise NotImplementedError in phase 1')
-          print('OK: pl_transpiler._accel loads; ping()==42; run() raises NotImplementedError')
+              raise SystemExit('bars-only run() must refuse: it carries no program')
+          print('OK: pl_transpiler._accel loads; ping()==42; run_program present; run() refuses')
           PY
 
       - name: Public test tier (extra installed)
@@ -129,7 +130,8 @@ jobs:
         run: |
           python - <<'PY'
           import importlib.metadata as md
-          deps = md.requires('powerbridge') or []
+          # Opt-in extras (`extra == "accel"`) are not runtime dependencies.
+          deps = [r for r in md.requires('powerbridge') or [] if 'extra ==' not in r]
           assert not deps, f'core must declare zero dependencies, got {deps}'
           print('OK: powerbridge declares zero third-party dependencies')
           PY

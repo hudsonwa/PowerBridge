@@ -78,9 +78,9 @@ def main():
                 failures.append(f"CAPTURE TAMPERED: {name} sha256 {got[:12]} != pinned {want[:12]}")
 
     # 2. No uncommitted edits to the gate's tolerance/required-count logic.
-    #    (The loop may ADD GTA6 entries, but must not weaken rtol/atol or shrink
+    #    (A change may ADD GTA6 entries, but must not weaken rtol/atol or shrink
     #    an existing required count. We flag ANY working-tree change to these
-    #    files for the orchestrator/verifier to inspect — fail-closed.)
+    #    files for a reviewer to inspect — fail-closed.)
     for rel in ("tests/golden_diff.py",):
         try:
             diff = subprocess.run(

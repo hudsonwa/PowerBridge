@@ -65,6 +65,20 @@ Capture-gated tests skip (never fail) when the MultiCharts captures are absent; 
   faithful to the source.
 - Keep changes small and focused; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Optional accel kernel
+
+- `pip install powerbridge[accel]` adds the separate `powerbridge-accel` wheel,
+  which provides `pl_transpiler._accel`. Do not rename the extra or the module; the
+  core install stays `dependencies = []`.
+- Extra absent: `import pl_transpiler._accel` raises `ImportError` and callers run
+  the Python path. Extra present: the kernel's trade list must equal the Python
+  path's exactly (same `pl_oracle` digest); any difference is a bug.
+- Anything the kernel cannot execute faithfully raises (`NotImplementedError` with
+  `ACCEL_FALLBACK_REQUIRED`) or falls back loudly, never silently.
+- The kernel is a compiled binary you cannot read like emitted Python; installing
+  it means trusting its publisher and build. See [docs/ACCEL.md](docs/ACCEL.md) and
+  [SECURITY.md](SECURITY.md).
+
 ## Safety gates before a change lands
 
 1. `python3 tests/run_public_tier.py` and `pytest -q --timeout=60` pass.

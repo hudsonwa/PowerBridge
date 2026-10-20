@@ -26,20 +26,10 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 #                    (fail-loud: never a silent different answer).
 #
 # The core `dependencies` list above stays [] and the default `pip install .`
-# remains pure-stdlib, zero-dependency, with no build step (the product rule at
-# line 12-13). This extra is opt-in only.
-#
-# The list is empty ON PURPOSE and is not a no-op marker (see docs/ACCEL.md for
-# the mechanism analysis and the rejected alternatives): this distribution builds
-# with setuptools (the `[build-system]` backend declared above), which does not
-# compile Rust, so no build requirement can truthfully yield `pl_transpiler._accel`
-# from this distribution alone. Installing the extra today therefore resolves to
-# nothing and behaviour stays bit-identical to `pip install .` — the ImportError
-# fallback above is the specified behaviour. When the kernel and wheel work ship the native module,
-# bind this extra to that exact artifact here (name + pin), never to a direct VCS
-# URL (pip rejects those in dependency specifiers). The publishing decision (which
-# artifact, which index) is still open.
-accel = []
+# remains pure-stdlib, zero-dependency, with no build step. This extra is
+# opt-in only. The native wheel, powerbridge-accel, is published separately to PyPI
+# by release.yml; keep this pin equal to `version`.
+accel = ["powerbridge-accel==0.3.0"]
 
 [project.scripts]
 # `python3 -m pl_transpiler.tools.el_emit` / `.pl_run` / `.pl_transpile` / `.pl_oracle`
