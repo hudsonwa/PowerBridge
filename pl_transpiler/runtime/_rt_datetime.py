@@ -265,9 +265,6 @@ def pl_exchlisted(*args, **kwargs):
 def pl_execoffset(*args, **kwargs):
     return 0
 
-def pl_expirationdate(*args, **kwargs):
-    return 0
-
 def pl_expirationdatefromvendor(*args, **kwargs):
     return 0
 
@@ -1119,11 +1116,6 @@ def pl_stringtotime(*args, **kwargs):
         return 0.0
     return _parse_time_frac(str(args[0]))
 
-def pl_symbol(*args, **kwargs):
-    # Symbol: instrument ticker string (unimplemented). The loud-stub installer
-    # wraps this; _UNIMPL_STR_RETURNING makes the non-strict fallback yield ''.
-    return 0
-
 def pl_symbol_close(*args, **kwargs):
     return 0
 
@@ -1161,13 +1153,6 @@ def pl_symbol_upticks(*args, **kwargs):
     return 0
 
 def pl_symbol_volume(*args, **kwargs):
-    return 0
-
-def pl_symbolcurrencycode(*args, **kwargs):
-    return 0
-
-def pl_symbolname(*args, **kwargs):
-    # SymbolName: instrument name string (unimplemented; loud-stub -> '').
     return 0
 
 def pl_tangent(*args, **kwargs):

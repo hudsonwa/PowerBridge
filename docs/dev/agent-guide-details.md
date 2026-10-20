@@ -576,7 +576,17 @@ python3 -m pl_transpiler.tools.pl_run <el_file> <bars_csv> [--config NAME] [-o O
 
   el_file    : EL/PowerLanguage source file.
   bars_csv   : OHLCV CSV (date,time,open,high,low,close,volume) or a .pbar. REQUIRED.
-  --config   : instrument config name (default: NQ).
+  --config   : instrument config name (default: NQ). The config
+               (pl_transpiler/runtime/instrument_config.py) supplies BigPointValue,
+               PointValue, MinMove, PriceScale and the symbol-info keywords:
+                 Symbol / SymbolName -> symalt / symnm   (NQ: "@NQ#C")
+                 Description         -> descstr          (NQ: "E-MINI NASDAQ 100")
+                 Category            -> category         (0 = future, the default)
+                 SymbolCurrencyCode  -> symccy           (numeric code; 1 = USD, as
+                                                          MultiCharts reports it)
+                 ExpirationDate      -> expdate          (EL YYYMMDD; 0 = unknown)
+               The optional data-stream argument (SymbolName(1)) is ignored: a run
+               has one instrument.
   -o OUT     : write the predicted per-bar CSV to OUT (default: stdout).
   --columns  : comma-separated trace columns to emit (default: all trace keys).
   --partial  : opt-in partial mode (run_el partial=True): unimplemented keywords become

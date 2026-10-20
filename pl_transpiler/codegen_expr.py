@@ -183,6 +183,10 @@ class _ExprMixin:
                 'alert_enabled': 'False',
                 'check_alert': 'True',
                 'lastbaronchartex': 'False',
+                # String-valued instrument properties.
+                'symbol': "''",
+                'symbolname': "''",
+                'description': "''",
             }
             default = defaults.get(kwarg, '0')
             return f"kwargs.get('{kwarg}', {default})"

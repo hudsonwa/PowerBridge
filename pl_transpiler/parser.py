@@ -33,6 +33,13 @@ from .semantic import (  # noqa: F401  (re-exported)
 )
 
 
+# Instrument properties read from the run's InstrumentConfig (via kwargs).
+_SYMBOL_INFO_KEYWORDS = frozenset((
+    'symbol', 'symbolname', 'description', 'category',
+    'symbolcurrencycode', 'expirationdate',
+))
+
+
 def _reconstruct_tokens(toks):
     """Best-effort text reconstruction of a consumed token run, used to retain
     attribute arg lists (`[Name(args)]`) in the AST. EL is case- and
@@ -1054,7 +1061,22 @@ class Parser:
             'dailyclose': 'dailyclose', 'prevclose': 'prevclose',
             'pointvalue': 'pointvalue', 'bigpointvalue': 'bigpointvalue',
             'minmove': 'minmove', 'pricescale': 'pricescale',
+            'symbol': 'symbol', 'symbolname': 'symbolname',
+            'description': 'description', 'category': 'category',
+            'symbolcurrencycode': 'symbolcurrencycode',
+            'expirationdate': 'expirationdate',
         }
+        if tt == TT_IDENT and val in _SYMBOL_INFO_KEYWORDS:
+            # Symbol-info properties take an optional data-stream argument,
+            # e.g. SymbolName(1). Runs have one instrument, so it is evaluated
+            # for its references and otherwise ignored.
+            self.advance()
+            if self.peek()[0] == TT_LPAREN:
+                self.advance()
+                if self.peek()[0] != TT_RPAREN:
+                    self.parse_expression()
+                self.expect(TT_RPAREN)
+            return {'type': 'position_kw', 'kwarg': _DATA_SERIES_KEYWORDS[val]}
         if tt == TT_IDENT and val in _DATA_SERIES_KEYWORDS:
             # If followed by '(', it's a function call (e.g. DayOfWeek(Date))
             if self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1][0] == TT_LPAREN:

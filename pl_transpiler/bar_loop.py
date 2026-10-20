@@ -285,6 +285,12 @@ def run_bar_loop(
         'bigpointvalue': config.bigpointvalue,
         'minmove': config.minmove,
         'pricescale': config.pricescale,
+        'symbol': config.symalt,
+        'symbolname': config.symnm,
+        'description': config.descstr,
+        'category': config.category,
+        'symbolcurrencycode': config.symccy,
+        'expirationdate': config.expdate,
         'current_date': 0,
         'current_time': 0,
         'datetime': 0.0,
@@ -337,6 +343,12 @@ def run_bar_loop(
         'bigpointvalue': config.bigpointvalue,
         'minmove': config.minmove,
         'pricescale': config.pricescale,
+        'symbol': config.symalt,
+        'symbolname': config.symnm,
+        'description': config.descstr,
+        'category': config.category,
+        'symbolcurrencycode': config.symccy,
+        'expirationdate': config.expdate,
     }
     if lastcalc_kwargs:
         _const_defaults.update(lastcalc_kwargs)

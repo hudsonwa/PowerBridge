@@ -72,7 +72,6 @@ _UNIMPL_WHITELIST = set()
 # aborts the whole bar, zeroing every traced column. The non-strict fallback is
 # type-correct; the strict path still raises so the gap stays visible.
 _UNIMPL_STR_RETURNING = {
-    'pl_symbol', 'pl_symbolname', 'pl_description',
     'pl_datetimetostring', 'pl_datetimetostring_ms',
     'pl_formatdate', 'pl_formattime', 'pl_timetostring', 'pl_datetostring',
     'pl_array_getstringvalue',

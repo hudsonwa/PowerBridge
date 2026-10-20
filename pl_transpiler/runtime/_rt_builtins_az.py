@@ -352,14 +352,6 @@ def pl_cotangent(*args, **kwargs):
 def pl_currentopenint(*args, **kwargs):
     return 0
 
-def pl_category(*args, **kwargs):
-    """Category: instrument/symbol category code (chart config). Stub: 0."""
-    return 0
-
-def pl_description(*args, **kwargs):
-    """Description: instrument description string (unimplemented; loud-stub -> '')."""
-    return 0
-
 def pl_intervaltype(*args, **kwargs):
     """IntervalType: data-series resolution interval code (chart config).
     This NQ chart is 1-minute intra-day data => 1 (Intra-Day: Seconds/Minutes/

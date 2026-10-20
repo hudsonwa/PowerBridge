@@ -56,6 +56,9 @@ class InstrumentConfig:
     symalt: str            # Alternate symbol name
     descstr: str           # Description string
     expdate: int           # Expiration date (YYYMMdd EL form)
+    # Category code (MultiCharts/TradeStation numbering: 0 = future, 1 = future
+    # option, 2 = stock, 4 = index, 12 = forex, ...).
+    category: int = 0
 
 
 # The NQ config reproduces today's exact validated values (previously hard-coded

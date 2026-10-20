@@ -218,6 +218,10 @@ _DATA_SERIES_KEYWORDS = {
     'dailyclose': 'dailyclose', 'prevclose': 'prevclose',
     'pointvalue': 'pointvalue', 'bigpointvalue': 'bigpointvalue',
     'minmove': 'minmove', 'pricescale': 'pricescale',
+    'symbol': 'symbol', 'symbolname': 'symbolname',
+    'description': 'description', 'category': 'category',
+    'symbolcurrencycode': 'symbolcurrencycode',
+    'expirationdate': 'expirationdate',
 }
 _MC_KEYWORDS = {
     'time_s': 'time_s',
