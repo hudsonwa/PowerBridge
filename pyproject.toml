@@ -46,9 +46,9 @@ pl_oracle = "pl_transpiler.tools.pl_oracle:main"
 include = ["pl_transpiler*"]
 
 [tool.setuptools.package-data]
-# The keyword catalog + verified-builtins list load __file__-relative from the tools
-# subpackage, so they must ride along inside the wheel.
-"pl_transpiler.tools" = ["pl_signatures.jsonl", "mc_verified_builtins.txt"]
+# The keyword catalog, verified-builtins list and proven-token data load __file__-relative
+# from the tools subpackage, so they must ride along inside the wheel.
+"pl_transpiler.tools" = ["pl_signatures.jsonl", "mc_verified_builtins.txt", "mc_proven.json"]
 
 [tool.ruff]
 # Lint only; no formatter is enforced. emitted/ and tests/generated/ hold

@@ -68,10 +68,14 @@ def _main(args):
         tf.close()
         emitted_path = tf.name
 
-    rc = mc_ground_check.check(emitted_path)
-    if not output:
-        os.unlink(emitted_path)
-    return rc
+    try:
+        return mc_ground_check.check(emitted_path)
+    except mc_ground_check.ProvenDataError as exc:
+        # Fail closed: without the proven-token data the name check cannot run.
+        raise _cli.CliError(str(exc)) from exc
+    finally:
+        if not output:
+            os.unlink(emitted_path)
 
 
 if __name__ == "__main__":

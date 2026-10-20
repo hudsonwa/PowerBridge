@@ -61,6 +61,15 @@ PROVEN_SCRIPTS = [  # scripts that have compiled + run in MultiCharts
     'ground_truth/GTA5_strategy.txt',
     'ground_truth/GTA6_strategy.txt',
 ]
+# The PROVEN_SCRIPTS corpus lives in the repo, not the wheel, so its code tokens and call
+# forms are precomputed into this shipped file (regenerate: scripts/gen_mc_proven.py; a test
+# checks it matches ground_truth/ byte for byte). The gate reads ONLY this file for them.
+PROVEN_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mc_proven.json')
+_DECL_STMT = r'(?i)\b(inputs?|vars?|variables?|arrays?|array)\s*:.*?;'
+
+
+class ProvenDataError(Exception):
+    """The shipped proven-token data is missing or unreadable; the gate cannot run."""
 # EL language keywords / operators (built into the grammar, never "builtins" to ground)
 LANG_KW = set(
     'if then else begin end for to downto while and or not once of data data1 data2 cross crosses '
@@ -78,11 +87,50 @@ def _strip(src):
     return src
 
 
-def _code_tokens(path):
+def _call_names(code):
+    """Names used with parentheses, declaration statements removed."""
+    body = re.sub(_DECL_STMT, ' ', code, flags=re.S)
+    return set(m.group(1).lower() for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', body))
+
+
+def build_proven_data(repo):
+    """Compute the PROVEN_DATA payload from the PROVEN_SCRIPTS under `repo`."""
+    tokens, calls = set(), set()
+    for rel in PROVEN_SCRIPTS:
+        with open(os.path.join(repo, rel), encoding='utf-8', errors='ignore') as fh:
+            code = _strip(fh.read())
+        tokens |= set(w.lower() for w in re.findall(r'[A-Za-z_]\w*', code))
+        calls |= _call_names(code)
+    return {'sources': list(PROVEN_SCRIPTS), 'tokens': sorted(tokens), 'calls': sorted(calls)}
+
+
+def dump_proven_data(data):
+    return json.dumps(data, indent=1, sort_keys=True) + '\n'
+
+
+_proven_cache = None
+
+
+def load_proven_data(path=None):
+    """(tokens, calls) from the shipped PROVEN_DATA. Fails closed: raises ProvenDataError
+    rather than letting a missing corpus silently pass unproven names."""
+    global _proven_cache
+    if path is None and _proven_cache is not None:
+        return _proven_cache
+    path = path or PROVEN_DATA
     try:
-        return set(w.lower() for w in re.findall(r'[A-Za-z_]\w*', _strip(open(path, encoding='utf-8', errors='ignore').read())))
-    except OSError:
-        return set()
+        with open(path, encoding='utf-8') as fh:
+            d = json.load(fh)
+        out = (set(d['tokens']), set(d['calls']))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        why = exc.strerror if isinstance(exc, OSError) and exc.strerror else exc
+        raise ProvenDataError(f"proven-token data {path} is missing or unreadable ({why}); "
+                              "cannot check names, refusing to pass") from exc
+    if not out[0]:
+        raise ProvenDataError(f"proven-token data {path} is empty; cannot check names, refusing to pass")
+    if path == PROVEN_DATA:
+        _proven_cache = out
+    return out
 
 
 def _declared(code):
@@ -119,9 +167,7 @@ def index_set():
 
 
 def proven_set():
-    proven = set()
-    for rel in PROVEN_SCRIPTS:
-        proven |= _code_tokens(os.path.join(REPO, rel))
+    proven = set(load_proven_data()[0])
     try:
         html = open(RESERVED, encoding='utf-8', errors='ignore').read().lower()
         proven |= set(re.findall(r'[a-z_]\w+', re.sub(r'<[^>]+>', ' ', html)))
@@ -175,12 +221,7 @@ def zero_arg_violations(code):
     declared = _declared(code)
     # Names used WITH parens in a script that ALREADY COMPILED in MC = a validated call form -> never flag
     # (covers builtins whose PDF body wraps `Name` and `(args)` onto separate lines).
-    proven_call = set()
-    for rel in PROVEN_SCRIPTS:
-        pcode = re.sub(r'(?i)\b(inputs?|vars?|variables?|arrays?|array)\s*:.*?;', ' ',
-                       _strip(open(os.path.join(REPO, rel), encoding='utf-8', errors='ignore').read()), flags=re.S) \
-            if os.path.exists(os.path.join(REPO, rel)) else ''
-        proven_call |= set(m.group(1).lower() for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', pcode))
+    proven_call = load_proven_data()[1]
     bad = set()
     for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', body):
         n = m.group(1).lower()
@@ -280,13 +321,7 @@ def arity_signature_violations(code):
         return []
     body = re.sub(r'(?i)\b(inputs?|vars?|variables?|arrays?|array)\s*:.*?;', ' ', code, flags=re.S)
     declared = _declared(code)
-    proven_call = set()
-    for rel in PROVEN_SCRIPTS:
-        p = os.path.join(REPO, rel)
-        if os.path.exists(p):
-            pcode = re.sub(r'(?i)\b(inputs?|vars?|variables?|arrays?|array)\s*:.*?;', ' ',
-                           _strip(open(p, encoding='utf-8', errors='ignore').read()), flags=re.S)
-            proven_call |= set(mm.group(1).lower() for mm in re.finditer(r'([A-Za-z_]\w*)\s*\(', pcode))
+    proven_call = load_proven_data()[1]
     out = []
     seen = set()
     for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', body):
@@ -311,19 +346,6 @@ def check(path):
     cands = sorted(c for c in (used - _declared(code) - LANG_KW) if not c.isdigit())
     safe = proven_set()
     not_proven = [c for c in cands if c not in safe]
-    # Name-proof needs the compile-verified corpus: the RESERVED reserved-words list and
-    # the PROVEN_SCRIPTS that actually compiled in MultiCharts. Both are repo-only and do
-    # NOT ship in the installed wheel. Consistent with this file's existing policy —
-    # "data source unavailable -> skip the check, don't fail hard" (see index_set() and
-    # load_signatures()) — the name-proof verdict is SKIPPED when that corpus is absent
-    # (e.g. a fresh `pip install` of the wheel): with no ground truth on disk we cannot
-    # honestly call a builtin "unproven". Arity (Pass 3b) and return-type (Pass 2) still
-    # run — they use the SHIPPED signature catalog. In a normal checkout the corpus is
-    # always present, so this branch is never taken and gate behaviour is unchanged.
-    name_proof_skipped = not (os.path.exists(RESERVED) or any(
-        os.path.exists(os.path.join(REPO, r)) for r in PROVEN_SCRIPTS))
-    if name_proof_skipped:
-        not_proven = []
     sigs = load_signatures()
     # PASS 3a (PDF-index 0-arg-with-parens heuristic) + PASS 3b (signature-table arity), deduped by name.
     arity_3a = [(n, "0-arg property called WITH parentheses") for n in zero_arg_violations(code)]
@@ -331,12 +353,8 @@ def check(path):
     arity_bad = arity_3a + [(n, r) for n, r in arity_signature_violations(code) if n not in seen_arity]
     # PASS 2 (return-type vs var-type).
     rettype_bad = returntype_violations(code, raw, sigs)
-    proven_label = "SKIPPED" if name_proof_skipped else str(len(cands) - len(not_proven))
-    print(f"{path}: {len(cands)} builtins used | {proven_label} PROVEN | "
+    print(f"{path}: {len(cands)} builtins used | {len(cands) - len(not_proven)} PROVEN | "
           f"{len(not_proven)} NOT-PROVEN | {len(arity_bad)} ARITY-BAD | {len(rettype_bad)} RETURN-TYPE-BAD")
-    if name_proof_skipped:
-        print("  NOTE: Name check skipped (keyword index not installed); "
-              "argument count and return types checked.")
     if not_proven:
         print("\nNOT-PROVEN (verify each has a real MC keyword-reference entry, or replace/inline/drop):")
         for i in range(0, len(not_proven), 6):
@@ -354,10 +372,7 @@ def check(path):
     if not_proven or arity_bad or rettype_bad:
         print("\nFAIL -- do not paste into MultiCharts until these are resolved.")
         return 1
-    if name_proof_skipped:
-        print("OK -- argument counts and return types pass (names not checked: keyword index not installed).")
-    else:
-        print("OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).")
+    print("OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).")
     print("NOTE: argument types are not checked; compare them with the keyword's reference page. "
           "Compiling in the MultiCharts editor is the final check.")
     return 0
@@ -366,4 +381,7 @@ def check(path):
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("usage: python pl_transpiler/tools/mc_ground_check.py <script.txt>"); sys.exit(2)
-    sys.exit(check(sys.argv[1]))
+    try:
+        sys.exit(check(sys.argv[1]))
+    except ProvenDataError as exc:
+        print(f"mc_ground_check: error: {exc}", file=sys.stderr); sys.exit(2)
