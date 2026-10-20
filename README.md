@@ -24,8 +24,8 @@ EasyLanguage / PowerLanguage to Python transpiler, and back.
 **Status: 0.3.0 preview.** Trade lists match MultiCharts fill-for-fill on the
 1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
 multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
-runs the same backtest about 20x faster on 20,000 bars, and about 100x on
-100,000 bars, with identical fills (`tools/bench_native.py`).
+runs the same backtest about 5x faster with identical fills
+([measured](#acceleration) with `tools/bench_native.py`).
 
 ## See it work
 
@@ -42,6 +42,7 @@ If Fast crosses below Slow Then Sell ("LX") Next Bar At Market;
 
 `pl_transpile examples/ma_cross.el` emits plain Python (excerpt):
 
+<!-- readme-test: skip (excerpt of generated code) -->
 ```python
 fast = f32(pl_average(close, fastlen))
 slow = f32(pl_average(close, slowlen))
@@ -70,6 +71,7 @@ It would rather stop than guess. Unsupported keywords are reported in one pass.
 
 Python 3.9 or newer, no other dependencies. Install from PyPI:
 
+<!-- readme-test: skip (installs from PyPI) -->
 ```bash
 pip install powerbridge
 pip install powerbridge-accel   # optional native fast path (prebuilt wheels)
@@ -78,6 +80,7 @@ pip install powerbridge-accel   # optional native fast path (prebuilt wheels)
 If PyPI is not reachable from your machine, install the tagged release
 straight from the repository instead:
 
+<!-- readme-test: skip (installs over the network) -->
 ```bash
 pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.3.0"
 ```
@@ -91,6 +94,7 @@ Python 3.9 or newer, no other dependencies. Run these from the repository root.
 
 **1. Install** (a virtual environment is recommended):
 
+<!-- readme-test: skip (creates a venv and installs) -->
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 python -m pip install -U pip
@@ -166,6 +170,7 @@ The `note:` line goes to stderr and is expected without the optional
 asked for. The strategy goes long, exits with a
 profit, and is long again at the end (excerpt):
 
+<!-- readme-test: file run_out.csv -->
 ```
 MarketPosition,NetProfit,TotalTrades
 0,0.0,0
@@ -204,18 +209,26 @@ What you can verify yourself, digest gating and captures are in
 
 ```python
 from pl_transpiler import transpile
-el = open("ground_truth/GT1_functions_indicators.txt").read()
-open("GT1_mirror.py", "w").write(transpile(el, trace=False))
+el = open("ground_truth/GT2_strategy_orders_position.txt").read()
+open("GT2_mirror.py", "w").write(transpile(el, trace=False))
 ```
 
 ```bash
-el_emit GT1_mirror.py -o GT1_from_python.txt
+el_emit GT2_mirror.py -o GT2_from_python.txt
 ```
 
-`el_emit` fails closed: if the emitted EL is not compile-safe it writes nothing
-usable and exits non-zero. Without the optional MultiCharts keyword index (not
-shipped; see Limitations) the name-proof step is skipped and only argument-count
-and return-type checks run.
+```
+GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD
+OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
+```
+
+`el_emit` fails closed: every builtin must be in the shipped list of names
+known to compile in MultiCharts, with the right argument count and return
+type. Anything else is reported and the command exits non-zero. For example,
+`ground_truth/GT1_functions_indicators.txt` uses `ATR`, `ROC` and `StdDev`,
+which are not on that list yet, so `el_emit` reports them as NOT-PROVEN and
+exits 1. Argument types are not checked; compiling in the MultiCharts editor
+is the final check.
 
 ### As a library
 
@@ -236,9 +249,12 @@ print(out["columns"], out["rows"][-1])
 ```
 
 ```
-108 lines; 140 bars; 4 trades
+108 lines; 140 bars; 7 trades
 ['MarketPosition', 'NetProfit'] ['1', '4742.20703125']
 ```
+
+`out["trades"]` is the fill log: one entry per fill, so a reversal counts as
+two (the exit and the new entry).
 
 Look up a keyword:
 
@@ -287,6 +303,7 @@ Pick the file on the release page whose name ends with your platform:
 
 Then install core and the wheel, using the exact file URL:
 
+<!-- readme-test: skip (template URL; installs over the network) -->
 ```bash
 pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@vX.Y.Z"
 pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<file>.whl
@@ -294,6 +311,7 @@ pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<fi
 
 **From source.** Build it from a checkout (needs a Rust toolchain):
 
+<!-- readme-test: skip (needs a Rust toolchain) -->
 ```bash
 pip install .                                    # core (pure stdlib)
 pip install maturin
@@ -305,11 +323,20 @@ cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
 Working inside the repo instead? `./tools/build_accel.sh` builds the same
 library and drops it next to the in-tree package, so tests run against it.
 
-Indicative speed, not a promise. `python tools/bench_native.py --bars 20000`
-times the GT2 sample strategy on a synthetic tape on both paths and checks the
-fills are identical. On an Apple M-series laptop: about 20x at 20,000 bars and
-about 100x at 100,000 bars (the Python path slows down faster than the bar
-count grows; see issue #4). Measure your own strategy before relying on a ratio.
+Indicative speed, not a promise. `python tools/bench_native.py --bars N`
+times the GT2 sample strategy on a synthetic tape on both paths (median of 3
+runs, whole `run_el` vs `run_native` call) and checks the fills are identical.
+Measured on an Apple M4 laptop, CPython 3.14, release-lto build from
+`./tools/build_accel.sh`:
+
+| Bars | Fills | Python | Rust | Speedup |
+|---:|---:|---:|---:|---:|
+| 20,000 | 1,473 | 0.47 s | 0.087 s | 5.3x |
+| 100,000 | 7,671 | 2.34 s | 0.42 s | 5.5x |
+
+Both paths scale linearly with the bar count (the earlier super-linear
+slowdown of the Python path, issue #4, is fixed). Measure your own strategy
+before relying on a ratio.
 
 **Absent extra = identical behaviour.** Without the module, the auditable
 Python path runs and produces the same trades. Programs the native kernel
@@ -333,6 +360,7 @@ trust a backtest from partial output.
 
 ## Tests
 
+<!-- readme-test: skip (the full suite; CI runs it as its own job) -->
 ```bash
 python3 tests/run_public_tier.py      # Windows: py tests\run_public_tier.py
 ```
@@ -363,6 +391,10 @@ want to attach your own.
 - The `accel` fast path is optional and builds from source. It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
   `pl_run` (per-bar trace rows) always uses the Python path.
+- `Sell from entry("A")` with two entries open closes the whole position.
+  Per the documented EasyLanguage semantics it should close only entry A.
+  This is documented behaviour that has not yet been verified against a
+  MultiCharts capture (#47).
 - Fail-loud assumes valid EasyLanguage. A residual gap: assigning to a
   read-only report keyword that is not in the bundled catalog can be treated as
   a local. Catalog-known names are still caught.

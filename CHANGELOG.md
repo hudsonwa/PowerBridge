@@ -22,6 +22,20 @@
   `pl_oracle --digest-v1` prints the old bytes for pinned v1 digests. See
   docs/verification.md.
 
+### Documentation
+
+- The README examples now run in CI (`tests/test_readme_examples.py`) and
+  their documented output is compared; blocks that install packages, need the
+  network or a Rust toolchain are marked `<!-- readme-test: skip -->`.
+  Corrected outputs the test exposed: the library example prints 7 fills, not
+  4, and the `el_emit` example now uses GT2 (GT1 uses builtins that are not yet
+  proven, so `el_emit` correctly refuses it).
+- Re-measured the native speed-up with `tools/bench_native.py`: about 5x at
+  20,000 and 100,000 bars (was "20x / 100x"); the Python path scales linearly.
+- Limitations now lists #47 (`Sell from entry("A")` closes the whole
+  position; documented behaviour, not yet verified against MultiCharts).
+- Fixed dead links in `ground_truth/captures/MANIFEST.md`.
+
 ## 0.3.0 — 2026-10-20
 
 ### Changed

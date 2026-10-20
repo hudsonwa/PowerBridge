@@ -139,7 +139,7 @@ Paired bar data (provenance; not guard-enforced — guard pins `.csv` only):
 
 ## Reproduce / refresh
 
-Re-run the scripts in MultiCharts per [`../README.md`](../README.md) and
-[`../GROUNDING_RECIPE.md`](../GROUNDING_RECIPE.md) on the same symbol/interval/range,
+Re-run the ground-truth scripts in [`ground_truth/`](..) in MultiCharts on the
+same symbol/interval/range (see [docs/CAPTURES.md](../../docs/CAPTURES.md)),
 delete the old CSV first (Print appends), then drop the files here. Verify the sha256
 matches (or update this manifest if the dataset intentionally changed).
