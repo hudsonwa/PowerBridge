@@ -32,6 +32,19 @@ def pl_arctangent(*args, **kwargs):
     return 0.0
 
 def pl_array_compare(*args, **kwargs):
+    """EL Array_Compare(SrcArr, SrcIdx, DstArr, DstIdx, Count): compare Count
+    elements pairwise from the two start indexes. Returns 0 when the ranges
+    are equal, 1 when the first differing source element is greater and -1
+    when it is smaller. Out-of-range elements are not compared."""
+    if len(args) < 5 or not isinstance(args[0], list) or not isinstance(args[2], list):
+        return 0
+    si, di, n = int(args[1]), int(args[3]), int(args[4])
+    if si < 0 or di < 0 or n <= 0:
+        return 0
+    src, dst = args[0][::-1], args[2][::-1]
+    for a, b in zip(src[si:si + n], dst[di:di + n]):
+        if a != b:
+            return 1 if a > b else -1
     return 0
 
 def pl_array_contains(*args, **kwargs):
@@ -42,6 +55,18 @@ def pl_array_contains(*args, **kwargs):
     return False
 
 def pl_array_copy(*args, **kwargs):
+    """EL Array_Copy(SrcArr, SrcIdx, DstArr, DstIdx, Count): copy Count
+    elements from SrcArr[SrcIdx..] into DstArr[DstIdx..], clipped to both
+    arrays' bounds. Overlapping ranges in one array copy as if via a buffer."""
+    if len(args) < 5 or not isinstance(args[0], list) or not isinstance(args[2], list):
+        return 0
+    si, di, n = int(args[1]), int(args[3]), int(args[4])
+    if si < 0 or di < 0 or n <= 0:
+        return 0
+    dst = args[2][::-1]
+    chunk = args[0][::-1][si:si + n][:max(len(dst) - di, 0)]
+    dst[di:di + len(chunk)] = chunk
+    args[2][:] = dst[::-1]
     return 0
 
 def _pl_array_getval(args, default):
@@ -114,10 +139,29 @@ def pl_array_setintegervalue(*args, **kwargs):
 def pl_array_setstringvalue(*args, **kwargs):
     return _pl_array_setval(args, '')
 
+def _pl_array_set_range(args, fn):
+    """Apply fn to the EL range Arr[BeginIdx..EndIdx] (inclusive, clipped).
+
+    Generated code stores EL index i at list position -(i + 1), so work on the
+    reversed list and write it back."""
+    arr = args[0][::-1]
+    lo, hi = max(int(args[1]), 0), min(int(args[2]), len(arr) - 1)
+    if lo <= hi:
+        arr[lo:hi + 1] = fn(arr[lo:hi + 1])
+        args[0][:] = arr[::-1]
+
 def pl_array_setvalrange(*args, **kwargs):
+    """EL Array_SetValRange(Arr, BeginIdx, EndIdx, Value): set Arr[BeginIdx..
+    EndIdx] (inclusive, clipped to the array) to Value."""
+    if len(args) >= 4 and isinstance(args[0], list):
+        _pl_array_set_range(args, lambda seg: [args[3]] * len(seg))
     return 0
 
 def pl_array_sort(*args, **kwargs):
+    """EL Array_Sort(Arr, BeginIdx, EndIdx, SortOrder): sort Arr[BeginIdx..
+    EndIdx] in place, ascending when SortOrder is True, descending otherwise."""
+    if len(args) >= 4 and isinstance(args[0], list):
+        _pl_array_set_range(args, lambda seg: sorted(seg, reverse=not args[3]))
     return 0
 
 def pl_arraysize(*args, **kwargs):
