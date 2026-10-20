@@ -20,6 +20,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime.accel import (  # noqa: E402
     accel_available,
     run_native,
@@ -97,8 +98,8 @@ If BarNumber = 6 Then Sell ("LX") Next Bar At Market;
 def _require_accel():
     if not accel_available():
         if pytest is not None:
-            pytest.skip("pl_transpiler._accel is not installed")
-        raise SystemExit("skip: pl_transpiler._accel is not installed")
+            pytest.skip(ACCEL_SKIP)
+        raise SystemExit("skip: " + ACCEL_SKIP)
 
 
 def test_tiny_el_packet_matches_run_native_fills():

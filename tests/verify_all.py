@@ -29,10 +29,6 @@ PASS/FAIL scoreboard, exiting non-zero if ANYTHING regresses:
     so they always run (proof harnesses rot silently when nothing runs them).
     They are bounded-cost, so they run in --fast too; the full-range emitted
     order check stays with Rfull / the orchestrator, not here.
-  * OPTIONAL EXTENSION (discovered dynamically): extra gate sections live in
-    tests/verify_ext_private.py and are pulled in via importlib. When that module
-    is absent this script prints a notice and continues; when present every
-    section runs.
 
 CAPTURE-GATING: the capture-dependent gates (the GT/reverse sections here, and
 the standalone verify_* gates) SKIP with a one-line docs/CAPTURES.md pointer when
@@ -48,7 +44,6 @@ Usage:
     python tests/verify_all.py                 # full suite, warmup=300, all bars
     python tests/verify_all.py --max-bars 5000 # faster GT runs (still exact)
     python tests/verify_all.py --gt-only
-    python tests/verify_all.py --ext-only      # only the private extension sections
 """
 import os
 import sys
@@ -57,7 +52,6 @@ import argparse
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-import importlib
 
 from tests import run_gt
 from tests.golden_diff import diff_csvs, GT_FILES, CAP
@@ -234,31 +228,12 @@ def run_order_fullrange_checks(scratch, max_bars=None):
     return results
 
 
-def load_extension():
-    """Dynamically discover the PRIVATE suite extension
-    (tests/verify_ext_private.py). Returns the imported module, or None when it is
-    absent (a public/preview clone). Never fabricates sections — absence is a clear,
-    explicit skip, not a silent pass."""
-    try:
-        return importlib.import_module("tests.verify_ext_private")
-    except ModuleNotFoundError as e:
-        # Only treat the extension's OWN absence as "not present"; a missing
-        # dependency inside a present extension must still surface loudly.
-        if e.name in ("tests.verify_ext_private", "verify_ext_private"):
-            return None
-        raise
-
-
 def main():
     ap = argparse.ArgumentParser(description="Full-suite regression gate")
     ap.add_argument("--max-bars", type=int, default=DEFAULT_GT_BARS,
                     help=f"GT bars after warmup (default {DEFAULT_GT_BARS}: the "
                          "verified-clean scope).")
     ap.add_argument("--gt-only", action="store_true")
-    ap.add_argument("--ext-only", action="store_true",
-                    help="run ONLY the private extension sections (skip the GT / "
-                         "reverse core). With the extension absent this exits "
-                         "non-zero with a clear message - never a vacuous pass.")
     ap.add_argument("--fast", action="store_true",
                     help="skip the full-range order-column gate (calc-window only). "
                          "Fast for iteration / the loop's watch heartbeat - but NOT a "
@@ -284,102 +259,61 @@ def main():
           f"GT max_bars={'all' if args.max_bars is None else args.max_bars})")
     print("=" * 70)
 
-    if not args.ext_only:
-        if not have_caps:
-            print("\n" + capture_gate.skip_message("GT + reverse core"))
-        else:
-            print("\nGT capture tests (run_gt.py -> golden_diff comparator):")
-            for label, ok, detail, _ in run_gt_checks(args.max_bars, args.scratch):
+    if not have_caps:
+        print("\n" + capture_gate.skip_message("GT + reverse core"))
+    else:
+        print("\nGT capture tests (run_gt.py -> golden_diff comparator):")
+        for label, ok, detail, _ in run_gt_checks(args.max_bars, args.scratch):
+            mark = "PASS" if ok else "FAIL"
+            print(f"  [{mark}] {label:10s} {detail}")
+            all_ok = all_ok and ok
+
+        print("\nTrade-digest oracle (persist=True min-emit, GT2):")
+        from tests.test_oracle import check_gt2_capture_oracle
+        ok, detail = check_gt2_capture_oracle()
+        mark = "PASS" if ok else "FAIL"
+        print(f"  [{mark}] {detail}")
+        all_ok = all_ok and ok
+
+        if not args.fast:
+            print("\nFull-range order-column gate (fill-engine outputs, EXACT - slow):")
+            for label, ok, detail in run_order_fullrange_checks(args.scratch):
                 mark = "PASS" if ok else "FAIL"
                 print(f"  [{mark}] {label:10s} {detail}")
                 all_ok = all_ok and ok
-
-            print("\nTrade-digest oracle (persist=True min-emit, GT2):")
-            from tests.test_oracle import check_gt2_capture_oracle
-            ok, detail = check_gt2_capture_oracle()
-            mark = "PASS" if ok else "FAIL"
-            print(f"  [{mark}] {detail}")
-            all_ok = all_ok and ok
-
-            if not args.fast:
-                print("\nFull-range order-column gate (fill-engine outputs, EXACT - slow):")
-                for label, ok, detail in run_order_fullrange_checks(args.scratch):
-                    mark = "PASS" if ok else "FAIL"
-                    print(f"  [{mark}] {label:10s} {detail}")
-                    all_ok = all_ok and ok
-            else:
-                print("\n[--fast] skipped the full-range order-column gate "
-                      "(NOT a DONE gate; run without --fast or use verify_full_range).")
-
-            # REVERSE gates (GOAL R5): fold the ROUNDTRIP + TWOWAY binding gates in as
-            # permanent scoreboard sections. Bounded-cost, so they run in --fast too;
-            # the full-range emitted order check belongs to Rfull/the orchestrator, not
-            # here. Imported LAZILY: each of those modules imports helpers back from
-            # this one, so a top-level import would be circular. They monkeypatch the
-            # SHARED run_gt.GT_FILES / golden_diff.GT_FILES in place (repointing them at
-            # the emitted EL), so snapshot BOTH and restore before each section —
-            # otherwise TWOWAY would read ROUNDTRIP's emitted file as its "original".
-            if not args.gt_only:
-                from tests import golden_diff as _gd
-                from tests import verify_roundtrip as _rt
-                from tests import verify_twoway as _tw
-                _snap_rg = dict(run_gt.GT_FILES)
-                _snap_gd = dict(_gd.GT_FILES)
-
-                def _restore_gt_files():
-                    run_gt.GT_FILES.clear(); run_gt.GT_FILES.update(_snap_rg)
-                    _gd.GT_FILES.clear(); _gd.GT_FILES.update(_snap_gd)
-
-                print("\nROUNDTRIP gate (EL -> AST -> EL'', run_gt_checks vs emitted):")
-                _restore_gt_files()
-                rt_rc = _rt.run_default(args.max_bars, os.path.join(args.scratch, "rt"))
-                all_ok = all_ok and (rt_rc == 0)
-
-                print("\nTWOWAY gate (EL -> AST -> Py -> AST -> EL'', run_gt_checks vs emitted):")
-                _restore_gt_files()
-                tw_rc = _tw.run_default(args.max_bars, os.path.join(args.scratch, "tw"))
-                all_ok = all_ok and (tw_rc == 0)
-                _restore_gt_files()
-
-    # WINDOWS CONSOLE gate (capture-independent — runs with or without captures).
-    # Proves the public tier + encoding linter are green under simulated Windows
-    # console conditions (cp1252 redirect, ascii redirect, print-site ASCII lint).
-    # It is a PRIVATE gate member, deliberately excluded from the public/preview
-    # export (like the private extension below), so a public clone will not have it:
-    # discover it defensively and, when absent, print a clear notice and continue
-    # (never crash on the missing module, never silently pass).
-    if not args.gt_only:
-        try:
-            _wc = importlib.import_module("tests.verify_windows_console")
-        except ImportError as e:
-            # Only the gate module's OWN absence is a graceful skip; a real import
-            # error inside a present module must still surface.
-            if e.name not in ("tests.verify_windows_console", "verify_windows_console"):
-                raise
-            _wc = None
-            print("\nWINDOWS CONSOLE gate: tests/verify_windows_console.py not "
-                  "present in this clone - section skipped.")
-        if _wc is not None:
-            wc_ok = _wc.run()
-            all_ok = all_ok and wc_ok
-
-    # PRIVATE EXTENSION: discovered dynamically. It owns the parity + bidirectional
-    # + cycles sections that depend on the author's private strategy corpus. Absent
-    # in a public/preview clone -> print a clear notice and continue (never a silent
-    # pass). --ext-only with the extension absent is an explicit failure.
-    if not args.gt_only:
-        ext = load_extension()
-        if ext is None:
-            if args.ext_only:
-                print("\n" + "=" * 70)
-                print("ERROR: --ext-only requested but the private extension "
-                      "(tests/verify_ext_private.py) is not present in this clone.")
-                print("=" * 70)
-                return 1
-            print("\nPRIVATE EXTENSION: tests/verify_ext_private.py not present - "
-                  "sections skipped (public/preview clone).")
         else:
-            all_ok = ext.run(args.fast, args.max_bars, args.scratch) and all_ok
+            print("\n[--fast] skipped the full-range order-column gate "
+                  "(NOT a DONE gate; run without --fast or use verify_full_range).")
+
+        # REVERSE gates (GOAL R5): fold the ROUNDTRIP + TWOWAY binding gates in as
+        # permanent scoreboard sections. Bounded-cost, so they run in --fast too;
+        # the full-range emitted order check belongs to Rfull/the orchestrator, not
+        # here. Imported LAZILY: each of those modules imports helpers back from
+        # this one, so a top-level import would be circular. They monkeypatch the
+        # SHARED run_gt.GT_FILES / golden_diff.GT_FILES in place (repointing them at
+        # the emitted EL), so snapshot BOTH and restore before each section —
+        # otherwise TWOWAY would read ROUNDTRIP's emitted file as its "original".
+        if not args.gt_only:
+            from tests import golden_diff as _gd
+            from tests import verify_roundtrip as _rt
+            from tests import verify_twoway as _tw
+            _snap_rg = dict(run_gt.GT_FILES)
+            _snap_gd = dict(_gd.GT_FILES)
+
+            def _restore_gt_files():
+                run_gt.GT_FILES.clear(); run_gt.GT_FILES.update(_snap_rg)
+                _gd.GT_FILES.clear(); _gd.GT_FILES.update(_snap_gd)
+
+            print("\nROUNDTRIP gate (EL -> AST -> EL'', run_gt_checks vs emitted):")
+            _restore_gt_files()
+            rt_rc = _rt.run_default(args.max_bars, os.path.join(args.scratch, "rt"))
+            all_ok = all_ok and (rt_rc == 0)
+
+            print("\nTWOWAY gate (EL -> AST -> Py -> AST -> EL'', run_gt_checks vs emitted):")
+            _restore_gt_files()
+            tw_rc = _tw.run_default(args.max_bars, os.path.join(args.scratch, "tw"))
+            all_ok = all_ok and (tw_rc == 0)
+            _restore_gt_files()
 
     print("\n" + "=" * 70)
     print(f"OVERALL: {'ALL GREEN' if all_ok else 'REGRESSION'}")

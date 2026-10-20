@@ -28,6 +28,7 @@ if REPO not in sys.path:
 from pl_transpiler import catalog  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_run import run_el  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from tests.conformance_harness import (  # noqa: E402
     DEFAULT_RANDOM_PROGRAMS,
     DEFAULT_RANDOM_TAPES,
@@ -276,7 +277,7 @@ def test_accel_runner_delegates_to_frozen_run_program():
     try:
         import pl_transpiler._accel as accel
     except ImportError:
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
 
     runner = accel_trade_runner(accel)
     assert callable(runner)
@@ -287,7 +288,7 @@ def test_python_vs_accel_identical_trade_lists():
     try:
         import pl_transpiler._accel as accel
     except ImportError:
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
 
     cases = run_suite(
         accel_trade_runner(accel),

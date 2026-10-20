@@ -21,6 +21,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.runtime import accel  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
@@ -66,7 +67,7 @@ def test_unimplemented_builtins_are_reported(capsys):
 def test_native_unguarded_entry_does_not_double():
     # Rust once sized a qty-0 entry off the open position: 2**n fills, unbounded RAM.
     if not accel.accel_available():
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
     src = "If Close > 0 Then Buy Next Bar At Market;"
     bars = BARS[:30]
     native = accel.run_native(src, bars, NQ)

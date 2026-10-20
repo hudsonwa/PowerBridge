@@ -40,6 +40,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime.accel import (  # noqa: E402
     AccelRefused,
     accel_available,
@@ -63,7 +64,7 @@ DATA2_SOURCE = (
 
 def _require_accel():
     if not accel_available():
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
 
 
 def _sample_bars():

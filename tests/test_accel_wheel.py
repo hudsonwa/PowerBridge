@@ -34,6 +34,8 @@ import tempfile
 
 import pytest
 
+from tests.skip_messages import ACCEL_SKIP
+
 PROBE = (
     "import pl_transpiler._accel as accel\n"
     "assert accel.__name__ == 'pl_transpiler._accel'\n"
@@ -63,6 +65,6 @@ def test_installed_accel_wheel_loads():
         or "No module named 'pl_transpiler'" in proc.stderr
     )
     if proc.returncode != 0 and missing:
-        pytest.skip("pl_transpiler._accel (accel extra) is not installed")
+        pytest.skip(ACCEL_SKIP)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "ACCEL_LOAD_OK" in proc.stdout

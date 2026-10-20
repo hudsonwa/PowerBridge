@@ -25,14 +25,14 @@ Ref 3. The three dialect modes are:
 
 The finding is pinned in two legs:
 
-  1. A portable stateful-gate program (no captures, no private tape) asserts
+  1. A portable stateful-gate program (no captures, no audit tape) asserts
      the runnable untraced dialect AGREES with the traced dialect (identical
      fills, identical digest) while the clean mirror dialect emits 0 fills.
 
-  2. A private-tape leg (the Audit Ref 3 EL over the 2,322,973-bar NQ tape with
+  2. An audit-tape leg (the reference audit EL over the 2,322,973-bar NQ tape with
      aligned Data2) asserts trace == persist == AUDIT_REF_3 (7364 fills /
      3682 round-turns / d839e7ab…), and mirror == 0. This leg SKIPs when the
-     private audit files are absent, exactly like the capture-gated gates.
+     audit files (not shipped) are absent, exactly like the capture-gated gates.
 
 Stdlib only. No captures required for the portable leg.
 """
@@ -52,6 +52,7 @@ from pl_transpiler.tools.pl_oracle import (  # noqa: E402
     AUDIT_REF_3_DIGEST,
 )
 from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
+from tests.skip_messages import AUDIT_TAPE_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 
@@ -131,10 +132,10 @@ def test_transpile_mode_signatures():
     print("  [ok] trace=_state+_trace, persist=_state, mirror=neither (default)")
 
 
-# --- private-tape leg (Audit Ref 3) ----------------------------------------
+# --- audit-tape leg (not shipped) -------------------------------------------
 
-# Paths to the private Audit Ref 3 tape come from the environment so that no
-# private path or strategy identifier is committed to this (public) repo:
+# Paths to the reference audit tape come from the environment; the tape is
+# not shipped with this repository:
 #   PB_AUDIT_EL, PB_AUDIT_BARS, PB_AUDIT_D2
 AUDIT_EL = os.environ.get("PB_AUDIT_EL", "")
 AUDIT_BARS = os.environ.get("PB_AUDIT_BARS", "")
@@ -159,7 +160,7 @@ def _load_data2_closes(path):
 
 
 def _run_trace_mode(el, bars, d2):
-    """Trace-mode (transpile trace=True) Audit Ref 3 run: fills/digest.
+    """Trace-mode (transpile trace=True) reference audit run: fills/digest.
 
     run_el has no Data2 parameter, so this mirrors run_oracle's wiring with
     transpile(trace=True) + emit_trace=True (the only difference from the
@@ -191,10 +192,10 @@ def _run_trace_mode(el, bars, d2):
     return len(recs), len(recs) // 2, fills_sha256(recs)
 
 
-def check_audit_ref_3_reconciliation():
-    """Full-tape three-way on Audit Ref 3. Return (ok, detail). Private-tape gated."""
+def check_audit_tape_reconciliation():
+    """Full-tape three-way on the reference audit. Return (ok, detail). Audit-tape gated."""
     if not _audit_files_present():
-        return False, "private Audit Ref 3 files absent"
+        return False, AUDIT_TAPE_SKIP
     el = open(AUDIT_EL, encoding="utf-8").read()
     bars = load_bars_csv(AUDIT_BARS)
     d2 = _load_data2_closes(AUDIT_D2)
@@ -205,7 +206,7 @@ def check_audit_ref_3_reconciliation():
     trace_fills, trace_rt, trace_sha = _run_trace_mode(el, bars, d2)
 
     if oracle["fills"] != AUDIT_REF_3_FILLS or oracle["round_turns"] != AUDIT_REF_3_ROUND_TURNS:
-        return False, f"oracle {oracle['fills']}/{oracle['round_turns']} != Audit Ref 3 const"
+        return False, f"oracle {oracle['fills']}/{oracle['round_turns']} != reference audit const"
     if oracle["text"] != AUDIT_REF_3_DIGEST:
         return False, "oracle digest diverged from AUDIT_REF_3_DIGEST"
     if (trace_fills, trace_rt, trace_sha) != (oracle["fills"], oracle["round_turns"], oracle["sha256"]):
@@ -214,7 +215,7 @@ def check_audit_ref_3_reconciliation():
             f"persist {oracle['fills']}/{oracle['round_turns']}/{oracle['sha256'][:12]}")
 
     return True, (
-        f"Audit Ref 3 {oracle['n_bars']} bars: trace == persist == "
+        f"reference audit {oracle['n_bars']} bars: trace == persist == "
         f"{oracle['fills']} fills / {oracle['round_turns']} round-turns, "
         f"sha256={oracle['sha256'][:12]}")
 
@@ -227,13 +228,11 @@ def main():
         print(f"running {t.__name__} ...")
         t()
 
-    print("running check_audit_ref_3_reconciliation ...")
+    print("running check_audit_tape_reconciliation ...")
     if not _audit_files_present():
-        print("  [SKIP] private Audit Ref 3 files absent — set "
-              "PB_AUDIT_EL / PB_AUDIT_BARS / PB_AUDIT_D2 to run the "
-              "full-tape three-way")
+        print("  [SKIP] " + AUDIT_TAPE_SKIP)
     else:
-        ok, detail = check_audit_ref_3_reconciliation()
+        ok, detail = check_audit_tape_reconciliation()
         assert ok, detail
         print(f"  [ok] {detail}")
 

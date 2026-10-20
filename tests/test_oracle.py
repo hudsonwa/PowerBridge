@@ -34,6 +34,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tests import capture_gate  # noqa: E402
+from tests.skip_messages import AUDIT_TAPE_SKIP  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import (  # noqa: E402
     canonical_fill_line, fills_sha256, format_digest,
@@ -67,9 +68,9 @@ DATA2_SOURCE = (
     "If D2C > Close Then Buy (\"D2B\") 1 Contracts Next Bar At D2C Limit;\n"
 )
 
-# Audit Ref 3 window the silent-ignore bug was measured on. Private tape is
-# gated on PB_AUDIT_EL / PB_AUDIT_BARS / PB_AUDIT_D2; the numbers are the
-# public digest pin.
+# Reference audit window the silent-ignore bug was measured on. The audit tape
+# is not shipped; tests that need it are gated on PB_AUDIT_EL / PB_AUDIT_BARS /
+# PB_AUDIT_D2, and the numbers are the public digest pin.
 AUDIT_REF_3_WINDOW = slice(1515000, 1616000)
 AUDIT_REF_3_WINDOW_FILLS = 928
 AUDIT_REF_3_WINDOW_SHA256 = (
@@ -110,15 +111,15 @@ def _dated_bars(n, date0=1240102):
     ]
 
 
-def test_audit_ref_3_citation_constants():
-    """The Audit Ref 3 numbers later tickets must cite. Tape is private; this
+def test_reference_audit_citation_constants():
+    """The reference audit numbers later tickets must cite. The tape is not shipped; this
     only checks the constant matches the formatter so a typo cannot drift."""
     assert AUDIT_REF_3_FILLS == 7364
     assert AUDIT_REF_3_ROUND_TURNS == 3682
     assert len(AUDIT_REF_3_SHA256) == 64
     assert AUDIT_REF_3_DIGEST == format_digest(
         fills=AUDIT_REF_3_FILLS, round_turns=AUDIT_REF_3_ROUND_TURNS, sha256=AUDIT_REF_3_SHA256)
-    print("  [ok] Audit Ref 3 citation constants 7364/3682 + sha256 formatter")
+    print("  [ok] reference audit citation constants 7364/3682 + sha256 formatter")
 
 
 def test_empty_tape_digest():
@@ -297,7 +298,7 @@ def test_python_path_consumes_data2_bars():
     )
 
 
-def _audit_ref_3_paths():
+def _audit_tape_paths():
     el = os.environ.get("PB_AUDIT_EL", "")
     bars = os.environ.get("PB_AUDIT_BARS", "")
     d2 = os.environ.get("PB_AUDIT_D2", "")
@@ -309,19 +310,16 @@ def _audit_ref_3_paths():
 
 
 def _skip_audit_if_absent():
-    """Return the Audit Ref 3 paths, or skip.
+    """Return the reference audit tape paths, or skip.
 
     pytest is optional: the public tier runs this file as a stdlib script
     under ``/usr/bin/python3`` with no pytest installed. When pytest is the
     runner it is already in ``sys.modules`` and we use ``pytest.skip``.
     """
-    paths = _audit_ref_3_paths()
+    paths = _audit_tape_paths()
     if paths is not None:
         return paths
-    msg = (
-        "private Audit Ref 3 files absent — set PB_AUDIT_EL / "
-        "PB_AUDIT_BARS / PB_AUDIT_D2"
-    )
+    msg = AUDIT_TAPE_SKIP
     pytest_mod = sys.modules.get("pytest")
     if pytest_mod is not None:
         pytest_mod.skip(msg)
@@ -329,7 +327,7 @@ def _skip_audit_if_absent():
     return None
 
 
-def test_audit_ref_3_python_data2_bars_matches_closes():
+def test_reference_audit_python_data2_bars_matches_closes():
     """Audit window + full tape: data2_bars= must reproduce the canonical digest.
 
     Pre-fix this was 948 / 608c16f090.. (window) and 7964 fills (full tape),
@@ -374,7 +372,7 @@ def test_audit_ref_3_python_data2_bars_matches_closes():
     assert full_bars["text"] == AUDIT_REF_3_DIGEST
     assert full_bars["text"] == full_closes_d["text"]
     print(
-        f"  [ok] Audit Ref 3 window {via_bars['fills']} / "
+        f"  [ok] reference audit window {via_bars['fills']} / "
         f"{via_bars['sha256'][:12]}; full tape {full_bars['fills']} / "
         f"{full_bars['sha256'][:12]}"
     )
@@ -403,7 +401,7 @@ def check_gt2_capture_oracle(max_bars=20000):
 
 def main():
     tests = [
-        test_audit_ref_3_citation_constants,
+        test_reference_audit_citation_constants,
         test_empty_tape_digest,
         test_count_strategy_needs_persist,
         test_hasher_matches_payload,
@@ -426,12 +424,11 @@ def main():
         assert ok, detail
         print(f"  [ok] {detail}")
 
-    print("running test_audit_ref_3_python_data2_bars_matches_closes ...")
-    if _audit_ref_3_paths() is None:
-        print("  [SKIP] private Audit Ref 3 files absent — set "
-              "PB_AUDIT_EL / PB_AUDIT_BARS / PB_AUDIT_D2")
+    print("running test_reference_audit_python_data2_bars_matches_closes ...")
+    if _audit_tape_paths() is None:
+        print("  [SKIP] " + AUDIT_TAPE_SKIP)
     else:
-        test_audit_ref_3_python_data2_bars_matches_closes()
+        test_reference_audit_python_data2_bars_matches_closes()
 
     print("\nALL ORACLE TESTS PASSED")
     return 0

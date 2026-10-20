@@ -15,11 +15,11 @@
 
 """capture_gate.py — shared "are the MultiCharts captures attached?" probe.
 
-Several gates (verify_roundtrip, verify_twoway, verify_full_range, the behavioural
-leg of verify_cycles, test_failloud, test_general_entrypoint, and the run_gt /
+Several gates (verify_roundtrip, verify_twoway, verify_full_range,
+test_failloud, test_general_entrypoint, and the run_gt /
 golden_diff entrypoints) can only run against the per-bar MultiCharts capture CSVs
-pinned in ground_truth/captures/MANIFEST.md.  Those captures are the author's
-private ground truth and are NOT shipped in a public clone.
+pinned in ground_truth/captures/MANIFEST.md.  Those captures are licensed
+MultiCharts output and are NOT redistributed with this repository.
 
 This module gives every gate one shared, side-effect-free way to ask "are the
 pinned captures present?".  When they are ABSENT the gate SKIPs with a one-line

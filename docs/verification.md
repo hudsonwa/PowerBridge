@@ -20,6 +20,55 @@
 How PowerBridge proves a change did not alter trading results. New users only
 need the [README Quickstart](../README.md#quickstart).
 
+## What you can verify from this repo
+
+Everything below runs on a fresh clone with only the shipped source and the
+synthetic sample bars in `examples/`. No captures and no network are needed.
+Install the test tools first:
+
+```bash
+pip install pytest pytest-timeout ruff
+```
+
+| Check | Command |
+| --- | --- |
+| Public test tier (parser, codegen, runtime, oracle, mutation pre-flight) | `python3 tests/run_public_tier.py` |
+| Full unit and conformance suite | `pytest -q --timeout=60` |
+| Lint | `ruff check .` |
+| Native kernel (only if you built it) | `cd accel && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --release` |
+| Native vs Python digest | see below |
+
+Native vs Python digest: the Rust kernel and the reference Python path must
+give the same trade-list sha256 on every example and `GT2` program:
+
+```bash
+for f in examples/*.el ground_truth/GT2*; do
+  python3 -m pl_transpiler.tools.pl_oracle "$f" examples/NQ_sample_bars.csv | grep sha256
+  python3 -m pl_transpiler.tools.pl_oracle --python "$f" examples/NQ_sample_bars.csv | grep sha256
+done
+```
+
+Each pair of lines must match. Without the kernel installed both runs use the
+Python path; build it with `pip install maturin && cd accel && maturin develop
+--release` to compare the two (see [ACCEL.md](ACCEL.md)).
+`tests/test_accel_conformance.py` runs the same differential check over
+`tests/conformance_corpus.json` and skips with a message when the kernel is
+not built.
+
+A clean public tier shows only skips for checks that need MultiCharts
+captures, and each skip names the missing input. Full `pytest` also skips the
+native-kernel tests until you build the kernel (each skip says
+"native kernel not built: run `maturin develop --release` in accel/"), and
+the reference audit-tape tests, which need a tape that is not shipped (set
+`PB_AUDIT_EL`, `PB_AUDIT_BARS` and `PB_AUDIT_D2` to run them).
+
+**What you cannot verify from this repo.** MultiCharts parity (the per-bar
+captures and the fill counts quoted in the README) is checked against
+MultiCharts output that is licensed and cannot be redistributed. Those
+captures are not in this repository, and the tests that use them skip here.
+To check parity yourself, export your own captures from MultiCharts and
+attach them as described in [CAPTURES.md](CAPTURES.md).
+
 ## The trade digest is the merge gate
 
 ```bash
@@ -46,7 +95,7 @@ lookback stay primed, fills suppressed) unless you pass `--slice`. `pl_oracle
 --from-date` stays a tape slice; pass `--seed-warmup` to seed instead. A
 windowed run that disagrees on trades is a failed ticket, not a speed win.
 
-## Private captures
+## MultiCharts captures
 
 Per-bar MultiCharts parity captures are licensed data and are not shipped.
 Tests that need them skip cleanly on a fresh clone. See

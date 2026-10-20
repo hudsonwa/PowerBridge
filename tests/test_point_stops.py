@@ -36,6 +36,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime import pl_runtime                         # noqa: E402
 from pl_transpiler.runtime._rt_datetime import pl_fill_array          # noqa: E402
 from pl_transpiler.runtime.accel import AccelRefused, run_native     # noqa: E402
@@ -116,7 +117,7 @@ def _accel_or_skip():
     try:
         import pl_transpiler._accel  # noqa: F401
     except ImportError:
-        pytest.skip("native accel extension not built")
+        pytest.skip(ACCEL_SKIP)
 
 
 @pytest.mark.parametrize("name,pt_stmt,dollar_stmt", CASES, ids=[c[0] for c in CASES])

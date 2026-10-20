@@ -36,6 +36,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime import pl_runtime                             # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config           # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle                     # noqa: E402
@@ -159,7 +160,7 @@ def test_maxsharesheld_native_matches_python():
     try:
         import pl_transpiler._accel  # noqa: F401
     except ImportError:
-        pytest.skip("native accel extension not built")
+        pytest.skip(ACCEL_SKIP)
     from pl_transpiler.runtime.accel import run_native
     from tests.conformance_harness import trade_difference
     py = run_oracle(GATED_EL, _bars(), NQ)["records"]

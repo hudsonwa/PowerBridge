@@ -720,7 +720,7 @@ python3 -m pl_transpiler.catalog --search date
 
 | Tier | Command | Captures required | Skip behaviour |
 |---|---|---|---|
-| Public (portable) | `python3 tests/run_public_tier.py` | No | Capture/private members skip with a one-line note; tier is GREEN without them |
+| Public (portable) | `python3 tests/run_public_tier.py` | No | Every listed member ships; checks that need MultiCharts captures skip with a pointer to docs/CAPTURES.md; tier is GREEN without them |
 | Full regression | `python3 tests/verify_all.py` (`--fast` quick pass) | Yes | Capture-gated sections skip with a pointer to docs/CAPTURES.md |
 | Round-trip | `python3 tests/verify_roundtrip.py` | Yes | Skips cleanly when captures absent |
 | Two-way | `python3 tests/verify_twoway.py` | Yes | Skips cleanly when captures absent |
@@ -733,7 +733,7 @@ captures-less clone never reports a false failure. See
 ## Limitations (contract form)
 
 - **Headline parity captures are excluded.** The per-bar MultiCharts ground-truth
-  captures are private and not shipped; capture-gated tests **skip** (they do not fail).
+  captures are licensed data and not redistributed; capture-gated tests **skip** (they do not fail).
 - **This tree is the library, tests, and docs.** Internal build tooling is not shipped.
 - **Validation scope = intraday index futures only** (1-minute @NQ; ES config registered, lighter validation). Other
   instruments/timeframes are **untested** — behaviour there is unverified.

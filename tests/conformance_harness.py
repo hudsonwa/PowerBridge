@@ -32,6 +32,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
+
 from pl_transpiler import catalog  # noqa: E402
 from pl_transpiler.parser import BUILTIN_ARITY  # noqa: E402
 from pl_transpiler.reverse import emit_el, parse_el  # noqa: E402
@@ -711,7 +713,7 @@ def main(argv=None):
     try:
         import pl_transpiler._accel as accel
     except ImportError:
-        print("SKIP: pl_transpiler._accel is not installed")
+        print("SKIP: " + ACCEL_SKIP)
         return 0
 
     cases = run_suite(

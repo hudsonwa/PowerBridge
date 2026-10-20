@@ -15,30 +15,26 @@
 
 """run_public_tier.py — the PORTABLE test tier (green out-of-the-box).
 
-This runner executes the subset of the suite that needs NO private ground-truth
-captures and NO network, so a fresh clone with only the shipped source can prove
-the transpiler works before attaching any captures (see docs/CAPTURES.md).
+This runner executes the subset of the suite that needs NO MultiCharts captures
+and NO network, so a fresh clone with only the shipped source can prove the
+transpiler works before attaching any captures (see docs/CAPTURES.md). Every
+member listed here ships in this repository.
 
-It is intentionally a thin, stdlib-only subprocess/​in-process runner: every
-member here is an EXISTING gate/tool that already owns its own assertions — this
+It is intentionally a thin, stdlib-only subprocess/in-process runner: every
+member here is an EXISTING gate/tool that already owns its own assertions - this
 file adds ZERO comparison logic, it only sequences the portable members and prints
 a PASS/SKIP/FAIL table.
 
 CLASSIFICATION (per member):
-  * FILE ABSENT   -> SKIP. Some members are private-only and are NOT shipped in a
-    public/preview export (the reverse-cycle gate, the emission-sweep / similarity
-    tools). In an export clone they are simply absent; that is an expected SKIP, not
-    a failure.
-  * CAPTURE-DEPENDENT + captures absent -> SKIP (one-line docs/CAPTURES.md pointer).
-    A few members CAN run capture-free but do MORE when the captures are attached;
-    they already self-skip, and this runner classifies them SKIP so the table is
-    honest in a captures-less clone. Attach the captures to turn these green.
-  * otherwise      -> RUN. PASS iff the member exits 0 (or, for the in-process
-    mutation pre-flight, iff its pattern check holds); FAIL otherwise.
+  * CAPTURE-DEPENDENT + captures absent -> SKIP, with a message naming what is
+    missing and how to attach it (docs/CAPTURES.md). The MultiCharts captures
+    are licensed data and are not redistributed, so these skip in a fresh clone.
+  * otherwise -> RUN. PASS iff the member exits 0 (or, for the in-process
+    mutation pre-flight, iff its pattern check holds); FAIL otherwise. A listed
+    member whose file is missing is a FAIL: the list must match the repository.
 
-The tier is GREEN (exit 0) iff NOTHING is FAIL. SKIPs never fail the tier — that is
-the whole point: the portable tier stays green in a captures-less export AND in this
-full private checkout (where the same members instead RUN and PASS).
+The tier is GREEN (exit 0) iff NOTHING is FAIL. See docs/verification.md for
+the full list of checks you can run from this repository.
 
 Usage:
     python3 tests/run_public_tier.py
@@ -87,10 +83,7 @@ MEMBERS = [
     ("test_no_work_fastpath",        "tests/test_no_work_fastpath.py",              [], False),
     ("test_general_entrypoint",      "tests/test_general_entrypoint.py",            [], True),
     ("mutation pre-flight",          None,                                          [], False),
-    ("verify_cycles --textual-only", "tests/verify_cycles.py",         ["--textual-only"], False),
     ("ground-check trap tests",      "tests/test_ground_check_traps.py",            [], False),
-    ("emit_sweep",                   "tests/emit_sweep.py",                         [], False),
-    ("similarity_report",            "pl_transpiler/tools/similarity_report.py",    [], False),
     ("coverage_report",              "tests/coverage_report.py",
                                      ["--parity-max-bars", "400", "--roundtrip-max-bars", "400"], True),
 ]
@@ -126,11 +119,12 @@ def main():
     rows = []  # (label, status, detail)
     for label, path, extra_args, cap_dep in MEMBERS:
         if path is not None and not os.path.exists(os.path.join(REPO, path)):
-            rows.append((label, "SKIP", "not shipped in this clone (private-only member)"))
+            rows.append((label, "FAIL", f"{path} is listed but missing from the repository"))
             continue
         if cap_dep and not have_caps:
             rows.append((label, "SKIP",
-                         f"capture-dependent; captures absent - see {capture_gate.CAPTURES_DOC}"))
+                         "needs MultiCharts captures (not redistributed); "
+                         f"attach your own: {capture_gate.CAPTURES_DOC}"))
             continue
 
         if path is None:

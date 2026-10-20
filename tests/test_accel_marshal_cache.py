@@ -29,6 +29,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
+
 import pytest
 
 from pl_transpiler.runtime.accel import (  # noqa: E402
@@ -154,7 +156,7 @@ def test_clear_series_cache_forces_remarshal():
 def test_run_native_repeat_does_not_remarshal():
     """The caller cache is on the tape, not the config: two runs, one marshal."""
     if not accel_available():
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
     gt2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")
     source = open(gt2, encoding="utf-8").read()
     bars = _bars()

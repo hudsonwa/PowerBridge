@@ -43,7 +43,7 @@ Run from the repository root:
 ```bash
 pip install .
 python3 -m pip install pytest pytest-timeout ruff
-python3 tests/run_public_tier.py   # portable gate; green without private captures
+python3 tests/run_public_tier.py   # portable gate; green without MultiCharts captures
 pytest -q --timeout=60
 ruff check .
 ```
@@ -51,7 +51,7 @@ ruff check .
 Native kernel (only if you change `accel/`): `cd accel && cargo fmt --check &&
 cargo clippy --all-targets -- -D warnings && cargo test --release`.
 
-Capture-gated tests skip (never fail) when their private inputs are absent; see
+Capture-gated tests skip (never fail) when the MultiCharts captures are absent; see
 [docs/CAPTURES.md](docs/CAPTURES.md).
 
 ## Conventions

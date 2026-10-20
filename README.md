@@ -131,7 +131,7 @@ round_turns: 1
 sha256: 239484d32aa2945dabac2f68d739786fea5388cdb150bc54e4d799bef344d06e
 ```
 
-Maintainers: digest gating, date windowing and private captures are in
+What you can verify yourself, digest gating and captures are in
 [docs/verification.md](docs/verification.md).
 
 ## More usage
@@ -249,9 +249,11 @@ want to attach your own.
 - The Python to EL direction only reads the **mirror dialect**: the clean Python
   this transpiler itself emits. Arbitrary hand-written Python is out of scope.
 - Validated against MultiCharts on **1-minute @NQ** and **1-minute @ES**
-  (@ES#C RTH, 2016: four configurations of a private multi-entry strategy,
-  4,278 of 4,278 fills identical). Other instruments and timeframes are
-  untested.
+  (@ES#C RTH, 2016: four configurations of a real-world multi-entry strategy,
+  4,278 of 4,278 fills identical). The MultiCharts captures behind these
+  numbers are licensed and not in this repository; see
+  [what you can verify](docs/verification.md#what-you-can-verify-from-this-repo).
+  Other instruments and timeframes are untested.
 - Builtins the runtime does not implement yet return 0/'' and are reported:
   every `pl_run` / `pl_oracle` run prints a `WARNING` naming them, and
   `run_el(...)["unimplemented"]` lists them. `PL_STRICT=1` stops on the first

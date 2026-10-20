@@ -30,6 +30,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime import accel  # noqa: E402
 from pl_transpiler.runtime.audit_packet import decode, write_trades_csv  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
@@ -48,7 +49,7 @@ NQ = get_config("NQ")
 
 def _require():
     if not accel.accel_available():
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
     for path in (FIXTURE_DIR, EL_PATH):
         if not path or not os.path.exists(path):
             pytest.skip("private fixture absent — set PB_AUDIT_FIXTURE_DIR / PB_AUDIT_EL")

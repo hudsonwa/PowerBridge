@@ -37,6 +37,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.ir import serialise_ir  # noqa: E402
 from pl_transpiler.lexer import tokenise  # noqa: E402
 from pl_transpiler.parser import parse  # noqa: E402
@@ -56,7 +57,7 @@ GT2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")
 
 def _require_accel():
     if not accel_available():
-        pytest.skip("pl_transpiler._accel is not installed")
+        pytest.skip(ACCEL_SKIP)
 
 
 def _program_ir(el_source):

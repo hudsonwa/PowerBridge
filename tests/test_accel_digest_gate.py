@@ -39,6 +39,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime.accel import (  # noqa: E402
     AccelRefused,
     accel_available,
@@ -61,7 +62,7 @@ GTA5 = os.path.join(REPO, "ground_truth", "GTA5_strategy.txt")
 
 def test_native_and_python_digest_identical_with_native_taken():
     if not accel_available():
-        pytest.skip("pl_transpiler._accel is not installed (native path absent)")
+        pytest.skip(ACCEL_SKIP)
 
     el_source = open(GT2, encoding="utf-8").read()
     bars = load_bars_csv(SAMPLES)
@@ -100,7 +101,7 @@ def test_deeply_nested_ir_loads_natively_and_digest_matches_python():
     ``pl_oracle`` digest must equal the pure-Python one.
     """
     if not accel_available():
-        pytest.skip("pl_transpiler._accel is not installed (native path absent)")
+        pytest.skip(ACCEL_SKIP)
 
     el_source = open(GTA5, encoding="utf-8").read()
     bars = load_bars_csv(SAMPLES)
