@@ -42,6 +42,7 @@ def main(argv=None):
     ap.add_argument("input", help="input file (.py => py_to_el; else parse+emit)")
     ap.add_argument("-o", "--output", default=None,
                     help="output EL file (default: stdout)")
+    _cli.add_version(ap, "el_emit")
     args = ap.parse_args(argv)
     return _cli.run("el_emit", _main, args)
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- `pl_oracle` with the native kernel installed no longer prints the
+  "falling back to the Python path" note before a one-line user error
+  (unimplemented keyword, undeclared variable, strict-mode stop) (#80). The
+  note is printed once the Python run completes.
+- `el_emit` on Python outside the mirror dialect, or on input that is not
+  valid Python, prints `el_emit: error: ... at line N` and exits 2 instead of
+  a traceback with exit 1 (which read like a failed name check).
+- `pl_run --columns` suggests and lists EasyLanguage names
+  (`MarketPosition`, `CurrentBar`, ...) instead of internal trace keys such as
+  `_market_position`.
+- README, `llms.txt` and `docs/LLM_DIALECT.md` agree on the validation scope
+  (@NQ and @ES) and the current residual gaps.
+
+### Added
+
+- `--version` on `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
+- The accel CI job runs the full pytest suite with the native kernel loaded.
+
 ## 0.4.0 — 2026-10-20
 
 ### Fixes

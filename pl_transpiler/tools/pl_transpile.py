@@ -95,6 +95,7 @@ def _build_parser():
                     help="opt-in partial mode: unimplemented constructs become "
                          "execution-time stubs under a NOT-FAITHFUL watermark.")
     ap.set_defaults(persist=True)
+    _cli.add_version(ap, "pl_transpile")
     return ap
 
 

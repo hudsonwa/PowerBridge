@@ -16,7 +16,7 @@
 
 User mistakes (an EL syntax error, an unimplemented EL keyword or undeclared
 variable, a missing input file, an unknown --config or a malformed --config JSON file,
-a malformed bars CSV) print ``<tool>: error: <message>`` to stderr and exit 2
+a malformed bars CSV, Python input outside the mirror dialect) print ``<tool>: error: <message>`` to stderr and exit 2
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
 import os
@@ -24,6 +24,7 @@ import sys
 
 from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.lexer import PLSyntaxError
+from pl_transpiler.py_front import PyFrontError
 
 
 class CliError(Exception):
@@ -32,6 +33,12 @@ class CliError(Exception):
 
 def debug_enabled():
     return os.environ.get("PB_DEBUG", "") not in ("", "0")
+
+
+def add_version(ap, prog):
+    """Add ``--version`` (prints e.g. ``pl_run 0.4.0``)."""
+    from pl_transpiler import __version__
+    ap.add_argument("--version", action="version", version="%s %s" % (prog, __version__))
 
 
 def output_path(path):
@@ -67,7 +74,8 @@ def run(prog, fn, *args):
     """Run ``fn(*args)`` and return its rc, reporting user errors in one line (rc 2)."""
     try:
         return fn(*args)
-    except (PLSyntaxError, OSError, CliError, UnimplementedKeywordError) as exc:
+    except (PLSyntaxError, PyFrontError, OSError, CliError,
+            UnimplementedKeywordError) as exc:
         if debug_enabled():
             raise
         print("%s: error: %s" % (prog, _describe(exc)), file=sys.stderr)

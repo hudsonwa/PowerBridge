@@ -94,7 +94,7 @@ surface, not an aspiration:
 
 Anything else — a comprehension, a `numpy`/`pandas` call, a lambda, a `with`/`try` block, an
 unrecognised function — raises `PyFrontError`. See the README **Limitations** section for the
-residual honesty gaps (for example, an undeclared identifier can still slip through).
+residual gaps.
 
 ## Worked example
 
@@ -122,6 +122,9 @@ EasyLanguage:
 ```bash
 el_emit llm_dialect_example.py -o llm_dialect_example.el.txt
 ```
+
+On input outside the dialect, `el_emit` prints one line,
+`el_emit: error: <reason> at line N`, and exits 2.
 
 ## The fail-loud contract
 

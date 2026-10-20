@@ -205,6 +205,36 @@ _COLUMN_ALIASES = {
 }
 
 
+# EasyLanguage spelling of each built-in trace key, used when reporting
+# column names; strategy variables are shown as declared.
+_EL_COLUMN_NAMES = {
+    '_barnumber': 'CurrentBar',
+    '_close': 'Close',
+    '_date': 'Date',
+    '_time': 'Time',
+    '_market_position': 'MarketPosition',
+    'avgentryprice': 'AvgEntryPrice',
+    'bars_since_entry': 'BarsSinceEntry',
+    'bars_since_exit': 'BarsSinceExit',
+    'current_contracts': 'CurrentContracts',
+    'entry_price': 'EntryPrice',
+    'exit_price': 'ExitPrice',
+    'gross_loss': 'GrossLoss',
+    'gross_profit': 'GrossProfit',
+    'maxcontractsheld': 'MaxContractsHeld',
+    'maxiddrawdown': 'MaxIDDrawdown',
+    'net_profit': 'NetProfit',
+    'open_position_profit': 'OpenPositionProfit',
+    'openentriescount': 'OpenEntriesCount',
+    'position_profit': 'PositionProfit',
+    'totaltrades': 'TotalTrades',
+}
+
+
+def _el_name(key):
+    return _EL_COLUMN_NAMES.get(key, key)
+
+
 class UnknownTraceColumnError(ValueError):
     """A requested trace column is not a key of the run's trace."""
 
@@ -240,13 +270,14 @@ def resolve_trace_columns(requested, available):
             unknown.append(name)
         resolved.append(key)
     if unknown:
+        el_names = {_fold(_el_name(k)): _el_name(k) for k in available}
         parts = []
         for name in unknown:
-            close = [folded[m] for m in
-                     difflib.get_close_matches(_fold(name), list(folded), n=3, cutoff=0.6)]
+            close = [el_names[m] for m in
+                     difflib.get_close_matches(_fold(name), list(el_names), n=3, cutoff=0.6)]
             parts.append(f"{name!r}" + (f" (did you mean {', '.join(close)}?)" if close else ""))
         raise UnknownTraceColumnError(f"unknown trace column(s): {'; '.join(parts)}. "
-                         f"Available: {', '.join(sorted(available))}")
+                         f"Available: {', '.join(sorted(map(_el_name, available), key=str.lower))}")
     return resolved
 
 
@@ -465,6 +496,7 @@ def _build_parser():
     ap.add_argument("--slice", dest="slice_tape", action="store_true",
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
+    _cli.add_version(ap, "pl_run")
     return ap
 
 

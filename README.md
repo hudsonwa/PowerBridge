@@ -21,7 +21,7 @@
 
 EasyLanguage / PowerLanguage to Python transpiler, and back.
 
-**Status: 0.3.0 preview.** Trade lists match MultiCharts fill-for-fill on the
+**Status: preview.** Trade lists match MultiCharts fill-for-fill on the
 1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
 multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
 runs the same backtest about 5x faster with identical fills

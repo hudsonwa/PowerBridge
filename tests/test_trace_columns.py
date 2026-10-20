@@ -43,7 +43,8 @@ def test_unknown_column_raises_with_suggestion():
         _run(["MarketPositon", "bogus"])
     msg = str(ei.value)
     assert isinstance(ei.value, ValueError)
-    assert "'MarketPositon' (did you mean _market_position?)" in msg
+    assert "'MarketPositon' (did you mean MarketPosition?)" in msg
+    assert "_market_position" not in msg  # EL names, not internal trace keys
     assert "'bogus'" in msg and "\n" not in msg
 
 

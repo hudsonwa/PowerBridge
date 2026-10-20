@@ -142,3 +142,21 @@ def test_pl_transpile_undeclared_variable(tmp_path):
     assert "Traceback" not in proc.stderr
     assert "undeclared variable 'MyTotal' at line 2" in proc.stderr
     assert "unimplemented EL keyword 'mytotal'" not in proc.stderr
+
+
+@pytest.mark.parametrize("src,needle", [
+    ("A = sum(close[-20:])\n", "at line 1"),
+    ("def strategy(:\n    pass\n", "not valid Python"),
+])
+def test_el_emit_off_dialect_python(tmp_path, src, needle):
+    py = tmp_path / "bad.py"
+    py.write_text(src)
+    _assert_one_line(_run("el_emit", str(py)), "el_emit", needle)
+
+
+@pytest.mark.parametrize("tool", ["pl_transpile", "pl_run", "pl_oracle", "el_emit"])
+def test_version(tool):
+    from pl_transpiler import __version__
+    proc = _run(tool, "--version")
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "%s %s" % (tool, __version__)

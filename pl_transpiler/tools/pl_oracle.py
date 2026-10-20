@@ -272,8 +272,10 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
 
     Returns ``(digest, None)`` on a successful native run. On any fallback —
     a windowed shape, an absent extension, or a kernel refusal — returns
-    ``(None, reason)``; a refusal also prints a LOUD stderr note, so the caller
-    never silently receives a partial or approximate trade list.
+    ``(None, reason)``. ``run_oracle`` prints a LOUD stderr note for a refusal
+    once the Python run completes, so the caller never silently receives a
+    partial or approximate trade list, and a program that stops on a user
+    error reports only that error.
     """
     if (from_date is not None or to_date is not None or from_bar is not None
             or seed_warmup):
@@ -283,12 +285,7 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     try:
         fills = run_native(el_source, bars, config, data2_bars=data2_bars)
     except (AccelUnavailable, AccelRefused) as exc:
-        reason = f"native path refused: {exc}"
-        print(
-            f"[pl_oracle] {reason}; falling back to the Python path (loud)",
-            file=sys.stderr,
-        )
-        return None, reason
+        return None, f"native path refused: {exc}"
     n = ohlcv_columns(bars)["n"]
     digest = {
         "fills": len(fills),
@@ -449,6 +446,13 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
             trade_from=trade_from,
             emit_trace=False,
         )
+    # Reported after the run, so a program that stops on a user error
+    # prints only that error.
+    if fallback_reason is not None and fallback_reason.startswith("native path refused"):
+        print(
+            f"[pl_oracle] {fallback_reason}; falling back to the Python path (loud)",
+            file=sys.stderr,
+        )
 
     v1 = digest_version < 2
     records = fill_engine.get_mc_trades(v1=v1)
@@ -530,6 +534,7 @@ def _build_parser():
     ap.add_argument("--digest-v1", dest="digest_v1", action="store_true",
                     help="emit the pre-v2 digest (for pinned v1 digests): no "
                          "reversal open legs or risk exits. Python path only.")
+    _cli.add_version(ap, "pl_oracle")
     return ap
 
 
