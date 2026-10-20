@@ -296,9 +296,11 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     # counted. The transpiled strategy's own Print(File(...)) lands on stdout; we
     # discard it here so it can never corrupt the returned data or the CLI's stdout.
     from pl_transpiler.runtime.pl_runtime import pl_unimplemented_reset, pl_unimplemented_warn
-    from pl_transpiler.runtime.accel import warn_python_path
-    warn_python_path("run_el / pl_run produce per-bar trace rows on the Python path; for "
-                     "fast trade lists use pl_oracle or runtime.accel.run_native (Rust)")
+    from pl_transpiler.runtime.accel import accel_available, warn_python_path
+    if accel_available():
+        warn_python_path("per-bar trace rows need it; pl_oracle uses the Rust kernel")
+    else:
+        warn_python_path()
     pl_unimplemented_reset()
     with open(os.devnull, 'w', encoding='utf-8') as _devnull, contextlib.redirect_stdout(_devnull):
         run_bar_loop(

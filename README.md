@@ -66,89 +66,75 @@ no PyPI deps, no network.
 
 It would rather stop than guess. Unsupported keywords are reported in one pass.
 
-## Install
+## Quickstart
 
-Python 3.9 or newer.
+Python 3.9 or newer, no other dependencies. Run these from the repository root.
+
+**1. Install** (a virtual environment is recommended):
 
 ```bash
+python3 -m venv .venv && . .venv/bin/activate
 pip install .
 ```
 
-That installs the `powerbridge` distribution (import name `pl_transpiler`) and four commands: `el_emit`,
-`pl_run`, `pl_transpile`, and `pl_oracle`.
+That installs the `powerbridge` distribution (import name `pl_transpiler`) and
+four commands: `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
 
-Examples below use `ground_truth/GT2_strategy_orders_position.txt` (a small
-moving-average cross) and `examples/NQ_sample_bars.csv` (synthetic bars).
-Run them from the repository root.
-
-### The optional `accel` fast path (Rust)
-
-The core is **standard library only** in every install. The optional native
-fast path is a Rust crate in `accel/` that builds the module
-`pl_transpiler._accel`. It runs the whole bar loop and fill engine natively in
-one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
-sweeps (`run_native_sweep`) that compile and marshal the tape once.
-
-Build it from a checkout (needs a Rust toolchain):
+**2. Transpile an example** to Python:
 
 ```bash
-pip install .                                    # core (pure stdlib)
-pip install maturin
-(cd accel && maturin build --release)            # accel wheel
-pip install accel/target/wheels/powerbridge_accel-*.whl      # the native module
-cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
+pl_transpile examples/ma_cross.el -o ma_cross.py
 ```
 
-Working inside the repo instead? `./tools/build_accel.sh` builds the same
-library and drops it next to the in-tree package, so tests run against it.
+```
+[pl_transpile] wrote ma_cross.py
+```
 
-Indicative speed, not a promise. `python tools/bench_native.py --bars 20000`
-times the GT2 sample strategy on a synthetic tape on both paths and checks the
-fills are identical. On an Apple M-series laptop: about 20x at 20,000 bars and
-about 100x at 100,000 bars (the Python path slows down faster than the bar
-count grows; see issue #4). Measure your own strategy before relying on a ratio.
-
-**Absent extra = identical behaviour.** Without the module, the auditable
-Python path runs and produces the same trades. Programs the native kernel
-cannot execute faithfully raise `AccelRefused` (`AccelUnavailable` when the
-module is missing) so the caller runs the Python path instead; they
-never return a different result. CI builds macOS arm64. Windows 11 x64 was
-checked by hand (rustup `x86_64-pc-windows-gnu` toolchain, no Visual Studio
-needed); Linux builds from source but is not CI-verified.
-
-An installed module is found even when you run from inside the repository
-folder. `./tools/build_accel.sh` builds it straight into the checkout instead.
-
-## Quickstart
-
-### EasyLanguage to Python, then a backtest
-
-`pl_run` executes generated Python on your machine. Only run files you trust.
-Transpiling a file does not execute it.
+**3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
+generated Python on your machine, so only run files you trust (transpiling
+alone executes nothing).
 
 ```bash
-pl_run ground_truth/GT2_strategy_orders_position.txt examples/NQ_sample_bars.csv \
+pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
     --config NQ --columns marketpos,netprofit,totaltrades -o run_out.csv
 ```
 
-Exact trade-list digest (the merge gate for performance work — two runs on
-unchanged code must be byte-identical):
-
-```bash
-pl_oracle ground_truth/GT2_strategy_orders_position.txt examples/NQ_sample_bars.csv
+```
+note: powerbridge-accel not installed; using the pure-Python engine (slower). See README#acceleration
+[pl_run] 140 bars, 140 rows, 3 trades -> run_out.csv
 ```
 
-`pl_oracle` uses the Rust kernel automatically when the `accel` module is
-installed, and says so on stderr (`[native]`). `--python` forces the reference
-Python path; the sha256 must match. Whenever a run ends up on the Python path,
-a `WARNING: running the PYTHON path` line says why.
+The `note:` line goes to stderr and is expected without the optional
+[Rust fast path](#acceleration); results are identical either way.
 
-`pl_run` and `pl_oracle` accept an opt-in `--from-date` / `--from-bar` window.
-Default is still the full tape. `pl_run` seeds the discarded prefix (state and
-lookback stay primed, fills suppressed) unless you pass `--slice`. `pl_oracle
---from-date` stays a tape slice; pass `--seed-warmup` to seed instead. A
-windowed run that disagrees on trades is a failed ticket, not a speed win.
+**4. Read the output.** `run_out.csv` has one row per bar with the columns you
+asked for:
 
+```
+marketpos,netprofit,totaltrades
+0,0,0
+0,0,0
+...
+0,0,1
+```
+
+For a compact, reproducible summary of the trade list, use `pl_oracle`:
+
+```bash
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
+```
+
+```
+powerbridge-trade-digest v1
+fills: 3
+round_turns: 1
+sha256: 239484d32aa2945dabac2f68d739786fea5388cdb150bc54e4d799bef344d06e
+```
+
+Maintainers: digest gating, date windowing and private captures are in
+[docs/verification.md](docs/verification.md).
+
+## More usage
 
 ### Python (mirror dialect) to EasyLanguage
 
@@ -199,6 +185,46 @@ python3 -m pl_transpiler.catalog --search date
 Agents and scripts: see [AGENTS.md](AGENTS.md). LLM dialect notes:
 [docs/LLM_DIALECT.md](docs/LLM_DIALECT.md). Bar and capture format:
 [docs/CAPTURES.md](docs/CAPTURES.md).
+
+## Acceleration
+
+The optional `accel` fast path (Rust).
+
+The core is **standard library only** in every install. The optional native
+fast path is a Rust crate in `accel/` that builds the module
+`pl_transpiler._accel`. It runs the whole bar loop and fill engine natively in
+one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
+sweeps (`run_native_sweep`) that compile and marshal the tape once.
+
+Build it from a checkout (needs a Rust toolchain):
+
+```bash
+pip install .                                    # core (pure stdlib)
+pip install maturin
+(cd accel && maturin build --release)            # accel wheel
+pip install accel/target/wheels/powerbridge_accel-*.whl      # the native module
+cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
+```
+
+Working inside the repo instead? `./tools/build_accel.sh` builds the same
+library and drops it next to the in-tree package, so tests run against it.
+
+Indicative speed, not a promise. `python tools/bench_native.py --bars 20000`
+times the GT2 sample strategy on a synthetic tape on both paths and checks the
+fills are identical. On an Apple M-series laptop: about 20x at 20,000 bars and
+about 100x at 100,000 bars (the Python path slows down faster than the bar
+count grows; see issue #4). Measure your own strategy before relying on a ratio.
+
+**Absent extra = identical behaviour.** Without the module, the auditable
+Python path runs and produces the same trades. Programs the native kernel
+cannot execute faithfully raise `AccelRefused` (`AccelUnavailable` when the
+module is missing) so the caller runs the Python path instead; they
+never return a different result. CI builds macOS arm64. Windows 11 x64 was
+checked by hand (rustup `x86_64-pc-windows-gnu` toolchain, no Visual Studio
+needed); Linux builds from source but is not CI-verified.
+
+An installed module is found even when you run from inside the repository
+folder. `./tools/build_accel.sh` builds it straight into the checkout instead.
 
 ## Unsupported keywords
 

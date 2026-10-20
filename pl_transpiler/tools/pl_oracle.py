@@ -448,8 +448,7 @@ def main(argv=None):
         if args.use_native is False:
             pass  # explicitly requested
         elif not accel_available():
-            warn_python_path("the Rust accel module is not installed "
-                             "(see README: 'The optional accel fast path')")
+            warn_python_path()
         else:
             warn_python_path(result.get("native_fallback_reason") or "native kernel refused")
     text = result["text"]

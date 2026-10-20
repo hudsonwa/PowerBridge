@@ -21,7 +21,7 @@
 //! `cargo test`. The Python-object extraction (`extract_config` /
 //! `extract_tape`) is a thin extract-and-call layer covered end-to-end by the
 //! import + `run_program` parity check driven from Python (see
-//! `tools/build_accel.sh` and `ACCEL-INTERFACE-V2.md`).
+//! `tools/build_accel.sh` and `docs/dev/ACCEL-INTERFACE-V2.md`).
 
 use std::fs;
 use std::path::PathBuf;

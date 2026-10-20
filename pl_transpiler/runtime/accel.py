@@ -165,16 +165,21 @@ class AccelRefused(RuntimeError):
 _ACCEL_MISSING_WARNED = False
 
 
-def warn_python_path(reason):
-    """One loud stderr line (once per process) that the slow Python path ran."""
+def warn_python_path(reason=None):
+    """One short stderr line (once per process) that the slower Python path ran.
+
+    ``reason=None`` means the Rust module is not installed.
+    """
     global _ACCEL_MISSING_WARNED
     if _ACCEL_MISSING_WARNED:
         return
     _ACCEL_MISSING_WARNED = True
     import sys
-    sys.stderr.write(
-        "[pl_transpiler] WARNING: running the PYTHON path (typically 20-100x slower "
-        "than the Rust kernel): %s\n" % reason)
+    if reason is None:
+        sys.stderr.write("note: powerbridge-accel not installed; using the pure-Python "
+                         "engine (slower). See README#acceleration\n")
+    else:
+        sys.stderr.write("note: using the pure-Python engine (slower): %s\n" % reason)
 
 
 def accel_available():
@@ -194,7 +199,7 @@ def _import_accel():
         _record_fallback()
         raise AccelUnavailable(
             "pl_transpiler._accel is not installed (build it: see README "
-            "'The optional accel fast path', or tools/build_accel.sh); the Python "
+            "'Acceleration', or tools/build_accel.sh); the Python "
             "path is the only path"
         ) from exc
 

@@ -19,7 +19,7 @@ PowerBridge exists so that strategy research can happen in Python (including wit
   fallback), the honest install mechanism, the trust model of the native path,
   and the wheel/CI story from issue #21 (maturin-built macOS arm64 wheel,
   `.github/workflows/accel.yml` runs the accel path and a zero-dep job).
-- [`docs/ACCEL-AGENTS-ADDENDUM.md`](docs/ACCEL-AGENTS-ADDENDUM.md): the same
+- [`docs/dev/ACCEL-AGENTS-ADDENDUM.md`](docs/dev/ACCEL-AGENTS-ADDENDUM.md): the same
   `accel` contract in AGENTS.md's voice, for machine consumers.
 - [README](README.md): install, both conversion workflows, worked quickstart, verification tiers, keyword catalog, and the full Limitations section.
 - [AGENTS](AGENTS.md): the machine-facing contract — API surface, CLI specifications, invariants, and error semantics for agents using the tool.

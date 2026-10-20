@@ -23,8 +23,8 @@
 > `README.md` and `AGENTS.md` (`pl_transpiler.runtime.accel`). Issue numbers
 > refer to the original private tracker.
 
-Companion to [docs/ACCEL.md](docs/ACCEL.md) (the decision record) and
-[SECURITY.md](SECURITY.md) (the normative trust text). This file is normally the
+Companion to [docs/ACCEL.md](../ACCEL.md) (the decision record) and
+[SECURITY.md](../../SECURITY.md) (the normative trust text). This file is normally the
 machine-facing contract; this addendum states, in the same voice, the facts an agent
 must honor around the optional fast path.
 
@@ -74,7 +74,7 @@ read emitted Python. Installing the extra means trusting the wheel's publisher a
 its build toolchain **in addition to** trusting the strategy file. If you cannot
 audit the wheel's provenance, do not accelerate — the default `pip install .`
 remains the auditable, dependency-free path, and the absent extra is the normal,
-documented state, not a failure. See [SECURITY.md](SECURITY.md).
+documented state, not a failure. See [SECURITY.md](../../SECURITY.md).
 
 ## Fail-loud rule, restated for the accel path
 

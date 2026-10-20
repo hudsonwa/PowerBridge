@@ -21,7 +21,7 @@
 //! Nothing here executes a strategy — the fill engine, the IR interpreter and
 //! the harness are separate lanes that consume these types.
 //!
-//! Contract rules (see `ACCEL-INTERFACE-V2.md`):
+//! Contract rules (see `docs/dev/ACCEL-INTERFACE-V2.md`):
 //!
 //! * **bit-exact or refuse** — every f32 narrowing point is explicit
 //!   ([`narrow_f32`]); a missing or extra narrowing site is a silent trade
