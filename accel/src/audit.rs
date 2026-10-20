@@ -15,7 +15,7 @@ use std::collections::VecDeque;
 
 use sha2::{Digest, Sha256};
 
-use crate::types::{Bar, BarTape, Config, KernelError, KernelOutcome, PositionView};
+use crate::types::{Bar, BarTape, Config, Fill, KernelError, KernelOutcome, PositionView};
 
 /// Magic for the 256-byte little-endian header (`AUEVT1` + two NUL pads).
 pub(crate) const MAGIC: &[u8; 8] = b"AUEVT1\0\0";
@@ -315,7 +315,7 @@ impl AuditCollector {
         let hash_records = sha256_bytes(&records);
 
         let fill_count = u32::try_from(outcome.fills.len()).unwrap_or(u32::MAX);
-        let round_turns = fill_count / 2;
+        let round_turns = exit_record_count(&outcome.fills);
         let ending = i32::try_from(outcome.position.contracts).unwrap_or(i32::MAX);
         let eval_from = u32::try_from(outcome.skipped_bars).unwrap_or(u32::MAX);
 
@@ -488,11 +488,28 @@ where
     S: AsRef<str>,
 {
     let mut hasher = Sha256::new();
+    // pl_oracle digest v2: the hashed text starts with a version line.
+    hasher.update(b"digest_version: 2\n");
     for line in lines {
         hasher.update(line.as_ref().as_bytes());
         hasher.update(b"\n");
     }
     hasher.finalize().into()
+}
+
+/// Round turns as pl_oracle v2 counts them: one per exit record, i.e. per
+/// fill that moves the signed position toward flat.
+fn exit_record_count(fills: &[Fill]) -> u32 {
+    let mut pos: i64 = 0;
+    let mut exits = 0u32;
+    for fill in fills {
+        let step = if fill.fill_type == "EntryLong" { 1 } else { -1 };
+        if pos != 0 && pos.signum() != step {
+            exits = exits.saturating_add(1);
+        }
+        pos += step;
+    }
+    exits
 }
 
 fn hash_config(config: &Config) -> [u8; 32] {
@@ -540,6 +557,40 @@ fn hash_tape(tape: &BarTape) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn side(buy: bool) -> Fill {
+        Fill {
+            fill_type: crate::types::fill_side_type(buy),
+            signal: String::new(),
+            date: 0,
+            time: 0,
+            price: 0.0,
+            contracts: 1,
+        }
+    }
+
+    #[test]
+    fn round_turns_count_exit_records() {
+        // Buy, reversal (exit + entry), cover: two exits.
+        let rev = [side(true), side(false), side(false), side(true)];
+        assert_eq!(exit_record_count(&rev), 2);
+        // Long 2 -> short 1: two exits, the last sell opens the short.
+        let l2s1 = [
+            side(true),
+            side(true),
+            side(false),
+            side(false),
+            side(false),
+        ];
+        assert_eq!(exit_record_count(&l2s1), 2);
+        assert_eq!(exit_record_count(&[]), 0);
+    }
+
+    #[test]
+    fn fill_digest_starts_with_the_version_line() {
+        let want: [u8; 32] = Sha256::digest(b"digest_version: 2\nx\n").into();
+        assert_eq!(fill_digest_from_lines(["x"]), want);
+    }
 
     #[test]
     fn header_and_record_sizes_match_the_spike_schema() {

@@ -221,7 +221,7 @@ impl BarTape {
 /// Order direction (the `Action` enum of the Python `FillEngine`).
 ///
 /// INVARIANT — every fill type recorded is derived from this enum via
-/// [`Action::python_fill_type`]. Variants are constructed by the kernel engine,
+/// [`fill_side_type`]. Variants are constructed by the kernel engine,
 /// which is dormant in production until an owner-approved strategy contract
 /// lands (`#[allow(dead_code)] mod kernel` in `lib.rs`) and is exercised by the
 /// unit tests; that is the only reason this enum carries `#[allow(dead_code)]`.
@@ -238,17 +238,17 @@ impl Action {
     pub(crate) fn is_buy_side(self) -> bool {
         matches!(self, Self::Buy | Self::BuyToCover)
     }
+}
 
-    /// INVARIANT — the emitted fill-type strings are the current Python
-    /// `FillEngine.fills` convention (`pl_oracle` hashes these exact strings):
-    /// every buy-side action records as `"EntryLong"`, every sell-side as
-    /// `"ExitLong"`.
-    pub(crate) fn python_fill_type(self) -> &'static str {
-        if self.is_buy_side() {
-            "EntryLong"
-        } else {
-            "ExitLong"
-        }
+/// INVARIANT — the emitted fill-type strings are the current Python
+/// `FillEngine.fills` convention (`pl_oracle` hashes these exact strings):
+/// every buy-side fill records as `"EntryLong"`, every sell-side fill (an
+/// explicit order or a risk exit) as `"ExitLong"`.
+pub(crate) fn fill_side_type(buy_side: bool) -> &'static str {
+    if buy_side {
+        "EntryLong"
+    } else {
+        "ExitLong"
     }
 }
 
@@ -339,10 +339,10 @@ impl Order {
 ///
 /// INVARIANT — every record represents exactly ONE contract: `contracts` is
 /// always `1` (Python appends one record per contract, `engine.py:304/394`).
-/// A mid-bar reversal of `n` contracts emits a single record for the full `n`
-/// turnover, typed by the action — that quirk is shared with Python, which is
-/// why `round_turns = len(fills) // 2` is a valid cross-check only because
-/// both sides reproduce it. `fill_type` is [`Action::python_fill_type`]
+/// Records follow the SIGNED position: a reversal emits its close-leg records
+/// then its open-leg records, all typed by the order side, and risk exits
+/// (stop loss, profit target, trailing, end of day) are recorded too.
+/// `fill_type` is [`fill_side_type`]
 /// (`"EntryLong"` / `"ExitLong"`). Signed sizing applies to position
 /// `contracts`/`max_contracts_held` ([`PositionView`]), not to this per-record
 /// count.

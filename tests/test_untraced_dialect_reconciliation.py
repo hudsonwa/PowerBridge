@@ -188,8 +188,9 @@ def _run_trace_mode(el, bars, d2):
             fill_engine=fe, emit_row=lambda *_: None, per_bar_extra=extra,
             strict=True, trade_from=0, emit_trace=True,
         )
-    recs = fe.get_mc_trades()
-    return len(recs), len(recs) // 2, fills_sha256(recs)
+    # v1 log: the AUDIT_REF_3 pins are v1 digests.
+    recs = fe.get_mc_trades(v1=True)
+    return len(recs), len(recs) // 2, fills_sha256(recs, 1)
 
 
 def check_audit_tape_reconciliation():
@@ -201,7 +202,7 @@ def check_audit_tape_reconciliation():
     d2 = _load_data2_closes(AUDIT_D2)
 
     # runnable untraced (persist=True) via the oracle's own path.
-    oracle = run_oracle(el, bars, NQ, data2_closes=d2)
+    oracle = run_oracle(el, bars, NQ, data2_closes=d2, digest_version=1)
     # traced (trace=True).
     trace_fills, trace_rt, trace_sha = _run_trace_mode(el, bars, d2)
 

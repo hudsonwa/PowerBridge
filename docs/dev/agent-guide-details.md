@@ -456,9 +456,10 @@ run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     # text: canonical four-line digest (always ends with a newline).
     # n_warmup: seeded-prefix length (0 unless seed_warmup ran a prefix).
 
-format_digest(*, fills, round_turns, sha256) -> str
-fills_sha256(fills) -> str
-    # SHA-256 of ordered canonical fill lines
+format_digest(*, fills, round_turns, sha256, version=2) -> str
+fills_sha256(fills, version=2) -> str
+    # SHA-256 of hashed_payload(fills, version): v2 starts with the line
+    #   "digest_version: 2\n", then the ordered canonical fill lines
     #   "{type}\\t{signal}\\t{date}\\t{time}\\t{price.hex()}\\t{contracts}\\n"
     #   {type} is the buy/sell SIDE, not a position label: "EntryLong" = buy side
     #   (Buy, BuyToCover), "ExitLong" = sell side (Sell, SellShort). A SellShort
@@ -479,8 +480,10 @@ data2_closes_from_bars(bars, data2_bars) -> list[float]
 ```
 
 Two runs on unchanged code produce **byte-identical** `text`. The hash covers
-every fill (entry and exit); `round_turns` is `len(fills) // 2` (one contract
-per fill record — Audit Ref 3: 7,364 fills / 3,682 round-turns). `closed_positions`
+every fill (entry, exit, both reversal legs, Set* risk exits); `round_turns`
+is the number of exit records (one contract per fill record). The v1 digest
+(`digest_version=1` / `--digest-v1`) used `len(fills) // 2` — Audit Ref 3:
+7,364 fills / 3,682 round-turns is a v1 pin. `closed_positions`
 is `len(FillEngine.closed_trades)` and is **not** in the digest (a scale-in
 ladder is one closed position but many round-turns). A windowed tape that
 disagrees on trades fails the check, not a speed win — Audit Ref 3 is only safe
@@ -495,8 +498,8 @@ from pl_transpiler.runtime.instrument_config import get_config
 d = run_oracle(open("ground_truth/GT2_strategy_orders_position.txt").read(),
                load_bars_csv("examples/NQ_sample_bars.csv"),
                get_config("NQ"))
-assert d["text"].startswith("powerbridge-trade-digest v1\n")
-assert d["fills"] == 4 and d["round_turns"] == 2
+assert d["text"].startswith("powerbridge-trade-digest v2\n")
+assert d["fills"] == 7 and d["round_turns"] == 3
 d2 = run_oracle(open("ground_truth/GT2_strategy_orders_position.txt").read(),
                 load_bars_csv("examples/NQ_sample_bars.csv"),
                 get_config("NQ"))
@@ -658,7 +661,7 @@ python3 -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> ...
                  column (EntryLong / ExitLong / EntryShort / ExitShort). Not hashed;
                  the digest is unchanged.
 
-  stdout : the four-line digest (powerbridge-trade-digest v1 / fills / round_turns / sha256).
+  stdout : the four-line digest (powerbridge-trade-digest v2 / fills / round_turns / sha256).
   stderr : a one-line "[pl_oracle] N bars, F fills, R round-turns [native|python]" status line.
   Exit code: 0 on success (and on --compare match); 1 on --compare mismatch;
              2 on a usage error (missing bars_csv, unknown flag).

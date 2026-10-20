@@ -152,7 +152,7 @@ def test_refusal_is_loud_and_python_still_runs():
 
     python_digest = run_oracle(DATA2_SOURCE, bars, NQ)
     assert python_digest["native"] is False
-    assert python_digest["text"].startswith("powerbridge-trade-digest v1\n")
+    assert python_digest["text"].startswith("powerbridge-trade-digest v2\n")
 
 
 def test_run_oracle_forwards_data2_on_native_path():

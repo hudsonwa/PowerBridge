@@ -72,7 +72,8 @@ DATA2_SOURCE = (
 
 # Reference audit window the silent-ignore bug was measured on. The audit tape
 # is not shipped; tests that need it are gated on PB_AUDIT_EL / PB_AUDIT_BARS /
-# PB_AUDIT_D2, and the numbers are the public digest pin.
+# PB_AUDIT_D2, and the numbers are the public digest pin. They are v1 digests
+# (pinned before v2), so those tests run with digest_version=1.
 AUDIT_REF_3_WINDOW = slice(1515000, 1616000)
 AUDIT_REF_3_WINDOW_FILLS = 928
 AUDIT_REF_3_WINDOW_SHA256 = (
@@ -86,15 +87,25 @@ AUDIT_REF_3_WINDOW_SILENT_SHA256 = (
 )
 
 # Frozen GT2 digest on the shipped sample tape. A fill-engine change that
-# moves a trade on this 140-bar file MUST fail this test.
+# moves a trade on this 140-bar file MUST fail this test. v2 logs the three
+# risk exits (trailing stop, profit target, trailing stop) v1 left out.
 GT2_SAMPLE_DIGEST = (
+    "powerbridge-trade-digest v2\n"
+    "fills: 7\n"
+    "round_turns: 3\n"
+    "sha256: ac9898885cfb87aca896ea2ade1e36ef52c9d689dd179913674262c475d9a5f7\n"
+)
+# The same run as a v1 digest (`--digest-v1`), byte-identical to the pre-v2 pin.
+GT2_SAMPLE_DIGEST_V1 = (
     "powerbridge-trade-digest v1\n"
     "fills: 4\n"
     "round_turns: 2\n"
     "sha256: 2ce936cec6a9ccf3883ca5896a8537ab6e2e994ca3346448b9ae9bc41745f049\n"
 )
 
-EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
+# v2 hashes a "digest_version: 2" line ahead of the fills; v1 hashed nothing.
+EMPTY_SHA256 = hashlib.sha256(b"digest_version: 2\n").hexdigest()
+EMPTY_SHA256_V1 = hashlib.sha256(b"").hexdigest()
 
 
 def _bars(n, date0=1240102, open0=1.0):
@@ -120,7 +131,8 @@ def test_reference_audit_citation_constants():
     assert AUDIT_REF_3_ROUND_TURNS == 3682
     assert len(AUDIT_REF_3_SHA256) == 64
     assert AUDIT_REF_3_DIGEST == format_digest(
-        fills=AUDIT_REF_3_FILLS, round_turns=AUDIT_REF_3_ROUND_TURNS, sha256=AUDIT_REF_3_SHA256)
+        fills=AUDIT_REF_3_FILLS, round_turns=AUDIT_REF_3_ROUND_TURNS, sha256=AUDIT_REF_3_SHA256,
+        version=1)
     print("  [ok] reference audit citation constants 7364/3682 + sha256 formatter")
 
 
@@ -132,7 +144,7 @@ def test_empty_tape_digest():
     assert d["sha256"] == EMPTY_SHA256
     assert d["text"] == format_digest(
         fills=0, round_turns=0, sha256=EMPTY_SHA256)
-    print("  [ok] empty tape: 0 fills, SHA-256 of empty payload")
+    print("  [ok] empty tape: 0 fills, SHA-256 of the version line alone")
 
 
 def test_count_strategy_needs_persist():
@@ -153,9 +165,12 @@ def test_hasher_matches_payload():
         "time": 933, "price": 1.0, "contracts": 1,
     }]
     payload = canonical_fill_line(fills[0]) + "\n"
-    assert fills_sha256(fills) == hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    v2 = "digest_version: 2\n" + payload
+    assert fills_sha256(fills) == hashlib.sha256(v2.encode("utf-8")).hexdigest()
+    assert fills_sha256(fills, 1) == hashlib.sha256(payload.encode("utf-8")).hexdigest()
     assert fills_sha256([]) == EMPTY_SHA256
-    print("  [ok] sha256 is SHA-256 of canonical fill lines")
+    assert fills_sha256([], 1) == EMPTY_SHA256_V1
+    print("  [ok] sha256 is SHA-256 of the version line + canonical fill lines")
 
 
 def _side_fills(sides):
@@ -192,7 +207,8 @@ def test_fills_csv_keeps_digest_and_matches_native():
     py = run_oracle(el, bars, NQ, use_native=False)
     assert py["text"] == GT2_SAMPLE_DIGEST
     labels = fill_trade_types(py["records"])
-    assert labels[:4] == ["EntryShort", "ExitShort", "EntryShort", "ExitShort"], labels[:4]
+    assert labels == ["EntryShort", "ExitShort", "EntryLong", "ExitLong",
+                      "EntryShort", "ExitShort", "EntryLong"], labels
     if accel_available():
         nat = run_oracle(el, bars, NQ, use_native=True)
         assert nat["text"] == GT2_SAMPLE_DIGEST
@@ -206,7 +222,7 @@ def test_fills_csv_keeps_digest_and_matches_native():
     assert rows[1].startswith("1,EntryShort,sell,SE,1240102,1001,"), rows[1]
     assert rows[1].endswith(",1,-1"), rows[1]
     assert len(rows) == len(py["records"]) + 1
-    print("  [ok] GT2 labels shorts correctly; digest unchanged; native == python")
+    print("  [ok] GT2 labels shorts correctly; native == python")
 
 
 def test_gt2_sample_digest_frozen():
@@ -271,7 +287,7 @@ def test_cli_digest_and_compare():
             rc_bad = oracle_main([el_path, bars_path, "--compare", bad])
         assert rc_bad == 1
         dump = open(dump_path, encoding="utf-8").read()
-        assert dump == canonical_fill_line(lib["records"][0]) + "\n"
+        assert dump == "digest_version: 2\n" + canonical_fill_line(lib["records"][0]) + "\n"
     print("  [ok] CLI writes digest, --compare 0/1, --dump payload")
 
 
@@ -400,8 +416,8 @@ def test_reference_audit_python_data2_bars_matches_closes():
 
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        via_bars = run_oracle(el, w_bars, NQ, data2_bars=w_d2)
-    via_closes = run_oracle(el, w_bars, NQ, data2_closes=w_closes)
+        via_bars = run_oracle(el, w_bars, NQ, data2_bars=w_d2, digest_version=1)
+    via_closes = run_oracle(el, w_bars, NQ, data2_closes=w_closes, digest_version=1)
 
     assert via_bars["fills"] == AUDIT_REF_3_WINDOW_FILLS, (
         f"window data2_bars= gave {via_bars['fills']} fills "
@@ -418,8 +434,8 @@ def test_reference_audit_python_data2_bars_matches_closes():
     assert err.getvalue() == ""
 
     full_closes = [float(x) for x in ohlcv_columns(data2)["close"]]
-    full_bars = run_oracle(el, bars, NQ, data2_bars=data2)
-    full_closes_d = run_oracle(el, bars, NQ, data2_closes=full_closes)
+    full_bars = run_oracle(el, bars, NQ, data2_bars=data2, digest_version=1)
+    full_closes_d = run_oracle(el, bars, NQ, data2_closes=full_closes, digest_version=1)
     assert full_bars["fills"] == AUDIT_REF_3_FILLS
     assert full_bars["sha256"] == AUDIT_REF_3_SHA256
     assert full_bars["text"] == AUDIT_REF_3_DIGEST

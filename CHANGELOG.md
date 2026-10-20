@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Fill log fix, trade digest v2: `FillEngine.fills` (hashed by `pl_oracle`,
+  written by `--fills-csv` / `--dump`, returned by `run_el` as `trades`) now
+  records every change of the signed position. A reversal logs its close leg
+  and then its open leg (before, long 1 -> short 1 logged nothing), and
+  `SetStopLoss` / `SetProfitTarget` / other Set* risk exits and SetExitOnClose
+  are logged. `round_turns` counts exit records instead of `fills // 2`. The
+  native kernel records the same fills. Position, PnL and the per-bar trace
+  are unchanged. The digest header is now `powerbridge-trade-digest v2` and the
+  hashed text starts with `digest_version: 2`, so every digest changes;
+  `pl_oracle --digest-v1` prints the old bytes for pinned v1 digests. See
+  docs/verification.md.
+
 ## 0.3.0 — 2026-10-20
 
 ### Changed

@@ -79,15 +79,39 @@ pl_oracle ground_truth/GT2_strategy_orders_position.txt examples/NQ_sample_bars.
 code must be byte-identical, and any performance change must leave the digest
 unchanged.
 
+The fill log has one record per contract for every change of the signed
+position: an entry, an exit, both legs of a reversal (the close leg, then the
+open leg, at the same price and time), and exits from `SetStopLoss`,
+`SetProfitTarget` and the other Set* risk stops (their signal is the stop's
+name, e.g. `stop_loss`, `profit_target`, `trailing_stop`; SetExitOnClose logs
+`End of Day Exit`). `round_turns` is the number of exit records, so it counts
+per contract (as v1 did); `closed_positions` gives a per-position count.
+
 Each hashed fill line starts with the order's buy/sell side, not a position
-label: `EntryLong` means a buy-side fill (Buy or BuyToCover) and `ExitLong` a
-sell-side fill (Sell or SellShort), so a SellShort from flat hashes as
-`ExitLong`. This field is frozen because every pinned digest depends on it.
+label: `EntryLong` means a buy-side fill (Buy, BuyToCover, or a risk exit of a
+short) and `ExitLong` a sell-side fill (Sell, SellShort, or a risk exit of a
+long), so a SellShort from flat hashes as `ExitLong`. This field is frozen
+because every pinned digest depends on it.
 For a readable fill log with the real position effect, add `--fills-csv FILE`:
 its `trade_type` column is `EntryLong`, `ExitLong`, `EntryShort` or
 `ExitShort`, replayed from the position before and after each fill (a reversal
 becomes exit rows followed by entry rows). It is a new file and does not change
 the digest.
+
+### Digest versions
+
+The first line of the digest names its version. The current version is **v2**:
+the hashed text starts with the line `digest_version: 2`, followed by one
+canonical line per fill. v1 digests (PowerBridge 0.2.0) were computed from an
+incomplete fill log: a reversal logged only the contracts by which the
+position size changed (so long 1 -> short 1 logged nothing), Set* risk exits
+were not logged, and `round_turns` was `fills // 2`. The engine's position and
+PnL were not affected, only the log.
+
+A v1 digest and a v2 digest of the same run never compare equal. If you pinned
+v1 digests, `pl_oracle --digest-v1` still prints the exact v1 bytes (it always
+runs the Python path). Strategies with no reversals and no Set* exits keep the
+same fills, so only the version line and the sha256 change.
 
 `pl_oracle` uses the Rust kernel automatically when the `accel` module is
 installed, and says so on stderr (`[native]`). `--python` forces the reference

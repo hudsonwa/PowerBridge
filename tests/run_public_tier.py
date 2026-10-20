@@ -74,6 +74,7 @@ MEMBERS = [
     ("test_kwargs_dict_call",        "tests/test_kwargs_dict_call.py",              [], False),
     ("test_trace_emit",              "tests/test_trace_emit.py",                    [], False),
     ("test_oracle",                  "tests/test_oracle.py",                        [], False),
+    ("test_fill_log",                "tests/test_fill_log.py",                      [], False),
     ("test_gt_sweep",                "tests/test_gt_sweep.py",                      [], False),
     ("test_seed_warmup",             "tests/test_seed_warmup.py",                   [], False),
     ("test_bar_tape",                "tests/test_bar_tape.py",                      [], False),

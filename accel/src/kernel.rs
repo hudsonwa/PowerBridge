@@ -241,26 +241,20 @@ impl FillEngine {
             // zero/omitted quantity as one, unlike its next-bar qty=0 "exit
             // all" convention; otherwise it applies `int(raw_qty)`.
             let quantity = resolve_on_close_quantity(queued.order.quantity)?;
-            let previous = self.contracts;
+            let previous = self.signed_position();
             self.apply_action(
                 queued.order.action,
                 quantity,
                 queued.price,
                 queued.bar_number,
             )?;
-            let changed = (self.contracts - previous).unsigned_abs();
-            let filled = if changed == 0 {
-                quantity.max(0) as usize
-            } else {
-                changed
-            };
             self.record_action_fills(
-                queued.order.action,
+                queued.order.action.is_buy_side(),
                 &queued.order.signal,
                 queued.date,
                 queued.time,
                 queued.price,
-                filled,
+                previous,
             );
         }
         Ok(())
@@ -366,25 +360,44 @@ impl FillEngine {
         // contracts, -3 -> 3 fills), never the truncated usize the old kernel
         // used to mint a contract from a fractional quantity.
         let quantity = self.resolve_fill_quantity(order.action, order.quantity)?;
-        let previous = self.contracts;
+        let previous = self.signed_position();
         self.apply_action(order.action, quantity, fill_price, bar)?;
-        let filled = (self.contracts - previous).unsigned_abs();
-        self.record_action_fills(order.action, &order.signal, date, time, fill_price, filled);
+        self.record_action_fills(
+            order.action.is_buy_side(),
+            &order.signal,
+            date,
+            time,
+            fill_price,
+            previous,
+        );
         Ok(())
     }
 
+    /// Open contracts, signed: + long, - short, 0 flat.
+    fn signed_position(&self) -> isize {
+        match self.market_position {
+            0 => 0,
+            mp if mp > 0 => self.contracts,
+            _ => -self.contracts,
+        }
+    }
+
+    /// Python `_record_fills`: one record per contract the SIGNED position
+    /// moved since `previous`, so a reversal logs its close leg and then its
+    /// open leg. `fill_type` is the order side (`pl_oracle` hashes it).
     fn record_action_fills(
         &mut self,
-        action: Action,
+        buy_side: bool,
         signal: &str,
         date: i64,
         time: i64,
         price: f64,
-        quantity: usize,
+        previous: isize,
     ) {
-        for _ in 0..quantity {
+        let moved = (self.signed_position() - previous).unsigned_abs();
+        for _ in 0..moved {
             self.fills.push(Fill {
-                fill_type: action.python_fill_type(),
+                fill_type: fill_side_type(buy_side),
                 signal: signal.to_owned(),
                 date,
                 time,
@@ -617,6 +630,7 @@ impl FillEngine {
     }
 
     fn check_money_management_stops(&mut self, bar: Bar, _bar_number: usize) {
+        let (date, time) = (bar.date, bar.time);
         if self.market_position == 0 || self.entry_bar == 0 {
             return;
         }
@@ -664,12 +678,14 @@ impl FillEngine {
             let mut levels = Vec::with_capacity(4);
             if let Some(price) = profit_target {
                 levels.push(Level {
+                    reason: "profit_target",
                     price,
                     moves_up: long,
                 });
             }
             if let Some(price) = stop_loss {
                 levels.push(Level {
+                    reason: "stop_loss",
                     price,
                     moves_up: !long,
                 });
@@ -677,6 +693,7 @@ impl FillEngine {
             if let Some(amount) = breakeven {
                 if peak >= amount {
                     levels.push(Level {
+                        reason: "breakeven",
                         price: entry,
                         moves_up: !long,
                     });
@@ -687,6 +704,7 @@ impl FillEngine {
                     let giveback = peak * percent / 100.0;
                     let offset = (peak - giveback) / point_value_contracts;
                     levels.push(Level {
+                        reason: "trailing_stop",
                         price: if long {
                             engine.snap(entry + offset, Snap::Down)
                         } else {
@@ -699,6 +717,7 @@ impl FillEngine {
             if let Some(amount) = dollar_trailing {
                 let offset = (peak - amount) / point_value_contracts;
                 levels.push(Level {
+                    reason: "dollar_trailing",
                     price: if long {
                         engine.snap(entry + offset, Snap::Down)
                     } else {
@@ -717,11 +736,11 @@ impl FillEngine {
         let epsilon = 1e-9;
 
         // A level already crossed at the open fills at the open.
-        if levels(self, peak).iter().any(|level| {
+        if let Some(level) = levels(self, peak).iter().find(|level| {
             (level.moves_up && open >= level.price - epsilon)
                 || (!level.moves_up && open <= level.price + epsilon)
         }) {
-            self.close_at_stop(open);
+            self.close_at_stop(open, level.reason, date, time);
             return;
         }
 
@@ -746,7 +765,8 @@ impl FillEngine {
                 .collect();
             if !reachable.is_empty() {
                 let selected = select_extreme_index(&reachable, moving_up);
-                self.close_at_stop(reachable[selected].price);
+                let level = &reachable[selected];
+                self.close_at_stop(level.price, level.reason, date, time);
                 return;
             }
             if (end - favorable_price).abs() < epsilon {
@@ -758,17 +778,19 @@ impl FillEngine {
         self.peak_profit = self.peak_profit.max(best_pnl);
     }
 
-    fn close_at_stop(&mut self, price: f64) {
+    /// Flatten at `price` (money-management exit or SetExitOnClose) and log
+    /// the exit under `signal`, like Python `_close_at_stop`.
+    fn close_at_stop(&mut self, price: f64, signal: &str, date: i64, time: i64) {
+        let previous = self.signed_position();
+        let buy_side = previous < 0;
         let pnl = if self.market_position > 0 {
             (price - self.entry_price) * self.instrument.point_value * self.contracts as f64
         } else {
             (self.entry_price - price) * self.instrument.point_value * self.contracts as f64
         };
         self.record_realized_pnl(pnl);
-        // This intentionally mirrors the current Python FillEngine: MM and
-        // end-of-session closures mutate position/PnL but are not appended to
-        // `FillEngine.fills`. Explicit orders are the trade-list records.
         self.reset_flat();
+        self.record_action_fills(buy_side, signal, date, time, price, previous);
     }
 
     /// Python `_fill_at` quantity semantics (`raw_qty == 0` is the "exit all"
@@ -853,6 +875,7 @@ struct ConditionalFill {
 
 #[derive(Debug, Clone, Copy)]
 struct Level {
+    reason: &'static str,
     price: f64,
     moves_up: bool,
 }
@@ -944,6 +967,7 @@ where
     let mut engine = FillEngine::new(instrument);
     let mut previous_date = None;
     let mut previous_close = 0.0;
+    let mut previous_time = 0;
 
     for index in eval_from..tape.len() {
         let bar_number = index + 1;
@@ -954,7 +978,12 @@ where
             // applied before SetExitOnClose flattens what remains.
             engine.execute_on_close_pending()?;
             if engine.market_position != 0 {
-                engine.close_at_stop(previous_close);
+                engine.close_at_stop(
+                    previous_close,
+                    "End of Day Exit",
+                    previous_date.unwrap_or_default(),
+                    previous_time,
+                );
             }
         }
 
@@ -966,6 +995,7 @@ where
         observe(strategy, engine.position(), bar, index)?;
         previous_date = Some(bar.date);
         previous_close = bar.close;
+        previous_time = bar.time;
     }
 
     let position = engine.position();
@@ -1010,6 +1040,7 @@ where
     let mut engine = FillEngine::new(instrument);
     let mut previous_date = None;
     let mut previous_close = 0.0;
+    let mut previous_time = 0;
 
     for i in 0..tape.len() {
         let bar_number = i + 1;
@@ -1018,7 +1049,12 @@ where
         if previous_date.is_some_and(|date| date != bar.date) && engine.risk.exit_on_close {
             engine.execute_on_close_pending()?;
             if engine.market_position != 0 {
-                engine.close_at_stop(previous_close);
+                engine.close_at_stop(
+                    previous_close,
+                    "End of Day Exit",
+                    previous_date.unwrap_or_default(),
+                    previous_time,
+                );
             }
         }
 
@@ -1030,6 +1066,7 @@ where
         observe(strategy, engine.position(), bar, offset + i)?;
         previous_date = Some(bar.date);
         previous_close = bar.close;
+        previous_time = bar.time;
     }
 
     let position = engine.position();
@@ -1246,9 +1283,11 @@ mod tests {
 
         assert_eq!(engine.market_position, 0);
         assert_eq!(engine.net_profit, -100.0);
-        // Matches current Python FillEngine: MM closes are state changes, not
-        // explicit-order records in `fills`.
-        assert_eq!(engine.fills.len(), 1);
+        // The stop-loss exit is logged like Python `_close_at_stop`.
+        assert_eq!(engine.fills.len(), 2);
+        assert_eq!(engine.fills[1].fill_type, "ExitLong");
+        assert_eq!(engine.fills[1].signal, "stop_loss");
+        assert_eq!(engine.fills[1].time, 932);
     }
 
     #[test]
@@ -1263,6 +1302,85 @@ mod tests {
 
         assert_eq!(engine.market_position, 0);
         assert_eq!(engine.net_profit, 100.0);
+        assert_eq!(engine.fills.len(), 2);
+        assert_eq!(engine.fills[1].fill_type, "ExitLong");
+        assert_eq!(engine.fills[1].signal, "profit_target");
+        assert_eq!(engine.fills[1].price, 105.0);
+    }
+
+    fn fill_sides(engine: &FillEngine) -> Vec<(&'static str, String)> {
+        engine
+            .fills
+            .iter()
+            .map(|fill| (fill.fill_type, fill.signal.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn reversal_logs_close_leg_then_open_leg() {
+        // Buy, SellShort (long 1 -> short 1), BuyToCover: four records, the
+        // reversal logged as its close leg and its open leg (Python
+        // `_record_fills`).
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        let flat = bar(100.0, 100.0, 100.0, 100.0, 1240102, 932);
+        queue(
+            &mut engine,
+            vec![Order::market(Action::SellShort, 1.0, "SE")],
+            RiskUpdate::default(),
+            flat,
+            2,
+        );
+        engine.before_bar(flat, 3).unwrap();
+        assert_eq!(engine.signed_position(), -1);
+        queue(
+            &mut engine,
+            vec![Order::market(Action::BuyToCover, 1.0, "SX")],
+            RiskUpdate::default(),
+            flat,
+            3,
+        );
+        engine.before_bar(flat, 4).unwrap();
+        assert_eq!(engine.signed_position(), 0);
+        let want = [
+            ("EntryLong", "LE"),
+            ("ExitLong", "SE"),
+            ("ExitLong", "SE"),
+            ("EntryLong", "SX"),
+        ];
+        let got = fill_sides(&engine);
+        assert_eq!(got.len(), want.len());
+        for (g, w) in got.iter().zip(want) {
+            assert_eq!((g.0, g.1.as_str()), w);
+        }
+    }
+
+    #[test]
+    fn long_two_to_short_one_logs_three_records() {
+        let mut engine = FillEngine::new(Instrument::default());
+        let flat = bar(100.0, 100.0, 100.0, 100.0, 1240102, 930);
+        queue(
+            &mut engine,
+            vec![Order::market(Action::Buy, 2.0, "LE")],
+            RiskUpdate::default(),
+            flat,
+            1,
+        );
+        engine.before_bar(flat, 2).unwrap();
+        queue(
+            &mut engine,
+            vec![Order::market(Action::SellShort, 1.0, "SE")],
+            RiskUpdate::default(),
+            flat,
+            2,
+        );
+        engine.before_bar(flat, 3).unwrap();
+        assert_eq!(engine.signed_position(), -1);
+        let sides: Vec<_> = engine.fills.iter().map(|fill| fill.fill_type).collect();
+        assert_eq!(
+            sides,
+            ["EntryLong", "EntryLong", "ExitLong", "ExitLong", "ExitLong"]
+        );
     }
 
     #[test]
@@ -1509,15 +1627,16 @@ mod tests {
         // Python's `max(reach, key=price)` keeps the FIRST
         // maximum in `_levels` construction order (profit-target, stop-loss,
         // breakeven, trailing); a stable-sorted last-element pick would invert
-        // the down-leg tie-break. The tied records share a price, so the
-        // selection is unobservable through `close_at_stop` today, but the ledger's
-        // exit-reason introspection would make it a real divergence.
+        // the down-leg tie-break. The tied levels share a price, so the
+        // selection only decides the logged exit signal (the level's reason).
         let down = vec![
             Level {
+                reason: "",
                 price: 100.0,
                 moves_up: false,
             }, // profit_target, constructed first
             Level {
+                reason: "",
                 price: 100.0,
                 moves_up: false,
             }, // stop_loss, constructed second
@@ -1526,10 +1645,12 @@ mod tests {
         // Python's `min` keeps the first minimum on the up leg too.
         let up = vec![
             Level {
+                reason: "",
                 price: 95.0,
                 moves_up: true,
             },
             Level {
+                reason: "",
                 price: 95.0,
                 moves_up: true,
             },
@@ -1538,14 +1659,17 @@ mod tests {
         // Distinct prices still select the true extreme.
         let mixed = vec![
             Level {
+                reason: "",
                 price: 80.0,
                 moves_up: false,
             },
             Level {
+                reason: "",
                 price: 120.0,
                 moves_up: false,
             },
             Level {
+                reason: "",
                 price: 90.0,
                 moves_up: false,
             },

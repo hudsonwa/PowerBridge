@@ -15,8 +15,8 @@
 use std::collections::VecDeque;
 
 use crate::types::{
-    narrow_f32, Action, Bar, ClosedPosition, Config, Fill, Instrument, KernelError, Order,
-    OrderType, PositionAggregates, PositionView, RiskUpdate, SessionEngine, SessionStats,
+    fill_side_type, narrow_f32, Action, Bar, ClosedPosition, Config, Fill, Instrument, KernelError,
+    Order, OrderType, PositionAggregates, PositionView, RiskUpdate, SessionEngine, SessionStats,
     StrategyOutput, Timing,
 };
 
@@ -74,6 +74,7 @@ struct OnCloseOrder {
 
 #[derive(Debug, Clone, Copy)]
 struct Level {
+    reason: &'static str,
     price: f64,
     moves_up: bool,
 }
@@ -252,7 +253,7 @@ impl FillEngine {
         let pending = std::mem::take(&mut self.on_close_pending);
         for queued in pending {
             let quantity = resolve_quantity(queued.order.quantity, QuantityMode::OnClose, 0)?;
-            let previous = self.contracts;
+            let previous = self.signed_position();
             self.apply_action(
                 queued.order.action,
                 quantity,
@@ -263,21 +264,14 @@ impl FillEngine {
                 &queued.order.signal,
                 3,
             )?;
-            let changed = signed_abs(
-                self.contracts.checked_sub(previous).ok_or_else(|| {
-                    KernelError::unsupported("contract delta overflow while filling close order")
-                })?,
-                "close-order contract delta",
-            )?;
-            let filled = if changed == 0 { quantity } else { changed };
             self.record_action_fills(
-                queued.order.action,
+                queued.order.action.is_buy_side(),
                 &queued.order.signal,
                 queued.date,
                 queued.time,
                 queued.price,
-                filled,
-            );
+                previous,
+            )?;
         }
         Ok(())
     }
@@ -299,6 +293,7 @@ impl FillEngine {
             exit_time,
             exit_name,
             exit_category,
+            None,
         )
     }
 
@@ -453,7 +448,7 @@ impl FillEngine {
     ) -> Result<(), KernelError> {
         let quantity =
             resolve_quantity(order.quantity, QuantityMode::NextBar, self.contracts.max(1))?;
-        let previous = self.contracts;
+        let previous = self.signed_position();
         self.apply_action(
             order.action,
             quantity,
@@ -464,28 +459,48 @@ impl FillEngine {
             &order.signal,
             3,
         )?;
-        let filled = signed_abs(
-            self.contracts.checked_sub(previous).ok_or_else(|| {
-                KernelError::unsupported("contract delta overflow while recording fill")
-            })?,
-            "fill contract delta",
-        )?;
-        self.record_action_fills(order.action, &order.signal, date, time, fill_price, filled);
-        Ok(())
+        self.record_action_fills(
+            order.action.is_buy_side(),
+            &order.signal,
+            date,
+            time,
+            fill_price,
+            previous,
+        )
     }
 
+    /// Open contracts, signed: + long, - short, 0 flat.
+    fn signed_position(&self) -> isize {
+        match self.market_position {
+            0 => 0,
+            mp if mp > 0 => self.contracts,
+            _ => -self.contracts,
+        }
+    }
+
+    /// Python `_record_fills`: one record per contract the SIGNED position
+    /// moved since `previous`, so a reversal logs its close leg and then its
+    /// open leg. `fill_type` is the order side (`pl_oracle` hashes it).
     fn record_action_fills(
         &mut self,
-        action: Action,
+        buy_side: bool,
         signal: &str,
         date: i64,
         time: i64,
         price: f64,
-        quantity: isize,
-    ) {
-        for _ in 0..quantity {
+        previous: isize,
+    ) -> Result<(), KernelError> {
+        let moved = signed_abs(
+            self.signed_position()
+                .checked_sub(previous)
+                .ok_or_else(|| {
+                    KernelError::unsupported("contract delta overflow while recording fill")
+                })?,
+            "fill contract delta",
+        )?;
+        for _ in 0..moved {
             self.fills.push(Fill {
-                fill_type: action.python_fill_type(),
+                fill_type: fill_side_type(buy_side),
                 signal: signal.to_owned(),
                 date,
                 time,
@@ -493,6 +508,7 @@ impl FillEngine {
                 contracts: 1,
             });
         }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -882,11 +898,12 @@ impl FillEngine {
             trailing,
             dollar_trailing,
         )?;
-        if open_levels.iter().any(|level| {
+        if let Some(level) = open_levels.iter().find(|level| {
             (level.moves_up && open >= level.price - epsilon)
                 || (!level.moves_up && open <= level.price + epsilon)
         }) {
-            self.close_at_stop(open, bar_number, 0, 0, "", 0)?;
+            let fill_log = (level.reason, bar.date, bar.time);
+            self.close_at_stop(open, bar_number, 0, 0, "", 0, Some(fill_log))?;
             return Ok(());
         }
 
@@ -921,7 +938,9 @@ impl FillEngine {
                 .collect();
             if !reachable.is_empty() {
                 let selected = select_extreme_index(&reachable, moving_up);
-                self.close_at_stop(reachable[selected].price, bar_number, 0, 0, "", 0)?;
+                let level = &reachable[selected];
+                let fill_log = (level.reason, bar.date, bar.time);
+                self.close_at_stop(level.price, bar_number, 0, 0, "", 0, Some(fill_log))?;
                 return Ok(());
             }
             if (end - favorable_price).abs() < epsilon {
@@ -950,18 +969,21 @@ impl FillEngine {
         let mut levels = Vec::with_capacity(4);
         if let Some(price) = profit_target {
             levels.push(Level {
+                reason: "profit_target",
                 price,
                 moves_up: long,
             });
         }
         if let Some(price) = stop_loss {
             levels.push(Level {
+                reason: "stop_loss",
                 price,
                 moves_up: !long,
             });
         }
         if breakeven.is_some_and(|amount| peak >= amount) {
             levels.push(Level {
+                reason: "breakeven",
                 price: entry,
                 moves_up: !long,
             });
@@ -976,6 +998,7 @@ impl FillEngine {
                 let giveback = peak * percent / 100.0;
                 let offset = (peak - giveback) / point_value_contracts;
                 levels.push(Level {
+                    reason: "trailing_stop",
                     price: if long {
                         self.snap(entry + offset, Snap::Down)?
                     } else {
@@ -993,6 +1016,7 @@ impl FillEngine {
             }
             let offset = (peak - amount) / point_value_contracts;
             levels.push(Level {
+                reason: "dollar_trailing",
                 price: if long {
                     self.snap(entry + offset, Snap::Down)?
                 } else {
@@ -1013,10 +1037,12 @@ impl FillEngine {
         exit_time: i64,
         exit_name: &str,
         exit_category: i64,
+        fill_log: Option<(&str, i64, i64)>,
     ) -> Result<(), KernelError> {
         if self.market_position == 0 {
             return Ok(());
         }
+        let previous = self.signed_position();
         let is_long = self.market_position > 0;
         let size = self.contracts;
         let pnl = if is_long {
@@ -1036,7 +1062,10 @@ impl FillEngine {
             exit_category,
         );
         self.reset_flat();
-        Ok(())
+        // Log the exit: `fill_log` is the MM exit's (reason, bar date, bar
+        // time); otherwise the exit metadata. Mirrors Python `_close_at_stop`.
+        let (signal, date, time) = fill_log.unwrap_or((exit_name, exit_date, exit_time));
+        self.record_action_fills(!is_long, signal, date, time, price, previous)
     }
 
     fn snap(&self, price: f64, direction: Snap) -> Result<f64, KernelError> {

@@ -94,6 +94,9 @@ class FillEngine:
         self._peak_profit = 0.0     # Running max profit seen since entry (used by trailing/breakeven)
         # MC-format trade tracking
         self.fills = []             # List of dicts: {type, signal, date, time, price, contracts}
+        # The pre-v2 fill log, kept only so `pl_oracle --digest-v1` reproduces
+        # digests pinned before reversals and risk exits were recorded.
+        self.fills_v1 = []
         # FIFO entry-price queue: one entry per contract, in fill order.
         # Used to recalculate AvgEntryPrice after partial exits (TWAP scale-out).
         self._entry_prices = []     # List of float, one per contract
@@ -189,7 +192,8 @@ class FillEngine:
         self._execute_onclose_pending()
         self._execute_pending_fills(open_price, barnumber, date_str, time_str,
                                     high=high, low=low, close_price=close_price)
-        self._check_money_management_stops(high, low, close_price, barnumber, open_price)
+        self._check_money_management_stops(high, low, close_price, barnumber, open_price,
+                                           date_str, time_str)
         self._compute_pnl(close_price)
         # Track the open position's max favorable/adverse excursion using this bar's
         # high/low (feeds MaxContractProfit / MaxPositionProfit / MaxPositionLoss).
@@ -316,17 +320,12 @@ class FillEngine:
         qty = int(order[2]) if len(order) > 2 and order[2] else 1
         label = order[4] if len(order) > 4 else ''
         prev_contracts = self.contracts
+        prev_signed = self._signed_position()
         self._fill(action, qty, close_price, barnumber,
                    date=date_str, time=time_str, label=label, cat=3)
-        filled_qty = abs(self.contracts - prev_contracts) or qty
-        # 'type' is the buy/sell side (hashed by pl_oracle), not a position
-        # label; pl_oracle.fill_trade_types derives EntryShort/ExitShort.
-        mc_type = 'EntryLong' if action in ('buy', 'buytocover') else 'ExitLong'
-        for _ in range(filled_qty):
-            self.fills.append({
-                'type': mc_type, 'signal': label, 'date': date_str,
-                'time': time_str, 'price': close_price, 'contracts': 1,
-            })
+        self._record_fills(action in ('buy', 'buytocover'), label, date_str, time_str,
+                           close_price, prev_signed,
+                           v1_qty=abs(self.contracts - prev_contracts) or qty)
     
     def _is_valid_order(self, order):
         """Check that order tuple has expected structure."""
@@ -417,17 +416,34 @@ class FillEngine:
             qty = int(raw_qty) if raw_qty else 1
         label = order[4] if len(order) > 4 else ''
         prev_contracts = self.contracts
+        prev_signed = self._signed_position()
         self._fill(action, qty, fill_price, barnumber,
                    date=date_str, time=time_str, label=label, cat=3)
-        filled_qty = abs(self.contracts - prev_contracts)
-        if filled_qty:
-            # Buy/sell side, not a position label (see _fill_close_order).
-            mc_type = 'EntryLong' if action in ('buy', 'buytocover') else 'ExitLong'
-            for _ in range(filled_qty):
-                self.fills.append({
-                    'type': mc_type, 'signal': label, 'date': date_str,
-                    'time': time_str, 'price': fill_price, 'contracts': 1,
-                })
+        self._record_fills(action in ('buy', 'buytocover'), label, date_str, time_str,
+                           fill_price, prev_signed,
+                           v1_qty=abs(self.contracts - prev_contracts))
+
+    def _signed_position(self):
+        """Open contracts, signed: + long, - short, 0 flat."""
+        if self.market_position > 0:
+            return self.contracts
+        if self.market_position < 0:
+            return -self.contracts
+        return 0
+
+    def _record_fills(self, buy_side, signal, date, time, price, prev_signed, v1_qty=0):
+        """Append one record per contract the SIGNED position moved since
+        prev_signed. A reversal (long 1 -> short 1) moves 2: the close leg and
+        then the open leg, both on the order's side. 'type' is the buy/sell
+        side (hashed by pl_oracle), not a position label;
+        pl_oracle.fill_trade_types derives EntryShort/ExitShort."""
+        mc_type = 'EntryLong' if buy_side else 'ExitLong'
+        rec = {'type': mc_type, 'signal': signal, 'date': date,
+               'time': time, 'price': price, 'contracts': 1}
+        for _ in range(abs(self._signed_position() - prev_signed)):
+            self.fills.append(dict(rec))
+        for _ in range(v1_qty):
+            self.fills_v1.append(dict(rec))
     
     def _fill(self, action, qty, fill_price, barnumber, date=0, time=0, label='', cat=3):
         """Execute a fill: update position, handle trade close/open.
@@ -718,7 +734,8 @@ class FillEngine:
             diff = close_price - self.entry_price
             self.open_position_profit = diff * self.market_position * self.point_value * self.contracts
     
-    def _check_money_management_stops(self, high, low, close_price, barnumber=None, open_price=None):
+    def _check_money_management_stops(self, high, low, close_price, barnumber=None, open_price=None,
+                                       date_str=0, time_str=0):
         """Close the position if the bar's intra-bar price path crosses any active
         money-management stop (StopLoss / ProfitTarget / BreakEven / PercentTrailing /
         DollarTrailing).
@@ -814,7 +831,7 @@ class FillEngine:
         # (1) Gap: any level already crossed at the OPEN fills at the OPEN price.
         for lv, reason, up_trig in _levels(peak):
             if (up_trig and o >= lv - eps) or ((not up_trig) and o <= lv + eps):
-                self._close_at_stop(o, reason, barnumber)
+                self._close_at_stop(o, reason, barnumber, fill_date=date_str, fill_time=time_str)
                 return
 
         # (2) Walk Open -> nearer extreme -> farther extreme -> Close. On each
@@ -834,7 +851,7 @@ class FillEngine:
             if reach:
                 lv, reason = (min(reach, key=lambda x: x[0]) if moving_up
                               else max(reach, key=lambda x: x[0]))
-                self._close_at_stop(lv, reason, barnumber)
+                self._close_at_stop(lv, reason, barnumber, fill_date=date_str, fill_time=time_str)
                 return
             if abs(e - fav_price) < eps:
                 peak = max(peak, (e - entry) * self.market_position * pv_ct)
@@ -870,10 +887,15 @@ class FillEngine:
         return f32(n * self.tick)
 
     def _close_at_stop(self, price, reason, exit_bar=0, exit_date=0, exit_time=0,
-                       exit_name='', exit_cat=0):
-        """Close the current position at a stop price."""
+                       exit_name='', exit_cat=0, fill_date=None, fill_time=None):
+        """Close the current position at a stop price.
+
+        The exit is logged in ``fills`` under ``exit_name`` (or ``reason``) at
+        ``fill_date``/``fill_time`` when given, else ``exit_date``/``exit_time``.
+        """
         islong = self.market_position > 0
         size = self.contracts
+        prev_signed = self._signed_position()
         if self.market_position > 0:
             closed_pnl = (price - self.entry_price) * self.point_value * self.contracts
         elif self.market_position < 0:
@@ -901,6 +923,10 @@ class FillEngine:
         self.entry_time = 0
         self.entry_name = ''
         self.entry_cat = 0
+        self._record_fills(not islong, exit_name or reason,
+                           exit_date if fill_date is None else fill_date,
+                           exit_time if fill_time is None else fill_time,
+                           price, prev_signed)
     
     def fill_pos_kwargs(self, d):
         """Write position kwargs into *d* in place (no new dict)."""
@@ -942,14 +968,15 @@ class FillEngine:
         self.fill_pos_kwargs(d)
         return d
     
-    def get_mc_trades(self):
+    def get_mc_trades(self, v1=False):
         """Return list of MC-format trade dicts: order_no, type, signal, date, time, price, contracts.
 
         ``type`` is the order side: 'EntryLong' = buy side (Buy/BuyToCover),
         'ExitLong' = sell side (Sell/SellShort). See pl_oracle.fill_trade_types
-        for the position-aware label."""
+        for the position-aware label. ``v1=True`` returns the pre-v2 log
+        (no reversal open legs, no risk exits) for ``pl_oracle --digest-v1``."""
         trades = []
-        for i, fill in enumerate(self.fills):
+        for i, fill in enumerate(self.fills_v1 if v1 else self.fills):
             trades.append({
                 'order_no': i + 1,
                 'type': fill['type'],

@@ -481,8 +481,11 @@ mod tests {
 
         let expected: &[(&str, &str, i64, i64, f64)] = &[
             ("ExitLong", "SE", 1240102, 1001, 15028.5),
+            ("EntryLong", "trailing_stop", 1240102, 1026, 14959.25),
             ("EntryLong", "LE", 1240102, 1034, 14967.14),
+            ("ExitLong", "profit_target", 1240102, 1051, 15067.25),
             ("ExitLong", "SE", 1240102, 1109, 15017.75),
+            ("EntryLong", "trailing_stop", 1240102, 1136, 14950.0),
             ("EntryLong", "LE", 1240102, 1144, 14985.45),
         ];
         assert_eq!(

@@ -53,10 +53,10 @@ if pl_crosses_above((_state['fast'] + [fast]), (_state['slow'] + [slow])):
 prints an exact trade digest (the same on the Rust and Python paths):
 
 ```
-powerbridge-trade-digest v1
+powerbridge-trade-digest v2
 fills: 3
 round_turns: 1
-sha256: 239484d32aa2945dabac2f68d739786fea5388cdb150bc54e4d799bef344d06e
+sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
 Write and test a strategy in Python, then emit EasyLanguage that passes name, argument-count and return-type checks for
@@ -154,10 +154,10 @@ pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
 ```
 
 ```
-powerbridge-trade-digest v1
+powerbridge-trade-digest v2
 fills: 3
 round_turns: 1
-sha256: 239484d32aa2945dabac2f68d739786fea5388cdb150bc54e4d799bef344d06e
+sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
 What you can verify yourself, digest gating and captures are in

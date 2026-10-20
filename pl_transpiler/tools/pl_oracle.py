@@ -20,18 +20,27 @@ Runs EL over a tape through ``run_bar_loop`` with ``persist=True`` and min-emit
 (no ``_trace`` stores, no retained rows, no ``inject_trace`` position-column
 writes) and prints a canonical digest:
 
-    powerbridge-trade-digest v1
+    powerbridge-trade-digest v2
     fills: N
     round_turns: M
     sha256: <hex>
 
-The sha256 is the SHA-256 of the ordered fill tuples
-``(type, signal, date, time, price, contracts)``, one canonical line per fill.
+The sha256 is the SHA-256 of the line ``digest_version: 2`` followed by the
+ordered fill tuples ``(type, signal, date, time, price, contracts)``, one
+canonical line per fill. Every change of the signed position is a fill: a
+reversal logs its close leg and then its open leg, and SetStopLoss /
+SetProfitTarget / other Set* risk exits are logged too. ``round_turns`` is the
+number of exit records (each closes one entered contract).
+
+``--digest-v1`` reproduces the pre-v2 digest byte for byte (no version line,
+reversal open legs and risk exits missing, ``round_turns = fills // 2``) for
+anyone with pinned v1 digests. It always runs the Python path.
 The hashed ``type`` field is the order's buy/sell SIDE, not a position label:
-``EntryLong`` means a buy-side fill (Buy or BuyToCover) and ``ExitLong`` a
-sell-side fill (Sell or SellShort). It is kept that way so the frozen digests
-stay valid. For the position-aware label (EntryLong / ExitLong / EntryShort /
-ExitShort) use ``fill_trade_types`` or ``--fills-csv``; it is not hashed.
+``EntryLong`` means a buy-side fill (Buy, BuyToCover, or a risk exit of a
+short) and ``ExitLong`` a sell-side fill (Sell, SellShort, or a risk exit of
+a long). It is the same in v1 and v2. For the position-aware label
+(EntryLong / ExitLong / EntryShort / ExitShort) use ``fill_trade_types`` or
+``--fills-csv``; it is not hashed.
 Two runs on unchanged code produce byte-identical digest text. Changes that may
 affect fills should cite the before/after digest.
 
@@ -47,7 +56,7 @@ CLI:
     python -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> [--config NQ] \\
         [--from-date ELINT | --from-bar N] [--to-date ELINT] [--seed-warmup] \\
         [--data2 CSV] [--lenient] [-o digest.txt] [--compare FILE] [--dump FILE] \\
-        [--fills-csv FILE]
+        [--fills-csv FILE] [--digest-v1]
 """
 import argparse
 import contextlib
@@ -76,7 +85,7 @@ from pl_transpiler.tools.pl_run import (  # noqa: E402
     load_bars, resolve_trade_from, unimplemented_stop_message,
 )
 
-DIGEST_VERSION = "v1"
+DIGEST_VERSION = "v2"
 
 # Headline Audit Ref 3 Config C audit (Audit_Ref_3_Audit2.EL over the 2,322,973-bar NQ
 # tape, persist=True min-emit). Full tape and the 2018-01-01 window (856,914
@@ -160,16 +169,29 @@ def write_fills_csv(path, fills):
                              qty, position])
 
 
-def fills_sha256(fills):
-    """SHA-256 of the ordered canonical fill lines (utf-8). Empty -> SHA-256('')."""
-    payload = "".join(canonical_fill_line(f) + "\n" for f in fills)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+def hashed_payload(fills, version=2):
+    """The exact text ``fills_sha256`` hashes (and ``--dump`` writes).
+
+    v2 starts with a ``digest_version: 2`` line; v1 is the bare fill lines.
+    """
+    head = "digest_version: 2\n" if version >= 2 else ""
+    return head + "".join(canonical_fill_line(f) + "\n" for f in fills)
 
 
-def format_digest(*, fills, round_turns, sha256):
+def fills_sha256(fills, version=2):
+    """SHA-256 (utf-8) of ``hashed_payload(fills, version)``."""
+    return hashlib.sha256(hashed_payload(fills, version).encode("utf-8")).hexdigest()
+
+
+def count_round_turns(fills):
+    """Round turns = exit records: each closes one previously entered contract."""
+    return sum(1 for t in fill_trade_types(fills) if t.startswith("Exit"))
+
+
+def format_digest(*, fills, round_turns, sha256, version=2):
     """Canonical four-line digest text. Always ends with a newline."""
     return (
-        f"powerbridge-trade-digest {DIGEST_VERSION}\n"
+        f"powerbridge-trade-digest v{version}\n"
         f"fills: {fills}\n"
         f"round_turns: {round_turns}\n"
         f"sha256: {sha256}\n"
@@ -237,7 +259,7 @@ def window_bars(bars, from_date=None, to_date=None, extra=None):
 
 
 def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
-                       to_date, from_bar, seed_warmup):
+                       to_date, from_bar, seed_warmup, digest_version=2):
     """Attempt the native kernel path for one ``run_oracle`` call.
 
     The native path serves exactly the full-tape, non-windowed shape — the
@@ -256,6 +278,8 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     if (from_date is not None or to_date is not None or from_bar is not None
             or seed_warmup):
         return None, "run is windowed (not the native shape)"
+    if digest_version < 2:
+        return None, "--digest-v1 is served by the Python path only"
     try:
         fills = run_native(el_source, bars, config, data2_bars=data2_bars)
     except (AccelUnavailable, AccelRefused) as exc:
@@ -268,7 +292,7 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     n = ohlcv_columns(bars)["n"]
     digest = {
         "fills": len(fills),
-        "round_turns": len(fills) // 2,
+        "round_turns": count_round_turns(fills),
         # The FFI returns the ordered fill list, not the closed-position
         # ledger, so the native path cannot report closed_positions. It is not
         # part of the digest text.
@@ -283,13 +307,14 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
         fills=digest["fills"],
         round_turns=digest["round_turns"],
         sha256=digest["sha256"],
+        version=digest_version,
     )
     return digest, None
 
 
 def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
                from_date=None, to_date=None, from_bar=None, seed_warmup=False,
-               use_native=False):
+               use_native=False, digest_version=2):
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -330,9 +355,11 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
       records, native, native_fallback_reason
     ``records`` is the get_mc_trades() list (ordered). ``round_turns`` is
-    ``len(records) // 2``. ``text`` is format_digest(). ``n_warmup`` is 0
-    unless seed_warmup ran a prefix. ``native`` is True iff the native kernel
-    produced the digest; ``native_fallback_reason`` is a string when
+    ``count_round_turns(records)`` (v1: ``len(records) // 2``).
+    ``digest_version=1`` reproduces pre-v2 digests on the Python path.
+    ``text`` is format_digest(). ``n_warmup`` is 0 unless seed_warmup ran a
+    prefix. ``native`` is True iff the native kernel produced the digest;
+    ``native_fallback_reason`` is a string when
     ``use_native`` was requested but the Python path ran, else ``None``. On
     the native path ``records`` are the kernel fills (no ``order_no``) and
     ``closed_positions`` is ``None`` (the FFI returns fills, not the
@@ -343,7 +370,7 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
         native_digest, fallback_reason = _run_oracle_native(
             el_source, bars, config, data2_bars=data2_bars,
             from_date=from_date, to_date=to_date, from_bar=from_bar,
-            seed_warmup=seed_warmup,
+            seed_warmup=seed_warmup, digest_version=digest_version,
         )
         if native_digest is not None:
             return native_digest
@@ -423,15 +450,15 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
             emit_trace=False,
         )
 
-    records = fill_engine.get_mc_trades()
-    # A round-turn is a matched entry+exit contract. get_mc_trades() emits one
-    # record per contract, so fills//2 is the audit count (Audit Ref 3: 7364/3682).
-    # len(closed_trades) is closed *positions* (a ladder is one position).
+    v1 = digest_version < 2
+    records = fill_engine.get_mc_trades(v1=v1)
+    # A round-turn is a matched entry+exit contract: one exit record each (v1
+    # used fills//2). len(closed_trades) is closed *positions* (a ladder is one).
     digest = {
         "fills": len(records),
-        "round_turns": len(records) // 2,
+        "round_turns": len(records) // 2 if v1 else count_round_turns(records),
         "closed_positions": len(fill_engine.closed_trades),
-        "sha256": fills_sha256(records),
+        "sha256": fills_sha256(records, digest_version),
         "n_bars": n,
         "n_warmup": n_warmup,
         "fast_path_hits": fill_engine.fast_path_hits,
@@ -444,6 +471,7 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
         fills=digest["fills"],
         round_turns=digest["round_turns"],
         sha256=digest["sha256"],
+        version=digest_version,
     )
     return digest
 
@@ -489,7 +517,7 @@ def _build_parser():
     ap.add_argument("--compare", default=None,
                     help="exit 1 if the produced digest differs from this file.")
     ap.add_argument("--dump", default=None,
-                    help="write the canonical fill lines (the hashed payload) here. "
+                    help="write the hashed payload (version line + canonical fill lines) here. "
                          "Their first field is the buy/sell side, not a position label.")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="print native-kernel diagnostics (skip-region plan) "
@@ -497,6 +525,9 @@ def _build_parser():
     ap.add_argument("--fills-csv", dest="fills_csv", default=None,
                     help="write a readable fill log CSV with a position-aware "
                          "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
+    ap.add_argument("--digest-v1", dest="digest_v1", action="store_true",
+                    help="emit the pre-v2 digest (for pinned v1 digests): no "
+                         "reversal open legs or risk exits. Python path only.")
     return ap
 
 
@@ -535,9 +566,10 @@ def _main(ap, args):
         from_bar=args.from_bar,
         seed_warmup=args.seed_warmup,
         use_native=(accel_available() if args.use_native is None else args.use_native),
+        digest_version=1 if args.digest_v1 else 2,
     )
     if not result.get("native"):
-        if args.use_native is False:
+        if args.use_native is False or args.digest_v1:
             pass  # explicitly requested
         elif not accel_available():
             warn_python_path()
@@ -552,8 +584,7 @@ def _main(ap, args):
 
     if args.dump:
         with open(args.dump, "w", encoding="utf-8") as f:
-            for rec in result["records"]:
-                f.write(canonical_fill_line(rec) + "\n")
+            f.write(hashed_payload(result["records"], 1 if args.digest_v1 else 2))
     if args.fills_csv:
         write_fills_csv(args.fills_csv, result["records"])
 

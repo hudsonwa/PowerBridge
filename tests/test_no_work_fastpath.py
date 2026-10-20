@@ -268,7 +268,8 @@ def test_real_rollover_flattens_open_position_field_identical():
     slow = _rollover_tape_run(scenario, fast=False)
     assert _snapshot(fast) == _snapshot(slow), (_snapshot(fast), _snapshot(slow))
     assert fast.market_position == 0 and fast.total_trades == 1
-    assert len(fast.fills) == 1, fast.fills
+    # Entry plus the end-of-day exit (risk exits are in the fill log).
+    assert [f['type'] for f in fast.fills] == ['EntryLong', 'ExitLong'], fast.fills
     print("  [ok] real session rollover flatten is field-identical")
 
 

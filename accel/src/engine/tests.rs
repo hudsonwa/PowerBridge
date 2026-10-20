@@ -493,7 +493,45 @@ fn seeded_prefix_stop_is_in_force_when_the_window_opens() {
     let outcome = run_native_window(&bars, Instrument::default(), &mut strategy, 2).unwrap();
     assert_eq!(outcome.position.market_position, 0);
     assert_eq!(outcome.closed_positions.len(), 1);
-    assert_eq!(outcome.fills.len(), 1);
+    assert_eq!(outcome.fills.len(), 2);
+    assert_eq!(outcome.fills[1].signal, "stop_loss");
+}
+
+#[test]
+fn reversal_and_cover_log_every_position_change() {
+    // Buy, SellShort (long 1 -> short 1), BuyToCover: the reversal logs its
+    // close leg and its open leg, so four records with the order sides.
+    let flat = |time| bar(100.0, 100.0, 100.0, 100.0, 1240102, time);
+    let bars = tape(&[flat(930), flat(931), flat(932), flat(933), flat(934)]);
+    let mut strategy = |_bar: Bar, bar_number: usize, _position: PositionView| {
+        let order = match bar_number {
+            1 => Order::market(Action::Buy, 1.0, "LE"),
+            2 => Order::market(Action::SellShort, 1.0, "SE"),
+            3 => Order::market(Action::BuyToCover, 1.0, "SX"),
+            _ => return Ok(StrategyOutput::default()),
+        };
+        Ok(StrategyOutput {
+            orders: vec![order],
+            risk: RiskUpdate::default(),
+        })
+    };
+
+    let outcome = run_native_window(&bars, Instrument::default(), &mut strategy, 0).unwrap();
+    assert_eq!(outcome.position.market_position, 0);
+    let got: Vec<(&str, &str, i64)> = outcome
+        .fills
+        .iter()
+        .map(|fill| (fill.fill_type, fill.signal.as_str(), fill.time))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("EntryLong", "LE", 931),
+            ("ExitLong", "SE", 932),
+            ("ExitLong", "SE", 932),
+            ("EntryLong", "SX", 933),
+        ]
+    );
 }
 
 #[test]
