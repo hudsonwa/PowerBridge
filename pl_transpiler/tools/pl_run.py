@@ -202,7 +202,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     config        : InstrumentConfig (the #4 per-run config; use get_config('NQ')).
     trace_columns : optional list of trace keys to emit as output columns. When
                     None, the first bar's trace keys (sorted) define the columns.
-    partial       : opt-in FL2 partial mode. When True, unimplemented EL keywords
+    partial       : opt-in partial mode. When True, unimplemented EL keywords
                     become execution-time stubs (raising only if evaluated) and the
                     stub manifest is printed LOUDLY to stderr before the run. The
                     DEFAULT path (partial=False) is byte-identical to before.

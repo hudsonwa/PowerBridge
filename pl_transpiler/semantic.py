@@ -44,7 +44,7 @@ _RESERVED_IDENTS = _SCRATCH_VARS | {
     # (codegen header) — these can resurface as bare idents in round-tripped EL
     # (e.g. the reverse emitter renders a Commentary statement as
     # `_commentary = <text>`). They are legitimate known names, NOT unimplemented
-    # keywords, so the FL5 RC3 lvalue guard must never flag a write to one.
+    # keywords, so the write-only lvalue guard must never flag a write to one.
     '_market_position', 'marketposition', '_commentary',
     'all', 'newline', 'pi',
     'lastbaronchart_s', 'lastbaronchart',

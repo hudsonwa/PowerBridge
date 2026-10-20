@@ -35,8 +35,8 @@ class UnimplementedKeywordError(Exception):
 
 def format_error_lines(errors):
     """Render collect-all diagnostics (a list of ``{'name','line'}`` dicts, already
-    deduped/sorted by the codegen) as ``"'<name>' at line <L>"`` strings — the FL1
-    per-keyword line format, reused by the CLI diagnostic reports and the FL2
+    deduped/sorted by the codegen) as ``"'<name>' at line <L>"`` strings — the
+    per-keyword line format, reused by the CLI diagnostic reports and the
     partial-mode watermark/manifest so all three stay identical."""
     lines = []
     for e in errors:

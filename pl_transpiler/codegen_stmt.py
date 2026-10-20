@@ -22,7 +22,7 @@ from .codegen_util import (
 
 class _StmtMixin:
     def _emit_comment(self, text):
-        """Emit a verbatim EL comment as `#| ` line(s) (Rcmt, clean mode only). A
+        """Emit a verbatim EL comment as `#| ` line(s) (clean mode only). A
         multi-line `{...}` comment keeps its internal newlines, one `#|` line each."""
         for phys in text.split('\n'):
             self.emit('#| ' + phys)
@@ -179,7 +179,7 @@ class _StmtMixin:
     # ---- Switch/Case ----
     def gen_switch(self, node):
         expr = self.gen_expr(node['expr'])
-        # FAIL-CLOSED (a1 audit F1/F2): the switch subject was previously emitted
+        # FAIL-CLOSED: the switch subject was previously emitted
         # ONLY inside the per-case `if/elif <expr> == <val>:` lines. With ZERO case
         # labels (`Switch (X) Begin End;` or a Default-only switch) that loop emits
         # nothing, so the subject expression — and, in partial mode, any
@@ -255,7 +255,7 @@ class _StmtMixin:
     # ---- Assignment ----
     def gen_assign(self, node):
         target = self.gen_expr(node['target'])
-        # FL5 RC1/F2: if the assignment TARGET is itself an unimplemented keyword,
+        # Partial mode: if the assignment TARGET is itself an unimplemented keyword,
         # gen_expr returned a stub call `pl_partial_stub('<name>', <line>)()` (partial
         # mode only — strict records+raises at generate end and never reaches here).
         # Emitting `pl_partial_stub(...)() = rhs` is a Python SyntaxError. Emit the

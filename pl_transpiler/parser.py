@@ -171,13 +171,12 @@ class Parser:
         # the reverse emitter uses gaps between consecutive statements' `_line` to
         # preserve blank-line structure on round-trip).
         #
-        # NOTE on the key name: the Rfmt brief calls this `_stmt_line`, but a
+        # NOTE on the key name: a dedicated `_stmt_line` key was considered, but a
         # *new* diverging key would redden `verify_roundtrip.py --fixpoint`
         # (parse(src) and parse(emit_el(...)) land statements on different absolute
         # lines, so any line-valued key that survives the fixpoint's `_strip`
-        # diverges) — and Rfmt has no guard allowance to add it to that gate's
-        # ignore set (deferred to Rcmt, which does). `_line` is ALREADY in the
-        # fixpoint + similarity ignore sets and already means "the source line of
+        # diverges) and would need a new entry in that gate's ignore set.
+        # `_line` is ALREADY in the fixpoint + similarity ignore sets and already means "the source line of
         # this node", so statement-line metadata rides it fixpoint-safely with no
         # gate edit. Forward codegen ignores it (verify_all --fast proves output
         # unchanged). py_front-synthesized ASTs carry no `_line`, so the emitter
@@ -1211,11 +1210,11 @@ def parse(tokens, positions=None, source=''):
     """
     p = Parser(tokens, positions=positions, source=source)
     ast = p.parse_program()
-    # Attach the verbatim comment side-channel (Rcmt). Derived purely from `source`
+    # Attach the verbatim comment side-channel. Derived purely from `source`
     # (comments are stripped from the token stream, so this is additive and never
     # affects behaviour). Empty when no source text was supplied.
     ast['_comments'] = collect_comments(source) if source else []
-    # Leading blank lines at the very top of the source (Rcyc-preserved). Counted
+    # Leading blank lines at the very top of the source (preserved across round trips). Counted
     # verbatim from `source` here — the ONLY place EL line-0 whitespace is known —
     # so the emitter can reproduce it without inferring from `_line` (which is
     # unreliable across the py_front two-way path). py_front never sets this key.

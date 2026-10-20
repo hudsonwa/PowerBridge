@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""codegen_el.py — REVERSE transpiler (GOAL R2b).
+"""codegen_el.py — REVERSE transpiler.
 
 emit_el(ast) walks the parser's dict AST (the shared IR; node inventory in
 transpiler/parser.py) and emits compile-safe PowerLanguage / EasyLanguage. It is
@@ -46,7 +46,7 @@ import os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SIG_PATH = os.path.join(_HERE, "tools", "pl_signatures.jsonl")
 
-# DIALECT_VERSION of the EL surface this emitter targets. R4's py_front asserts a
+# DIALECT_VERSION of the EL surface this emitter targets. py_front asserts a
 # matching constant in the forward codegen; kept here as the reverse module's own
 # stamp of the emission contract.
 DIALECT_VERSION = "1.0"
@@ -311,7 +311,7 @@ def emit_expr(node):
     if t == 'number':
         sym = node.get('_symbol')
         if sym is not None:
-            return _canon(sym)          # faithful color/style token name (R1)
+            return _canon(sym)          # faithful color/style token name
         return node['value']            # VERBATIM original literal string
 
     if t == 'string':
@@ -325,7 +325,7 @@ def emit_expr(node):
         if name in _IDENT_REVERSE:
             return _IDENT_REVERSE[name]
         ident = node.get('_ident')
-        if ident is not None:               # user identifier's original casing (R8)
+        if ident is not None:               # user identifier's original casing
             return ident
         return _canon(name)
 
@@ -574,7 +574,7 @@ def _comment_start(line):
 
 def _wrap_all(text):
     """Apply _wrap_line to every physical line of the emitted program, but NEVER wrap
-    comment text (Rcmt): a `//` run must not be split (it would terminate early and
+    comment text: a `//` run must not be split (it would terminate early and
     reappear as code tokens), and comment text is emitted verbatim (no reflowing).
     Multi-line `{...}` blocks pass through untouched; a code line carrying a trailing
     comment has only its code prefix wrapped, the comment re-appended to the last
@@ -610,7 +610,7 @@ def _emit_decl_init(init):
     return emit_expr(init)
 
 
-# --- comment interleaving (Rcmt) -------------------------------------------
+# --- comment interleaving -------------------------------------------------
 # Comments ride the AST's `_comments` side-list (attached by the parser). On emit
 # they are anchored back to statements by their original source line so the
 # readability of the source survives the round trip. Anchoring is keyed by object
@@ -691,7 +691,7 @@ def _comment_lines(texts, pad):
     multi-line `{...}` block keeps its internal newlines (each physical line padded);
     text is never reflowed.
 
-    IDEMPOTENCE (Rcyc): a physical line that ALREADY begins with `pad` has that one
+    IDEMPOTENCE: a physical line that ALREADY begins with `pad` has that one
     `pad` stripped before `pad` is re-applied, so re-emitting an already-emitted comment
     is a fixed point. Without this, each round trip prepends another `pad` to a multi-
     line block's continuation lines (they are re-parsed WITH the emitted indent), and
@@ -708,7 +708,7 @@ def _comment_lines(texts, pad):
     return out
 
 
-# --- compact single-statement blocks (R8) ----------------------------------
+# --- compact single-statement blocks --------------------------------------
 # The parser retains whether the source wrote an explicit Begin/End for each body
 # leg (then_block / else_block on `if`; block on for/while/once). A single-statement
 # leg whose flag says NO Begin/End is emitted in the compact `If C Then <stmt>` form;
@@ -1056,7 +1056,7 @@ def emit_el(ast):
         # Leading blank lines at the top of the source, reproduced verbatim from the
         # `_leading_blanks` count the EL parser recorded from raw source text. Blank
         # lines yield no tokens, so the reparse-fixpoint AST is unchanged; re-emitting
-        # the same count keeps it a fixed point (Rcyc). Only the EL parser sets this
+        # the same count keeps it a fixed point. Only the EL parser sets this
         # key, so the py_front two-way path emits no fabricated blanks.
         n_blank = ast.get('_leading_blanks')
         if isinstance(n_blank, int) and n_blank > 0:

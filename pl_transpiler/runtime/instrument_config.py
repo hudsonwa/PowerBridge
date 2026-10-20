@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-instrument_config.py — per-run chart/instrument configuration (GOAL unit #4).
+instrument_config.py — per-run chart/instrument configuration.
 
 The pure-Python runner/runtime must be instrument-agnostic: the ~dozen
 chart/instrument constants that make a run NQ-specific (point value, tick,
@@ -31,7 +31,7 @@ This module holds:
 
 Integrity note: these are KNOWN chart/instrument config (sourced from the chart
 spec, not from the capture under test), so injecting them per-run preserves the
-audited non-circular sourcing (see the AUDIT 2026-06-19 note in run_gt.py).
+audited non-circular sourcing.
 """
 from dataclasses import dataclass
 

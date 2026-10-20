@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""py_front.py — Python front-end (GOAL R4): parse the MIRROR DIALECT back to the AST.
+"""py_front.py — Python front-end: parse the MIRROR DIALECT back to the AST.
 
 The forward transpiler (transpiler/codegen.py) turns the dict AST into clean Python
 via `transpile(src, trace=False)`. This module is its inverse over that exact dialect:

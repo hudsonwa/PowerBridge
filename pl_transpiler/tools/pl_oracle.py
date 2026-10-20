@@ -27,8 +27,8 @@ writes) and prints a canonical digest:
 
 The sha256 is the SHA-256 of the ordered fill tuples
 ``(type, signal, date, time, price, contracts)``, one canonical line per fill.
-Two runs on unchanged code produce byte-identical digest text. Later tickets
-must cite the before/after digest — no digest, no merge.
+Two runs on unchanged code produce byte-identical digest text. Changes that may
+affect fills should cite the before/after digest.
 
 This module does not change the engine, the dialect, or ``run_el``. It is a
 correctness instrument, not an optimisation.
@@ -71,7 +71,7 @@ DIGEST_VERSION = "v1"
 # Headline Audit Ref 3 Config C audit (Audit_Ref_3_Audit2.EL over the 2,322,973-bar NQ
 # tape, persist=True min-emit). Full tape and the 2018-01-01 window (856,914
 # bars) produce this identical digest. This module does not load that private
-# tape; later tickets cite these constants. No digest, no merge.
+# tape; the constants are kept as a fixed reference.
 AUDIT_REF_3_FILLS = 7364
 AUDIT_REF_3_ROUND_TURNS = 3682
 AUDIT_REF_3_SHA256 = "d839e7ab8a1feb8a9e238174538f94a477d9c54193a4f48be68b6bd3284d7e0c"
@@ -200,7 +200,7 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     digest = {
         "fills": len(fills),
         "round_turns": len(fills) // 2,
-        # The FFI returns the ordered fill list, not the D4 closed-position
+        # The FFI returns the ordered fill list, not the closed-position
         # ledger, so the native path cannot report closed_positions. It is not
         # part of the digest text.
         "closed_positions": None,
@@ -247,8 +247,8 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     seed_warmup   : False (default, issue #11): drop the prefix (tape slice).
                     True (issue #12): keep the prefix, run it with fills
                     suppressed so Once / lookback / Variables stay primed.
-                    A windowed run that disagrees on trades is a failed
-                    ticket, not a speed win.
+                    A windowed run that disagrees on trades is a
+                    bug, not a speed win.
     use_native    : False (default): the pure-Python path, byte-identical to
                     before. True: try the optional native kernel first (one FFI
                     crossing) for the full-tape shape; a Data2 program is

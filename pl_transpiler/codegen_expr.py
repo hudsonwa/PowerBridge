@@ -108,7 +108,7 @@ class _ExprMixin:
             # syntax error. User vars always take precedence and pass through.
             if name in BUILTIN_FUNC_MAP and not user_decl:
                 return self._gen_call({'name': name, 'args': []})
-            # F3: a bare identifier that resolves to nothing — not a declared
+            # A bare identifier that resolves to nothing — not a declared
             # var/input/array (at ANY depth), not a series/bar keyword, not a
             # recognized reserved word / scratch var (Value*/Condition*), and not
             # a resolvable pl_* builtin — is an UNIMPLEMENTED EL keyword (e.g. a
@@ -118,7 +118,7 @@ class _ExprMixin:
             # keyword: strict collects {name,line} (same dedup/sort/message
             # contract) and raises; partial emits an argless execution-time stub.
             #
-            # BUG D: a name the parser recognizes as a reserved identifier passes
+            # Reserved names: a name the parser recognizes as a reserved identifier passes
             # _is_known_bare_ident, but returning it raw only WORKS when that raw
             # lowercased name actually binds in the generated scope. A reserved
             # word with no pl_ target and no runtime binding (bare `Pi`, an
@@ -137,7 +137,7 @@ class _ExprMixin:
             left = self.gen_expr(node['left'])
             right = self.gen_expr(node['right'])
             op = node['op']
-            # BUG A: EL/PL `and`/`or` are NON-short-circuit — BOTH operands are
+            # EL/PL `and`/`or` are NON-short-circuit — BOTH operands are
             # always evaluated. Python's `and`/`or` short-circuit, so a stub on the
             # skipped side (e.g. `(Close < 0) and FakeF(Close)` where the left is
             # False) would be BYPASSED and the expression would silently yield a
@@ -225,7 +225,7 @@ class _ExprMixin:
 
     def _is_known_bare_ident(self, name):
         """True if a bare (parenless) identifier reaching gen_expr's ident fallback
-        is a LEGITIMATE name and must pass through as-is (never flagged by F3).
+        is a LEGITIMATE name and must pass through as-is (never flagged).
 
         Recognized: any user-declared var/input/array/for name at ANY depth
         (self._declared_all, collected recursively), the codegen's own trace/state
@@ -252,7 +252,7 @@ class _ExprMixin:
         or a function param / prologue internal / runtime-imported name / Python
         builtin (_runtime_bound_bare_names). A reserved word the parser lists but
         which binds to nothing here returns False -> the caller fails it loud
-        instead of emitting an undefined name (BUG D)."""
+        instead of emitting an undefined name."""
         if (name in self._declared_all
                 or name in self._trace_vars or name in self._stateful_vars
                 or name in self._array_vars or name in self._numeric_vars):
@@ -277,7 +277,7 @@ class _ExprMixin:
             if line is None:
                 line = self._cur_stmt_line
             self._unimpl_errors.append({'name': name, 'line': line})
-            # FL2 partial mode: emit an execution-time stub callable instead of the
+            # Partial mode: emit an execution-time stub callable instead of the
             # generic pl_<name> target. Callers wrap the return in `(args...)`, so
             # `pl_partial_stub('<name>', <line>)` becomes `pl_partial_stub(...)(args)`
             # — a call that RAISES UnimplementedKeywordError only if it is evaluated.
@@ -290,8 +290,8 @@ class _ExprMixin:
 
         Delegates to _require_pl_impl (which records the keyword on a miss). In
         partial mode, when the target is an execution-time stub, the stub is
-        invoked with NO arguments — `pl_partial_stub('<name>', <line>)()` (F4:
-        the original argument expressions must not survive into the stub call;
+        invoked with NO arguments — `pl_partial_stub('<name>', <line>)()`
+        (the original argument expressions must not survive into the stub call;
         they would evaluate BEFORE the stub raises and can crash with an
         unrelated TypeError). The arg ASTs were already WALKED by the caller
         (building ``args``), so nested unknowns are still collected and the
@@ -318,9 +318,9 @@ class _ExprMixin:
         return errors
 
     def _partial_watermark(self, errors):
-        """Build the FL2 partial-mode watermark comment block that PREFIXES the
+        """Build the partial-mode watermark comment block that PREFIXES the
         generated file when N>0 stubs were emitted. Names every stub (same dedup/
-        sort as FL1) and states loudly that the output is not faithful."""
+        sort as the strict report) and states loudly that the output is not faithful."""
         from pl_transpiler.errors import format_error_lines
         n = len(errors)
         bar = "# " + "=" * 70
@@ -360,7 +360,7 @@ class _ExprMixin:
         raise UnimplementedKeywordError(message, errors=errors)
 
     def _gen_call(self, node):
-        # FL5 RC1: in PARTIAL mode several inline expansions in _gen_call_impl DROP,
+        # In PARTIAL mode several inline expansions in _gen_call_impl DROP,
         # RELOCATE, or STRING-INTERPOLATE their argument text — CountIf keeps only
         # args[1]; EntryName/ExitName/BaseDataNumber/CurrentDataNumber/CurrentDate/
         # CurrentTime/Recalculate ignore their args; BarNumberOfData interpolates an
@@ -590,7 +590,7 @@ class _ExprMixin:
         if py_name in _LASTCALC_KW:
             return f"kwargs.get('{_LASTCALC_KW[py_name]}', {py_name}({', '.join(args)}))"
 
-        # AUDIT 2026-06-19: removed the _KWARGS_PREFER hook for session/config funcs — it
+        # Removed the _KWARGS_PREFER hook for session/config funcs — it
         # existed only to consume capture-fed kwargs (circular self-feed). Session/contract-spec
         # values must come from honest runtime impls or known chart config, not the capture.
         if py_name and not py_name.startswith('__'):
@@ -631,7 +631,7 @@ class _ExprMixin:
         # and aborts the whole bar — zeroing every traced column. Return the
         # scalar value directly, discarding the positions-ago index.
         #
-        # BUG B: the positions-ago INDEX must still be WALKED so a nested
+        # The positions-ago INDEX must still be WALKED so a nested
         # unimplemented keyword inside it is recorded (e.g. MaxContracts(FakeF(Close))
         # / EntryPrice(FakeF(Close))). Previously the index was never visited, so
         # the unknown was silently accepted (strict emitted kwargs.get(...) and

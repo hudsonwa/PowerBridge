@@ -131,7 +131,7 @@ def reset_indicator_caches():
 
 
 def pl_partial_stub(name, line):
-    """Partial-transpile stub factory (FL2 opt-in --partial mode).
+    """Partial-transpile stub factory (opt-in --partial mode).
 
     Returns a callable that ALWAYS raises UnimplementedKeywordError the moment it
     is evaluated — every time, with no PL_STRICT gating and no default value. This

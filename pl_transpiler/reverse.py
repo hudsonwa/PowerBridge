@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""reverse.py — the reverse transpiler's minimal public surface (GOAL R5).
+"""reverse.py — the reverse transpiler's minimal public surface.
 
-Thin wrappers over the pieces proven by R2b/R4; NO framework, NO I/O beyond the
+Thin wrappers over the reverse emitter and py_front; NO framework, NO I/O beyond the
 strings passed in. Each function is a one-liner composition of already-verified
 components:
 
@@ -31,7 +31,7 @@ from pl_transpiler.parser import parse
 from pl_transpiler.codegen_el import emit_el as _emit_el
 from pl_transpiler import py_front
 
-# Re-export: the emitter is the AST-only R2b implementation, unchanged.
+# Re-export: the emitter is the AST-only implementation, unchanged.
 emit_el = _emit_el
 
 

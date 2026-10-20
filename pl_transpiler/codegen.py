@@ -66,12 +66,12 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self._input_inits = []  # (name, default_ast) for top-level Inputs (persist hoist)
         self._hoisted_input_names = set()  # names bound from _state['__pb_inputs']
         self._data_refs = {}  # name -> data_ref AST node (Data2-tied vars)
-        self._cmt_lead = {}   # id(stmt) -> [verbatim EL comment, ...] (Rcmt clean mode)
-        self._cmt_trail = {}  # id(stmt) -> [verbatim EL comment, ...] (Rcmt clean mode)
+        self._cmt_lead = {}   # id(stmt) -> [verbatim EL comment, ...] (clean mode)
+        self._cmt_trail = {}  # id(stmt) -> [verbatim EL comment, ...] (clean mode)
         self._cur_stmt_line = None  # nearest enclosing statement's EL line (for error messages)
         self._unimpl_errors = []  # collect-all: {'name','line'} for every unimplemented keyword
-        self._partial = partial  # FL2: opt-in partial mode (unimplemented -> exec-time stubs)
-        self._declared_all = set()  # EVERY var/input/array/for name at ANY depth (F3 flagging)
+        self._partial = partial  # opt-in partial mode (unimplemented -> exec-time stubs)
+        self._declared_all = set()  # EVERY var/input/array/for name at ANY depth (bare-keyword flagging)
 
     def emit(self, line):
         self.lines.append('    ' * self.indent + line)
@@ -82,7 +82,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # Collect EVERY declared name (Variables:/Inputs:/Arrays:/for-loop vars) at
         # EVERY nesting depth — Variables: blocks are legally declared INSIDE Begin/End
         # bodies (if/for/while/switch cases) mid-program, and round-tripped/emitted EL
-        # re-positions them. The F3 bare-keyword flag uses this set as the "is a real
+        # re-positions them. The bare-keyword flag uses this set as the "is a real
         # declared identifier" oracle; a shallow (top-level-only) pass would wrongly
         # flag nested-declared vars as unimplemented. _collect_declared already walks
         # every nested body recursively, so it is the single source of truth here.
@@ -94,14 +94,14 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # round-tripped EL: py_front cannot tell an original `Variables:` declaration
         # from a plain assignment, so a nested-declared var comes back as a bare
         # `x = ...`; forward-transpiling that must NOT flag x's reads.
-        #   FL5 RC3: but this may ONLY whitelist targets whose value is also USED (read)
+        #   Write-only guard: but this may ONLY whitelist targets whose value is also USED (read)
         # somewhere. A name that is ONLY EVER an assignment TARGET and never read, and
         # is not otherwise known (not Value*/Condition*/declared), is an assignment to a
         # read-only/unimplemented EL keyword (e.g. `AvgWinTrade = Close`, which EL
         # forbids) — treating it as a local silently BYPASSES the strict fail-loud.
         # Gating on "also read" keeps genuine `x = ...; y = x` locals valid while making
         # a write-only unimplemented keyword collect+raise (strict) / stub (partial).
-        #   FL6 BUG C: "assigned & read" was still too broad. A recognized-but-
+        #   Read-before-write: "assigned & read" was still too broad. A recognized-but-
         # UNIMPLEMENTED EL keyword (e.g. FastD — a builtin marker with no faithful
         # bare expansion) or an unknown keyword that is read BEFORE it is ever
         # cleanly defined (`Value1 = FakeA; FakeA = 2;`) or is only ever self-
@@ -174,7 +174,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self.persist:
             self._collect_history_vars(node['body'])
 
-        # FL2/F1: in partial persist/trace mode, a `Vars: x(<init containing an
+        # Partial mode: in partial persist/trace mode, a `Vars: x(<init containing an
         # unimplemented keyword>)` must make the RUN fail loud the moment x is
         # initialized — not silently start x at a literal default. Trace-mode
         # gen_var_decl reads each stateful var from _state and DISCARDS the
@@ -272,7 +272,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     self.emit(f"{packed}, = _pb_slots")
                 else:
                     self.emit(f"{packed} = _pb_slots")
-        # Rcmt: in clean (trace=False, persist=False) mode, carry the source EL
+        # Comments: in clean (trace=False, persist=False) mode, carry the source EL
         # comments through as `#| <verbatim>` lines, anchored (by object identity)
         # to the same statements the reverse emitter uses. Trace and persist-only
         # modes omit them (dumped values / runtime shape must stay stable).
@@ -299,7 +299,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # into `__pb_slots` (one slice-assign, reuse the same list). Lookback /
         # series-arg vars keep a growing named list. Trace: also snapshot every
         # traced name into `_trace` (skipped in the runnable no-trace dialect —
-        # that is the F2 win, ~111 stores/bar).
+        # that saves ~111 stores/bar).
         if self.persist:
             for name in sorted(self._history_vars):
                 if name in self._stateful_vars:
@@ -401,7 +401,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # Import runtime module (includes f32, el_round, pl_* functions)
         imports += 'from pl_transpiler.runtime.pl_runtime import f32, el_round0, el_round, pl_file\n'
         imports += 'from pl_transpiler.runtime.pl_runtime import *\n'
-        # FL2: partial output that actually emitted stubs imports the stub factory
+        # Partial output that actually emitted stubs imports the stub factory
         # explicitly. This line is added ONLY for partial output with N>0 stubs, so
         # the strict transpile stays byte-identical (proven by the corpus baseline).
         if self._partial and self._unimpl_errors:
@@ -535,7 +535,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
 
     def _collect_assigned_targets(self, node, out):
         """Recursively add into `out` the name of every ident that appears as an
-        assignment TARGET anywhere in the AST (at any nesting depth). Used by the F3
+        assignment TARGET anywhere in the AST (at any nesting depth). Used by the
         bare-keyword flag so a name defined purely by assignment (never declared) is
         treated as a known local rather than an unimplemented keyword."""
         if isinstance(node, dict):
@@ -562,7 +562,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         position anywhere in the AST — a bare ident, or the series name of a bar_ref.
         An assignment TARGET is a WRITE, not a read, so its target ident is skipped
         (but the assignment's RHS, and a subscript index on a bar_ref target `Arr[i]`,
-        ARE reads and are walked). Used by the FL5 RC3 lvalue guard so that only an
+        ARE reads and are walked). Used by the write-only lvalue guard so that only an
         assignment target that is ALSO read somewhere is whitelisted as a legitimate
         local — a write-only unimplemented EL keyword (`AvgWinTrade = Close`) is not."""
         if isinstance(node, dict):
@@ -599,7 +599,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         establishes a value independent of the target's prior state). An `assign`
         evaluates its RHS (reads) before the target is written, and a control-flow
         node evaluates its condition/bounds (reads, in source order) before its
-        body — the generic in-order recursion preserves both. Feeds the FL6 BUG C
+        body — the generic in-order recursion preserves both. Feeds the read-before-write
         rescue analysis (a genuine local is cleanly defined before its first read;
         a read-before-write or self-referential unimplemented keyword is not)."""
         if isinstance(node, list):
@@ -657,14 +657,14 @@ class CodeGen(_ExprMixin, _StmtMixin):
             AvgWinTrade self-accumulate), so it is a read of an undefined name.
         Kept: names with a clean defining write BEFORE their first read — exactly
         the flattened nested-`Variables:` locals the reverse path emits as bare
-        `x = 0; ...; y = x` (BUG C)."""
+        `x = 0; ...; y = x`."""
         if not assigned_and_read:
             return set()
         from pl_transpiler.parser import _is_known_name, BUILTIN_FUNC_MAP  # noqa: F811
         from pl_transpiler import catalog
         candidates = set()
         for name in assigned_and_read:
-            # FAIL-CLOSED (a2 audit F2): a name that is a RECOGNIZED EL keyword
+            # FAIL-CLOSED: a name that is a RECOGNIZED EL keyword
             # (catalog signature present — e.g. a strategy-performance / report
             # keyword such as AvgBarsWinTrade) is read-only in EL and can NEVER be a
             # genuine round-tripped `Variables:` local (EL forbids declaring a var
@@ -703,7 +703,7 @@ def generate(ast, trace=False, partial=False, persist=None):
     existing callers are unchanged. persist=True with trace=False emits a
     runnable backtest without `_trace` stores (the clean mirror dialect is
     persist=False and is NOT this path).
-    If partial=True (FL2 opt-in), unimplemented EL keywords become execution-time
+    If partial=True (opt-in), unimplemented EL keywords become execution-time
     stubs (pl_partial_stub) under a NOT-FAITHFUL watermark instead of raising at
     transpile time; the strict default (partial=False) is unchanged."""
     cg = CodeGen(trace=trace, partial=partial, persist=persist)

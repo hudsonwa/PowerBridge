@@ -31,7 +31,7 @@ def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
     persist=True with trace=False is the runnable no-trace dialect (`_state`
     lives, `_trace` does not). The default persist=False / trace=False path
     remains the clean mirror dialect that py_front reads back.
-    If partial=True (FL2 opt-in), unimplemented EL keywords become execution-time
+    If partial=True (opt-in), unimplemented EL keywords become execution-time
     stubs under a NOT-FAITHFUL watermark instead of raising at transpile time; the
     strict default (partial=False) stays byte-identical."""
     tokens, positions = tokenise(pl_source)

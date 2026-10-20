@@ -19,7 +19,7 @@
 
 DEFAULT (strict) mode:
   * Valid source           -> exit 0, write Python (to -o, else stdout).
-  * Unimplemented keywords  -> print the FL1 complete report (EVERY unimplemented
+  * Unimplemented keywords  -> print the complete report (EVERY unimplemented
                                keyword, name + line) to stderr, write NO output
                                file, exit 2. Nothing plausible-but-wrong is ever
                                emitted.
@@ -44,7 +44,7 @@ from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  
 
 
 def _print_strict_report(in_path, errors):
-    """FL1 complete report to stderr: every unimplemented keyword, name + line."""
+    """Complete report to stderr: every unimplemented keyword, name + line."""
     n = len(errors)
     print(f"pl_transpile: cannot transpile {in_path!r}: "
           f"{n} unimplemented EL keyword(s):", file=sys.stderr)

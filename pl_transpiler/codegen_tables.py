@@ -14,14 +14,14 @@
 
 """Static tables for the PowerLanguage code generator (re-exported by codegen)."""
 
-# Version of the clean (trace=False) Python dialect this codegen emits. R4's
+# Version of the clean (trace=False) Python dialect this codegen emits.
 # transpiler/py_front.py asserts a matching constant at import: a drift tripwire
 # so that changing the emitted dialect forces a deliberate bump in BOTH files.
-# Constant only — no behavioural effect. Bumped 1->2 for Rcmt: clean (trace=False)
+# Constant only — no behavioural effect. Bumped 1->2 for comment carry-through: clean (trace=False)
 # output now carries the source EL comments as `#| <verbatim>` lines so they survive
 # the EL->Py->EL round trip (py_front recaptures them). Comments are inert (Python
 # comment lines) — no effect on execution or on the traced/dumped values.
-# Bumped 2->3 for the Rcyc anchor fix: a comment anchored to the SAME source line as
+# Bumped 2->3 for the comment anchor fix: a comment anchored to the SAME source line as
 # its statement (a trailing `{...}`) is now emitted as a same-line `#| <verbatim>`
 # suffix (was its own line after the statement), so py_front can tell a trailing
 # comment from a leading one and re-anchor it to the identical statement. Still inert.

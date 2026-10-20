@@ -33,7 +33,7 @@ Public surface:
         shape, minus ``order_no``). Exactly one FFI crossing.
 
     run_native_inputs(el_source, bars, config, inputs, *, data2_bars=None) -> list[dict]
-        The same run with explicit Input overrides — the sweep lane's "solo"
+        The same run with explicit Input overrides — the sweep's "solo"
         reference that a batch must reproduce bit-for-bit.
 
     run_native_sweep(el_source, bars, config, variants, *, data2_bars=None,
@@ -378,7 +378,7 @@ def run_native_inputs(el_source, bars, config, inputs, *, data2_bars=None):
     """Run ``el_source`` over ``bars`` through the native kernel with explicit
     Input overrides (a mapping of input name -> number/bool/string).
 
-    The sweep lane's "solo" reference: one variant run in isolation. The batch
+    The sweep's "solo" reference: one variant run in isolation. The batch
     path must reproduce this trade list bit-for-bit.
     """
     accel, program_ir, series, data2 = _serialise_and_marshal(
@@ -397,7 +397,7 @@ def run_native_sweep(el_source, bars, config, variants, *, data2_bars=None, thre
 
     ``variants`` is a list of input-override dicts (name -> number/bool/string).
     ``out[i]`` is bit-identical to ``run_native_inputs(el_source, …, variants[i])``
-    — the solo_digest == batch_digest invariant the sweep lane verifies.
+    — the solo_digest == batch_digest invariant a sweep verifies.
 
     ``threads`` is ``None`` for the sequential batch (compile/lower/tape-marshal
     happen once instead of K times) or an int worker count to fan the sweep

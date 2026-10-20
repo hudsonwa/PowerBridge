@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""el_emit.py — minimal reverse-transpiler CLI (GOAL R5).
+"""el_emit.py — minimal reverse-transpiler CLI.
 
     python3 pl_transpiler/tools/el_emit.py <in.py|in.txt> [-o out.txt]
 

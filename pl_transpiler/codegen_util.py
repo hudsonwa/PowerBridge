@@ -43,12 +43,12 @@ def _runtime_bound_bare_names():
     only safe when the name is in THIS set (or a generated local). A reserved word
     the parser 'knows' but which binds to nothing here (bare `Pi`, a pl_-only
     keyword, an order-syntax word mis-used as a value) would emit an undefined
-    name -> silent NameError, zeroing the trace — so it must fail loud (BUG D)."""
+    name -> silent NameError, zeroing the trace — so it must fail loud."""
     global _RUNTIME_BARE_CACHE
     if _RUNTIME_BARE_CACHE is None:
         from .runtime import pl_runtime as _rt
         names = {n for n in dir(_rt) if not n.startswith('_')}
-        # FAIL-CLOSED (a2 audit F1): do NOT trust the whole `dir(builtins)` set as a
+        # FAIL-CLOSED: do NOT trust the whole `dir(builtins)` set as a
         # valid runtime binding. A bare EL identifier that happens to collide with a
         # Python builtin name (`all`, `any`, `sum`, `map`, `id`, `next`, `input`,
         # `open`, `list`, ...) is NOT a faithful EL value — emitting it raw silently
