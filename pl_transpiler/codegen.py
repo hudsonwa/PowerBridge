@@ -59,6 +59,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self._numeric_vars = set()  # user-declared numeric (not string) vars
         self._double_accum_vars = set()  # self-referential numeric accumulators (kept double, not f32)
         self._history_vars = set()  # stateful vars that need a lookback list (Var[n] / series-fn arg)
+        self._series_state = False  # runnable output seeds `_state` as a SeriesState
         self._slot_vars = []  # sorted unindexed persist vars packed into `_state['__pb_slots']`
         self._array_vars = set()  # user-declared array variable names
         self._need_f32_import = False  # set True when f32/el_round emitted
@@ -235,7 +236,15 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 n for n in sorted(self._stateful_vars)
                 if n not in self._history_vars
             ]
-            self.emit("_state = kwargs.setdefault('_state', {})")
+            # Runnable output keeps lookback lists in a SeriesState so the
+            # `(_state['x'] + [x])` series args are O(1) views, not a copy of
+            # the whole history every bar (pl_run's bar loop passes its own).
+            self._series_state = not self.trace and any(
+                n in self._stateful_vars for n in self._history_vars)
+            if self._series_state:
+                self.emit("_state = kwargs.setdefault('_state', _PbSeriesState())")
+            else:
+                self.emit("_state = kwargs.setdefault('_state', {})")
             self.emit("if '__pb_seeded' not in _state:")
             self.indent += 1
             for name in sorted(self._history_vars):
@@ -406,6 +415,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # the strict transpile stays byte-identical (proven by the corpus baseline).
         if self._partial and self._unimpl_errors:
             imports += 'from pl_transpiler.runtime.pl_runtime import pl_partial_stub\n'
+        if self._series_state:
+            imports += 'from pl_transpiler.runtime._rt_history import SeriesState as _PbSeriesState\n'
         imports += '__builtin_len = len\n'
 
         out = imports + header + body + footer

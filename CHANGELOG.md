@@ -4,6 +4,12 @@
 
 ### Fixes
 
+- The default runnable `pl_transpile` output now runs in time linear in bar
+  count. Lookback variables passed to series functions copied their whole
+  history every bar, so the README's `run.py` loop was quadratic (40k bars:
+  about 6.7 s, now 0.3 s). The output seeds `kwargs['_state']` with the same
+  O(1) history views `pl_run` uses; signals are unchanged, and trace and
+  `--no-persist` output are byte-identical.
 - `pl_oracle` with the native kernel installed no longer prints the
   "falling back to the Python path" note before a one-line user error
   (unimplemented keyword, undeclared variable, strict-mode stop) (#80). The
