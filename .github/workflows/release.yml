@@ -3,19 +3,24 @@ name: release
 # Builds the release artifacts and attaches them to a GitHub Release.
 #
 #   * release published  -> build, smoke-test, attach everything to that
-#                           GitHub Release, then publish both projects to PyPI.
+#                           GitHub Release, then publish both projects to PyPI
+#                           (if PYPI_PUBLISH is `true`).
 #   * workflow_dispatch  -> dry run: build and smoke-test only; the files are
 #                           kept as workflow artifacts. Nothing is attached to
 #                           a release and nothing goes to PyPI.
 #   * workflow_dispatch with `tag` -> re-publish an existing release: nothing
 #                           is rebuilt; the files already attached to that
-#                           GitHub Release are uploaded to PyPI.
+#                           GitHub Release are uploaded to PyPI (if
+#                           PYPI_PUBLISH is `true`).
 #
 # Artifacts:
 #   powerbridge        sdist + pure wheel (py3-none-any)
 #   powerbridge-accel  abi3 wheels (CPython >= 3.9) for macOS arm64, macOS
 #                      x86_64, Windows x64, Linux x86_64 and Linux aarch64
 #                      (manylinux)
+#
+# The PyPI jobs only run when the repository variable PYPI_PUBLISH is set to
+# `true`; while it is unset or anything else, releases go to GitHub only.
 #
 # PyPI uses trusted publishing (OIDC) and needs no token or secret. Each
 # project has its own job and GitHub environment (`pypi` for powerbridge,
@@ -155,7 +160,7 @@ jobs:
     name: publish powerbridge to PyPI
     needs: [github-release]
     if: >-
-      always() &&
+      always() && vars.PYPI_PUBLISH == 'true' &&
       ((github.event_name == 'release' && needs.github-release.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
     runs-on: ubuntu-latest
@@ -183,7 +188,7 @@ jobs:
     name: publish powerbridge-accel to PyPI
     needs: [github-release]
     if: >-
-      always() &&
+      always() && vars.PYPI_PUBLISH == 'true' &&
       ((github.event_name == 'release' && needs.github-release.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
     runs-on: ubuntu-latest

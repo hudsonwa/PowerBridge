@@ -69,21 +69,32 @@ It would rather stop than guess. Unsupported keywords are reported in one pass.
 
 ## Install
 
-Python 3.9 or newer, no other dependencies. Install from PyPI:
-
-<!-- readme-test: skip (installs from PyPI) -->
-```bash
-pip install powerbridge
-pip install powerbridge-accel   # optional native fast path (prebuilt wheels)
-```
-
-If PyPI is not reachable from your machine, install the tagged release
-straight from the repository instead:
+Python 3.9 or newer, no other dependencies. Install the wheel attached to the
+[v0.4.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.4.0):
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.3.0"
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.4.0/powerbridge-0.4.0-py3-none-any.whl
 ```
+
+The optional native fast path is a separate wheel per platform. Pick the
+`powerbridge_accel-0.4.0-cp39-abi3-<platform>.whl` file for your machine from
+the [release page](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.4.0)
+(see [the platform table](#acceleration)), for example:
+
+<!-- readme-test: skip (installs over the network) -->
+```bash
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.4.0/powerbridge_accel-0.4.0-cp39-abi3-<platform>.whl
+```
+
+Or install the tagged release straight from the repository:
+
+<!-- readme-test: skip (installs over the network) -->
+```bash
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.4.0"
+```
+
+PyPI publishing is coming in a later release.
 
 To work on PowerBridge itself, or to follow the walkthrough below with the
 bundled examples, clone the repository and use the quickstart.
@@ -332,8 +343,7 @@ fast path is a Rust crate in `accel/` that builds the module
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
 
-**Prebuilt wheel (no Rust needed).** `pip install powerbridge-accel` installs
-the prebuilt wheel for your platform from PyPI. Each GitHub Release from v0.3.0 on also
+**Prebuilt wheel (no Rust needed).** Each GitHub Release from v0.3.0 on
 carries one `powerbridge-accel` wheel per platform, built for CPython 3.9 and
 newer (abi3). The asset URL follows this pattern:
 

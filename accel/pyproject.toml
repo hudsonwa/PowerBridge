@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "powerbridge-accel"
-version = "0.4.0.dev0"
+version = "0.4.0"
 description = "PowerBridge native bar-loop and fill-engine kernel extra"
 requires-python = ">=3.9"
 license = "Apache-2.0"
