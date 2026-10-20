@@ -26,7 +26,7 @@ from .codegen_util import (
 # closed-position ledger via pl_pos_ago (keys of runtime _rt_core._POS_AGO_FIELDS).
 _POS_AGO_KWARGS = frozenset((
     'entry_date', 'entry_time', 'entry_price',
-    'exit_date', 'exit_time', 'exit_price',
+    'exit_date', 'exit_time', 'exit_price', 'maxshares',
 ))
 
 class _ExprMixin:
@@ -648,7 +648,8 @@ class _ExprMixin:
         # index collected an unimplemented entry, emit the argless stub so it raises.
         #
         # Exception: EntryDate/EntryTime/EntryPrice/ExitDate/ExitTime/ExitPrice(n)
-        # DO have positions-ago history (the closed-position ledger), so they emit
+        # and MaxShares(n) DO have positions-ago history (the closed-position
+        # ledger), so they emit
         # pl_pos_ago(kwargs, kwarg, n) instead of discarding n (issue #9).
         if series['type'] == 'position_kw':
             before = len(self._unimpl_errors)

@@ -97,6 +97,9 @@ class FillEngine:
         # FIFO entry-price queue: one entry per contract, in fill order.
         # Used to recalculate AvgEntryPrice after partial exits (TWAP scale-out).
         self._entry_prices = []     # List of float, one per contract
+        # Open quantity of each entry of the current position, in fill order. FIFO
+        # exits consume it; OpenEntriesCount counts the entries still above zero.
+        self._entry_qtys = []
         # GTA6 File-2 strategy-performance stats: a per-closed-position ledger plus
         # the OPEN position's running excursions. Each closed-trade snapshot records
         # the realized pnl, bars-in-trade (exit_bar - entry_bar + 1), the max favorable
@@ -496,8 +499,10 @@ class FillEngine:
             self.entry_time = time
             self.entry_name = name
             self.entry_cat = cat
+            self._entry_qtys = [qty]
         else:
             self._pos_entries += 1
+            self._entry_qtys.append(qty)
         self._pos_max_contracts = max(self._pos_max_contracts, self.contracts)
         self.bars_since_entry = 0
         self._breakeven_triggered = False
@@ -520,8 +525,10 @@ class FillEngine:
             self.entry_time = time
             self.entry_name = name
             self.entry_cat = cat
+            self._entry_qtys = [qty]
         else:
             self._pos_entries += 1
+            self._entry_qtys.append(qty)
         self._pos_max_contracts = max(self._pos_max_contracts, self.contracts)
         self.bars_since_entry = 0
         self.position_profit = 0.0  # Reset for new position
@@ -642,6 +649,7 @@ class FillEngine:
         for _ in range(closed_qty):
             if self._entry_prices:
                 self._entry_prices.pop(0)
+        self._consume_entry_qtys(closed_qty)
         if self.contracts > 0 and self._entry_prices:
             self.entry_price = f32(sum(self._entry_prices) / len(self._entry_prices))
             self.avgentryprice = self.entry_price
@@ -649,6 +657,16 @@ class FillEngine:
             self._record_closed_trade(exit_bar, fill_price, closed_qty, True,
                                       exit_date, exit_time, exit_name, exit_cat)
             self._reset_flat()
+
+    def _consume_entry_qtys(self, qty):
+        """Take `qty` contracts off the oldest entries first (FIFO)."""
+        qtys = self._entry_qtys
+        while qty > 0 and qtys:
+            take = min(qty, qtys[0])
+            qtys[0] -= take
+            qty -= take
+            if qtys[0] <= 0:
+                qtys.pop(0)
 
     def _update_gross_pnl(self, pnl):
         """Track gross profit and loss (sum of winning/losing trades)."""
@@ -890,6 +908,20 @@ class FillEngine:
         d['totaltrades'] = self.total_trades
         d['maxcontractsheld'] = self.max_contracts_held
         d['maxiddrawdown'] = self.max_id_drawdown
+        d['maxshares'] = self.max_shares
+        d['openentriescount'] = self.open_entries_count
+
+    @property
+    def max_shares(self):
+        """MaxShares / MaxShares(0): most contracts held while the current
+        position is open; 0 when flat."""
+        return self._pos_max_contracts if self.market_position != 0 else 0
+
+    @property
+    def open_entries_count(self):
+        """OpenEntriesCount: entries of the current position with contracts still
+        open (a FIFO exit that uses up an entry removes it); 0 when flat."""
+        return len(self._entry_qtys) if self.market_position != 0 else 0
 
     def get_kwargs(self):
         """Return position kwargs to pass to strategy()."""

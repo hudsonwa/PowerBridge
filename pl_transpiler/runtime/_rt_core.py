@@ -139,6 +139,7 @@ _POS_AGO_FIELDS = {
     'exit_date': 'exit_date',
     'exit_time': 'exit_time',
     'exit_price': 'exit_px',
+    'maxshares': 'contracts',
 }
 
 

@@ -925,6 +925,9 @@ class Parser:
             'maxentries': 'max_entries',
             'maxcontractsheld': 'maxcontractsheld',
             'maxiddrawdown': 'maxiddrawdown',
+            'maxshares': 'maxshares',
+            'maxsharesheld': 'maxcontractsheld',
+            'openentriescount': 'openentriescount',
             # MC checked variants
             'marketposition_checked': '_market_position',
             'positionprofit_checked': 'position_profit',

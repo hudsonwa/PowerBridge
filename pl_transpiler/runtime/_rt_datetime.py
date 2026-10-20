@@ -607,12 +607,6 @@ def pl_maxcontractsheld(*args, **kwargs):
 def pl_maxiddrawdown(*args, **kwargs):
     return 0
 
-def pl_maxshares(*args, **kwargs):
-    return 0
-
-def pl_maxsharesheld(*args, **kwargs):
-    return 0
-
 def pl_mc_arw_getactive(*args, **kwargs):
     return 0
 
@@ -641,7 +635,14 @@ def pl_messagelog(*args, **kwargs):
     return 0
 
 def pl_millisecondsfromdatetime(*args, **kwargs):
-    return 0
+    # MillisecondsFromDateTime(DateTime) -> millisecond part (0-999) of the time of
+    # day in a DateTime value: 16:29:55.500 (EncodeTime, pdf:4574 = .6874479167)
+    # gives 500. Rounded to the nearest whole millisecond like *FromDateTime.
+    if not args:
+        return 0
+    dt = float(args[0])
+    frac = dt - int(dt)
+    return int(round(frac * 86400000)) % 1000
 
 def pl_minmove(*args, **kwargs):
     return 0
@@ -700,9 +701,6 @@ def pl_nthminlist(*args, **kwargs):
         return 0
     sorted_vals = sorted(values)
     return sorted_vals[n - 1]
-
-def pl_openentriescount(*args, **kwargs):
-    return 0
 
 def pl_optiontype(*args, **kwargs):
     return 0
@@ -1009,7 +1007,13 @@ def pl_sessionlastbar(*args, **kwargs):
 
 def pl_sessionstartday(*args, **kwargs):
     # SessionStartDay(SessionType,SessionNum) (pdf:9206) — day-of-week the session
-    # starts. The aligned ETH template's session 1 starts on day 0 (Sunday evening).
+    # starts, 0 = Sunday. The aligned ETH template (SessionCount = 5) runs one
+    # session per trading day, each opening the evening before: session 1 opens
+    # Sunday (0) and ends Monday (SessionEndDay = 1), ..., session 5 opens Thursday.
+    # A session number outside 1..SessionCount has no start day here: return 0.
+    num = int(args[1]) if len(args) >= 2 else 1
+    if 1 <= num <= pl_sessioncount():
+        return num - 1
     return 0
 
 def pl_sessionstartdayms(*args, **kwargs):

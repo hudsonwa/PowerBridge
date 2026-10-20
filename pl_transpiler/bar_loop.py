@@ -39,6 +39,8 @@ _POS_KWARGS = (
     ('totaltrades', 'total_trades'),
     ('maxcontractsheld', 'max_contracts_held'),
     ('maxiddrawdown', 'max_id_drawdown'),
+    ('maxshares', 'max_shares'),
+    ('openentriescount', 'open_entries_count'),
 )
 _DAILY_OHLC_KEYS = ('opend_0', 'highd_0', 'lowd_0', 'closed_0', 'closed_1')
 
@@ -316,6 +318,8 @@ def run_bar_loop(
         'totaltrades': 0,
         'maxcontractsheld': 0,
         'maxiddrawdown': 0,
+        'maxshares': 0,
+        'openentriescount': 0,
     }
     if lastcalc_kwargs:
         call_kwargs.update(lastcalc_kwargs)

@@ -17,7 +17,7 @@
 test_runtime_encoding.py — proves pl_runtime's self-introspection is codec-safe
 and fail-loud (Windows finding B2).
 
-pl_runtime installs 354 loud stubs by reading its OWN source (the `_rt_*`
+pl_runtime installs 349 loud stubs by reading its OWN source (the `_rt_*`
 submodules behind the facade) with `ast` at import time (see `_install_loud_stubs`). The read used to use the locale default codec;
 on a legacy codepage (cp932/936/949) or an ascii/LC_ALL=C locale a non-ASCII byte
 in the file raised UnicodeDecodeError, which the bare `except Exception: return`
@@ -27,7 +27,7 @@ is the worst failure mode this project has.
 
 This test falsifies the fix two ways, entirely capture-free and portable:
 
-  (a) With the utf-8 self-read, the introspection succeeds and ALL 354 loud stubs
+  (a) With the utf-8 self-read, the introspection succeeds and ALL 349 loud stubs
       install (counted at runtime AND cross-checked against an independent AST
       recount, so a silently-empty install fails here).
 
@@ -58,7 +58,7 @@ RUNTIME_FILES = [sys.modules["pl_transpiler.runtime." + n].__file__
                  for n in rt_core._RUNTIME_SUBMODULES]
 
 # The documented number of loud stubs pl_runtime installs from its own source.
-EXPECTED_LOUD_STUBS = 354
+EXPECTED_LOUD_STUBS = 349
 
 
 def _installed_loud_stub_names():
@@ -131,7 +131,7 @@ def _run_install_with_failing_selfread(strict):
 
 
 def test_utf8_selfread_installs_all_loud_stubs():
-    """(a) The utf-8 self-read succeeds and all 354 loud stubs install."""
+    """(a) The utf-8 self-read succeeds and all 349 loud stubs install."""
     installed = _installed_loud_stub_names()
     recount = _ast_recount_stub_names()
     assert len(installed) == EXPECTED_LOUD_STUBS, (
