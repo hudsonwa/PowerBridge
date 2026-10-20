@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """test_position_time_builtins.py — MaxShares, MaxSharesHeld, OpenEntriesCount,
-MillisecondsFromDateTime and SessionStartDay (issue #36).
+MillisecondsFromDateTime, SessionStartDay, TickID and ExecOffset (issue #36).
 
 Synthetic tape: bar k (1-based) opens at 99 + k. Market orders fill at the next
 bar's open, so the strategy below holds:
@@ -23,7 +23,8 @@ bar's open, so the strategy below holds:
     B          8..9     LC 1                          1
     C          12..14   SA 4 (short, still open)      4
 
-TickID and ExecOffset are not derivable from bar data and stay loud stubs.
+TickID and ExecOffset matches MultiCharts backtests: 0 on every historical bar
+(checked against a MultiCharts capture).
 
 Stdlib only, no captures.
 """
@@ -138,10 +139,32 @@ def test_sessionstartday_matches_session_end_day():
 
 
 @pytest.mark.parametrize("name", ["TickID", "ExecOffset"])
-def test_bar_data_cannot_supply_these(name):
+def test_zero_on_every_historical_bar(name):
+    # Real builtins, not loud stubs: 0 on every bar and never reported missing.
     pl_runtime.pl_unimplemented_reset()
-    run_oracle(f"Vars: V(0); V = {name};\n", _bars(), NQ)
-    assert pl_runtime.pl_unimplemented_report().get(f"pl_{name.lower()}", 0) > 0
+    el = f"""Vars: V(0);
+V = {name};
+If V = 0 and MarketPosition = 0 Then Buy next bar at market;
+If V <> 0 Then SellShort next bar at market;
+"""
+    recs = run_oracle(el, _bars(), NQ)["records"]
+    assert recs and {r["type"] for r in recs} == {"EntryLong"}
+    assert f"pl_{name.lower()}" not in pl_runtime.pl_unimplemented_report()
+    assert not getattr(getattr(pl_runtime, f"pl_{name.lower()}"), "_pl_loud_stub", False)
+
+
+@pytest.mark.parametrize("name", ["TickID", "ExecOffset"])
+def test_zero_native_matches_python(name):
+    try:
+        import pl_transpiler._accel  # noqa: F401
+    except ImportError:
+        pytest.skip(ACCEL_SKIP)
+    from pl_transpiler.runtime.accel import run_native
+    from tests.conformance_harness import trade_difference
+    el = f"If {name} = 0 and MarketPosition = 0 Then Buy next bar at market;\n"
+    py = run_oracle(el, _bars(), NQ)["records"]
+    assert py
+    assert trade_difference(py, run_native(el, _bars(), NQ)) is None
 
 
 GATED_EL = """

@@ -263,6 +263,9 @@ def pl_exchlisted(*args, **kwargs):
     return 0
 
 def pl_execoffset(*args, **kwargs):
+    # ExecOffset matches MultiCharts backtests: 0 on every historical bar
+    # (checked against a MultiCharts capture). Whitelisted in _rt_core so it
+    # is a real builtin, not a loud stub.
     return 0
 
 def pl_expirationdatefromvendor(*args, **kwargs):
@@ -1255,6 +1258,9 @@ def pl_text_setsize(*args, **kwargs):
     return 0
 
 def pl_tickid(*args, **kwargs):
+    # TickID matches MultiCharts backtests: 0 on every historical bar
+    # (checked against a MultiCharts capture). Whitelisted in _rt_core so it
+    # is a real builtin, not a loud stub.
     return 0
 
 def pl_time2time_s(*args, **kwargs):

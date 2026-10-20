@@ -887,6 +887,12 @@ impl Compiler {
             self.instrs.push(Instr::PushInput(*slot));
             return Ok(());
         }
+        // TickID and ExecOffset matches MultiCharts backtests: 0 on every
+        // historical bar (checked against a MultiCharts capture).
+        if name == "tickid" || name == "execoffset" {
+            self.instrs.push(Instr::PushNum(0.0));
+            return Ok(());
+        }
         Err(KernelError::unsupported(format!(
             "unresolved identifier {name:?}"
         )))

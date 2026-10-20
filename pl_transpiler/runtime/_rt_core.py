@@ -84,9 +84,11 @@ def el_round(x, decimals):
 import os as _os
 _PL_STRICT = _os.environ.get('PL_STRICT', '').strip().lower() not in ('', '0', 'false', 'no')
 _UNIMPL_CALLS = {}
-# Stubs that are legitimately no-ops stay silent even under strict mode. Keep
-# this minimal and explicit; empty by default so nothing is hidden.
-_UNIMPL_WHITELIST = set()
+# Builtins whose correct value is a constant 0, so their bodies look like stubs;
+# they are not wrapped as loud stubs. Keep this minimal and explicit so nothing
+# is hidden. TickID and ExecOffset matches MultiCharts backtests: 0 on every
+# historical bar (checked against a MultiCharts capture).
+_UNIMPL_WHITELIST = {'pl_tickid', 'pl_execoffset'}
 
 # String-returning EL builtins. When these are unimplemented their loud stub
 # must return '' (not the numeric 0 default), otherwise transpiled code that
