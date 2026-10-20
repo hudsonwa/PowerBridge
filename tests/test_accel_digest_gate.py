@@ -40,6 +40,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from pl_transpiler.runtime.accel import (  # noqa: E402
+    AccelRefused,
     accel_available,
     fallback_count,
     run_native,
@@ -55,6 +56,7 @@ from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
 NQ = get_config("NQ")
 SAMPLES = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
 GT2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")
+GTA5 = os.path.join(REPO, "ground_truth", "GTA5_strategy.txt")
 
 
 def test_native_and_python_digest_identical_with_native_taken():
@@ -87,3 +89,27 @@ def test_native_and_python_digest_identical_with_native_taken():
     assert native_digest_text == python_digest["text"], (
         "native/Python canonical digest text differs"
     )
+
+
+def test_deeply_nested_ir_loads_natively_and_digest_matches_python():
+    """GTA5's IR nests past serde_json's default 128-level limit (issue #20).
+
+    The native reader must load it: the kernel either runs it or refuses it
+    cleanly (``AccelRefused`` for a construct outside the native surface, here
+    the Data2-tied variables) — never an IR-loading error. Either way the
+    ``pl_oracle`` digest must equal the pure-Python one.
+    """
+    if not accel_available():
+        pytest.skip("pl_transpiler._accel is not installed (native path absent)")
+
+    el_source = open(GTA5, encoding="utf-8").read()
+    bars = load_bars_csv(SAMPLES)
+
+    try:
+        run_native(el_source, bars, NQ, data2_bars=bars)
+    except AccelRefused as exc:
+        assert "program_ir" not in str(exc), f"native IR load failed: {exc}"
+
+    native_digest = run_oracle(el_source, bars, NQ, data2_bars=bars, use_native=True)
+    python_digest = run_oracle(el_source, bars, NQ, data2_bars=bars)
+    assert native_digest["text"] == python_digest["text"]

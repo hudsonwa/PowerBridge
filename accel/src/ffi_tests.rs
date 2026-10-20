@@ -244,3 +244,37 @@ fn batch_variants_match_solo_and_parallel_matches_sequential() {
         "FastLen and fastlen must resolve identically"
     );
 }
+
+/// `Vars: x(0); x = 1 + 1 + ... + 1;` as `program_ir`: a left-nested binop chain whose
+/// JSON nests one level per link (issue #20).
+fn deep_binop_ir(links: usize) -> String {
+    let one = r#"{"type":"number","value":"1"}"#;
+    let mut expr = one.to_string();
+    for _ in 0..links {
+        expr = format!(r#"{{"left":{expr},"op":"+","right":{one},"type":"binop"}}"#);
+    }
+    format!(
+        r#"{{"ast":{{"body":[{{"decls":[{{"data_ref":null,"init":{one},"name":"x"}}],"type":"var_decl"}},{{"target":{{"name":"x","type":"ident"}},"type":"assign","value":{expr}}}],"type":"program"}},"ir_version":1,"kind":"pl_transpiler.ast"}}"#
+    )
+}
+
+/// IR nested past serde_json's default 128-level limit loads and runs.
+#[test]
+fn run_program_core_accepts_deeply_nested_ir() {
+    let ir = deep_binop_ir(600);
+    run_program_core(&ir, &empty_tape(), None, &nq_config()).expect("deep IR must run");
+}
+
+/// IR nested past MAX_IR_DEPTH is refused as unsupported (Python fallback),
+/// not a panic, stack overflow or input error.
+#[test]
+fn run_program_core_refuses_too_deep_ir() {
+    let ir = deep_binop_ir(5000);
+    let err = run_program_core(&ir, &empty_tape(), None, &nq_config())
+        .expect_err("must refuse over-deep IR");
+    let message = err.to_string();
+    assert!(
+        message.starts_with("unsupported native construct:") && message.contains("levels deep"),
+        "got: {message}"
+    );
+}
