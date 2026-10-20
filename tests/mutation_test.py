@@ -24,7 +24,8 @@ redden is a COVERAGE GAP and is reported loudly (not hidden).
 
 How it works
 ------------
-  * Mutations are exact text patches against transpiler/runtime/pl_runtime.py.
+  * Mutations are exact text patches against the runtime's indicator module
+    (pl_transpiler/runtime/_rt_indicators.py).
   * For each mutation: the original source is saved, the patch is applied on disk,
     a FRESH subprocess runs the gate (fresh import => the mutation is really live),
     and the gate's exit code is inspected. The gate is "RED" (mutation caught) iff
@@ -58,7 +59,7 @@ import sys
 import subprocess
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RUNTIME = os.path.join(REPO, "pl_transpiler", "runtime", "pl_runtime.py")
+RUNTIME = os.path.join(REPO, "pl_transpiler", "runtime", "_rt_indicators.py")
 VERIFY = os.path.join(REPO, "tests", "verify_all.py")
 
 # Each mutation: (id, human description, target function, old_string, new_string).

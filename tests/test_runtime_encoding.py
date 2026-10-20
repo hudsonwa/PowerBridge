@@ -17,8 +17,8 @@
 test_runtime_encoding.py — proves pl_runtime's self-introspection is codec-safe
 and fail-loud (Windows finding B2).
 
-pl_runtime installs 371 loud stubs by reading its OWN source with `ast` at import
-time (see `_install_loud_stubs`). The read used to use the locale default codec;
+pl_runtime installs 371 loud stubs by reading its OWN source (the `_rt_*`
+submodules behind the facade) with `ast` at import time (see `_install_loud_stubs`). The read used to use the locale default codec;
 on a legacy codepage (cp932/936/949) or an ascii/LC_ALL=C locale a non-ASCII byte
 in the file raised UnicodeDecodeError, which the bare `except Exception: return`
 then SWALLOWED — so every loud stub was silently NOT installed and unimplemented
@@ -51,6 +51,11 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 import pl_transpiler.runtime.pl_runtime as rt
+import pl_transpiler.runtime._rt_core as rt_core
+
+# The source files _install_loud_stubs reads (one per runtime submodule).
+RUNTIME_FILES = [sys.modules["pl_transpiler.runtime." + n].__file__
+                 for n in rt_core._RUNTIME_SUBMODULES]
 
 # The documented number of loud stubs pl_runtime installs from its own source.
 EXPECTED_LOUD_STUBS = 371
@@ -66,8 +71,10 @@ def _ast_recount_stub_names():
     """Independently recompute the stub name set the way _install_loud_stubs does,
     so (a) cannot pass on a silently-empty install. Mirrors the module's own
     _is_stub / name-filter logic against the utf-8 source."""
-    with open(rt.__file__, "r", encoding="utf-8") as f:
-        tree = _ast.parse(f.read())
+    trees = []
+    for path in RUNTIME_FILES:
+        with open(path, "r", encoding="utf-8") as f:
+            trees.append(_ast.parse(f.read()))
 
     def is_stub(fn):
         body = list(fn.body)
@@ -83,7 +90,7 @@ def _ast_recount_stub_names():
             return True
         return False
 
-    names = {n.name for n in _ast.walk(tree)
+    names = {n.name for tree in trees for n in _ast.walk(tree)
              if isinstance(n, _ast.FunctionDef)
              and n.name.startswith("pl_") and is_stub(n)}
     return names - rt._UNIMPL_WHITELIST
@@ -95,10 +102,10 @@ def _run_install_with_failing_selfread(strict):
     Sets/restores PL_STRICT and captures stderr. Returns (raised, stderr_text).
     Always restores real open + _PL_STRICT + a clean stub install afterwards."""
     real_open = builtins.open
-    orig_strict = rt._PL_STRICT
+    orig_strict = rt_core._PL_STRICT
 
     def failing_open(file, *args, **kwargs):
-        if file == rt.__file__:
+        if file in RUNTIME_FILES:
             raise UnicodeDecodeError("utf-8", b"\xff", 0, 1,
                                      "forced decode failure (simulated locale)")
         return real_open(file, *args, **kwargs)
@@ -107,7 +114,7 @@ def _run_install_with_failing_selfread(strict):
     real_stderr = sys.stderr
     raised = False
     try:
-        rt._PL_STRICT = strict
+        rt_core._PL_STRICT = strict
         builtins.open = failing_open
         sys.stderr = captured
         try:
@@ -117,7 +124,7 @@ def _run_install_with_failing_selfread(strict):
     finally:
         builtins.open = real_open
         sys.stderr = real_stderr
-        rt._PL_STRICT = orig_strict
+        rt_core._PL_STRICT = orig_strict
         # Re-install cleanly so the module is not left degraded for later tests.
         rt._install_loud_stubs()
     return raised, captured.getvalue()
