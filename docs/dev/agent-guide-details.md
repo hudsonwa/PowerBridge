@@ -236,12 +236,14 @@ print("catalog OK:", cov)
 ### `pl_transpiler.tools.pl_run`
 
 ```text
-load_bars_csv(path: str) -> list[dict]
+load_bars_csv(path: str, date_format: str | None = None) -> list[dict]
     # Parse an OHLCV CSV into bar dicts (keys: date,time,open,high,low,close,volume).
-    # Accepts MultiCharts ASCII (DD/MM/YYYY, HH:MM:SS) or EL-integer (YYMMDD, HHMM) forms.
+    # Accepts MultiCharts ASCII (D/M/YYYY, HH:MM[:SS]) or EL-integer (YYYMMDD, HHMM) forms.
+    # date_format 'dmy' (default) | 'mdy' | 'ymd' sets the slash-date field order.
+    # Invalid month/day/time or non-zero seconds raise ValueError (README "Your own data").
     # Unchanged: this is still the default loader.
 
-load_bars(path: str) -> list[dict] | BarTape
+load_bars(path: str, prefer_pbar=True, date_format=None) -> list[dict] | BarTape
     # Dispatch: `*.pbar` -> load_pbar (mmap BarTape); anything else -> load_bars_csv.
 
 csv_to_pbar(csv_path: str, pbar_path: str) -> int

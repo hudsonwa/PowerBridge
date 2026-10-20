@@ -506,6 +506,7 @@ def _build_parser():
                     help="run the discarded prefix with fills suppressed "
                          "(Once/lookback/Variables stay primed) instead of "
                          "dropping it. A disagreeing digest fails the check.")
+    _cli.add_date_format_arg(ap)
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
                          "data2_close per bar on the Python path, and the full "
@@ -555,8 +556,8 @@ def _main(ap, args):
         ap.error("a bars CSV is required: pl_oracle <el_file> <bars_csv> ...")
 
     el_source = open(args.el_file, encoding="utf-8").read()
-    bars = _cli.bars_or_error(load_bars, args.bars_csv)
-    data2_bars = _cli.bars_or_error(load_bars, args.data2) if args.data2 else None
+    bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
+    data2_bars = _cli.bars_or_error(load_bars, args.data2, args.date_format) if args.data2 else None
     data2_closes = ([float(b["close"]) for b in data2_bars]
                     if data2_bars is not None else None)
     config = _cli.config_or_error(args.config)

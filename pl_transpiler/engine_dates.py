@@ -13,27 +13,99 @@
 # limitations under the License.
 
 """engine_dates.py -- EL date/time parsers and conversions used by the engine."""
+import calendar
+import functools
+import re
 
 
-def _parse_el_date(date_str):
-    """Parse DD/MM/YYYY -> EL integer date YYYMMDD.
-    
+# Field orders for slash/dash dates. MultiCharts' ASCII export writes the date
+# in the Windows regional format; the exports this project was built against
+# are day-first (D/MM/YYYY), so that stays the default.
+DATE_FORMATS = ('dmy', 'mdy', 'ymd')
+DEFAULT_DATE_FORMAT = 'dmy'
+
+
+def _check_ymd(date_str, y, m, d):
+    if not 1 <= m <= 12:
+        raise ValueError("bad date %r: month %d is not 1-12" % (date_str, m))
+    if not 1900 <= y <= 2899:
+        raise ValueError("bad date %r: year %d is out of range" % (date_str, y))
+    if not 1 <= d <= calendar.monthrange(y, m)[1]:
+        raise ValueError("bad date %r: day %d is not valid for %04d-%02d"
+                         % (date_str, d, y, m))
+    return (y - 1900) * 10000 + m * 100 + d
+
+
+@functools.lru_cache(maxsize=4096)
+def _parse_el_date(date_str, date_format=None):
+    """Parse a bar date -> EL integer date YYYMMDD.
+
     EL Date format = YYYMMDD = (year - 1900) * 10000 + month * 100 + day.
     E.g. 2024-01-02 -> 1240102.
+
+    Accepted forms:
+      * EL integer, e.g. ``1240102``;
+      * three fields separated by ``/`` or ``-``, read in ``date_format`` order
+        (``dmy`` by default, ``mdy`` or ``ymd``). With the default, a 4-digit
+        first field is unambiguous and is read as year-month-day.
+
+    Raises ValueError naming the value for an invalid month, day or year. With
+    the default order, a second field above 12 gets a hint to pass
+    ``--date-format mdy``.
     """
-    parts = date_str.split('/')
+    fmt = date_format or DEFAULT_DATE_FORMAT
+    if fmt not in DATE_FORMATS:
+        raise ValueError("unknown date format %r (want one of: %s)"
+                         % (fmt, ", ".join(DATE_FORMATS)))
+    parts = re.split(r'[/-]', date_str)
     if len(parts) == 3:
-        d, m, y = int(parts[0]), int(parts[1]), int(parts[2])
-        return (y - 1900) * 10000 + m * 100 + d
-    return int(date_str)
+        try:
+            a, b, c = (int(x) for x in parts)
+        except ValueError:
+            raise ValueError("bad date %r" % date_str) from None
+        if fmt == 'ymd' or (date_format is None and len(parts[0].strip()) == 4):
+            return _check_ymd(date_str, a, b, c)
+        if fmt == 'mdy':
+            return _check_ymd(date_str, c, a, b)
+        if date_format is None and b > 12 and 1 <= a <= 12:
+            raise ValueError("bad date %r: month %d is not 1-12; dates are read "
+                             "day-first (D/M/YYYY) by default -- for month-first "
+                             "data pass --date-format mdy" % (date_str, b))
+        return _check_ymd(date_str, c, b, a)
+    try:
+        v = int(date_str)
+    except ValueError:
+        raise ValueError("bad date %r (want D/M/YYYY or an EL date like 1240102)"
+                         % date_str) from None
+    return _check_ymd(date_str, 1900 + v // 10000, (v // 100) % 100, v % 100)
 
 
 def _parse_el_time(time_str):
-    """Parse HH:MM:SS -> EL integer time HHMM."""
+    """Parse HH:MM[:SS] or an EL integer HHMM -> EL integer time HHMM.
+
+    EL bar times have minute resolution, so a non-zero seconds field is an
+    error rather than being silently dropped. Hours must be 0-23 and minutes
+    0-59.
+    """
     parts = time_str.split(':')
-    if len(parts) >= 2:
-        return int(parts[0]) * 100 + int(parts[1])
-    return int(time_str)
+    try:
+        nums = [int(x) for x in parts]
+    except ValueError:
+        raise ValueError("bad time %r (want HH:MM[:SS] or HHMM)" % time_str) from None
+    if len(parts) == 1:
+        h, mi = divmod(nums[0], 100)
+    elif len(parts) in (2, 3):
+        h, mi = nums[0], nums[1]
+        if len(parts) == 3 and nums[2] != 0:
+            raise ValueError("bad time %r: seconds are not supported (EL bar times "
+                             "are HHMM); use minute bars" % time_str)
+        if not 0 <= nums[1] <= 59:
+            raise ValueError("bad time %r: minute %d is not 0-59" % (time_str, nums[1]))
+    else:
+        raise ValueError("bad time %r (want HH:MM[:SS] or HHMM)" % time_str)
+    if nums[0] < 0 or not 0 <= h <= 23 or not 0 <= mi <= 59:
+        raise ValueError("bad time %r: not a time of day 00:00-23:59" % time_str)
+    return h * 100 + mi
 
 
 def _el_to_ole(el_date, el_time):

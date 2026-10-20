@@ -299,13 +299,13 @@ def load_pbar(path):
         raise
 
 
-def csv_to_pbar(csv_path, pbar_path):
+def csv_to_pbar(csv_path, pbar_path, date_format=None):
     """Parse an OHLCV CSV with ``load_bars_csv`` and write a ``.pbar``.
 
     Same parse, same float64 values. Returns the bar count.
     """
     from pl_transpiler.tools.pl_run import load_bars_csv
-    return write_pbar(pbar_path, load_bars_csv(csv_path))
+    return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
 
 
 def main(argv=None):
@@ -319,9 +319,12 @@ def main(argv=None):
         help="write a .pbar from a CSV using the same parse as load_bars_csv")
     p.add_argument("csv_path", help="OHLCV CSV (date,time,open,high,low,close,volume)")
     p.add_argument("pbar_path", help="output .pbar path")
+    p.add_argument("--date-format", dest="date_format", default=None,
+                   choices=("dmy", "mdy", "ymd"),
+                   help="field order of slash dates (default: dmy)")
     args = ap.parse_args(argv)
     if args.cmd == "csv2pbar":
-        n = csv_to_pbar(args.csv_path, args.pbar_path)
+        n = csv_to_pbar(args.csv_path, args.pbar_path, args.date_format)
         print("[bar_tape] wrote %d bars -> %s" % (n, args.pbar_path),
               file=sys.stderr)
         return 0

@@ -80,12 +80,15 @@ def unimplemented_stop_message(prog, exc, el_file):
     return "%s: error%s: %s" % (prog, where, exc)
 
 
-def load_bars_csv(path):
+def load_bars_csv(path, date_format=None):
     """Load a plain OHLCV CSV into the bar list run_el expects.
 
     Header must contain: date,time,open,high,low,close,volume (case-insensitive).
-    date/time accept either MultiCharts ASCII export form (DD/MM/YYYY, HH:MM:SS) or
-    the EL integer form (YYMMDD, HHMM); both are normalized to EL integers.
+    date/time accept either MultiCharts ASCII export form (D/M/YYYY, HH:MM[:SS]) or
+    the EL integer form (YYYMMDD, HHMM); both are normalized to EL integers.
+    ``date_format`` ('dmy', 'mdy' or 'ymd') sets the field order of slash dates;
+    the default is day-first. Invalid dates/times raise ValueError naming the line
+    and value (see ``engine_dates._parse_el_date``).
     """
     bars = []
     with open(path, newline='', encoding='utf-8') as f:
@@ -103,7 +106,7 @@ def load_bars_csv(path):
             if not row:
                 continue
             try:
-                bars.append(_csv_bar(row, idx))
+                bars.append(_csv_bar(row, idx, date_format))
             except (ValueError, IndexError) as exc:
                 raise ValueError("line %d: %s" % (reader.line_num, exc)) from exc
     return bars
@@ -112,9 +115,9 @@ def load_bars_csv(path):
 _CSV_COLUMNS = ('date', 'time', 'open', 'high', 'low', 'close', 'volume')
 
 
-def _csv_bar(row, idx):
+def _csv_bar(row, idx, date_format=None):
     return {
-        'date': _parse_el_date(row[idx['date']].strip()),
+        'date': _parse_el_date(row[idx['date']].strip(), date_format),
         'time': _parse_el_time(row[idx['time']].strip()),
         'open': float(row[idx['open']]),
         'high': float(row[idx['high']]),
@@ -129,7 +132,7 @@ def pbar_for(path):
     return os.path.splitext(str(path))[0] + ".pbar"
 
 
-def load_bars(path, prefer_pbar=True):
+def load_bars(path, prefer_pbar=True, date_format=None):
     """Load OHLCV from a CSV or a ``.pbar``.
 
     A ``.pbar`` is memory-mapped: opening one is ~0.006 s against
@@ -157,13 +160,13 @@ def load_bars(path, prefer_pbar=True):
                 "rebuild with csv_to_pbar()" % (os.path.basename(side), os.path.basename(p)),
                 file=sys.stderr,
             )
-    return load_bars_csv(p)
+    return load_bars_csv(p, date_format)
 
 
-def csv_to_pbar(csv_path, pbar_path):
+def csv_to_pbar(csv_path, pbar_path, date_format=None):
     """Write a ``.pbar`` from an OHLCV CSV using the same parse as load_bars_csv."""
     from pl_transpiler.runtime.bar_tape import write_pbar
-    return write_pbar(pbar_path, load_bars_csv(csv_path))
+    return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
 
 
 def _print_partial_manifest(errors):
@@ -477,6 +480,7 @@ def _build_parser():
                          "(default: NQ).")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write predicted per-bar CSV here (default: stdout).")
+    _cli.add_date_format_arg(ap)
     ap.add_argument("--columns", default=None,
                     help="comma-separated trace columns to emit (default: all).")
     ap.add_argument("--lenient", action="store_true",
@@ -522,7 +526,7 @@ def _main(ap, args):
                if args.columns else None)
 
     el_source = open(args.el_file, encoding="utf-8").read()
-    bars = _cli.bars_or_error(load_bars, args.bars_csv)
+    bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
     config = _cli.config_or_error(args.config)
     out_path = _cli.output_path(args.output)
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout

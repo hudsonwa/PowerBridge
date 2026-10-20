@@ -16,11 +16,23 @@
   `_market_position`.
 - README, `llms.txt` and `docs/LLM_DIALECT.md` agree on the validation scope
   (@NQ and @ES) and the current residual gaps.
+- Bar CSV dates and times are validated: a month outside 1-12, a day that
+  does not exist, a time outside 00:00-23:59 or a time with non-zero seconds
+  now stops `pl_run` / `pl_oracle` with one error line naming the file, line
+  and value (exit 2). Before, `01/13/2024` loaded as month 13 and seconds
+  were dropped silently.
+- A day-first date whose month field is above 12 (a month-first export) gets
+  a hint to pass `--date-format mdy`.
 
 ### Added
 
 - `--version` on `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
 - The accel CI job runs the full pytest suite with the native kernel loaded.
+- `--date-format dmy|mdy|ymd` on `pl_run`, `pl_oracle` and `bar_tape
+  csv2pbar`, and `date_format=` on `load_bars_csv` / `load_bars` /
+  `csv_to_pbar`. The default stays day-first (`dmy`); dates with a 4-digit
+  first field (`2024-01-02`) are read as year-month-day.
+- README: "Your own data" documents the bar CSV columns and date/time forms.
 
 ## 0.4.0 — 2026-10-20
 

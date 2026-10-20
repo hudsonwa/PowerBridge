@@ -284,6 +284,65 @@ Agents and scripts: see [AGENTS.md](AGENTS.md). LLM dialect notes:
 [docs/LLM_DIALECT.md](docs/LLM_DIALECT.md). Bar and capture format:
 [docs/CAPTURES.md](docs/CAPTURES.md).
 
+### Your own data
+
+`pl_run` and `pl_oracle` read a CSV of bars with a header row naming these
+columns, in any order and any case: `date,time,open,high,low,close,volume`.
+Extra columns are ignored. One row is one bar, oldest first.
+
+| Column | Accepted forms |
+| --- | --- |
+| `date` | EL integer date, (year - 1900) × 10000 + month × 100 + day, so `1YYMMDD` for 2000-2099 (`1240102` is 2 Jan 2024), or three numbers separated by `/` or `-`: `D/M/YYYY` by default, `YYYY-MM-DD` (a 4-digit first field), or the order set by `--date-format` |
+| `time` | EL integer `HHMM` (`930`, `1515`) or `HH:MM` / `HH:MM:SS` |
+| `open` ... `volume` | numbers |
+
+Rules:
+
+- Slash dates are day-first by default, which is how the MultiCharts ASCII
+  export writes them on a day-first Windows locale. `01/02/2024` is therefore
+  1 February. For month-first data (US locale) pass `--date-format mdy`; for
+  `YYYY/MM/DD` pass `--date-format ymd`.
+- With the default, a date whose second field is above 12 (`01/13/2024`)
+  stops the run with a hint to pass `--date-format mdy`. That catches most
+  month-first files on the first day past the 12th, but a file that only holds
+  days 1-12 cannot be told apart: check your export's date order.
+- Months must be 1-12, days must exist in that month, and times must be
+  00:00-23:59. Bar times have minute resolution, so a time with non-zero
+  seconds (`09:31:05`) is an error rather than being rounded.
+- Any bad value stops the run with one `error:` line naming the file, the CSV
+  line and the value, and exit code 2.
+
+For example, the bundled bars in MultiCharts export form give the same trade
+digest as the EL-integer original:
+
+```python
+import csv
+rows = list(csv.reader(open("examples/NQ_sample_bars.csv")))
+with open("my_bars.csv", "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["Date", "Time", "Open", "High", "Low", "Close", "Volume"])
+    for d, t, *ohlcv in rows[1:]:
+        d, t = int(d), int(t)
+        w.writerow(["%02d/%02d/%d" % (d % 100, d // 100 % 100, 1900 + d // 10000),
+                    "%02d:%02d:00" % (t // 100, t % 100)] + ohlcv)
+print(open("my_bars.csv").readlines()[1].strip())
+```
+
+```
+02/01/2024,09:30:00,14997.50,15005.00,14992.50,15000.00,125
+```
+
+```bash
+pl_oracle examples/ma_cross.el my_bars.csv
+```
+
+```
+powerbridge-trade-digest v2
+fills: 3
+round_turns: 1
+sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
+```
+
 ### Other instruments
 
 `--config` takes a built-in name (`NQ`, the default, or `ES`) or a path to a

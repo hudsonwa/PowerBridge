@@ -56,9 +56,20 @@ def config_or_error(name):
         raise CliError(str(exc)) from exc
 
 
-def bars_or_error(load, path):
+def add_date_format_arg(ap):
+    """The shared ``--date-format`` option for tools that read a bars CSV."""
+    ap.add_argument("--date-format", dest="date_format", default=None,
+                    choices=("dmy", "mdy", "ymd"),
+                    help="field order of slash dates in the bars CSV: dmy "
+                         "(D/M/YYYY, the default), mdy (M/D/YYYY) or ymd "
+                         "(YYYY/M/D). EL integer dates (1240102) need no option.")
+
+
+def bars_or_error(load, path, date_format=None):
     """Call ``load(path)``, turning a malformed bars file into a CliError."""
     try:
+        if date_format is not None:
+            return load(path, date_format=date_format)
         return load(path)
     except (ValueError, IndexError, StopIteration) as exc:
         raise CliError("bad bars file %s: %s" % (path, exc)) from exc
