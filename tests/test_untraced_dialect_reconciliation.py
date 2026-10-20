@@ -37,7 +37,6 @@ The finding is pinned in two legs:
 Stdlib only. No captures required for the portable leg.
 """
 import contextlib
-import io
 import os
 import sys
 
@@ -50,7 +49,7 @@ from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import (  # noqa: E402
     fills_sha256, run_oracle, AUDIT_REF_3_FILLS, AUDIT_REF_3_ROUND_TURNS,
-    AUDIT_REF_3_SHA256, AUDIT_REF_3_DIGEST,
+    AUDIT_REF_3_DIGEST,
 )
 from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
 

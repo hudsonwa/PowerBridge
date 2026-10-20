@@ -34,6 +34,38 @@ jobs:
       - name: Run public test tier
         run: python tests/run_public_tier.py
 
+  # The default pytest suite (pytest.ini) covers tests/generated and other pytest-only
+  # tests that the public tier does not run.
+  pytest:
+    name: pytest (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install package and test tools
+        run: python -m pip install . pytest pytest-timeout
+      - name: Run pytest
+        run: python -m pytest -q --timeout=60
+
+  # Rule set lives in pyproject.toml ([tool.ruff]).
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install ruff
+        run: python -m pip install ruff
+      - name: ruff check
+        run: ruff check .
+
   # The accel crate is an OPTIONAL extra, so nothing above touches it. That is exactly how a
   # lane got merged carrying 17 rustfmt diffs with every gate green: no job ever ran on it.
   #

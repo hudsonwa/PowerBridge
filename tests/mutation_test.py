@@ -196,7 +196,7 @@ def main():
             print(f"\n[{mid}] {fn}: {desc}")
             print(f"    -> gate {mark}  (rc={rc})")
             if not caught:
-                print(f"    !! COVERAGE GAP: the gate did NOT redden for this mutation.")
+                print("    !! COVERAGE GAP: the gate did NOT redden for this mutation.")
                 print(f"    !! gate tail: {tail}")
     finally:
         # Belt-and-suspenders: guarantee pristine source on every exit path.

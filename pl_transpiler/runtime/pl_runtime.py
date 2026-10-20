@@ -1221,7 +1221,6 @@ def pl_adxr(*args, **kwargs):
 
 def _compute_adx_series(high_s, low_s, close_s, length):
     """Compute the full ADX series for a given data window."""
-    import math
     if not all(hasattr(s, '__len__') for s in (high_s, low_s, close_s)):
         return []
     n = min(len(high_s), len(low_s), len(close_s))
@@ -1386,7 +1385,7 @@ def pl_stochastic(*args, **kwargs):
         length = int(args[3])
         smoothk = int(args[4])
         smoothd = int(args[5])
-        smoothtype = int(args[6])  # 1=SMA, 2=EMA, etc. (currently only SMA implemented)
+        smoothtype = int(args[6])  # noqa: F841  1=SMA, 2=EMA, etc. (currently only SMA implemented)
 
         if not all(hasattr(s, '__len__') for s in (high_s, low_s, close_s)):
             return (1, f32(0.0), f32(0.0), f32(0.0), f32(0.0))

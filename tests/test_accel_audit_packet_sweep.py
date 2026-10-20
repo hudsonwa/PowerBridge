@@ -103,7 +103,6 @@ def test_sliced_batch_reproduces_full_packet_and_golden(tmp_path):
 def test_every_config_in_batch_is_byte_identical_to_solo(tmp_path):
     _require()
     el, bars, data2 = _setup()
-    n = len(bars)
 
     variants = [{}, {"C2Fraction": 0.002}, {"EntryMultiplier": 0.6}, {"LadderLength": 20.0}]
 

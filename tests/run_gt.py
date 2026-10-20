@@ -21,7 +21,7 @@ Usage:
     python tests/run_gt.py GT1 [--max-bars N]
     python tests/run_gt.py GT1 --output /tmp/predicted.csv [--max-bars N]
 """
-import csv, os, sys, importlib.util, json, traceback
+import csv, os, sys, json
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GT = os.path.join(REPO, "ground_truth")
@@ -29,8 +29,8 @@ CAP = os.path.join(GT, "captures")
 sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile
-from pl_transpiler.runtime.pl_runtime import f32, reset_indicator_caches
-from pl_transpiler.runtime.instrument_config import InstrumentConfig, NQ, get_config
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.runtime.instrument_config import get_config
 # The bar-by-bar engine (FillEngine + run_bar_loop) and the EL date/time parsers
 # live in the SHIPPED package (pl_transpiler.engine) so the installed pl_run
 # console script works from a bare wheel. They are re-imported here as a single
@@ -42,8 +42,6 @@ from pl_transpiler.engine import (  # noqa: E402  (re-export, not shadowing)
     run_bar_loop,
     _parse_el_date,
     _parse_el_time,
-    _el_to_ole,
-    _el_date_to_day_of_week,
 )
 
 # Map of GT label -> (source_file, capture_file). Single-sourced in
@@ -125,18 +123,9 @@ GT1_COLUMN_MAP = {
     "rights": "rights",
     "uppers": "uppers",
     # GTA5 specific overrides (columns whose trace key differs from column name)
-    "ifelse": "ifelseout",
-    "avg": "avgc",
-    "atr": "atrc",
     "ad": "adv",
     "calcdate": "calcd",
     "calctime": "calct",
-    "marketpos": "_market_position",
-    "curcontracts": "current_contracts",
-    "entryprice": "entry_price",
-    "barssinceentry": "bars_since_entry",
-    "openposprofit": "open_position_profit",
-    "netprofit": "net_profit",
     "exitprice": "exit_price",
     "barssinceexit": "bars_since_exit",
     "positionprofit": "position_profit",
@@ -148,8 +137,6 @@ GT1_COLUMN_MAP = {
     "month": "mnv",
     "year": "yrv",
     "dom": "domv",
-    "calcdate": "calcd",
-    "calctime": "calct",
     "curdate": "curdate",
     "curtime": "curtime",
     "ticks": "ticksv",
@@ -276,7 +263,7 @@ def _load_multi_data(data1_path, data2_path, max_bars=None, warmup=0):
     data1_rows = []
     with open(data1_path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
-        data1_header = next(reader)  # skip header row
+        next(reader)  # skip header row
         for row in reader:
             if not row:
                 continue
@@ -302,8 +289,7 @@ def _load_multi_data(data1_path, data2_path, max_bars=None, warmup=0):
     data2_map = {}
     with open(data2_path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
-        data2_header = next(reader)  # skip header row
-        last_row = None
+        next(reader)  # skip header row
         for row in reader:
             if not row:
                 continue
@@ -317,7 +303,6 @@ def _load_multi_data(data1_path, data2_path, max_bars=None, warmup=0):
             data2_map[key] = {
                 'open': o, 'high': h, 'low': l, 'close': c, 'volume': v,
             }
-            last_row = (key, data2_map[key])
     
     # Align Data2 to Data1: for each Data1 bar, find the nearest Data2 at or before
     # the same (date,time). Carry forward the last known Data2 value when exact
@@ -507,7 +492,7 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
     if ohlcv is None and gt_label == 'GTA6_2':
         ref_path = os.path.join(CAP, GT_FILES['GTA6_1'][1])
         if os.path.exists(ref_path):
-            print(f"  Loading bar input from GTA6_1 capture OHLCV (file2 has no OHLCV)")
+            print("  Loading bar input from GTA6_1 capture OHLCV (file2 has no OHLCV)")
             lookup = {}
             with open(ref_path, newline='', encoding='utf-8') as f:
                 rdr = csv.reader(f)
@@ -616,7 +601,6 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
             print(f"    Prepended {len(warmup_bars)} warmup bars from Data1")
             # For GTA5, warmup pre-data is already in the history; don't skip output.
             # Reset warmup to 0 so the output loop doesn't skip bars.
-            saved_warmup = warmup
             warmup = 0
         except Exception as e:
             print(f"    Warmup prepend failed: {e}")

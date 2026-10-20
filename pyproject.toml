@@ -59,3 +59,19 @@ include = ["pl_transpiler*"]
 # The keyword catalog + verified-builtins list load __file__-relative from the tools
 # subpackage, so they must ride along inside the wheel.
 "pl_transpiler.tools" = ["pl_signatures.jsonl", "mc_verified_builtins.txt"]
+
+[tool.ruff]
+# Lint only; no formatter is enforced. emitted/ and tests/generated/ hold
+# machine-generated output, so they are not linted.
+target-version = "py39"
+extend-exclude = ["emitted", "tests/generated", "accel/target"]
+
+[tool.ruff.lint]
+# Conservative set: syntax errors (E9) and pyflakes (F) only.
+select = ["E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Populated at import time from the runtime's pl_* functions via globals().
+"pl_transpiler/builtins.py" = ["F821"]
+# Package re-export of the runtime's public names.
+"pl_transpiler/runtime/__init__.py" = ["F401", "F403"]

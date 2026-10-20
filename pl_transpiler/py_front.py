@@ -81,12 +81,10 @@ DIALECT_VERSION: asserted equal to transpiler.codegen.DIALECT_VERSION at import 
 drift tripwire. Bumping the emitted dialect requires touching BOTH files.
 """
 import ast
-import re
 
 from pl_transpiler.codegen import (
     BUILTIN_FUNC_MAP,
     COMPARE_OPS,
-    _SERIES_PARAMS,
     DIALECT_VERSION as _CODEGEN_DIALECT_VERSION,
 )
 from pl_transpiler.codegen_el import _INV_POSKW, _INV_MCKW

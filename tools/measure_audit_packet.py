@@ -83,9 +83,9 @@ def main() -> int:
     print(f"[measure] serialise+marshal {time.perf_counter() - t0:.3f}s", flush=True)
 
     print("[measure] warmup without", flush=True)
-    warm_fills = accel.run_program(program_ir, series, data2_series, config_map)
+    accel.run_program(program_ir, series, data2_series, config_map)
     print("[measure] warmup with", flush=True)
-    warm_packet = accel.run_program_audit_packet(
+    accel.run_program_audit_packet(
         program_ir, series, data2_series, config_map, False
     )
     fallback_before = fallback_count()

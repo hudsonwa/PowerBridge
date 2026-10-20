@@ -18,6 +18,18 @@ without an issue.
 4. Run the public tests: `python3 tests/run_public_tier.py`
 5. Open a pull request and say what you changed.
 
+## Running checks locally
+
+CI runs these on every pull request. The tools are for development only;
+the library itself still needs nothing beyond the standard library.
+
+```sh
+python3 -m pip install pytest pytest-timeout ruff
+python3 tests/run_public_tier.py   # public test tier
+python3 -m pytest -q --timeout=60  # full default pytest suite
+ruff check .                       # lint (rules in pyproject.toml)
+```
+
 Please do not add dependencies. The library is standard-library only.
 
 By contributing you agree your work is licensed under Apache 2.0,

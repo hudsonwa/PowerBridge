@@ -69,7 +69,7 @@ def test_coverage_matches_data_files():
 
 
 def test_get_case_insensitive():
-    sigs = _independent_signatures()
+    _independent_signatures()
     # Pick a real keyword straight from the data file (original case).
     name = next(json.loads(l)["keyword"] for l in open(_SIG_PATH, encoding="utf-8") if l.strip())
     rec = catalog.get(name)

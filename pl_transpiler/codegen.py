@@ -14,7 +14,6 @@
 
 """PowerLanguage Code Generator — walks AST and emits Python source."""
 
-import math
 
 # Re-exported so existing `from pl_transpiler.codegen import UnimplementedKeywordError`
 # imports keep working; the class itself now lives in pl_transpiler.errors.
@@ -2358,9 +2357,9 @@ class CodeGen:
         if py_name == '__setbreakeven__' and len(args) == 1:
             return f"_risk.__setitem__('breakeven', {args[0]})"
         if py_name == '__entryname__' and len(args) >= 1:
-            return f"kwargs.get('entry_name', '')"
+            return "kwargs.get('entry_name', '')"
         if py_name == '__exitname__' and len(args) >= 1:
-            return f"kwargs.get('exit_name', '')"
+            return "kwargs.get('exit_name', '')"
 
         # CurrentSession: allow runner to override via kwarg (runner computes from bar date/time).
         if py_name == 'pl_currentsession':

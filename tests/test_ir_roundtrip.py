@@ -281,7 +281,6 @@ def test_schema_exhaustive_over_dialect():
 def test_compile_time_refusal():
     """Anything the dialect cannot express is a compile-time refusal — never a
     silent omission — and unknown schema versions are rejected explicitly."""
-    import pl_transpiler.ir as ir_mod
 
     def refuse(payload_ast, exc=ir.IrSchemaError):
         try:

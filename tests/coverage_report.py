@@ -65,9 +65,9 @@ sys.path.insert(0, REPO)
 from pl_transpiler import builtins as _builtins  # noqa: E402
 from pl_transpiler.runtime import pl_runtime as _rt  # noqa: E402
 from tests.repoint import new_scratch  # noqa: E402
-from tests import run_gt  # noqa: E402
+from tests import run_gt  # noqa: E402, F401
 from tests.golden_diff import GT_FILES, CAP, GT  # noqa: E402
-from tests.verify_all import GT_EXPECT, WARMUP  # noqa: E402
+from tests.verify_all import GT_EXPECT  # noqa: E402
 from tests import verify_full_range as vfr  # noqa: E402
 
 SIG_PATH = os.path.join(REPO, "pl_transpiler", "tools", "pl_signatures.jsonl")
