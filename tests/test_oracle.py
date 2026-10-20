@@ -1,0 +1,441 @@
+#!/usr/bin/env python3
+# Copyright 2026 Joshua Hudson
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+test_oracle.py — exact trade-list digest (issue #11).
+
+The oracle runs persist=True / min-emit and prints a canonical digest.
+Two runs on unchanged code must be byte-identical. persist is required:
+the clean mirror dialect resets Variables each bar and would miss fills.
+
+Stdlib only. Capture-gated GT2 check skips when captures are absent.
+"""
+import contextlib
+import hashlib
+import io
+import os
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
+
+from tests import capture_gate  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_oracle import (  # noqa: E402
+    canonical_fill_line, fills_sha256, format_digest,
+    run_oracle, window_bars, main as oracle_main,
+    AUDIT_REF_3_DIGEST, AUDIT_REF_3_FILLS, AUDIT_REF_3_ROUND_TURNS, AUDIT_REF_3_SHA256,
+)
+from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
+from pl_transpiler.tools.pl_run import load_bars, load_bars_csv, run_el  # noqa: E402
+
+NQ = get_config("NQ")
+GT2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")
+SAMPLE = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
+
+COUNT_EL = (
+    "Vars: Count(0);\n"
+    "Count = Count + 1;\n"
+    "If Count = 3 Then Buy (\"LE\") next bar at market;\n"
+)
+
+DATE_EL = (
+    "Vars: Armed(False);\n"
+    "If Date >= 1240104 and not Armed Then Begin\n"
+    "    Buy (\"LE\") next bar at market;\n"
+    "    Armed = True;\n"
+    "End;\n"
+)
+
+DATA2_SOURCE = (
+    "Variables: D2C(0);\n"
+    "D2C = Close of Data2;\n"
+    "If D2C > Close Then Buy (\"D2B\") 1 Contracts Next Bar At D2C Limit;\n"
+)
+
+# Audit Ref 3 window the silent-ignore bug was measured on. Private tape is
+# gated on PB_AUDIT_EL / PB_AUDIT_BARS / PB_AUDIT_D2; the numbers are the
+# public digest pin.
+AUDIT_REF_3_WINDOW = slice(1515000, 1616000)
+AUDIT_REF_3_WINDOW_FILLS = 928
+AUDIT_REF_3_WINDOW_SHA256 = (
+    "d8ad8dbbf1c7950f03e2e6df0f4bb81a93dc192a3937bcb6e0e3b9e432041d3a"
+)
+# The silent-ignore answer (data2_bars dropped, Close of Data1 used instead).
+# A regression that returns this has resurrected the bug.
+AUDIT_REF_3_WINDOW_SILENT_FILLS = 948
+AUDIT_REF_3_WINDOW_SILENT_SHA256 = (
+    "608c16f090fa6b3146071f3d2d5bf61dfa10a8b2ac9deb7a869e864bd7b81778"
+)
+
+# Frozen GT2 digest on the shipped sample tape. A fill-engine change that
+# moves a trade on this 140-bar file MUST fail this test.
+GT2_SAMPLE_DIGEST = (
+    "powerbridge-trade-digest v1\n"
+    "fills: 4\n"
+    "round_turns: 2\n"
+    "sha256: 2ce936cec6a9ccf3883ca5896a8537ab6e2e994ca3346448b9ae9bc41745f049\n"
+)
+
+EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
+
+
+def _bars(n, date0=1240102, open0=1.0):
+    return [
+        {"date": date0, "time": 930 + i, "open": open0, "high": open0,
+         "low": open0, "close": open0, "volume": 1.0}
+        for i in range(n)
+    ]
+
+
+def _dated_bars(n, date0=1240102):
+    return [
+        {"date": date0 + i, "time": 930, "open": 10.0 + i, "high": 10.0 + i,
+         "low": 10.0 + i, "close": 10.0 + i, "volume": 1.0}
+        for i in range(n)
+    ]
+
+
+def test_audit_ref_3_citation_constants():
+    """The Audit Ref 3 numbers later tickets must cite. Tape is private; this
+    only checks the constant matches the formatter so a typo cannot drift."""
+    assert AUDIT_REF_3_FILLS == 7364
+    assert AUDIT_REF_3_ROUND_TURNS == 3682
+    assert len(AUDIT_REF_3_SHA256) == 64
+    assert AUDIT_REF_3_DIGEST == format_digest(
+        fills=AUDIT_REF_3_FILLS, round_turns=AUDIT_REF_3_ROUND_TURNS, sha256=AUDIT_REF_3_SHA256)
+    print("  [ok] Audit Ref 3 citation constants 7364/3682 + sha256 formatter")
+
+
+def test_empty_tape_digest():
+    d = run_oracle(COUNT_EL, [], NQ)
+    assert d["fills"] == 0
+    assert d["round_turns"] == 0
+    assert d["n_bars"] == 0
+    assert d["sha256"] == EMPTY_SHA256
+    assert d["text"] == format_digest(
+        fills=0, round_turns=0, sha256=EMPTY_SHA256)
+    print("  [ok] empty tape: 0 fills, SHA-256 of empty payload")
+
+
+def test_count_strategy_needs_persist():
+    """Clean dialect would reset Count each bar; oracle uses persist=True."""
+    d = run_oracle(COUNT_EL, _bars(5), NQ)
+    assert d["fills"] == 1, d["records"]
+    assert d["round_turns"] == 0  # still open (fills//2)
+    assert d["records"][0]["signal"] == "LE"
+    assert d["records"][0]["type"] == "EntryLong"
+    a = run_oracle(COUNT_EL, _bars(5), NQ)
+    assert a["text"] == d["text"]
+    print("  [ok] Count=3 Buy: 1 fill, 0 round-turns, two runs identical")
+
+
+def test_hasher_matches_payload():
+    fills = [{
+        "type": "EntryLong", "signal": "LE", "date": 1240102,
+        "time": 933, "price": 1.0, "contracts": 1,
+    }]
+    payload = canonical_fill_line(fills[0]) + "\n"
+    assert fills_sha256(fills) == hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    assert fills_sha256([]) == EMPTY_SHA256
+    print("  [ok] sha256 is SHA-256 of canonical fill lines")
+
+
+def test_gt2_sample_digest_frozen():
+    el = open(GT2, encoding="utf-8").read()
+    bars = load_bars_csv(SAMPLE)
+    d = run_oracle(el, bars, NQ)
+    assert d["text"] == GT2_SAMPLE_DIGEST, d["text"]
+    # persist min-emit must match the trace-mode run_el trade list.
+    traced = run_el(el, bars, NQ, retain_rows=False)
+    assert traced["trades"] == d["records"]
+    print("  [ok] GT2 sample digest frozen; persist trades == run_el trades")
+
+
+def test_window_identity_and_disagreement():
+    bars = _dated_bars(5)  # 1240102 .. 1240106
+    full = run_oracle(DATE_EL, bars, NQ)
+    same = run_oracle(DATE_EL, bars, NQ, from_date=1240104)
+    different = run_oracle(DATE_EL, bars, NQ, from_date=1240105)
+    assert same["text"] == full["text"], (same["records"], full["records"])
+    assert same["n_bars"] == 3
+    assert different["text"] != full["text"]
+    sliced, extra = window_bars(bars, from_date=1240104, extra=list(range(5)))
+    assert [b["date"] for b in sliced] == [1240104, 1240105, 1240106]
+    assert extra == [2, 3, 4]
+    try:
+        window_bars(bars, extra=[0])
+        raise AssertionError("expected ValueError on extra length mismatch")
+    except ValueError:
+        pass
+    print("  [ok] window from signal date matches full; late window disagrees")
+
+
+def test_cli_digest_and_compare():
+    bars = _bars(5)
+    with tempfile.TemporaryDirectory() as td:
+        el_path = os.path.join(td, "s.el")
+        bars_path = os.path.join(td, "bars.csv")
+        out_path = os.path.join(td, "digest.txt")
+        dump_path = os.path.join(td, "fills.txt")
+        with open(el_path, "w", encoding="utf-8") as f:
+            f.write(COUNT_EL)
+        with open(bars_path, "w", encoding="utf-8") as f:
+            f.write("date,time,open,high,low,close,volume\n")
+            for b in bars:
+                f.write(f"{b['date']},{b['time']},{b['open']},{b['high']},"
+                        f"{b['low']},{b['close']},{b['volume']}\n")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            rc = oracle_main([el_path, bars_path, "-o", out_path, "--dump", dump_path])
+        assert rc == 0
+        text = open(out_path, encoding="utf-8").read()
+        lib = run_oracle(COUNT_EL, bars, NQ)
+        assert text == lib["text"]
+        assert buf.getvalue() == text
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            rc_ok = oracle_main([el_path, bars_path, "--compare", out_path])
+        assert rc_ok == 0
+        bad = os.path.join(td, "bad.txt")
+        with open(bad, "w", encoding="utf-8") as f:
+            f.write(format_digest(fills=99, round_turns=0, sha256="0" * 64))
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            rc_bad = oracle_main([el_path, bars_path, "--compare", bad])
+        assert rc_bad == 1
+        dump = open(dump_path, encoding="utf-8").read()
+        assert dump == canonical_fill_line(lib["records"][0]) + "\n"
+    print("  [ok] CLI writes digest, --compare 0/1, --dump payload")
+
+
+def test_cli_requires_bars():
+    rc = 0
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            oracle_main(["missing.el"])
+    except SystemExit as e:
+        rc = e.code
+    assert rc == 2
+    print("  [ok] CLI without bars_csv exits 2")
+
+
+def test_data2_closes_from_bars_aligns_on_date_time():
+    """Join is (date, time) last-wins, not positional close-column copy."""
+    from pl_transpiler.tools.pl_oracle import data2_closes_from_bars
+    bars = [
+        {"date": 1240102, "time": 930, "open": 1, "high": 1, "low": 1,
+         "close": 10.0, "volume": 1},
+        {"date": 1240102, "time": 931, "open": 1, "high": 1, "low": 1,
+         "close": 20.0, "volume": 1},
+        {"date": 1240102, "time": 932, "open": 1, "high": 1, "low": 1,
+         "close": 30.0, "volume": 1},
+    ]
+    # Extra leading bar, shuffled order, a duplicate timestamp (last-wins),
+    # and a Data2-only timestamp that must not leak into Data1.
+    data2 = [
+        {"date": 1240102, "time": 900, "open": 0, "high": 0, "low": 0,
+         "close": 999.0, "volume": 1},
+        {"date": 1240102, "time": 932, "open": 0, "high": 0, "low": 0,
+         "close": 300.0, "volume": 1},
+        {"date": 1240102, "time": 930, "open": 0, "high": 0, "low": 0,
+         "close": 100.0, "volume": 1},
+        {"date": 1240102, "time": 930, "open": 0, "high": 0, "low": 0,
+         "close": 101.0, "volume": 1},  # last-wins for 930
+    ]
+    got = data2_closes_from_bars(bars, data2)
+    # 931 has no Data2 match -> Data1 close (20.0)
+    assert got == [101.0, 20.0, 300.0]
+    print("  [ok] data2_closes_from_bars: (date, time) last-wins + Data1 fallback")
+
+
+def test_python_path_consumes_data2_bars():
+    """data2_bars must drive the Python path. Silent drop is the forbidden outcome.
+
+    On today's (pre-fix) code this returns the no-Data2 digest: a plausible
+    fill count with empty stderr. After the fix, data2_bars and data2_closes
+    produce the same digest, and that digest is not the Data1 fallback.
+    """
+    bars = load_bars_csv(SAMPLE)
+    data2_tape = [dict(b, close=b["close"] + 3.0) for b in bars]
+    data2_closes = [b["close"] for b in data2_tape]
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        via_bars = run_oracle(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape)
+    via_closes = run_oracle(DATA2_SOURCE, bars, NQ, data2_closes=data2_closes)
+    dropped = run_oracle(DATA2_SOURCE, bars, NQ)
+
+    assert via_bars["text"] == via_closes["text"], (
+        "python data2_bars= diverged from python data2_closes=: "
+        f"{via_bars['fills']} fills sha {via_bars['sha256'][:12]} vs "
+        f"{via_closes['fills']} fills sha {via_closes['sha256'][:12]}"
+    )
+    assert via_bars["sha256"] == via_closes["sha256"]
+    assert via_bars["fills"] == via_closes["fills"]
+    assert via_bars["text"] != dropped["text"], (
+        "python data2_bars= matched the no-Data2 fallback — the argument "
+        "was ignored"
+    )
+    assert err.getvalue() == ""
+    print(
+        f"  [ok] python data2_bars= == data2_closes= "
+        f"({via_bars['fills']} fills, sha {via_bars['sha256'][:12]}); "
+        f"not the Data1 fallback ({dropped['fills']} fills)"
+    )
+
+
+def _audit_ref_3_paths():
+    el = os.environ.get("PB_AUDIT_EL", "")
+    bars = os.environ.get("PB_AUDIT_BARS", "")
+    d2 = os.environ.get("PB_AUDIT_D2", "")
+    if not (el and bars and d2
+            and os.path.exists(el) and os.path.exists(bars)
+            and os.path.exists(d2)):
+        return None
+    return el, bars, d2
+
+
+def _skip_audit_if_absent():
+    """Return the Audit Ref 3 paths, or skip.
+
+    pytest is optional: the public tier runs this file as a stdlib script
+    under ``/usr/bin/python3`` with no pytest installed. When pytest is the
+    runner it is already in ``sys.modules`` and we use ``pytest.skip``.
+    """
+    paths = _audit_ref_3_paths()
+    if paths is not None:
+        return paths
+    msg = (
+        "private Audit Ref 3 files absent — set PB_AUDIT_EL / "
+        "PB_AUDIT_BARS / PB_AUDIT_D2"
+    )
+    pytest_mod = sys.modules.get("pytest")
+    if pytest_mod is not None:
+        pytest_mod.skip(msg)
+    print("  [SKIP] " + msg)
+    return None
+
+
+def test_audit_ref_3_python_data2_bars_matches_closes():
+    """Audit window + full tape: data2_bars= must reproduce the canonical digest.
+
+    Pre-fix this was 948 / 608c16f090.. (window) and 7964 fills (full tape),
+    with empty stderr. After the fix both spellings match 928 / d8ad8dbbf1c7
+    (window) and 7364 / d839e7ab (full tape).
+    """
+    paths = _skip_audit_if_absent()
+    if paths is None:
+        return
+    el_path, bars_path, d2_path = paths
+    el = open(el_path, encoding="utf-8").read()
+    bars = load_bars(bars_path)
+    data2 = load_bars(d2_path)
+    window = AUDIT_REF_3_WINDOW
+    w_bars, w_d2 = bars[window], data2[window]
+    w_closes = [float(x) for x in ohlcv_columns(w_d2)["close"]]
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        via_bars = run_oracle(el, w_bars, NQ, data2_bars=w_d2)
+    via_closes = run_oracle(el, w_bars, NQ, data2_closes=w_closes)
+
+    assert via_bars["fills"] == AUDIT_REF_3_WINDOW_FILLS, (
+        f"window data2_bars= gave {via_bars['fills']} fills "
+        f"(silent-ignore was {AUDIT_REF_3_WINDOW_SILENT_FILLS}); "
+        f"canonical is {AUDIT_REF_3_WINDOW_FILLS}"
+    )
+    assert via_bars["sha256"] == AUDIT_REF_3_WINDOW_SHA256, (
+        f"window data2_bars= sha {via_bars['sha256']} "
+        f"(silent-ignore was {AUDIT_REF_3_WINDOW_SILENT_SHA256}); "
+        f"canonical is {AUDIT_REF_3_WINDOW_SHA256}"
+    )
+    assert via_bars["text"] == via_closes["text"]
+    assert via_bars["sha256"] != AUDIT_REF_3_WINDOW_SILENT_SHA256
+    assert err.getvalue() == ""
+
+    full_closes = [float(x) for x in ohlcv_columns(data2)["close"]]
+    full_bars = run_oracle(el, bars, NQ, data2_bars=data2)
+    full_closes_d = run_oracle(el, bars, NQ, data2_closes=full_closes)
+    assert full_bars["fills"] == AUDIT_REF_3_FILLS
+    assert full_bars["sha256"] == AUDIT_REF_3_SHA256
+    assert full_bars["text"] == AUDIT_REF_3_DIGEST
+    assert full_bars["text"] == full_closes_d["text"]
+    print(
+        f"  [ok] Audit Ref 3 window {via_bars['fills']} / "
+        f"{via_bars['sha256'][:12]}; full tape {full_bars['fills']} / "
+        f"{full_bars['sha256'][:12]}"
+    )
+
+
+def check_gt2_capture_oracle(max_bars=20000):
+    """Capture-gated: GT2 persist digest is stable and matches run_el trades.
+
+    Returns (ok, detail). Caller must only invoke this when captures are present.
+    """
+    from tests.test_general_entrypoint import _resolve_gt2_bars
+    bars, _ = _resolve_gt2_bars(max_bars)
+    el = open(GT2, encoding="utf-8").read()
+    a = run_oracle(el, bars, NQ)
+    b = run_oracle(el, bars, NQ)
+    if a["text"] != b["text"]:
+        return False, "two persist runs produced different digests"
+    traced = run_el(el, bars, NQ, retain_rows=False)
+    if traced["trades"] != a["records"]:
+        return False, (
+            f"persist fills {a['fills']} != run_el trades {len(traced['trades'])}")
+    return True, (
+        f"GT2 {a['n_bars']} bars, {a['fills']} fills, "
+        f"{a['round_turns']} round-turns, sha256={a['sha256']}")
+
+
+def main():
+    tests = [
+        test_audit_ref_3_citation_constants,
+        test_empty_tape_digest,
+        test_count_strategy_needs_persist,
+        test_hasher_matches_payload,
+        test_gt2_sample_digest_frozen,
+        test_window_identity_and_disagreement,
+        test_cli_digest_and_compare,
+        test_cli_requires_bars,
+        test_data2_closes_from_bars_aligns_on_date_time,
+        test_python_path_consumes_data2_bars,
+    ]
+    for t in tests:
+        print(f"running {t.__name__} ...")
+        t()
+
+    print("running check_gt2_capture_oracle ...")
+    if not capture_gate.captures_present():
+        print("  " + capture_gate.skip_message("oracle GT2 capture digest"))
+    else:
+        ok, detail = check_gt2_capture_oracle()
+        assert ok, detail
+        print(f"  [ok] {detail}")
+
+    print("running test_audit_ref_3_python_data2_bars_matches_closes ...")
+    if _audit_ref_3_paths() is None:
+        print("  [SKIP] private Audit Ref 3 files absent — set "
+              "PB_AUDIT_EL / PB_AUDIT_BARS / PB_AUDIT_D2")
+    else:
+        test_audit_ref_3_python_data2_bars_matches_closes()
+
+    print("\nALL ORACLE TESTS PASSED")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

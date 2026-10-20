@@ -1,0 +1,23 @@
+PowerBridge
+Copyright 2026 Joshua Hudson
+
+This product includes software developed by Joshua Hudson.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+THIRD-PARTY REFERENCE MATERIALS:
+Files under resources/, db/, and any PDF keyword-reference document are
+third-party copyrighted reference content (MultiCharts / TradeStation
+documentation) NOT owned by the copyright holder above. They are NOT
+covered by the Apache License 2.0 grant for this project; all rights
+remain with their respective owners. PowerBridge does not redistribute
+these materials: they are excluded from this public distribution's
+repository tree and from the installable wheel (the built package
+contains none of them).
+
+TRADEMARKS AND AFFILIATION:
+PowerBridge is an independent open-source project. It is not affiliated
+with, endorsed by, or sponsored by TradeStation Technologies, Inc. or
+MultiCharts (MCT Limited). TradeStation and EasyLanguage are registered
+trademarks of TradeStation Technologies, Inc.; MultiCharts is a registered
+trademark of MCT Limited; PowerLanguage is a product name of MultiCharts.
+These names are used only to describe compatibility and interoperability.

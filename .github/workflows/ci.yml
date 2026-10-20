@@ -1,0 +1,56 @@
+name: Public tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  public-tier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run public test tier
+        run: python3 tests/run_public_tier.py
+
+  # The accel crate is an OPTIONAL extra, so nothing above touches it. That is exactly how a
+  # lane got merged carrying 17 rustfmt diffs with every gate green: no job ever ran on it.
+  #
+  # Two jobs, deliberately split:
+  #   - rustfmt and clippy are pure *checks* (no linking), so they run on the cheap Linux runner.
+  #   - build and test run on macOS, because this crate is a cdylib with pyo3's
+  #     `extension-module` enabled unconditionally, which does NOT link libpython. On macOS that
+  #     is fine; on Linux a linked test binary would fail on unresolved Python symbols. macOS is
+  #     also where the crate is actually built and shipped, so it is the honest place to test it.
+  accel-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: accel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: cargo fmt --check
+        run: cargo fmt --check
+      - name: cargo clippy -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+
+  accel-build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: accel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # The parity tests drive Python's run_oracle as the reference, so they need an interpreter
+      # and the repo on the import path -- both already true on the runner.
+      - name: cargo build --release
+        run: cargo build --release
+      - name: cargo test
+        run: cargo test

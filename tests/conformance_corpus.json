@@ -1,0 +1,101 @@
+{
+  "format": 1,
+  "tapes": {
+    "edge-v1": [
+      {"date": 1240102, "time": 829, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.5, "volume": 10.0},
+      {"date": 1240102, "time": 830, "open": 100.5, "high": 101.0, "low": 100.0, "close": 100.25, "volume": 20.0},
+      {"date": 1240102, "time": 930, "open": 100.25, "high": 100.25, "low": 100.25, "close": 100.25, "volume": 0.0},
+      {"date": 1240102, "time": 930, "open": 100.25, "high": 103.0, "low": 100.0, "close": 102.0, "volume": 30.0},
+      {"date": 1240102, "time": 1559, "open": 102.0, "high": 103.0, "low": 101.0, "close": 101.5, "volume": 40.0},
+      {"date": 1240102, "time": 1600, "open": 101.5, "high": 102.0, "low": 101.0, "close": 101.75, "volume": 50.0},
+      {"date": 1240103, "time": 930, "open": 99.0, "high": 99.5, "low": 98.0, "close": 98.5, "volume": 60.0},
+      {"date": 1240104, "time": 829, "open": 100.0, "high": 100.0, "low": 1e-45, "close": 1e-45, "volume": 1.0},
+      {"date": 1240104, "time": 830, "open": 100.0, "high": 3.4028235e+38, "low": 100.0, "close": 3.4028235e+38, "volume": 2.0},
+      {"date": 1240104, "time": 1559, "open": 100.0, "high": 1e+39, "low": 100.0, "close": 1e+39, "volume": 3.0},
+      {"date": 1240104, "time": 1600, "open": 95.0, "high": 96.0, "low": 94.0, "close": 95.5, "volume": 70.0},
+      {"date": 1240105, "time": 930, "open": 90.0, "high": 95.0, "low": 85.0, "close": 92.0, "volume": 80.0}
+    ]
+  },
+  "cases": [
+    {
+      "id": "nested-conditionals",
+      "seed": 1001,
+      "tape": "edge-v1",
+      "tags": ["nested-if", "once-per-bar", "orders"],
+      "mutation": ["Time >= 930", "Time < 0"],
+      "el": "Vars: PerBar(0), Gate(False);\nPerBar = PerBar + 1;\nIf Close >= Open Then Begin\n    If Time >= 930 Then Gate = True Else Gate = False;\nEnd Else Gate = False;\nIf MarketPosition = 0 and Gate and PerBar mod 3 = 0 Then Buy (\"LE_NEST\") 1 contract next bar at market;\nIf MarketPosition = 1 and PerBar mod 4 = 0 Then Sell (\"LX_NEST\") next bar at market;\n"
+    },
+    {
+      "id": "once-and-per-bar",
+      "seed": 1002,
+      "tape": "edge-v1",
+      "tags": ["once", "once-per-bar", "state"],
+      "mutation": ["Initialized = BarNumber", "Initialized = 99"],
+      "el": "Vars: Initialized(0), PerBar(0);\nOnce Begin Initialized = BarNumber; End;\nPerBar = PerBar + 1;\nIf MarketPosition = 0 and Initialized = 1 and PerBar = 2 Then Buy (\"LE_ONCE\") 1 contract next bar at market;\nIf MarketPosition = 1 and PerBar = 6 Then Sell (\"LX_ONCE\") next bar at market;\n"
+    },
+    {
+      "id": "while-and-for",
+      "seed": 1003,
+      "tape": "edge-v1",
+      "tags": ["while", "for", "integer-loop-bound"],
+      "mutation": ["Total = Total + I", "Total = Total + 0"],
+      "el": "Inputs: LoopLimit(3);\nVars: I(0), J(0), Total(0);\nTotal = 0;\nFor I = 1 To LoopLimit Begin Total = Total + I; End;\nJ = 0;\nWhile J < LoopLimit Begin Total = Total + J; J = J + 1; End;\nIf MarketPosition = 0 and Total = 9 and BarNumber mod 4 = 1 Then Buy (\"LE_LOOP\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 4 = 3 Then Sell (\"LX_LOOP\") next bar at market;\n"
+    },
+    {
+      "id": "integer-float-division",
+      "seed": 1004,
+      "tape": "edge-v1",
+      "tags": ["integer-division", "float-division", "f32-assignment"],
+      "mutation": ["IntDiv = 5 / 2", "IntDiv = 5 / 3"],
+      "el": "Vars: IntDiv(0), FloatDiv(0);\nIntDiv = 5 / 2;\nFloatDiv = 5.0 / 2.0;\nIf MarketPosition = 0 and IntDiv = FloatDiv and BarNumber mod 3 = 1 Then Buy (\"LE_DIV\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 3 = 0 Then Sell (\"LX_DIV\") next bar at market;\n"
+    },
+    {
+      "id": "f32-rounding-boundary",
+      "seed": 1005,
+      "tape": "edge-v1",
+      "tags": ["f32", "rounding-boundary", "operation-order"],
+      "mutation": ["16777217", "16777215"],
+      "el": "Vars: Rounded(0), Boundary(0);\nRounded = 16777217 + BarNumber - BarNumber;\nBoundary = 16777216;\nIf MarketPosition = 0 and Rounded = Boundary and BarNumber mod 3 = 1 Then Buy (\"LE_F32\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 3 = 0 Then Sell (\"LX_F32\") next bar at market;\n"
+    },
+    {
+      "id": "series-assignment-lookback",
+      "seed": 1006,
+      "tape": "edge-v1",
+      "tags": ["series-assignment", "lookback", "history"],
+      "mutation": ["Prior = PriceSeries[1]", "Prior = 999999999"],
+      "el": "Vars: PriceSeries(0), Prior(0);\nPriceSeries = Close;\nPrior = PriceSeries[1];\nIf MarketPosition = 0 and BarNumber > 1 and Close >= Prior Then Buy (\"LE_SER\") 1 contract next bar at market;\nIf MarketPosition = 1 and Close < Prior Then Sell (\"LX_SER\") next bar at market;\n"
+    },
+    {
+      "id": "input-defaults",
+      "seed": 1007,
+      "tape": "edge-v1",
+      "tags": ["inputs", "defaults", "mod"],
+      "mutation": ["Offset(0.25)", "Offset(-0.25)"],
+      "el": "Inputs: EntryEvery(3), ExitEvery(5), Offset(0.25);\nVars: Trigger(0);\nTrigger = Close + Offset;\nIf MarketPosition = 0 and Trigger > Close and BarNumber mod EntryEvery = 0 Then Buy (\"LE_INPUT\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod ExitEvery = 0 Then Sell (\"LX_INPUT\") next bar at market;\n"
+    },
+    {
+      "id": "extreme-overflow",
+      "seed": 1008,
+      "tape": "edge-v1",
+      "tags": ["extreme", "overflow", "arithmetic"],
+      "mutation": ["Extreme > 340282350000000000000000000000000000000", "Extreme < 0"],
+      "el": "Vars: Extreme(0);\nExtreme = Close + Close;\nIf MarketPosition = 0 and Extreme > 340282350000000000000000000000000000000 Then Buy (\"LE_OVF\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 2 = 0 Then Sell (\"LX_OVF\") next bar at market;\n"
+    },
+    {
+      "id": "nan-arithmetic",
+      "seed": 1009,
+      "tape": "edge-v1",
+      "tags": ["nan", "arithmetic", "comparison"],
+      "mutation": ["NotANumber <> NotANumber", "NotANumber = NotANumber"],
+      "el": "Vars: Twice(0), NotANumber(0);\nTwice = Close + Close;\nNotANumber = Twice - Twice;\nIf MarketPosition = 0 and NotANumber <> NotANumber Then Buy (\"LE_NAN\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 2 = 0 Then Sell (\"LX_NAN\") next bar at market;\n"
+    },
+    {
+      "id": "denormal-underflow",
+      "seed": 1010,
+      "tape": "edge-v1",
+      "tags": ["denormal", "underflow", "arithmetic"],
+      "mutation": ["Denormal = 0", "Denormal <> 0"],
+      "el": "Vars: Denormal(0);\nDenormal = Close / 2;\nIf MarketPosition = 0 and Close > 0 and Denormal = 0 Then Buy (\"LE_DEN\") 1 contract next bar at market;\nIf MarketPosition = 1 and BarNumber mod 2 = 0 Then Sell (\"LX_DEN\") next bar at market;\n"
+    }
+  ]
+}

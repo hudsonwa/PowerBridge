@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pl-transpiler"
+version = "0.2.0"
+description = "Bidirectional EasyLanguage/PowerLanguage to Python transpiler for MultiCharts and TradeStation."
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+# Pure-stdlib: the transpiler, emitter, runtime and gates import nothing off PyPI.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/hudsonwa/PowerBridge"
+Repository = "https://github.com/hudsonwa/PowerBridge"
+
+[project.optional-dependencies]
+# OPTIONAL FAST PATH — issue #17, decision record: docs/ACCEL.md. Strictly additive.
+# Interface frozen across the kernel/CI/test lanes; do not rename:
+#   extra name    -> `accel`        (pip install .[accel])
+#   native module -> `pl_transpiler._accel`
+#   extra absent  -> `import pl_transpiler._accel` raises ImportError; callers fall
+#                    back to the Python path LOUDLY and produce identical results
+#                    (fail-loud: never a silent different answer).
+#
+# The core `dependencies` list above stays [] and the default `pip install .`
+# remains pure-stdlib, zero-dependency, with no build step (the product rule at
+# line 12-13). This extra is opt-in only.
+#
+# The list is empty ON PURPOSE and is not a no-op marker (see docs/ACCEL.md for
+# the mechanism analysis and the rejected alternatives): this distribution builds
+# with setuptools (the `[build-system]` backend declared above), which does not
+# compile Rust, so no build requirement can truthfully yield `pl_transpiler._accel`
+# from this distribution alone. Installing the extra today therefore resolves to
+# nothing and behaviour stays bit-identical to `pip install .` — the ImportError
+# fallback above is the specified behaviour. When #18/#21 ship the native module,
+# bind this extra to that exact artifact here (name + pin), never to a direct VCS
+# URL (pip rejects those in dependency specifiers). The publishing decision (which
+# artifact, which index) is open and flagged on #17.
+accel = []
+
+[project.scripts]
+# `python3 -m pl_transpiler.tools.el_emit` / `.pl_run` / `.pl_transpile` / `.pl_oracle`
+# still work as modules; these give the same entrypoints as installed console
+# commands (each main(argv=None) -> rc).
+el_emit = "pl_transpiler.tools.el_emit:main"
+pl_run = "pl_transpiler.tools.pl_run:main"
+pl_transpile = "pl_transpiler.tools.pl_transpile:main"
+pl_oracle = "pl_transpiler.tools.pl_oracle:main"
+
+[tool.setuptools.packages.find]
+# Only the library package (and its subpackages, e.g. pl_transpiler.runtime and
+# pl_transpiler.tools) ships in the wheel; tests/ and scripts/ are NOT packaged.
+include = ["pl_transpiler*"]
+
+[tool.setuptools.package-data]
+# The keyword catalog + verified-builtins list load __file__-relative from the tools
+# subpackage, so they must ride along inside the wheel.
+"pl_transpiler.tools" = ["pl_signatures.jsonl", "mc_verified_builtins.txt"]

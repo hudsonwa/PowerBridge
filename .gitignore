@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+.scratch/
+.venv/
+.pytest_cache/
+build/
+dist/
+ground_truth/captures/*
+!ground_truth/captures/MANIFEST.md
+*.egg-info/
+.DS_Store
+
+# EasyLanguage strategy source is proprietary -- never commit it.
+*.EL
+
+# Built native accel extension (tools/build_accel.sh installs the cdylib here).
+pl_transpiler/_accel*.so
+pl_transpiler/_accel*.dylib
+pl_transpiler/_accel*.pyd
+
+# truth — local index/config (machine-specific, do not commit)
+.truth/
+truth.toml

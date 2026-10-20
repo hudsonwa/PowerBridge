@@ -1,0 +1,160 @@
+{ ============================================================================
+  GT4 - Extended coverage ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  INDICATOR  (PowerLanguage Editor -> New -> Indicator)
+
+  PURPOSE
+    Pushes front-end / function coverage further than GT3: date/time functions,
+    daily-session data, volume/tick reserved words, single-return regression &
+    trend indicators (ADX/ADXR/DMI/Bollinger/LinearReg*/Correlation), the
+    MULTI-OUTPUT var-parameter call convention (Stochastic), plus new syntax:
+    `//` line comments, `Repeat..Until`, an `IntrabarPersist` variable, `Plot2`,
+    `NoPlot`, the `true` literal, and a `Condition` boolean var.
+
+    Indicator (no orders) so nothing conflicts. One value per line; flat CSV row.
+
+  GROUNDING
+    Every token grounded in the local refs (PowerLanguage Keyword Reference +
+    TradeStation EL reference); signatures from the TS reference. See GROUNDING.md.
+
+  HIGHEST COMPILE-RISK LINES (if the Editor rejects GT4, these are the first
+  suspects to isolate into a separate file - per the agreed "try it, then split"):
+    - the Stochastic(...) 11-arg var-parameter call (oFastK..oSlowD outputs)
+    - the Repeat .. Until block
+  Because each value is computed on its own line, a single rejected line can be
+  commented out (set its column to 0) without affecting the rest of the capture.
+
+  RUN
+    Delete any old OutPath file first (Print(File()) appends). Apply to a fixed
+    symbol / interval / date-range and record them. Reload once to capture.
+============================================================================ }
+Inputs:
+	Len( 14 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GT4_coverage.csv" ) ;
+
+{ IntrabarPersist variable - declared in its own block to scope the modifier }
+Vars: IntraBarPersist IbpCount( 0 ) ;
+
+Vars:
+	AlwaysOn( true ),
+	Tan45( 0 ),
+	TypPrice( 0 ),
+	WClose( 0 ),
+	LRSlope( 0 ),
+	LRAngle( 0 ),
+	Correl( 0 ),
+	AdxV( 0 ),
+	AdxrV( 0 ),
+	DmiP( 0 ),
+	DmiM( 0 ),
+	BbUp( 0 ),
+	BbDn( 0 ),
+	oFastK( 0 ),
+	oFastD( 0 ),
+	oSlowK( 0 ),
+	oSlowD( 0 ),
+	StochRet( 0 ),
+	ClD( 0 ),
+	OpD( 0 ),
+	HiD( 0 ),
+	LoD( 0 ),
+	MnV( 0 ),
+	YrV( 0 ),
+	DomV( 0 ),
+	CalcD( 0 ),
+	CalcT( 0 ),
+	CurDate( 0 ),
+	CurTime( 0 ),
+	TicksV( 0 ),
+	UpT( 0 ),
+	DnT( 0 ),
+	OiV( 0 ),
+	Cond1N( 0 ),
+	AlwaysOnN( 0 ),
+	RepeatOut( 0 ),
+	Line( "" ) ;
+
+// this is a // line comment - exercises the second EL comment style
+Tan45 = Tangent(45) ; { degrees -> 1.0 (constant probe) }
+
+{ ---- price/session functions ---- }
+TypPrice = typicalprice ;
+WClose = weightedclose ;
+
+{ ---- single-return regression / trend indicators ---- }
+LRSlope = linearregslope(close, Len) ;
+LRAngle = LinearRegAngle(close, Len) ;
+Correl = correlation(close, open, Len) ;
+AdxV = ADX(Len) ;
+AdxrV = ADXR(Len) ;
+DmiP = DMIPlus(Len) ;
+DmiM = DMIMinus(Len) ;
+BbUp = BollingerBand(close, Len, 2) ;
+BbDn = BollingerBand(close, Len, -2) ;
+
+{ ---- multi-output (var-parameter) call: Stochastic sets oFastK..oSlowD ---- }
+StochRet = Stochastic(high, low, close, Len, 3, 3, 1, oFastK, oFastD, oSlowK, oSlowD) ;
+
+{ ---- daily-session data ---- }
+ClD = closed(0) ;
+OpD = opend(0) ;
+HiD = highd(0) ;
+LoD = lowd(0) ;
+
+{ ---- date / time functions ---- }
+MnV = Month(date) ;
+YrV = Year(date) ;
+DomV = DayOfMonth(date) ;
+CalcD = calcdate(date, -14) ;
+CalcT = calctime(time, -15) ;
+CurDate = CurrentDate ;
+CurTime = CurrentTime ;
+
+{ ---- volume / tick reserved words ---- }
+TicksV = ticks ;
+UpT = upticks ;
+DnT = downticks ;
+OiV = openint ;
+
+{ ---- IntrabarPersist counter ---- }
+IbpCount = IbpCount + 1 ;
+
+{ ---- Condition var + true literal ---- }
+condition1 = close > open ;
+Cond1N = iff(condition1, 1, 0) ;
+AlwaysOnN = iff(AlwaysOn, 1, 0) ; { true literal -> always 1 }
+
+{ ---- Repeat .. Until loop - constant probe: counts to 5 ---- }
+RepeatOut = 0 ;
+Repeat
+	RepeatOut = RepeatOut + 1 ;
+Until RepeatOut >= 5 ;
+
+{ ---- header row, written once ---- }
+Once Print( File(OutPath),
+	"bn,date,time,open,high,low,close,volume,tan45,typprice,wclose,lrslope,lrangle,correl,adx,adxr,dmiplus,dmiminus,bbup,bbdn,stochret,stochk,stochd,closed,opend,highd,lowd,month,year,dom,calcdate,calctime,curdate,curtime,ticks,upticks,downticks,openint,ibpcount,cond1,alwayson,repeatout"
+	) ;
+
+{ ---- build the CSV row: flat concatenation, no nesting ---- }
+Line = numtostr(barnumber, 0) + "," + numtostr(date, 0) + "," + numtostr(time, 0) + "," +
+	numtostr(open, Prec) + "," + numtostr(high, Prec) + "," + numtostr(low, Prec) + "," +
+	numtostr(close, Prec) + "," + numtostr(volume, 0) + "," + numtostr(Tan45, Prec) + "," +
+	numtostr(TypPrice, Prec) + "," + numtostr(WClose, Prec) + "," + numtostr(LRSlope, Prec) + "," +
+	numtostr(LRAngle, Prec) + "," + numtostr(Correl, Prec) + "," + numtostr(AdxV, Prec) + "," +
+	numtostr(AdxrV, Prec) + "," + numtostr(DmiP, Prec) + "," + numtostr(DmiM, Prec) + "," +
+	numtostr(BbUp, Prec) + "," + numtostr(BbDn, Prec) + "," + numtostr(StochRet, 0) + "," +
+	numtostr(oSlowK, Prec) + "," + numtostr(oSlowD, Prec) + "," + numtostr(ClD, Prec) + "," +
+	numtostr(OpD, Prec) + "," + numtostr(HiD, Prec) + "," + numtostr(LoD, Prec) + "," + numtostr(MnV,
+	0) + "," + numtostr(YrV, 0) + "," + numtostr(DomV, 0) + "," + numtostr(CalcD, 0) + "," +
+	numtostr(CalcT, 0) + "," + numtostr(CurDate, 0) + "," + numtostr(CurTime, 0) + "," +
+	numtostr(TicksV, 0) + "," + numtostr(UpT, 0) + "," + numtostr(DnT, 0) + "," + numtostr(OiV, 0) +
+	"," + numtostr(IbpCount, 0) + "," + numtostr(Cond1N, 0) + "," + numtostr(AlwaysOnN, 0) + "," +
+	numtostr(RepeatOut, 0) ;
+
+Print( File(OutPath), Line ) ;
+
+{ plots: Plot2 and NoPlot exercise additional plotting front-end }
+plot1( TypPrice ) ;
+plot2( WClose ) ;
+If barnumber < 0 Then noplot(1) ;

@@ -1,0 +1,8 @@
+# PyO3 cdylib: leave CPython symbols undefined so the interpreter
+# resolves them at import. Required for `cargo build` on macOS
+# (maturin passes the same flags). Linux/Windows do not need this.
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]

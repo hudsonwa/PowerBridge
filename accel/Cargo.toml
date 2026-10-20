@@ -1,0 +1,33 @@
+[package]
+name = "accel"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "PowerBridge native bar-loop and fill-engine kernel extra (PyO3)"
+repository = "https://github.com/hudsonwa/PowerBridge"
+publish = false
+
+[lib]
+name = "_accel"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.25", features = ["extension-module"] }
+serde_json = "1"
+sha2 = "0.10"
+
+# Candidate #7 (issue #13): release-profile tuning for the SHIPPED extension.
+#
+# This is a dedicated profile, NOT `[profile.release]`, on purpose. Setting
+# `lto = "fat"` on the default release profile breaks `cargo test --release`
+# on macOS: the standalone test binary is linked without libpython and fat LTO
+# turns the previously-tolerant undefined Python symbols into a hard dyld
+# failure (`symbol not found in flat namespace '_PyExc_AttributeError'`).
+# Inheriting keeps `cargo test` and `cargo test --release` working untouched.
+#
+# `target-cpu=native` is deliberately NOT set: it would make every build
+# host-specific (CI, wheels, the lane machines). It is measured separately.
+[profile.release-lto]
+inherits = "release"
+lto = "fat"
+codegen-units = 1

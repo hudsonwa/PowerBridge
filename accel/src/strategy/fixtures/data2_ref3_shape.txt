@@ -1,0 +1,7 @@
+Variables: D2C(0), D2CN(0), D2H(0), D2L(0);
+D2C = Close of Data2;
+D2CN = Close of Data(2);
+D2H = High of Data2;
+D2L = Low of Data2;
+If D2C > Close And D2CN > Close And D2H > D2L Then
+Buy ("D2B") 1 Contracts Next Bar At D2C Limit;

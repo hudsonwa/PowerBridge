@@ -1,0 +1,143 @@
+name: accel extra (CI + wheels)
+
+# Issue #21 — CI and wheels for the optional `accel` fast path.
+#
+# Product shape (locked by #17, docs/ACCEL.md): core `dependencies = []`
+# (pure stdlib); the fast path is the opt-in `[accel]` extra; the native
+# module is `pl_transpiler._accel`; an absent extra is the documented normal
+# state (ImportError -> callers fall back to the Python path loudly).
+#
+# What the jobs prove:
+#   * accel-macos-arm64 — RUNS the accel path, not merely builds it: builds
+#     the wheel with maturin, installs core + the wheel, imports the native
+#     module from a NON-repo cwd (so the repo's source package cannot shadow
+#     the installed .so), asserts ping() == 42 and run() raising
+#     NotImplementedError, then runs the public test tier and the
+#     differential conformance harness. The job FAILS if the extra silently
+#     does not load.
+#   * core-no-accel — the extra is ABSENT: proves the zero-dependency promise
+#     is itself tested (import raises ImportError, core tier stays green).
+#
+# Platform matrix: macOS arm64 is first-class (built + run here). Linux
+# x86_64/aarch64 and Windows wheels are clearly-marked FOLLOW-UPS and are NOT
+# claimed here — nothing in this workflow claims a platform it does not build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Job 1: RUN the accel path on the machine class actually used (arm64 mac).
+  # ---------------------------------------------------------------------
+  accel-macos-arm64:
+    name: accel (macOS arm64) — build + run the extra
+    runs-on: macos-14   # Apple Silicon (arm64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install maturin and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "maturin>=1.0,<2.0" pytest
+
+      - name: Build the accel wheel (release)
+        run: maturin build --release
+        working-directory: accel
+
+      - name: Install core, then install the built wheel (the extra)
+        run: |
+          python -m pip install .
+          python -m pip install accel/target/wheels/accel-*.whl
+
+      - name: The extra MUST load (fail loudly if it silently does not)
+        # Import from a cwd that is NOT the repo root: the repo's source
+        # `pl_transpiler` would shadow the installed native module (the exact
+        # trap documented in accel/README.md).
+        run: |
+          mkdir -p "$RUNNER_TEMP/accel-probe" && cd "$RUNNER_TEMP/accel-probe"
+          python - <<'PY'
+          import pl_transpiler._accel as accel
+          assert accel.ping() == 42, 'ping() must return 42'
+          try:
+              accel.run([], [], [], [], [], [], [])
+          except NotImplementedError:
+              pass
+          else:
+              raise SystemExit('run() must raise NotImplementedError in phase 1')
+          print('OK: pl_transpiler._accel loads; ping()==42; run() raises NotImplementedError')
+          PY
+
+      - name: Public test tier (extra installed)
+        run: python3 tests/run_public_tier.py
+
+      - name: Differential conformance harness + wheel-load gate
+        # The python-vs-accel differential gate and the digest gate (issue #5) arm once
+        # the kernel's execution boundary is frozen; otherwise they skip cleanly from
+        # the repo root (repo package shadows the installed module), exactly as their
+        # authors designed. The wheel-load gate above is the load proof.
+        run: python3 -m pytest tests/test_accel_conformance.py tests/test_accel_wheel.py tests/test_accel_digest_gate.py -q
+
+      - name: Native-vs-Python digest gate (native path must be taken)
+        # Independent gate (issue #5): builds/installs the cdylib as its first step,
+        # runs both paths, and compares the canonical digest — AND asserts the native
+        # path was actually taken (a silent Python fallback is a FAIL, not a pass).
+        run: python3 tools/accel_gate.py
+
+      - name: Upload the macOS arm64 wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: accel-macos-arm64-wheel
+          path: accel/target/wheels/*.whl
+
+  # ---------------------------------------------------------------------
+  # Job 2: the extra is ABSENT — the zero-dependency promise is tested.
+  # ---------------------------------------------------------------------
+  core-no-accel:
+    name: core (no accel) — zero-dep promise
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install core WITHOUT the extra
+        run: python -m pip install .
+
+      - name: Extra absent -> import raises ImportError (loud fallback)
+        run: |
+          python - <<'PY'
+          try:
+              import pl_transpiler._accel
+          except ImportError:
+              print('OK: import pl_transpiler._accel raises ImportError without the extra')
+          else:
+              raise SystemExit('FAIL: the accel module imported WITHOUT the extra installed')
+          PY
+
+      - name: Zero third-party runtime dependencies
+        run: |
+          python - <<'PY'
+          import importlib.metadata as md
+          deps = md.requires('pl-transpiler') or []
+          assert not deps, f'core must declare zero dependencies, got {deps}'
+          print('OK: pl-transpiler declares zero third-party dependencies')
+          PY
+
+      - name: Public test tier (extra absent)
+        run: python3 tests/run_public_tier.py
+
+      - name: Differential conformance harness (extra absent -> differential gate skips)
+        run: |
+          python -m pip install pytest
+          python3 -m pytest tests/test_accel_conformance.py tests/test_accel_wheel.py tests/test_accel_digest_gate.py -q

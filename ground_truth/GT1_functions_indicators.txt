@@ -1,0 +1,208 @@
+{ ============================================================================
+  GT1 - Functions / Indicators / Language ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  INDICATOR  (PowerLanguage Editor -> New -> Indicator)
+
+  WHAT IT DOES
+    Calculates over every bar and appends one comma-delimited row per bar to
+    OutPath. That file is the bar-by-bar ground truth for the transpiler.
+
+  STYLE (KISS)
+    - Every output value is computed into its own variable on its own line.
+    - The CSV row is a single FLAT concatenation of NumToStr(var,..) terms:
+      no nested function calls, no conditionals inside the Print.
+    - Assignment is '='  (never ':='). EasyLanguage idioms only.
+
+  GROUNDING
+    Every keyword, function, operator and bracket below is grounded in the
+    official PowerLanguage Keyword Reference and/or TradeStation help; see
+    ground_truth/GROUNDING.md for the per-token citation table.
+
+  RUN
+    Delete any old OutPath file first (Print(File()) appends). Apply to a fixed
+    symbol / interval / date-range and record them. Reload once to capture.
+============================================================================ }
+
+Inputs:
+	Len( 14 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GT1_funcs.csv" ) ;
+
+Vars:
+	Counter( 0 ),
+	RunSum( 0 ),
+	PrevClose( 0 ),
+	PrevCounter( 0 ),
+	ForSum( 0 ),
+	SmaManual( 0 ),
+	IfElseOut( 0 ),
+	AvgC( 0 ),
+	XAvgC( 0 ),
+	RsiC( 0 ),
+	HiH( 0 ),
+	LoL( 0 ),
+	SumC( 0 ),
+	StdDevC( 0 ),
+	MomC( 0 ),
+	RocC( 0 ),
+	CciC( 0 ),
+	AtrC( 0 ),
+	TrueRangeC( 0 ),
+	MedPrice( 0 ),
+	RangeC( 0 ),
+	MacdC( 0 ),
+	AbsV( 0 ),
+	SqrV( 0 ),
+	SqrtV( 0 ),
+	PowrV( 0 ),
+	LnV( 0 ),
+	ExpV( 0 ),
+	IntP( 0 ),
+	FracP( 0 ),
+	SgnV( 0 ),
+	ModV( 0 ),
+	MaxL( 0 ),
+	MinL( 0 ),
+	RndV( 0 ),
+	CeilV( 0 ),
+	FloorV( 0 ),
+	CrossUpN( 0 ),
+	CrossDnN( 0 ),
+	StrLenV( 0 ),
+	InStrV( 0 ),
+	LeftS( "" ),
+	RightS( "" ),
+	UpperS( "" ),
+	Idx( 0 ),
+	Line( "" ) ;
+
+Arrays:
+	Buf[200]( 0 ) ;
+
+{ ---- cross-bar persistence ---- }
+Counter = Counter + 1 ;
+RunSum = RunSum + Close ;
+
+{ ---- user-variable history references ---- }
+PrevClose = Close[1] ;
+PrevCounter = Counter[1] ;
+
+{ ---- For loop + array: manual SMA of the last Len closes ---- }
+ForSum = 0 ;
+For Idx = 0 To Len - 1 Begin
+	Buf[Idx] = Close[Idx] ;
+	ForSum = ForSum + Buf[Idx] ;
+End ;
+SmaManual = ForSum / Len ;
+
+{ ---- single-level If / Then / Else ---- }
+If Close > Open Then
+	IfElseOut = 1
+Else
+	IfElseOut = -1 ;
+
+{ ---- indicator / series functions (one per line) ---- }
+AvgC = Average( Close, Len ) ;
+XAvgC = XAverage( Close, Len ) ;
+RsiC = RSI( Close, Len ) ;
+HiH = Highest( High, Len ) ;
+LoL = Lowest( Low, Len ) ;
+SumC = Summation( Close, Len ) ;
+StdDevC = StandardDev( Close, Len, 1 ) ;
+MomC = Momentum( Close, Len ) ;
+RocC = RateOfChange( Close, Len ) ;
+CciC = CCI( Len ) ;
+AtrC = AvgTrueRange( Len ) ;
+TrueRangeC = TrueRange ;
+MedPrice = MedianPrice ;
+RangeC = Range ;
+MacdC = MACD( Close, 12, 26 ) ;
+
+{ ---- math functions (one per line) ---- }
+AbsV = AbsValue( Close - Open ) ;
+SqrV = Square( Close - Open ) ;
+SqrtV = SquareRoot( AbsValue( Close ) ) ;
+PowrV = Power( 2, 3 ) ;
+LnV = Log( AbsValue( Close ) + 1 ) ;
+ExpV = ExpValue( 1 ) ;
+IntP = IntPortion( Close ) ;
+FracP = FracPortion( Close ) ;
+SgnV = Sign( Close - Open ) ;
+ModV = Mod( BarNumber, 5 ) ;
+MaxL = MaxList( Open, High, Low, Close ) ;
+MinL = MinList( Open, High, Low, Close ) ;
+RndV = Round( Close, 2 ) ;
+CeilV = Ceiling( Close ) ;
+FloorV = Floor( Close ) ;
+
+{ ---- crosses -> numeric 1/0 (computed here, never nested in the output) ---- }
+CrossUpN = 0 ;
+If Close crosses above AvgC Then
+	CrossUpN = 1 ;
+CrossDnN = 0 ;
+If Close crosses below AvgC Then
+	CrossDnN = 1 ;
+
+{ ---- string functions ---- }
+StrLenV = StrLen( "abcdef" ) ;
+InStrV = InStr( "abcdef", "cd" ) ;
+LeftS = LeftStr( "abcdef", 3 ) ;
+RightS = RightStr( "abcdef", 2 ) ;
+UpperS = UpperStr( "abc" ) ;
+
+{ ---- header row, written once ---- }
+Once Print( File( OutPath ), "bn,date,time,close,prevclose,counter,prevcounter,runsum,smamanual,ifelse,avg,xavg,rsi,highest,lowest,summ,stddev,mom,roc,cci,atr,truerange,medprice,range,macd,absv,sqr,sqrt,powr,ln,exp,intp,fracp,sign,mod,maxl,minl,round,ceil,floor,crossup,crossdn,strlen,instr,lefts,rights,uppers" ) ;
+
+{ ---- build the CSV row: flat, one term per source value, no nesting ---- }
+Line = NumToStr( BarNumber, 0 ) + "," +
+	NumToStr( Date, 0 ) + "," +
+	NumToStr( Time, 0 ) + "," +
+	NumToStr( Close, Prec ) + "," +
+	NumToStr( PrevClose, Prec ) + "," +
+	NumToStr( Counter, 0 ) + "," +
+	NumToStr( PrevCounter, 0 ) + "," +
+	NumToStr( RunSum, Prec ) + "," +
+	NumToStr( SmaManual, Prec ) + "," +
+	NumToStr( IfElseOut, 0 ) + "," +
+	NumToStr( AvgC, Prec ) + "," +
+	NumToStr( XAvgC, Prec ) + "," +
+	NumToStr( RsiC, Prec ) + "," +
+	NumToStr( HiH, Prec ) + "," +
+	NumToStr( LoL, Prec ) + "," +
+	NumToStr( SumC, Prec ) + "," +
+	NumToStr( StdDevC, Prec ) + "," +
+	NumToStr( MomC, Prec ) + "," +
+	NumToStr( RocC, Prec ) + "," +
+	NumToStr( CciC, Prec ) + "," +
+	NumToStr( AtrC, Prec ) + "," +
+	NumToStr( TrueRangeC, Prec ) + "," +
+	NumToStr( MedPrice, Prec ) + "," +
+	NumToStr( RangeC, Prec ) + "," +
+	NumToStr( MacdC, Prec ) + "," +
+	NumToStr( AbsV, Prec ) + "," +
+	NumToStr( SqrV, Prec ) + "," +
+	NumToStr( SqrtV, Prec ) + "," +
+	NumToStr( PowrV, Prec ) + "," +
+	NumToStr( LnV, Prec ) + "," +
+	NumToStr( ExpV, Prec ) + "," +
+	NumToStr( IntP, Prec ) + "," +
+	NumToStr( FracP, Prec ) + "," +
+	NumToStr( SgnV, 0 ) + "," +
+	NumToStr( ModV, 0 ) + "," +
+	NumToStr( MaxL, Prec ) + "," +
+	NumToStr( MinL, Prec ) + "," +
+	NumToStr( RndV, 2 ) + "," +
+	NumToStr( CeilV, Prec ) + "," +
+	NumToStr( FloorV, Prec ) + "," +
+	NumToStr( CrossUpN, 0 ) + "," +
+	NumToStr( CrossDnN, 0 ) + "," +
+	NumToStr( StrLenV, 0 ) + "," +
+	NumToStr( InStrV, 0 ) + "," +
+	LeftS + "," +
+	RightS + "," +
+	UpperS ;
+
+Print( File( OutPath ), Line ) ;
+
+{ visible plot so the indicator is obviously calculating on the chart }
+Plot1( AvgC ) ;

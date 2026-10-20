@@ -1,0 +1,790 @@
+{ ============================================================================
+  GTA6 - comprehensive FULLY-GROUNDED ground-truth strategy  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  SIGNAL  (PowerLanguage Editor -> New -> Signal)
+
+  WHAT IT DOES
+    The "no stone unturned" calculation / statistics / data-introspection coverage
+    script. SINGLE-DATA (no Data2 - multi-data is covered by GTA5). It EXERCISES every
+    transpilable PowerLanguage keyword that GT1-GT4 / GT_master / GTA5 do NOT already
+    use, other than the deliberate exclusions, so the transpiler gains coverage for:
+      - the array / list family (Array_*, Fill_Array, SumList/AvgList/MaxList2/MinList2)
+      - the full date/time conversion family (Encode/Format/StringTo*, EL<->DateTime,
+        Time*_s, DayOfWeekFromDateTime, MillisecondsFromDateTime, IncMonth, *ToString)
+      - the session-family remainder (Sess1/2*, SessionCount(MS), SessionStart/EndDay(MS),
+        SessionStart/EndTimeMS, SessionEndTime, SessionLastBar)
+      - bar / data metadata (CurrentBar, Current/BaseDataNumber, BarStatus, BarType(_ex),
+        IntervalType(_ex), MaxBarsBack/Forward, LastCalc DateTime/JDate/MMTime/MSTime/
+        SSTime, TickID, Trade Volume/Date/Time)
+      - strategy performance stats (NumWin/Los/EvenTrades, Largest*, PercentProfit,
+        MaxConsec*, AvgBars*/TotalBars*, MaxContract/Position Profit/Loss, MaxContracts,
+        MaxShares(Held), MaxEntries, MaxPositionsAgo)
+      - open-position + closed-trade introspection (OpenEntry*, PosTrade*)
+      - entry/exit metadata (Entry/Exit Name/Date/Time/DateTime, CurrentEntries/Shares,
+        ExecOffset)
+      - order types + money-management forms (limit/stop/on-close/from-entry, BuyToCover,
+        SetStopLoss/_pt, SetProfitTarget/_pt, SetBreakEven/_pt, SetPercentTrailing/_pt,
+        SetDollarTrailing, SetTrailingStop_pt, SetStop Contract/Share/Position,
+        SetExitOnClose) - referenced in OrderMode/MMVariant-gated branches for compile
+        coverage (need not all execute in one capture)
+      - misc (AlertEnabled, Abort, CommandLine, Description, Category, Symbol(Name),
+        SymbolCurrencyCode, ExpirationDate)
+    Appends one comma-delimited row per bar to TWO files (column-limit safety):
+      OutPath  = calc / data / array / date-time / session / bar-metadata columns
+      OutPath2 = stats / trade-introspection / entry-exit columns
+
+  TRADES
+    A simple always-evaluated FastMA-crosses-SlowMA entry fires at market on every
+    cross (Buy on cross-up, SellShort on cross-down) so the trade-statistic and
+    trade-introspection reserved words hold real non-zero values. SetExitOnClose.
+
+  ORDER MODES  (only the ORDER block is gated by OrderMode; the calc + stats battery
+  runs every bar). Run the calc capture with OrderMode=0 (market reversal). The other
+  modes parse/compile and are coverage-counted:
+    0 = MA-cross reversal at market  (default; this is the TRADING run)
+    1 = limit entries          2 = stop entries
+    3 = this-bar-on-close       4 = named exits from entry + BuyToCover short exit
+
+  MM VARIANTS  (only the MM block is gated by MMVariant). 0 = none (default calc run);
+  1..10 isolate one stop family per run (same matrix as GTA5).
+
+  STYLE (KISS)
+    - One value per line; CSV rows are flat concatenations, no nesting.
+    - Single-level conditionals only (gate with compound `and`).
+    - Assignment AND equality are '='  (never ':=', never '==').
+    - Header + row built INCREMENTALLY across many statements (string-limit safety).
+
+  GROUNDING
+    Every used-but-undeclared keyword/function is proven by
+      python tools/mc_ground_check.py ground_truth/GTA6_strategy.txt
+    against the PowerLanguage Keyword Reference alphabetical INDEX + a body Usage
+    entry. Per-token citations: ground_truth/GTA6_GROUNDING.md.
+
+  RUN
+    SINGLE data series (NQ-like 1-min). Bar Magnifier OFF, IOG OFF, single session.
+    1 contract base, commission = 0, slippage = 0. Delete BOTH OutPath files first
+    (Print(File()) appends). See ground_truth/GTA6_RUNSHEET.md.
+============================================================================ }
+[SameExitFromOneEntryOnce = true]
+
+Inputs:
+	Len( 14 ),
+	FastLen( 10 ),
+	SlowLen( 30 ),
+	ArrLen( 8 ),
+	StopLossAmt( 1000 ),
+	ProfitTgtAmt( 2000 ),
+	TrailFloor( 1500 ),
+	TrailPct( 30 ),
+	BreakEvenAmt( 800 ),
+	PtAmt( 8 ),
+	OrderMode( 2 ),
+	MMVariant( 10 ),
+	StopBasis( 0 ),
+	Prec( 6 ),
+	OutPath( "C:\pl_gt\GTA6_o2_mm10.csv" ),
+	OutPath2( "C:\pl_gt\GTA6_o2_mm10_b.csv" ) ;
+
+{ ---- arrays. FArr/IArr/BArr/SArr are STATIC (fixed max index 8). GArr is DYNAMIC
+  (declared with empty [ ]) so Array_SetMaxIndex can resize it; it is sized FIRST in
+  the body (Array_SetMaxIndex(GArr,ArrLen)) before any GArr element is written. ---- }
+Arrays:
+	FArr[8]( 0 ),
+	IArr[8]( 0 ),
+	BArr[8]( false ),
+	SArr[8]( "" ) ;
+
+Arrays: GArr[]( 0 ) ;
+
+{ ---- signals / cross-bar ---- }
+Vars:
+	FastMA( 0 ),
+	SlowMA( 0 ),
+	GoLong( false ),
+	GoShort( false ),
+	OrderTag( "" ),
+	LimitBuyPx( 0 ),
+	StopBuyPx( 0 ),
+	LimitShortPx( 0 ),
+	StopShortPx( 0 ),
+	Idx( 0 ) ;
+
+{ ---- array / list results ---- }
+Vars:
+	ArrSum( 0 ),
+	ArrIdxOf( 0 ),
+	ArrCmp( 0 ),
+	ArrContains( 0 ),
+	ArrMaxIdx( 0 ),
+	ArrType( 0 ),
+	GotFloat( 0 ),
+	GotInt( 0 ),
+	GotBool( 0 ),
+	GotStr( "" ),
+	SetMaxOk( 0 ),
+	SumLst( 0 ),
+	AvgLst( 0 ),
+	MaxLst2( 0 ),
+	MinLst2( 0 ) ;
+
+{ ---- date / time conversion family ---- }
+Vars:
+	EncD( 0 ),
+	EncT( 0 ),
+	ElD2Dt( 0 ),
+	ElT2Dt( 0 ),
+	ElT2DtS( 0 ),
+	Dt2ElT( 0 ),
+	Dt2ElTS( 0 ),
+	DowDt( 0 ),
+	MsFromDt( 0 ),
+	IncM( 0 ),
+	T2Ts( 0 ),
+	Ts2T( 0 ),
+	CurTs( 0 ),
+	StrDate( 0 ),
+	StrTime( 0 ),
+	StrDtm( 0 ),
+	StrDtFmt( 0 ),
+	DtStr( "" ),
+	DtmStr( "" ),
+	DtmMsStr( "" ),
+	FmtDStr( "" ),
+	FmtTStr( "" ),
+	TStr( "" ) ;
+
+{ ---- session family remainder ---- }
+Vars:
+	S1End( 0 ),
+	S1First( 0 ),
+	S2Start( 0 ),
+	S2End( 0 ),
+	S2First( 0 ),
+	SessCnt( 0 ),
+	SessCntMS( 0 ),
+	SStartDay( 0 ),
+	SStartDayMS( 0 ),
+	SEndDay( 0 ),
+	SEndDayMS( 0 ),
+	SStartTMS( 0 ),
+	SEndTMS( 0 ),
+	SEndT( 0 ),
+	SessLast( 0 ) ;
+
+{ ---- bar / data metadata ---- }
+Vars:
+	CurBar( 0 ),
+	CurDataNum( 0 ),
+	BaseDataNum( 0 ),
+	BarStat( 0 ),
+	BarTyp( 0 ),
+	BarTypEx( 0 ),
+	IntvTyp( 0 ),
+	IntvTypEx( 0 ),
+	MaxBB( 0 ),
+	MaxBF( 0 ),
+	LcDt( 0 ),
+	LcJD( 0 ),
+	LcMM( 0 ),
+	LcMS( 0 ),
+	LcSS( 0 ),
+	TkID( 0 ),
+	TrdVol( 0 ),
+	TrdDate( 0 ),
+	TrdTime( 0 ) ;
+
+{ ---- strategy performance stats ---- }
+Vars:
+	NWin( 0 ),
+	NLos( 0 ),
+	NEven( 0 ),
+	LrgWin( 0 ),
+	LrgLos( 0 ),
+	PctProfit( 0 ),
+	MaxCWin( 0 ),
+	MaxCLos( 0 ),
+	AvgBWin( 0 ),
+	AvgBLos( 0 ),
+	AvgBEven( 0 ),
+	TotBWin( 0 ),
+	TotBLos( 0 ),
+	TotBEven( 0 ),
+	MaxCtrProfit( 0 ),
+	MaxPosProfit( 0 ),
+	MaxPosLoss( 0 ),
+	MaxCtr( 0 ),
+	MaxShr( 0 ),
+	MaxShrHeld( 0 ),
+	MaxEntr( 0 ),
+	MaxPosAgo( 0 ) ;
+
+{ ---- open-position + closed-trade introspection ---- }
+Vars:
+	OeCount( 0 ),
+	OePrice( 0 ),
+	OeProfit( 0 ),
+	OeMaxProfit( 0 ),
+	OeMinProfit( 0 ),
+	OeDate( 0 ),
+	OeTime( 0 ),
+	PtCount( 0 ),
+	PtProfit( 0 ),
+	PtSize( 0 ),
+	PtIsLong( 0 ),
+	PtIsOpen( 0 ),
+	PtEntryPx( 0 ),
+	PtExitPx( 0 ),
+	PtEntryBar( 0 ),
+	PtExitBar( 0 ),
+	PtEntryDtm( 0 ),
+	PtExitDtm( 0 ),
+	PtEntryCat( 0 ),
+	PtExitCat( 0 ),
+	PtEntryNm( "" ),
+	PtExitNm( "" ) ;
+
+{ ---- entry / exit metadata ---- }
+Vars:
+	EnNm( "" ),
+	EnDate( 0 ),
+	EnTime( 0 ),
+	EnDtm( 0 ),
+	ExNm( "" ),
+	ExDate( 0 ),
+	ExTime( 0 ),
+	ExDtm( 0 ),
+	CurEntr( 0 ),
+	CurShr( 0 ),
+	ExecOff( 0 ) ;
+
+{ ---- misc symbol / instrument ---- }
+Vars:
+	AlEn( 0 ),
+	Cat( 0 ),
+	ExpDate( 0 ),
+	SymCcy( 0 ),
+	SymNm( "" ),
+	SymAlt( "" ),
+	DescStr( "" ) ;
+
+{ ---- catch-all completion: newly-grounded, previously-uncovered coverage (2026-06-19)
+  Cotangent (math), Time_s (bar close incl. seconds), and the OpenEntry* per-contract /
+  contract-count introspection words. All numeric; cited in GTA6_GROUNDING.md. ---- }
+Vars:
+	CotVal( 0 ),
+	TimeS( 0 ),
+	OeContracts( 0 ),
+	OeProfitPC( 0 ),
+	OeMaxProfitPC( 0 ),
+	OeMinProfitPC( 0 ) ;
+
+{ ---- output ---- }
+Vars:
+	HdrA( "" ),
+	HdrB( "" ),
+	Line1( "" ),
+	Line2( "" ) ;
+
+{ ============================================================================
+  SIGNALS  (always evaluated -> the strategy TRADES every cross)
+============================================================================ }
+FastMA = average(close, FastLen) ;
+SlowMA = average(close, SlowLen) ;
+GoLong = FastMA crosses above SlowMA ;
+GoShort = FastMA crosses below SlowMA ;
+
+LimitBuyPx = low ;
+StopBuyPx = high ;
+LimitShortPx = high ;
+StopShortPx = low ;
+
+{ ============================================================================
+  ARRAY / LIST BATTERY  (runs every bar; emit scalar results as columns)
+============================================================================ }
+{ load the OHLC window into the float / generic numeric arrays }
+{ size the DYNAMIC array GArr FIRST (max index ArrLen -> ArrLen+1 elements) before
+  any GArr element is written; SetMaxOk records the True/False resize status }
+SetMaxOk = 0 ;
+If array_setmaxindex(GArr, ArrLen) Then SetMaxOk = 1 ;
+
+fill_array(FArr, 0) ;
+array_setfloatvalue(FArr, 0, open) ;
+array_setfloatvalue(FArr, 1, high) ;
+array_setfloatvalue(FArr, 2, low) ;
+array_setfloatvalue(FArr, 3, close) ;
+array_setintegervalue(IArr, 0, barnumber) ;
+array_setbooleanvalue(BArr, 0, GoLong) ;
+array_setstringvalue(SArr, 0, "px") ;
+array_setvalrange(GArr, 0, 3, close) ;
+array_copy(FArr, 0, GArr, 4, 4) ;
+
+GotFloat = array_getfloatvalue(FArr, 3) ;
+GotInt = array_getintegervalue(IArr, 0) ;
+GotBool = 0 ;
+If array_getbooleanvalue(BArr, 0) Then GotBool = 1 ;
+GotStr = array_getstringvalue(SArr, 0) ;
+
+ArrSum = array_sum(FArr, 0, 3) ;
+ArrIdxOf = array_indexof(FArr, close) ;
+ArrCmp = array_compare(FArr, 0, GArr, 4, 4) ;
+ArrContains = 0 ;
+If array_contains(FArr, close) Then ArrContains = 1 ;
+ArrMaxIdx = array_getmaxindex(FArr) ;
+ArrType = array_gettype(FArr) ;
+array_sort(GArr, 0, 3, true) ;
+
+SumLst = SumList(open, high, low, close) ;
+AvgLst = AvgList(open, high, low, close) ;
+MaxLst2 = MaxList2(open, high, low, close) ;
+MinLst2 = MinList2(open, high, low, close) ;
+CotVal = Cotangent(45) ;
+
+{ ============================================================================
+  DATE / TIME CONVERSION FAMILY  (runs every bar)
+============================================================================ }
+EncD = EncodeDate(8, 1, 1) ;
+EncT = EncodeTime(16, 29, 55, 500) ;
+ElD2Dt = ELDateToDateTime(date) ;
+ElT2Dt = ELTimeToDateTime(time) ;
+ElT2DtS = ELTimeToDateTime_s(Time2Time_s(time)) ;
+Dt2ElT = DateTime2ELTime(datetime) ;
+Dt2ElTS = DateTime2ELTime_s(datetime) ;
+DowDt = DayOfWeekFromDateTime(datetime) ;
+MsFromDt = MilliSecondsFromDateTime(datetime) ;
+IncM = IncMonth(DateToJulian(date), 1) ;
+T2Ts = Time2Time_s(time) ;
+Ts2T = Time_s2Time(T2Ts) ;
+CurTs = CurrentTime_s ;
+StrDate = StringToDate("01/01/2008") ;
+StrTime = StringToTime("08:00:00 AM") ;
+StrDtm = StringToDateTime("01/01/2008 08:00:00 AM") ;
+StrDtFmt = StringToDTFormatted("02/17/11", "MM/dd/yy") ;
+DtStr = DateToString(datetime) ;
+DtmStr = DateTimeToString(datetime) ;
+DtmMsStr = DateTimeToString_Ms(datetime) ;
+FmtDStr = FormatDate("MM/dd/yyyy", datetime) ;
+FmtTStr = FormatTime("HH:mm:ss", datetime) ;
+TStr = TimeToString(datetime) ;
+TimeS = time_s ;
+
+{ ============================================================================
+  SESSION FAMILY REMAINDER  (runs every bar)
+============================================================================ }
+S1End = sess1endtime ;
+S1First = sess1firstbartime ;
+S2Start = sess2starttime ;
+S2End = sess2endtime ;
+S2First = sess2firstbartime ;
+SessCnt = sessioncount(1) ;
+SessCntMS = sessioncountms ;
+SStartDay = SessionStartDay(1, 1) ;
+SStartDayMS = SessionStartDayMS(1) ;
+SEndDay = sessionendday(1, 1) ;
+SEndDayMS = sessionenddayms(1) ;
+SStartTMS = SessionStartTimeMS(1) ;
+SEndTMS = SessionEndTimeMS(1) ;
+SEndT = SessionEndTime(1, 1) ;
+SessLast = 0 ;
+If sessionlastbar Then SessLast = 1 ;
+
+{ ============================================================================
+  BAR / DATA METADATA  (runs every bar)
+============================================================================ }
+CurBar = currentbar ;
+CurDataNum = CurrentDataNumber ;
+BaseDataNum = BaseDataNumber ;
+BarStat = barstatus(1) ;
+BarTyp = bartype ;
+BarTypEx = bartype_ex ;
+IntvTyp = IntervalType ;
+IntvTypEx = IntervalType_ex ;
+MaxBB = maxbarsback ;
+MaxBF = maxbarsforward ;
+LcDt = LastCalcDateTime ;
+LcJD = LastCalcJDate ;
+LcMM = LastCalcMMTime ;
+LcMS = LastCalcmSTime ;
+LcSS = LastCalcSSTime ;
+TkID = tickid ;
+TrdVol = tradevolume ;
+TrdDate = tradedate ;
+TrdTime = tradetime ;
+
+{ ============================================================================
+  STRATEGY PERFORMANCE STATS  (runs every bar; cumulative MC values)
+============================================================================ }
+NWin = numwintrades ;
+NLos = numlostrades ;
+NEven = numeventrades ;
+LrgWin = largestwintrade ;
+LrgLos = largestlostrade ;
+PctProfit = percentprofit ;
+MaxCWin = maxconsecwinners ;
+MaxCLos = maxconseclosers ;
+AvgBWin = AvgBarsWinTrade ;
+AvgBLos = AvgBarsLosTrade ;
+AvgBEven = AvgBarsEvenTrade ;
+TotBWin = totalbarswintrades ;
+TotBLos = totalbarslostrades ;
+TotBEven = totalbarseventrades ;
+MaxCtrProfit = MaxContractProfit ;
+MaxPosProfit = MaxPositionProfit[1] ;
+MaxPosLoss = MaxPositionLoss[1] ;
+MaxCtr = MaxContracts[1] ;
+MaxShr = MaxShares ;
+MaxShrHeld = maxsharesheld ;
+MaxEntr = MaxEntries[1] ;
+MaxPosAgo = MaxPositionsAgo ;
+
+{ ============================================================================
+  OPEN-POSITION + CLOSED-TRADE INTROSPECTION  (runs every bar)
+============================================================================ }
+OeCount = OpenEntriesCount ;
+OePrice = OpenEntryPrice[0] ;
+OeProfit = OpenEntryProfit[0] ;
+OeMaxProfit = OpenEntryMaxProfit[0] ;
+OeMinProfit = OpenEntryMinProfit[0] ;
+OeDate = OpenEntryDate[0] ;
+OeTime = OpenEntryTime[0] ;
+OeContracts = OpenEntryContracts[0] ;
+OeProfitPC = OpenEntryProfitPerContract[0] ;
+OeMaxProfitPC = OpenEntryMaxProfitPerContract[0] ;
+OeMinProfitPC = OpenEntryMinProfitPerContract[0] ;
+
+PtCount = PosTradeCount[1] ;
+PtProfit = PosTradeProfit(1, 0) ;
+PtSize = PosTradeSize(1, 0) ;
+PtIsLong = 0 ;
+If PosTradeIsLong(1, 0) Then PtIsLong = 1 ;
+PtIsOpen = 0 ;
+If PosTradeIsOpen(1, 0) Then PtIsOpen = 1 ;
+PtEntryPx = PosTradeEntryPrice(1, 0) ;
+PtExitPx = PosTradeExitPrice(1, 0) ;
+PtEntryBar = PosTradeEntryBar(1, 0) ;
+PtExitBar = PosTradeExitBar(1, 0) ;
+PtEntryDtm = PosTradeEntryDateTime(1, 0) ;
+PtExitDtm = PosTradeExitDateTime(1, 0) ;
+PtEntryCat = PosTradeEntryCategory(1, 0) ;
+PtExitCat = PosTradeExitCategory(1, 0) ;
+PtEntryNm = PosTradeEntryName(1, 0) ;
+PtExitNm = PosTradeExitName(1, 0) ;
+
+{ ============================================================================
+  ENTRY / EXIT METADATA  (runs every bar)
+============================================================================ }
+EnNm = entryname(0) ;
+EnDate = entrydate[0] ;
+EnTime = entrytime[0] ;
+EnDtm = entrydatetime[0] ;
+ExNm = ExitName(1) ;
+ExDate = ExitDate[1] ;
+ExTime = ExitTime[1] ;
+ExDtm = ExitDateTime[1] ;
+CurEntr = currententries ;
+CurShr = currentshares ;
+ExecOff = execoffset ;
+
+{ ============================================================================
+  MISC SYMBOL / INSTRUMENT  (runs every bar)
+============================================================================ }
+AlEn = 0 ;
+If alertenabled Then AlEn = 1 ;
+Cat = Category ;
+ExpDate = expirationdate ;
+SymCcy = SymbolCurrencyCode ;
+SymNm = symbolname ;
+SymAlt = symbol ;
+DescStr = Description ;
+
+{ ---- Abort + CommandLine referenced in a never-true branch for compile coverage
+  (Abort raises a run-time error; CommandLine issues a chart command - neither is
+  desired during the capture, so they are gated behind an always-false condition) ---- }
+If barnumber < 0 Then Begin
+	commandline(".rld") ;
+	Abort ;
+End ;
+
+{ ============================================================================
+  ORDER BLOCK  (gated by OrderMode; single-level compound conditions)
+============================================================================ }
+OrderTag = "" ;
+
+{ mode 0 - MA-cross reversal at market (the TRADING run) }
+If OrderMode = 0 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_MKT" ) 1 contract next bar at market ;
+	OrderTag = "LE_MKT" ;
+End ;
+
+If OrderMode = 0 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_MKT" ) 1 contract next bar at market ;
+	OrderTag = "SE_MKT" ;
+End ;
+
+{ mode 1 - limit entries }
+If OrderMode = 1 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_LMT" ) 1 contract next bar at LimitBuyPx limit ;
+	OrderTag = "LE_LMT" ;
+End ;
+
+If OrderMode = 1 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_LMT" ) 1 contract next bar at LimitShortPx limit ;
+	OrderTag = "SE_LMT" ;
+End ;
+
+{ mode 2 - stop entries }
+If OrderMode = 2 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_STP" ) 1 contract next bar at StopBuyPx stop ;
+	OrderTag = "LE_STP" ;
+End ;
+
+If OrderMode = 2 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_STP" ) 1 contract next bar at StopShortPx stop ;
+	OrderTag = "SE_STP" ;
+End ;
+
+{ mode 3 - this bar on close }
+If OrderMode = 3 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "LE_CLS" ;
+End ;
+
+If OrderMode = 3 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE_CLS" ) 1 contract this bar on close ;
+	OrderTag = "SE_CLS" ;
+End ;
+
+{ mode 4 - named exits from entry + BuyToCover short exit }
+If OrderMode = 4 and GoLong and MarketPosition <= 0 Then Begin
+	Buy ( "LE4" ) 1 contract next bar at market ;
+	OrderTag = "LE4" ;
+End ;
+
+If OrderMode = 4 and GoShort and MarketPosition >= 0 Then Begin
+	SellShort ( "SE4" ) 1 contract next bar at market ;
+	OrderTag = "SE4" ;
+End ;
+
+If OrderMode = 4 and MarketPosition = 1 Then Sell ( "LX_STP" ) from entry ( "LE4" ) next bar at
+	entryprice - 2 stop ;
+If OrderMode = 4 and MarketPosition = -1 Then BuyToCover ( "SX_LMT" ) from entry ( "SE4" ) next bar
+	at entryprice - 4 limit ;
+
+{ ============================================================================
+  MONEY-MANAGEMENT BLOCK  (gated by MMVariant; basis by StopBasis; top level)
+============================================================================ }
+If MMVariant > 0 and StopBasis = 0 Then SetStopContract ;
+If MMVariant > 0 and StopBasis = 1 Then SetStopShare ;
+If MMVariant > 0 and StopBasis = 2 Then SetStopPosition ;
+
+If MMVariant = 1 Then SetStopLoss( StopLossAmt ) ;
+If MMVariant = 2 Then SetStopLoss_pt(PtAmt) ;
+If MMVariant = 3 Then SetProfitTarget( ProfitTgtAmt ) ;
+If MMVariant = 4 Then SetProfitTarget_pt(PtAmt) ;
+If MMVariant = 5 Then SetBreakEven( BreakEvenAmt ) ;
+If MMVariant = 6 Then SetBreakEven_pt(PtAmt) ;
+If MMVariant = 7 Then SetPercentTrailing( TrailFloor, TrailPct ) ;
+If MMVariant = 8 Then SetPercentTrailing_pt(PtAmt, TrailPct) ;
+If MMVariant = 9 Then SetDollarTrailing( TrailFloor ) ;
+If MMVariant = 10 Then SetTrailingStop_pt(PtAmt) ;
+
+SetExitOnClose ;
+
+{ ============================================================================
+  CSV OUTPUT - FILE 1 (calc / data / array / date-time / session / bar-metadata)
+  header + row built INCREMENTALLY across many statements (string-limit safety)
+============================================================================ }
+Once HdrA = "bn,date,time,open,high,low,close,volume,fastma,slowma,ordertag," ;
+Once HdrA = HdrA + "arrsum,arridxof,arrcmp,arrcontains,arrmaxidx,arrtype,setmaxok," ;
+Once HdrA = HdrA + "gotfloat,gotint,gotbool,gotstr,sumlst,avglst,maxlst2,minlst2," ;
+Once HdrA = HdrA + "encd,enct,eld2dt,elt2dt,elt2dts,dt2elt,dt2elts,dowdt,msfromdt,incm," ;
+Once HdrA = HdrA + "t2ts,ts2t,curts,strdate,strtime,strdtm,strdtfmt," ;
+Once HdrA = HdrA + "dtstr,dtmstr,dtmmsstr,fmtdstr,fmttstr,tstr," ;
+Once HdrA = HdrA + "s1end,s1first,s2start,s2end,s2first,sesscnt,sesscntms," ;
+Once HdrA = HdrA + "sstartday,sstartdayms,sendday,senddayms,sstarttms,sendtms,sendt,sesslast," ;
+Once HdrA = HdrA + "curbar,curdatanum,basedatanum,barstat,bartyp,bartypex,intvtyp,intvtypex," ;
+Once HdrA = HdrA + "maxbb,maxbf,lcdt,lcjd,lcmm,lcms,lcss,tkid,trdvol,trddate,trdtime" ;
+Once HdrA = HdrA + ",cotval,times" ;
+Once Print( File(OutPath), HdrA ) ;
+
+Line1 = numtostr(barnumber, 0) + "," ;
+Line1 = Line1 + numtostr(date, 0) + "," ;
+Line1 = Line1 + numtostr(time, 0) + "," ;
+Line1 = Line1 + numtostr(open, Prec) + "," ;
+Line1 = Line1 + numtostr(high, Prec) + "," ;
+Line1 = Line1 + numtostr(low, Prec) + "," ;
+Line1 = Line1 + numtostr(close, Prec) + "," ;
+Line1 = Line1 + numtostr(volume, 0) + "," ;
+Line1 = Line1 + numtostr(FastMA, Prec) + "," ;
+Line1 = Line1 + numtostr(SlowMA, Prec) + "," ;
+Line1 = Line1 + OrderTag + "," ;
+Line1 = Line1 + numtostr(ArrSum, Prec) + "," ;
+Line1 = Line1 + numtostr(ArrIdxOf, 0) + "," ;
+Line1 = Line1 + numtostr(ArrCmp, 0) + "," ;
+Line1 = Line1 + numtostr(ArrContains, 0) + "," ;
+Line1 = Line1 + numtostr(ArrMaxIdx, 0) + "," ;
+Line1 = Line1 + numtostr(ArrType, 0) + "," ;
+Line1 = Line1 + numtostr(SetMaxOk, 0) + "," ;
+Line1 = Line1 + numtostr(GotFloat, Prec) + "," ;
+Line1 = Line1 + numtostr(GotInt, 0) + "," ;
+Line1 = Line1 + numtostr(GotBool, 0) + "," ;
+Line1 = Line1 + GotStr + "," ;
+Line1 = Line1 + numtostr(SumLst, Prec) + "," ;
+Line1 = Line1 + numtostr(AvgLst, Prec) + "," ;
+Line1 = Line1 + numtostr(MaxLst2, Prec) + "," ;
+Line1 = Line1 + numtostr(MinLst2, Prec) + "," ;
+Line1 = Line1 + numtostr(EncD, Prec) + "," ;
+Line1 = Line1 + numtostr(EncT, Prec) + "," ;
+Line1 = Line1 + numtostr(ElD2Dt, Prec) + "," ;
+Line1 = Line1 + numtostr(ElT2Dt, Prec) + "," ;
+Line1 = Line1 + numtostr(ElT2DtS, Prec) + "," ;
+Line1 = Line1 + numtostr(Dt2ElT, 0) + "," ;
+Line1 = Line1 + numtostr(Dt2ElTS, 0) + "," ;
+Line1 = Line1 + numtostr(DowDt, 0) + "," ;
+Line1 = Line1 + numtostr(MsFromDt, 0) + "," ;
+Line1 = Line1 + numtostr(IncM, 0) + "," ;
+Line1 = Line1 + numtostr(T2Ts, 0) + "," ;
+Line1 = Line1 + numtostr(Ts2T, 0) + "," ;
+Line1 = Line1 + numtostr(CurTs, 0) + "," ;
+Line1 = Line1 + numtostr(StrDate, Prec) + "," ;
+Line1 = Line1 + numtostr(StrTime, Prec) + "," ;
+Line1 = Line1 + numtostr(StrDtm, Prec) + "," ;
+Line1 = Line1 + numtostr(StrDtFmt, Prec) + "," ;
+Line1 = Line1 + DtStr + "," ;
+Line1 = Line1 + DtmStr + "," ;
+Line1 = Line1 + DtmMsStr + "," ;
+Line1 = Line1 + FmtDStr + "," ;
+Line1 = Line1 + FmtTStr + "," ;
+Line1 = Line1 + TStr + "," ;
+Line1 = Line1 + numtostr(S1End, 0) + "," ;
+Line1 = Line1 + numtostr(S1First, 0) + "," ;
+Line1 = Line1 + numtostr(S2Start, 0) + "," ;
+Line1 = Line1 + numtostr(S2End, 0) + "," ;
+Line1 = Line1 + numtostr(S2First, 0) + "," ;
+Line1 = Line1 + numtostr(SessCnt, 0) + "," ;
+Line1 = Line1 + numtostr(SessCntMS, 0) + "," ;
+Line1 = Line1 + numtostr(SStartDay, 0) + "," ;
+Line1 = Line1 + numtostr(SStartDayMS, 0) + "," ;
+Line1 = Line1 + numtostr(SEndDay, 0) + "," ;
+Line1 = Line1 + numtostr(SEndDayMS, 0) + "," ;
+Line1 = Line1 + numtostr(SStartTMS, 0) + "," ;
+Line1 = Line1 + numtostr(SEndTMS, 0) + "," ;
+Line1 = Line1 + numtostr(SEndT, 0) + "," ;
+Line1 = Line1 + numtostr(SessLast, 0) + "," ;
+Line1 = Line1 + numtostr(CurBar, 0) + "," ;
+Line1 = Line1 + numtostr(CurDataNum, 0) + "," ;
+Line1 = Line1 + numtostr(BaseDataNum, 0) + "," ;
+Line1 = Line1 + numtostr(BarStat, 0) + "," ;
+Line1 = Line1 + numtostr(BarTyp, 0) + "," ;
+Line1 = Line1 + numtostr(BarTypEx, 0) + "," ;
+Line1 = Line1 + numtostr(IntvTyp, 0) + "," ;
+Line1 = Line1 + numtostr(IntvTypEx, 0) + "," ;
+Line1 = Line1 + numtostr(MaxBB, 0) + "," ;
+Line1 = Line1 + numtostr(MaxBF, 0) + "," ;
+Line1 = Line1 + numtostr(LcDt, Prec) + "," ;
+Line1 = Line1 + numtostr(LcJD, 0) + "," ;
+Line1 = Line1 + numtostr(LcMM, 0) + "," ;
+Line1 = Line1 + numtostr(LcMS, 0) + "," ;
+Line1 = Line1 + numtostr(LcSS, 0) + "," ;
+Line1 = Line1 + numtostr(TkID, 0) + "," ;
+Line1 = Line1 + numtostr(TrdVol, 0) + "," ;
+Line1 = Line1 + numtostr(TrdDate, 0) + "," ;
+Line1 = Line1 + numtostr(TrdTime, 0) ;
+Line1 = Line1 + "," + numtostr(CotVal, Prec) ;
+Line1 = Line1 + "," + numtostr(TimeS, 0) ;
+Print( File(OutPath), Line1 ) ;
+
+{ ============================================================================
+  CSV OUTPUT - FILE 2 (stats / trade-introspection / entry-exit)
+============================================================================ }
+Once HdrB = "bn,date,time,marketpos,curcontracts,entryprice,netprofit,totaltrades," ;
+Once HdrB = HdrB + "nwin,nlos,neven,lrgwin,lrglos,pctprofit,maxcwin,maxclos," ;
+Once HdrB = HdrB + "avgbwin,avgblos,avgbeven,totbwin,totblos,totbeven," ;
+Once HdrB = HdrB +
+	"maxctrprofit,maxposprofit,maxposloss,maxctr,maxshr,maxshrheld,maxentr,maxposago," ;
+Once HdrB = HdrB + "oecount,oeprice,oeprofit,oemaxprofit,oeminprofit,oedate,oetime," ;
+Once HdrB = HdrB + "ptcount,ptprofit,ptsize,ptislong,ptisopen,ptentrypx,ptexitpx," ;
+Once HdrB = HdrB +
+	"ptentrybar,ptexitbar,ptentrydtm,ptexitdtm,ptentrycat,ptexitcat,ptentrynm,ptexitnm," ;
+Once HdrB = HdrB + "ennm,endate,entime,endtm,exnm,exdate,extime,exdtm,curentr,curshr,execoff," ;
+Once HdrB = HdrB + "alen,cat,expdate,symccy,symnm,symalt,descstr" ;
+Once HdrB = HdrB + ",oecontracts,oeprofitpc,oemaxprofitpc,oeminprofitpc" ;
+Once Print( File(OutPath2), HdrB ) ;
+
+Line2 = numtostr(barnumber, 0) + "," ;
+Line2 = Line2 + numtostr(date, 0) + "," ;
+Line2 = Line2 + numtostr(time, 0) + "," ;
+Line2 = Line2 + numtostr(MarketPosition, 0) + "," ;
+Line2 = Line2 + numtostr(currentcontracts, 0) + "," ;
+Line2 = Line2 + numtostr(entryprice, Prec) + "," ;
+Line2 = Line2 + numtostr(netprofit, 2) + "," ;
+Line2 = Line2 + numtostr(totaltrades, 0) + "," ;
+Line2 = Line2 + numtostr(NWin, 0) + "," ;
+Line2 = Line2 + numtostr(NLos, 0) + "," ;
+Line2 = Line2 + numtostr(NEven, 0) + "," ;
+Line2 = Line2 + numtostr(LrgWin, 2) + "," ;
+Line2 = Line2 + numtostr(LrgLos, 2) + "," ;
+Line2 = Line2 + numtostr(PctProfit, Prec) + "," ;
+Line2 = Line2 + numtostr(MaxCWin, 0) + "," ;
+Line2 = Line2 + numtostr(MaxCLos, 0) + "," ;
+Line2 = Line2 + numtostr(AvgBWin, Prec) + "," ;
+Line2 = Line2 + numtostr(AvgBLos, Prec) + "," ;
+Line2 = Line2 + numtostr(AvgBEven, Prec) + "," ;
+Line2 = Line2 + numtostr(TotBWin, 0) + "," ;
+Line2 = Line2 + numtostr(TotBLos, 0) + "," ;
+Line2 = Line2 + numtostr(TotBEven, 0) + "," ;
+Line2 = Line2 + numtostr(MaxCtrProfit, 2) + "," ;
+Line2 = Line2 + numtostr(MaxPosProfit, 2) + "," ;
+Line2 = Line2 + numtostr(MaxPosLoss, 2) + "," ;
+Line2 = Line2 + numtostr(MaxCtr, 0) + "," ;
+Line2 = Line2 + numtostr(MaxShr, 0) + "," ;
+Line2 = Line2 + numtostr(MaxShrHeld, 0) + "," ;
+Line2 = Line2 + numtostr(MaxEntr, 0) + "," ;
+Line2 = Line2 + numtostr(MaxPosAgo, 0) + "," ;
+Line2 = Line2 + numtostr(OeCount, 0) + "," ;
+Line2 = Line2 + numtostr(OePrice, Prec) + "," ;
+Line2 = Line2 + numtostr(OeProfit, 2) + "," ;
+Line2 = Line2 + numtostr(OeMaxProfit, 2) + "," ;
+Line2 = Line2 + numtostr(OeMinProfit, 2) + "," ;
+Line2 = Line2 + numtostr(OeDate, 0) + "," ;
+Line2 = Line2 + numtostr(OeTime, 0) + "," ;
+Line2 = Line2 + numtostr(PtCount, 0) + "," ;
+Line2 = Line2 + numtostr(PtProfit, 2) + "," ;
+Line2 = Line2 + numtostr(PtSize, 0) + "," ;
+Line2 = Line2 + numtostr(PtIsLong, 0) + "," ;
+Line2 = Line2 + numtostr(PtIsOpen, 0) + "," ;
+Line2 = Line2 + numtostr(PtEntryPx, Prec) + "," ;
+Line2 = Line2 + numtostr(PtExitPx, Prec) + "," ;
+Line2 = Line2 + numtostr(PtEntryBar, 0) + "," ;
+Line2 = Line2 + numtostr(PtExitBar, 0) + "," ;
+Line2 = Line2 + numtostr(PtEntryDtm, Prec) + "," ;
+Line2 = Line2 + numtostr(PtExitDtm, Prec) + "," ;
+Line2 = Line2 + numtostr(PtEntryCat, 0) + "," ;
+Line2 = Line2 + numtostr(PtExitCat, 0) + "," ;
+Line2 = Line2 + PtEntryNm + "," ;
+Line2 = Line2 + PtExitNm + "," ;
+Line2 = Line2 + EnNm + "," ;
+Line2 = Line2 + numtostr(EnDate, 0) + "," ;
+Line2 = Line2 + numtostr(EnTime, 0) + "," ;
+Line2 = Line2 + numtostr(EnDtm, Prec) + "," ;
+Line2 = Line2 + ExNm + "," ;
+Line2 = Line2 + numtostr(ExDate, 0) + "," ;
+Line2 = Line2 + numtostr(ExTime, 0) + "," ;
+Line2 = Line2 + numtostr(ExDtm, Prec) + "," ;
+Line2 = Line2 + numtostr(CurEntr, 0) + "," ;
+Line2 = Line2 + numtostr(CurShr, 0) + "," ;
+Line2 = Line2 + numtostr(ExecOff, 0) + "," ;
+Line2 = Line2 + numtostr(AlEn, 0) + "," ;
+Line2 = Line2 + numtostr(Cat, 0) + "," ;
+Line2 = Line2 + numtostr(ExpDate, 0) + "," ;
+Line2 = Line2 + numtostr(SymCcy, 0) + "," ;
+Line2 = Line2 + SymNm + "," ;
+Line2 = Line2 + SymAlt + "," ;
+Line2 = Line2 + DescStr ;
+Line2 = Line2 + "," + numtostr(OeContracts, 0) ;
+Line2 = Line2 + "," + numtostr(OeProfitPC, 2) ;
+Line2 = Line2 + "," + numtostr(OeMaxProfitPC, 2) ;
+Line2 = Line2 + "," + numtostr(OeMinProfitPC, 2) ;
+Print( File(OutPath2), Line2 ) ;
+
+{ ---- alert on a cross (Alert is proven; gated single-level) ---- }
+If GoLong or GoShort Then Alert( "MA cross" ) ;

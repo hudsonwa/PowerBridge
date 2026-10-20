@@ -1,0 +1,67 @@
+{ ============================================================================
+  NS1 - Drawing-object ID ground-truth  (MultiCharts PowerLanguage)
+  ----------------------------------------------------------------------------
+  TYPE:  INDICATOR  (PowerLanguage Editor -> New -> Indicator)
+
+  RESIDUAL SURFACE EXERCISED (U6prep / COVERAGE.md "implemented but NOT exercised")
+    tl_new, tl_new_s, text_new, text_new_s, arw_new, arw_new_s
+    Each is a real MC keyword (PL Keyword Reference INDEX + body Usage entry) that
+    creates a drawing object and RETURNS an object-specific numeric ID. The runtime
+    (transpiler/runtime/pl_runtime.py: pl_tl_new / pl_text_new / pl_arw_new + _s)
+    returns a monotonically increasing ID counter. This script captures that ID per
+    bar so the transpiler's counter can be validated against MC's returned IDs.
+
+  GROUNDING  (every used builtin PROVEN compile-safe -> tools/mc_ground_check.py)
+    tl_new      the PowerLanguage keyword reference:839  INDEX (body Usage 13890 "TL_New (sDate, sTime, sPriceValue, eDate, eTime, ePriceValue)")
+    tl_new_s    the PowerLanguage keyword reference:842  INDEX (body Usage 13965 "TL_New_s (sDate, sTime_s, sPriceValue, eDate, eTime_s, ePriceValue)")
+    text_new    the PowerLanguage keyword reference:771  INDEX (body Usage 12680 "Text_New (BarDate, BarTime, PriceValue,\"Text\")")
+    text_new_s  the PowerLanguage keyword reference:776  INDEX (body Usage 12748 "Text_New_s (BarDate, BarTime_s, PriceValue,\"Text\")")
+    arw_new     the PowerLanguage keyword reference:70   INDEX (body Usage 1587  "Arw_New (BarDate, BarTime, PriceValue, Direction)")
+    arw_new_s   the PowerLanguage keyword reference:75   INDEX (body Usage 1659  "Arw_New_s (BarDate, BarTime_s, PriceValue, Direction)")
+    time_s      the PowerLanguage keyword reference:803  INDEX (closing time incl. seconds, HHmmss) - already in mc_verified_builtins.txt
+
+  CAVEAT (for the later validation unit, NOT a blocker for this prep)
+    MC drawing IDs are session/study-global and may not start at 1 or step by exactly
+    1; the runtime returns 1,2,3,... If the capture's IDs are not a simple +1 sequence
+    the runtime ID model needs reconciling. This script's job is to PRODUCE that ground
+    truth so the question becomes measurable.
+
+  STYLE (KISS)  one value per line; CSV row is a single FLAT NumToStr concatenation.
+  RUN  Delete any old OutPath first (Print(File()) appends). Apply to a fixed
+       symbol/interval/range and record them. Reload once to capture.
+============================================================================ }
+Inputs: OutPath( "C:\temp\NS1_drawing.csv" ) ;
+
+Vars:
+	TlId( 0 ),
+	TlIdS( 0 ),
+	TxtId( 0 ),
+	TxtIdS( 0 ),
+	ArwId( 0 ),
+	ArwIdS( 0 ),
+	Line( "" ) ;
+
+{ ---- trendline: start (Low) to end (High) on the current bar ---- }
+TlId = TL_New(date, time, low, date, time, high) ;
+TlIdS = TL_New_s(date, time_s, low, date, time_s, high) ;
+
+{ ---- text object anchored at the close ---- }
+TxtId = text_new(date, time, close, "x") ;
+TxtIdS = text_new_s(date, time_s, close, "x") ;
+
+{ ---- arrow: up when the bar closed up, down when it closed down ---- }
+ArwId = Arw_New(date, time, high, close > open) ;
+ArwIdS = Arw_New_s(date, time_s, low, close < open) ;
+
+{ ---- header row, written once ---- }
+Once Print( File(OutPath), "bn,date,time,tlid,tlids,txtid,txtids,arwid,arwids" ) ;
+
+{ ---- build the CSV row: flat, one term per source value, no nesting ---- }
+Line = numtostr(barnumber, 0) + "," + numtostr(date, 0) + "," + numtostr(time, 0) + "," +
+	numtostr(TlId, 0) + "," + numtostr(TlIdS, 0) + "," + numtostr(TxtId, 0) + "," + numtostr(TxtIdS, 0)
+	+ "," + numtostr(ArwId, 0) + "," + numtostr(ArwIdS, 0) ;
+
+Print( File(OutPath), Line ) ;
+
+{ visible plot so the indicator is obviously calculating on the chart }
+plot1( TlId ) ;
