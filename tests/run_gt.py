@@ -637,7 +637,8 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
     _out_f = open(output_path, 'w', newline='', encoding='utf-8')
     writer = csv.writer(_out_f)
     writer.writerow(cap_header)
-    _strict = bool(os.environ.get("PL_STRICT"))
+    _strict = os.environ.get("PL_STRICT", "").strip().lower() not in (
+        "", "0", "false", "no", "off")
     # Select the per-run instrument config (all current GT labels are @NQ#C).
     # This object is the single source of the chart/instrument constants that were
     # formerly hard-coded here and in FillEngine — the shared runtime stays

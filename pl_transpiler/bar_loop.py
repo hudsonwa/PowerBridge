@@ -17,6 +17,7 @@ import os
 import traceback
 
 from pl_transpiler.engine_dates import _el_date_to_day_of_week
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
 
 
 # FillEngine.fill_pos_kwargs keys → attribute names. Persist 8-arg path
@@ -139,7 +140,8 @@ def run_bar_loop(
     import datetime as _dt
     from collections import Counter
     if strict is None:
-        strict = bool(os.environ.get("PL_STRICT"))
+        strict = os.environ.get("PL_STRICT", "").strip().lower() not in (
+            "", "0", "false", "no", "off")
 
     trade_from = int(trade_from or 0)
     if trade_from < 0:
@@ -530,11 +532,12 @@ def run_bar_loop(
             prev_tm_for_exit = tm
         except Exception as e:
             # FAIL-LOUD: count every per-bar throw, capture the first traceback,
-            # and (under PL_STRICT) re-raise immediately.
+            # and (under PL_STRICT) re-raise immediately. An unimplemented
+            # builtin always stops the run: it only raises in strict mode.
             _throw_count += 1
             if _first_traceback is None:
                 _first_traceback = traceback.format_exc()
-            if strict:
+            if strict or isinstance(e, UnimplementedBuiltinError):
                 raise
             if _throw_count <= 3:
                 print(f"  throw#{_throw_count} bar {barnumber}: {type(e).__name__}: {e}")

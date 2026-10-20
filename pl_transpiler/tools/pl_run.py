@@ -37,12 +37,13 @@ Library:
 
 CLI:
     python -m pl_transpiler.tools.pl_run <el_file> <bars_csv> [--config NQ] [-o out.csv] \
-        [--columns a,b,c] [--from-date ELINT | --from-bar N] [--slice]
+        [--columns a,b,c] [--from-date ELINT | --from-bar N] [--slice] [--lenient]
 """
 import argparse
 import contextlib
 import csv
 import os
+import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,6 +53,7 @@ if REPO not in sys.path:
 from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
@@ -61,6 +63,21 @@ from pl_transpiler.engine import (  # noqa: E402
     FillEngine, run_bar_loop, _parse_el_date, _parse_el_time,
 )
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
+
+
+def unimplemented_stop_message(prog, exc, el_file):
+    """One-line error for an unimplemented builtin that stopped a strict run,
+    naming the first source line that mentions it when one does."""
+    where = ""
+    try:
+        with open(el_file, encoding="utf-8") as f:
+            for n, line in enumerate(f, 1):
+                if re.search(r"\b%s\b" % re.escape(exc.builtin), line, re.IGNORECASE):
+                    where = " (%s line %d)" % (os.path.basename(el_file), n)
+                    break
+    except OSError:
+        pass
+    return "%s: error%s: %s" % (prog, where, exc)
 
 
 def load_bars_csv(path):
@@ -350,6 +367,9 @@ def _build_parser():
                     help="write predicted per-bar CSV here (default: stdout).")
     ap.add_argument("--columns", default=None,
                     help="comma-separated trace columns to emit (default: all).")
+    ap.add_argument("--lenient", action="store_true",
+                    help="treat EasyLanguage builtins the runtime does not implement "
+                         "as 0/'' and warn, instead of stopping (same as PL_STRICT=0).")
     ap.add_argument("--partial", action="store_true",
                     help="opt-in partial mode: unimplemented constructs become "
                          "execution-time stubs (raise only if evaluated); the stub "
@@ -372,6 +392,16 @@ def main(argv=None):
     # An unknown flag now exits nonzero with a usage message (argparse default),
     # replacing the old silent-ignore behaviour of the hand-rolled walk.
     args = ap.parse_args(argv)
+    if args.lenient:
+        set_strict_mode(False)
+    try:
+        return _main(ap, args)
+    except UnimplementedBuiltinError as exc:
+        print(unimplemented_stop_message("pl_run", exc, args.el_file), file=sys.stderr)
+        return 2
+
+
+def _main(ap, args):
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_run <el_file> <bars_csv> ...")
 

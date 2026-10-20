@@ -23,7 +23,7 @@ if REPO not in sys.path:
 
 from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.runtime import accel  # noqa: E402
+from pl_transpiler.runtime import _rt_core, accel  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import pl_datetojulian, pl_formatdate  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars_csv, run_el  # noqa: E402
@@ -58,7 +58,9 @@ def test_formatdate_accepts_serial_datetime():
     assert pl_formatdate("yyyy-MM-dd", pl_datetojulian(0))  # no crash on EntryDate()=0
 
 
-def test_unimplemented_builtins_are_reported(capsys):
+def test_unimplemented_builtins_are_reported(capsys, monkeypatch):
+    # Lenient mode only: strict (the default) stops instead; see test_strict_default.py.
+    monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
     out = run_el("Vars: x(0); Arrays: a[5](0); x = ArraySize(a) + Random(3);", BARS, NQ)
     assert set(out["unimplemented"]) == {"arraysize", "random"}
     assert "unimplemented EasyLanguage builtin" in capsys.readouterr().err

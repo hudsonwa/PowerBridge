@@ -46,7 +46,7 @@ Library:
 CLI:
     python -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> [--config NQ] \\
         [--from-date ELINT | --from-bar N] [--to-date ELINT] [--seed-warmup] \\
-        [--data2 CSV] [-o digest.txt] [--compare FILE] [--dump FILE] \\
+        [--data2 CSV] [--lenient] [-o digest.txt] [--compare FILE] [--dump FILE] \\
         [--fills-csv FILE]
 """
 import argparse
@@ -71,7 +71,10 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
-from pl_transpiler.tools.pl_run import load_bars, resolve_trade_from  # noqa: E402
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
+from pl_transpiler.tools.pl_run import (  # noqa: E402
+    load_bars, resolve_trade_from, unimplemented_stop_message,
+)
 
 DIGEST_VERSION = "v1"
 
@@ -478,6 +481,9 @@ def _build_parser():
                          "falls back to Python loudly when it cannot serve the run.")
     ap.add_argument("--python", dest="use_native", action="store_false",
                     help="force the pure-Python path (reference / debugging).")
+    ap.add_argument("--lenient", action="store_true",
+                    help="treat EasyLanguage builtins the runtime does not implement "
+                         "as 0/'' and warn, instead of stopping (same as PL_STRICT=0).")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write digest here as well as stdout.")
     ap.add_argument("--compare", default=None,
@@ -494,6 +500,16 @@ def _build_parser():
 def main(argv=None):
     ap = _build_parser()
     args = ap.parse_args(argv)
+    if args.lenient:
+        set_strict_mode(False)
+    try:
+        return _main(ap, args)
+    except UnimplementedBuiltinError as exc:
+        print(unimplemented_stop_message("pl_oracle", exc, args.el_file), file=sys.stderr)
+        return 2
+
+
+def _main(ap, args):
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_oracle <el_file> <bars_csv> ...")
 

@@ -33,7 +33,7 @@ from ._rt_datetime import *  # noqa: F401,F403
 from ._rt_core import (  # noqa: F401
     _CFloat, _PL_STRICT, _UNIMPL_CALLS, _UNIMPL_COSMETIC,
     _UNIMPL_COSMETIC_PREFIXES, _UNIMPL_STR_RETURNING, _UNIMPL_WHITELIST, _os,
-    _unimplemented,
+    _unimplemented, _strict_from_env,
 )
 from ._rt_indicators import (  # noqa: F401
     _adx_engine, _calc_dmi, _compute_adx_series, _cross_prior_relation, _ema,

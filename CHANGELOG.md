@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Strict mode is now the default: a run that calls an EasyLanguage builtin the
+  runtime does not implement stops with a one-line error (builtin name, first
+  source line, how to opt out) instead of using 0/''. Opt out with `--lenient`
+  on `pl_run` / `pl_oracle` or `PL_STRICT=0`. Cosmetic builtins (drawing, sound,
+  print) never stop a run. `PL_STRICT=0` / `false` / `no` / `off` now also turn
+  off the per-bar re-raise in the bar loop instead of enabling it.
+
 ## 0.2.0 — 2026-10-20
 
 - Distribution renamed `pl-transpiler` -> `powerbridge`; the Rust wheel is `powerbridge-accel`.

@@ -254,10 +254,13 @@ want to attach your own.
   numbers are licensed and not in this repository; see
   [what you can verify](docs/verification.md#what-you-can-verify-from-this-repo).
   Other instruments and timeframes are untested.
-- Builtins the runtime does not implement yet return 0/'' and are reported:
-  every `pl_run` / `pl_oracle` run prints a `WARNING` naming them, and
-  `run_el(...)["unimplemented"]` lists them. `PL_STRICT=1` stops on the first
-  call instead. Cosmetic ones (drawing, sound, print) are not reported.
+- Some builtins are not implemented yet. A run that calls one **stops**
+  with a one-line error naming the builtin and the first source line that
+  uses it, rather than guess a value. To run anyway, pass `--lenient` to
+  `pl_run` / `pl_oracle` or set `PL_STRICT=0`: those builtins then return
+  0/'', the run ends with a `WARNING` naming them, and
+  `run_el(...)["unimplemented"]` lists them. Cosmetic ones (drawing, sound,
+  print) never stop a run and are not reported.
 - Per-bar MultiCharts parity captures are not shipped. Those tests skip on a
   fresh clone.
 - The `accel` fast path is optional and builds from source. It does not yet

@@ -77,12 +77,21 @@ def el_round(x, decimals):
 # Many EasyLanguage builtins are stubs: charting/UI, broker/account, DLL,
 # portfolio, collections (all out of scope for a backtest), plus not-yet-built
 # calc functions. To avoid SILENTLY wrong results, every stub records its call
-# here and, under PL_STRICT, raises -- so an LLM-written strategy that touches an
+# here and, by default, raises -- so an LLM-written strategy that touches an
 # unimplemented function fails LOUDLY instead of producing plausible-but-wrong
-# trades. Default (non-strict) keeps the historical behaviour (return 0) but
-# tracks the call for the coverage report (tools/strategy_report.py).
+# trades. Cosmetic stubs (drawing, sound, print; see _UNIMPL_COSMETIC below)
+# never raise. PL_STRICT=0 (or `--lenient` on pl_run / pl_oracle) opts out:
+# stubs then return 0/'' and the run ends with one stderr WARNING naming them.
 import os as _os
-_PL_STRICT = _os.environ.get('PL_STRICT', '').strip().lower() not in ('', '0', 'false', 'no')
+
+
+def _strict_from_env(environ=None):
+    """Strict unless PL_STRICT is set to 0 / false / no / off."""
+    val = (_os.environ if environ is None else environ).get('PL_STRICT', '')
+    return val.strip().lower() not in ('0', 'false', 'no', 'off')
+
+
+_PL_STRICT = _strict_from_env()
 _UNIMPL_CALLS = {}
 # Builtins whose correct value is a constant 0, so their bodies look like stubs;
 # they are not wrapped as loud stubs. Keep this minimal and explicit so nothing
@@ -101,13 +110,28 @@ _UNIMPL_STR_RETURNING = {
     'pl_array_getstringvalue',
 }
 
+class UnimplementedBuiltinError(NotImplementedError):
+    """A strategy called an EasyLanguage builtin the runtime does not implement."""
+
+    def __init__(self, name):
+        self.builtin = name[3:] if name.startswith('pl_') else name
+        super().__init__(
+            "EasyLanguage builtin '%s' is not implemented in the PowerBridge runtime, "
+            "so the run stopped instead of guessing 0/''; rerun with PL_STRICT=0 "
+            "(or --lenient) to treat it as 0/'' and get a warning instead"
+            % self.builtin)
+
+
+def set_strict_mode(strict):
+    """Set strict mode for this process (pl_run / pl_oracle --lenient use it)."""
+    global _PL_STRICT
+    _PL_STRICT = bool(strict)
+
+
 def _unimplemented(name):
     _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
-    if _PL_STRICT and name not in _UNIMPL_WHITELIST:
-        raise NotImplementedError(
-            "EasyLanguage function '%s' is not implemented in the transpiler runtime "
-            "(out-of-scope charting/UI/broker/portfolio, or not yet built) -- its value "
-            "cannot be trusted. Run without PL_STRICT to treat it as 0 and continue." % name)
+    if _PL_STRICT and name not in _UNIMPL_WHITELIST and not _is_cosmetic(name):
+        raise UnimplementedBuiltinError(name)
     return '' if name in _UNIMPL_STR_RETURNING else 0
 
 def pl_unimplemented_report():
@@ -135,20 +159,24 @@ _UNIMPL_COSMETIC = frozenset((
 ))
 
 
+def _is_cosmetic(name):
+    return name in _UNIMPL_COSMETIC or name.startswith(_UNIMPL_COSMETIC_PREFIXES)
+
+
 def pl_unimplemented_warn(label='pl_transpiler', stream=None):
     """Print ONE loud stderr warning naming every non-cosmetic unimplemented
     builtin hit since the last reset, and return {name: calls} for those.
     The run used 0/'' for each, so any result depending on them is not the
-    MultiCharts result. PL_STRICT=1 raises on the first call instead."""
+    MultiCharts result. Only reached in lenient mode (PL_STRICT=0); the default
+    raises on the first call instead."""
     import sys as _sys
-    hit = {n: c for n, c in _UNIMPL_CALLS.items()
-           if n not in _UNIMPL_COSMETIC and not n.startswith(_UNIMPL_COSMETIC_PREFIXES)}
+    hit = {n: c for n, c in _UNIMPL_CALLS.items() if not _is_cosmetic(n)}
     if hit:
         names = ", ".join("%s (%d calls)" % (n[3:], c) for n, c in sorted(hit.items()))
         (stream or _sys.stderr).write(
             "[%s] WARNING: this run used %d unimplemented EasyLanguage builtin(s) that "
             "returned 0/'' instead of the MultiCharts value: %s. Results that depend on "
-            "them are NOT trustworthy. Set PL_STRICT=1 to stop on the first call.\n"
+            "them are NOT trustworthy (lenient mode: drop --lenient / PL_STRICT=0 to stop on the first call).\n"
             % (label, len(hit), names))
     return {n[3:]: c for n, c in hit.items()}
 
@@ -218,7 +246,7 @@ _RUNTIME_SUBMODULES = ('_rt_core', '_rt_indicators', '_rt_drawing',
 
 def _install_loud_stubs():
     """Wrap every trivial `return 0/None`/`pass` pl_* function so it records the
-    call (and raises under PL_STRICT) instead of silently returning 0. Real
+    call (and raises unless PL_STRICT=0) instead of silently returning 0. Real
     implementations (anything that returns an expression) are left untouched.
 
     The loud wrapper is bound on the pl_runtime facade and on every runtime
@@ -242,16 +270,16 @@ def _install_loud_stubs():
             with open(src_path, 'r', encoding='utf-8') as _f:
                 _trees.append(_ast.parse(_f.read()))
     except Exception as _exc:
-        # Fail-loud vs. fail-silent. Under PL_STRICT the whole point is that
-        # unimplemented builtins RAISE; if we cannot even introspect the source
-        # to install those loud stubs we MUST NOT continue as if all were fine,
-        # so we re-raise. Without PL_STRICT we keep the historical tolerant
+        # Fail-loud vs. fail-silent. In strict mode (the default) the whole point
+        # is that unimplemented builtins RAISE; if we cannot even introspect the
+        # source to install those loud stubs we MUST NOT continue as if all were
+        # fine, so we re-raise. With PL_STRICT=0 we keep the historical tolerant
         # behaviour (leave the trivial stubs returning 0/'') but emit exactly
         # one loud stderr warning so the degraded state is never invisible.
         if _PL_STRICT:
             raise RuntimeError(
                 "pl_runtime could not introspect its own source (%s) to install "
-                "the fail-loud PL_STRICT stubs; refusing to continue, because "
+                "the fail-loud strict-mode stubs; refusing to continue, because "
                 "unimplemented EasyLanguage builtins would then silently return "
                 "plausible-but-wrong 0/'' values instead of raising. "
                 "Original error: %r" % (src_path, _exc))
@@ -259,7 +287,7 @@ def _install_loud_stubs():
             "WARNING: pl_runtime could not introspect its own source (%r); the "
             "unimplemented-builtin loud stubs are NOT installed, so out-of-scope "
             "EasyLanguage builtins will silently return 0/'' instead of failing "
-            "loud. Set PL_STRICT=1 to make this condition fatal.\n" % (_exc,))
+            "loud. Unset PL_STRICT to make this condition fatal.\n" % (_exc,))
         return  # tolerant fallback: leave stubs as-is (no worse than before)
 
     def _is_stub(fn):
@@ -280,7 +308,7 @@ def _install_loud_stubs():
         def _loud(*args, **kwargs):
             return _unimplemented(nm)
         _loud.__name__ = nm
-        _loud.__doc__ = "Unimplemented EL builtin (loud stub): records call; raises under PL_STRICT."
+        _loud.__doc__ = "Unimplemented EL builtin (loud stub): records call; raises unless PL_STRICT=0."
         _loud._pl_loud_stub = True
         return _loud
 
