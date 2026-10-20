@@ -18,9 +18,9 @@ name: accel extra (CI + wheels)
 #   * core-no-accel — the extra is ABSENT: proves the zero-dependency promise
 #     is itself tested (import raises ImportError, core tier stays green).
 #
-# Platform matrix: macOS arm64 is first-class (built + run here). Linux
-# x86_64/aarch64 and Windows wheels are clearly-marked FOLLOW-UPS and are NOT
-# claimed here — nothing in this workflow claims a platform it does not build.
+# Platform matrix: macOS arm64 is first-class (built + run here). Release
+# wheels for the other platforms are built and smoke-tested by release.yml;
+# nothing in this workflow claims a platform it does not build.
 
 on:
   push:

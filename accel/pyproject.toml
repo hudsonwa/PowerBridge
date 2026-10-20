@@ -17,4 +17,4 @@ license = "Apache-2.0"
 module-name = "pl_transpiler._accel"
 python-source = "python"
 exclude = ["python/pl_transpiler/.gitkeep"]
-features = ["pyo3/extension-module"]
+features = ["pyo3/extension-module", "pyo3/abi3-py39"]

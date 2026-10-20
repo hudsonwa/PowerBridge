@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Release workflow: publishing a GitHub Release attaches the sdist, the pure
+  wheel and prebuilt abi3 `powerbridge-accel` wheels (macOS arm64/x86_64,
+  Windows x64, Linux x86_64/aarch64) to it, then publishes `powerbridge` and
+  `powerbridge-accel` to PyPI through trusted publishing. The README documents
+  installing from a tag and from a release wheel URL.
 - Strict mode is now the default: a run that calls an EasyLanguage builtin the
   runtime does not implement stops with a one-line error (builtin name, first
   source line, how to opt out) instead of using 0/''. Opt out with `--lenient`

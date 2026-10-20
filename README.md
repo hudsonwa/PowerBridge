@@ -66,6 +66,22 @@ no PyPI deps, no network.
 
 It would rather stop than guess. Unsupported keywords are reported in one pass.
 
+## Install
+
+Python 3.9 or newer, no other dependencies. Install a tagged release straight
+from the repository:
+
+```bash
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.2.0"
+```
+
+Once the first release is published to PyPI, `pip install powerbridge` (and
+`pip install powerbridge-accel` for the native fast path) will work as well.
+Until then, use the GitHub install above.
+
+To work on PowerBridge itself, or to follow the walkthrough below with the
+bundled examples, clone the repository and use the quickstart.
+
 ## Quickstart
 
 Python 3.9 or newer, no other dependencies. Run these from the repository root.
@@ -197,7 +213,32 @@ fast path is a Rust crate in `accel/` that builds the module
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
 
-Build it from a checkout (needs a Rust toolchain):
+**Prebuilt wheel (no Rust needed).** Each GitHub Release from v0.2.1 on
+carries one `powerbridge-accel` wheel per platform, built for CPython 3.9 and
+newer (abi3). The asset URL follows this pattern:
+
+```
+https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/powerbridge_accel-X.Y.Z-cp39-abi3-PLATFORM.whl
+```
+
+Pick the file on the release page whose name ends with your platform:
+
+| Platform | File name ends with |
+|---|---|
+| macOS Apple Silicon | `macosx_*_arm64.whl` |
+| macOS Intel | `macosx_*_x86_64.whl` |
+| Windows x64 | `win_amd64.whl` |
+| Linux x86_64 | `manylinux*_x86_64.whl` |
+| Linux aarch64 | `manylinux*_aarch64.whl` |
+
+Then install core and the wheel, using the exact file URL:
+
+```bash
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@vX.Y.Z"
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<file>.whl
+```
+
+**From source.** Build it from a checkout (needs a Rust toolchain):
 
 ```bash
 pip install .                                    # core (pure stdlib)
@@ -220,9 +261,10 @@ count grows; see issue #4). Measure your own strategy before relying on a ratio.
 Python path runs and produces the same trades. Programs the native kernel
 cannot execute faithfully raise `AccelRefused` (`AccelUnavailable` when the
 module is missing) so the caller runs the Python path instead; they
-never return a different result. CI builds macOS arm64. Windows 11 x64 was
+never return a different result. CI builds and runs macOS arm64; the release
+workflow builds and smoke-tests every platform in the table above. Windows 11 x64 was
 checked by hand (rustup `x86_64-pc-windows-gnu` toolchain, no Visual Studio
-needed); Linux builds from source but is not CI-verified.
+needed); building from source on Linux is not CI-verified.
 
 An installed module is found even when you run from inside the repository
 folder. `./tools/build_accel.sh` builds it straight into the checkout instead.

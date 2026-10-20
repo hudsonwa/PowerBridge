@@ -1,0 +1,171 @@
+name: release
+
+# Builds the release artifacts and attaches them to a GitHub Release.
+#
+#   * release published  -> build, smoke-test, attach everything to that
+#                           GitHub Release, then publish both projects to PyPI.
+#   * workflow_dispatch  -> dry run: build and smoke-test only; the files are
+#                           kept as workflow artifacts. Nothing is attached to
+#                           a release and nothing goes to PyPI.
+#
+# Artifacts:
+#   powerbridge        sdist + pure wheel (py3-none-any)
+#   powerbridge-accel  abi3 wheels (CPython >= 3.9) for macOS arm64, macOS
+#                      x86_64, Windows x64, Linux x86_64 and Linux aarch64
+#                      (manylinux)
+#
+# PyPI uses trusted publishing (OIDC): the `pypi` job runs in the `pypi`
+# environment and needs no token or secret.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: powerbridge sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Tag matches the package version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os, tomllib
+          tag = os.environ["TAG"].removeprefix("v")
+          core = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          accel = tomllib.load(open("accel/pyproject.toml", "rb"))["project"]["version"]
+          crate = tomllib.load(open("accel/Cargo.toml", "rb"))["package"]["version"]
+          assert tag == core == accel == crate, f"tag {tag} vs core {core}, accel {accel}, crate {crate}"
+          print(f"OK: version {tag}")
+          PY
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir dist .
+
+      - name: Smoke-test the wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/python" -c "import pl_transpiler; print('OK: pl_transpiler imports')"
+          "$RUNNER_TEMP/venv/bin/pl_transpile" --help > /dev/null
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist-core
+          path: dist/*
+
+  accel:
+    name: powerbridge-accel (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macos-arm64, os: macos-14, target: aarch64-apple-darwin }
+          - { name: macos-x86_64, os: macos-15-intel, target: x86_64-apple-darwin }
+          - { name: windows-x64, os: windows-latest, target: x86_64-pc-windows-msvc }
+          - { name: linux-x86_64, os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { name: linux-aarch64, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.9"
+
+      - name: Build abi3 wheel
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
+        with:
+          working-directory: accel
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Smoke-test the wheel
+        # Run from outside the repo so the source `pl_transpiler` cannot
+        # shadow the installed native module.
+        shell: bash
+        run: |
+          python -m pip install accel/dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import pl_transpiler._accel as a; assert a.ping() == 42; print('OK: ping() == 42')"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist-accel-${{ matrix.name }}
+          path: accel/dist/*.whl
+
+  github-release:
+    name: attach to GitHub Release
+    if: github.event_name == 'release'
+    needs: [core, accel]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          ls -l dist
+          gh release upload "$TAG" dist/* --clobber
+
+  pypi:
+    name: publish to PyPI
+    if: github.event_name == 'release'
+    needs: [core, accel]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      id-token: write
+    steps:
+      # One directory per project: each publish step mints its own
+      # short-lived token for the files it uploads.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist-core
+          path: dist/core
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: dist-accel-*
+          path: dist/accel
+          merge-multiple: true
+
+      - name: Publish powerbridge
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/core/
+
+      - name: Publish powerbridge-accel
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/accel/
