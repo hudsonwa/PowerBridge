@@ -86,7 +86,7 @@ def test_recalculate_syntax():
 def test_recalculate_content():
     pl = "Recalculate;"
     result = transpile(pl)
-    assert 'recalculate' in result.lower(), f"'recalculate' not found in:\n{result}"
+    assert '_needs_recalc' in result, f"'_needs_recalc' not found in:\n{result}"
 
 
 if __name__ == '__main__':

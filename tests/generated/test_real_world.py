@@ -53,8 +53,9 @@ def test_ma_crossover_inputs():
 
 def test_ma_crossover_crosses_infix():
     result = transpile(MA_CROSSOVER)
-    assert 'pl_crosses_above(fastma, slowma)' in result, f"Infix CrossesAbove not found in:\n{result}"
-    assert 'pl_crosses_below(fastma, slowma)' in result, f"Infix CrossesBelow not found in:\n{result}"
+    # Infix crosses compare the variables' bar history, not two scalars.
+    assert "pl_crosses_above((_state['fastma'] + [fastma]), (_state['slowma'] + [slowma]))" in result, f"Infix CrossesAbove not found in:\n{result}"
+    assert "pl_crosses_below((_state['fastma'] + [fastma]), (_state['slowma'] + [slowma]))" in result, f"Infix CrossesBelow not found in:\n{result}"
 
 
 def test_ma_crossover_orders():
@@ -66,34 +67,21 @@ def test_ma_crossover_orders():
 
 
 def test_ma_crossover_semantics():
-    """Verify the transpiled code executes without error using series data."""
-    result = transpile(MA_CROSSOVER)
-    from pl_transpiler.runtime.pl_runtime import (
-        pl_average, pl_crosses_above, pl_crosses_below,
-    )
-    # pl_crosses_above/below expect series (lists), but here they receive
-    # scalar floats from pl_average. Wrap them to handle scalar inputs.
-    def safe_crosses_above(a, b):
-        if not isinstance(a, (list, tuple)):
-            return False
-        return pl_crosses_above(a, b)
-    def safe_crosses_below(a, b):
-        if not isinstance(a, (list, tuple)):
-            return False
-        return pl_crosses_below(a, b)
-    ns = {
-        'pl_average': pl_average,
-        'pl_crosses_above': safe_crosses_above,
-        'pl_crosses_below': safe_crosses_below,
-    }
-    exec(result, ns)
-    out = ns['strategy'](
-        open=[100]*20, high=[105]*20, low=[95]*20, close=[102]*20,
-        volume=[1000]*20, date=20240101, time=930
-    )
-    assert isinstance(out, dict)
-    assert 'orders' in out
-    assert 'plots' in out
+    """Run the runnable (persist) dialect bar by bar on a rising-then-falling series."""
+    result = transpile(MA_CROSSOVER, persist=True)
+    ns = {}
+    exec(compile(result, '<ma-crossover>', 'exec'), ns)
+    closes = [100.0 + i for i in range(30)] + [130.0 - i for i in range(30)]
+    state = {}
+    sides = []
+    for i in range(1, len(closes) + 1):
+        c = closes[:i]
+        out = ns['strategy'](c, c, c, c, [1000] * i, [20240101] * i, [930] * i,
+                             _state=state, barnumber=i)
+        assert isinstance(out, dict)
+        assert 'orders' in out and 'plots' in out
+        sides += [o[0] for o in out['orders']]
+    assert 'sell' in sides, f"expected a CrossesBelow exit, got {sides}"
 
 
 if __name__ == '__main__':

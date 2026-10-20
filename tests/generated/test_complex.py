@@ -40,7 +40,7 @@ def test_complex_content():
     assert 'pl_average' in result, f"'pl_average' not found in:\n{result}"
     assert '_orders.append' in result, f"'_orders.append' not found in:\n{result}"
     assert '_plots' in result, f"'_plots' not found in:\n{result}"
-    assert 'value1 = 0' in result, f"'value1 = 0' not found in:\n{result}"
+    assert 'value1 = f32(0)' in result, f"'value1 = f32(0)' not found in:\n{result}"
     assert 'condition1 = False' in result, f"'condition1 = False' not found in:\n{result}"
 
 

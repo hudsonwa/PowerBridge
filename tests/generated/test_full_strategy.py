@@ -21,7 +21,7 @@ STRATEGY = """\
 Inputs: Length(14), Multiplier(2);
 Variables: Value1(0), Value2(0), Condition1(False);
 Value1 = Average(Close, Length);
-Value2 = StandardDev(Close, Length);
+Value2 = StandardDev(Close, Length, 1);
 Condition1 = Close > Value1 + Multiplier * Value2;
 If Condition1 And MarketPosition <> 1 Then
   Buy Next Bar At Market;
@@ -51,8 +51,8 @@ def test_full_strategy_content_inputs():
 
 def test_full_strategy_content_variables():
     result = transpile(STRATEGY)
-    assert 'value1 = 0' in result, f"'value1 = 0' not found in:\n{result}"
-    assert 'value2 = 0' in result, f"'value2 = 0' not found in:\n{result}"
+    assert 'value1 = f32(0)' in result, f"'value1 = f32(0)' not found in:\n{result}"
+    assert 'value2 = f32(0)' in result, f"'value2 = f32(0)' not found in:\n{result}"
     assert 'condition1 = False' in result, f"'condition1 = False' not found in:\n{result}"
 
 
@@ -87,11 +87,12 @@ def test_full_strategy_content_plots():
 
 def test_full_strategy_semantics_buy():
     result = transpile(STRATEGY)
-    ns = {
-        'pl_average': lambda series, period: 50.0,
-        'pl_std_dev': lambda series, period: 5.0,
-    }
+    ns = {}
     exec(result, ns)
+    # Stub after exec: the generated `from pl_runtime import *` would
+    # overwrite them, and globals are looked up at call time.
+    ns['pl_average'] = lambda *args: 50.0
+    ns['pl_std_dev'] = lambda *args: 5.0
     # close=65 > value1(50) + multiplier(2)*value2(5) = 60 => condition1=True
     # market_position defaults to 0, so <> 1 => buy
     out = ns['strategy'](open=60, high=70, low=55, close=65, volume=1000, date=0, time=0)
@@ -104,11 +105,12 @@ def test_full_strategy_semantics_buy():
 
 def test_full_strategy_semantics_sell():
     result = transpile(STRATEGY)
-    ns = {
-        'pl_average': lambda series, period: 50.0,
-        'pl_std_dev': lambda series, period: 5.0,
-    }
+    ns = {}
     exec(result, ns)
+    # Stub after exec: the generated `from pl_runtime import *` would
+    # overwrite them, and globals are looked up at call time.
+    ns['pl_average'] = lambda *args: 50.0
+    ns['pl_std_dev'] = lambda *args: 5.0
     # close=45 < value1(50) => sell condition met
     # market_position=1 => sell
     out = ns['strategy'](open=48, high=50, low=44, close=45, volume=1000, date=0, time=0,
@@ -119,11 +121,12 @@ def test_full_strategy_semantics_sell():
 
 def test_full_strategy_semantics_risk():
     result = transpile(STRATEGY)
-    ns = {
-        'pl_average': lambda series, period: 50.0,
-        'pl_std_dev': lambda series, period: 5.0,
-    }
+    ns = {}
     exec(result, ns)
+    # Stub after exec: the generated `from pl_runtime import *` would
+    # overwrite them, and globals are looked up at call time.
+    ns['pl_average'] = lambda *args: 50.0
+    ns['pl_std_dev'] = lambda *args: 5.0
     out = ns['strategy'](open=50, high=55, low=45, close=50, volume=1000, date=0, time=0)
     assert out['risk']['stop_loss'] == 500, f"Expected stop_loss=500, got {out['risk']}"
     assert out['risk']['profit_target'] == 1000, f"Expected profit_target=1000, got {out['risk']}"
@@ -131,11 +134,12 @@ def test_full_strategy_semantics_risk():
 
 def test_full_strategy_semantics_plots():
     result = transpile(STRATEGY)
-    ns = {
-        'pl_average': lambda series, period: 50.0,
-        'pl_std_dev': lambda series, period: 5.0,
-    }
+    ns = {}
     exec(result, ns)
+    # Stub after exec: the generated `from pl_runtime import *` would
+    # overwrite them, and globals are looked up at call time.
+    ns['pl_average'] = lambda *args: 50.0
+    ns['pl_std_dev'] = lambda *args: 5.0
     out = ns['strategy'](open=50, high=55, low=45, close=50, volume=1000, date=0, time=0)
     assert 'plot1' in out['plots'], f"plot1 not in plots: {out['plots']}"
     assert 'plot2' in out['plots'], f"plot2 not in plots: {out['plots']}"
@@ -150,11 +154,12 @@ def test_full_strategy_semantics_plots():
 
 def test_full_strategy_semantics_custom_inputs():
     result = transpile(STRATEGY)
-    ns = {
-        'pl_average': lambda series, period: 100.0,
-        'pl_std_dev': lambda series, period: 10.0,
-    }
+    ns = {}
     exec(result, ns)
+    # Stub after exec: the generated `from pl_runtime import *` would
+    # overwrite them, and globals are looked up at call time.
+    ns['pl_average'] = lambda *args: 100.0
+    ns['pl_std_dev'] = lambda *args: 10.0
     # Override Length=20, Multiplier=3 via kwargs
     out = ns['strategy'](open=50, high=55, low=45, close=50, volume=1000, date=0, time=0,
                           length=20, multiplier=3)
