@@ -89,6 +89,7 @@ from pl_transpiler.codegen import (
     DIALECT_VERSION as _CODEGEN_DIALECT_VERSION,
 )
 from pl_transpiler.codegen_el import _INV_POSKW, _INV_MCKW
+from pl_transpiler.codegen_tables import CANONICAL_EL_NAME
 
 # Must match transpiler.codegen.DIALECT_VERSION (the forward dialect this inverts).
 # v3: the forward codegen now emits a same-line trailing `#|` comment (was its own
@@ -120,19 +121,19 @@ def _ln(node):
 # py comparison operator string -> EL operator (inverse of codegen.COMPARE_OPS).
 _PY_TO_EL_CMP = {py: el for el, py in COMPARE_OPS.items()}
 
-# pl_* runtime function -> a representative EL keyword. BUILTIN_FUNC_MAP is
-# many-to-one; first EL spelling wins. The verify_twoway comparator canonicalises
-# call names back through BUILTIN_FUNC_MAP, so any representative is behaviourally
-# and structurally sound (all aliases collapse to the same py_name).
+# pl_* runtime function -> its EL keyword. BUILTIN_FUNC_MAP is many-to-one; the
+# canonical MultiCharts spelling (CANONICAL_EL_NAME) wins, else the first EL
+# spelling. The verify_twoway comparator canonicalises call names back through
+# BUILTIN_FUNC_MAP, so all aliases collapse to the same py_name either way.
 _PL_TO_EL = {}
 for _el, _py in BUILTIN_FUNC_MAP.items():
     if _py.startswith('pl_'):
-        _PL_TO_EL.setdefault(_py, _el)
+        _PL_TO_EL.setdefault(_py, CANONICAL_EL_NAME.get(_py, _el))
 
 # EL names whose forward form injects high/low/close ahead of the single length arg
 # (codegen.py:1306-1333). Reverse strips those three leading series args.
 _HLC_INJECTED = {
-    'pl_cci': 'cci', 'pl_atr': 'atr', 'pl_adx': 'adx', 'pl_adxr': 'adxr',
+    'pl_cci': 'cci', 'pl_atr': CANONICAL_EL_NAME['pl_atr'], 'pl_adx': 'adx', 'pl_adxr': 'adxr',
     'pl_dmiplus': 'dmiplus', 'pl_dmiminus': 'dmiminus',
     'pl_fast_k': 'fastk', 'pl_fast_d': 'fastd',
     'pl_slow_k': 'slowk', 'pl_slow_d': 'slowd',

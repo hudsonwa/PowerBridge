@@ -225,9 +225,10 @@ OK -- every builtin used is known to compile in MultiCharts (names, argument cou
 `el_emit` fails closed: every builtin must be in the shipped list of names
 known to compile in MultiCharts, with the right argument count and return
 type. Anything else is reported and the command exits non-zero. For example,
-`ground_truth/GT1_functions_indicators.txt` uses `ATR`, `ROC` and `StdDev`,
-which are not on that list yet, so `el_emit` reports them as NOT-PROVEN and
-exits 1. Argument types are not checked; compiling in the MultiCharts editor
+`Variance` is not on that list yet, so a mirror that calls it is reported as
+NOT-PROVEN and `el_emit` exits 1. The GT1 mirror
+(`ground_truth/GT1_functions_indicators.txt`, which uses `AvgTrueRange`,
+`RateOfChange` and `StandardDev`) passes with 0 NOT-PROVEN. Argument types are not checked; compiling in the MultiCharts editor
 is the final check.
 
 ### As a library

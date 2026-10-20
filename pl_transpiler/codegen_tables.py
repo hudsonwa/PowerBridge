@@ -602,6 +602,18 @@ BUILTIN_FUNC_MAP = {
     'yesterday': 'pl_yesterday',
 }
 
+# Runtime name -> the canonical MultiCharts spelling the reverse emitter (py_front)
+# writes when BUILTIN_FUNC_MAP maps several EL aliases to one runtime name. Only
+# names whose first alias is not the MultiCharts reference spelling are listed;
+# every other runtime name keeps its first BUILTIN_FUNC_MAP alias. Each value must
+# be a BUILTIN_FUNC_MAP key that maps back to the same runtime name.
+CANONICAL_EL_NAME = {
+    'pl_atr': 'avgtruerange',
+    'pl_roc': 'rateofchange',
+    'pl_std_dev': 'standarddev',
+    'pl_weighted_average': 'waverage',
+}
+
 # PL comparison operators → Python
 COMPARE_OPS = {
     '=': '==',

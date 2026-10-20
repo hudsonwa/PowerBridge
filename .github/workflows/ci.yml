@@ -83,20 +83,25 @@ jobs:
                   el = fh.read()
               with open(f"{name}_mirror.py", "w") as fh:
                   fh.write(transpile(el, trace=False))
+          # Fail-closed check: Variance is not in the proven list.
+          with open("unproven_mirror.py", "w") as fh:
+              fh.write(transpile("Vars: v(0);\nv = Variance(Close, 10, 1);\nPlot1(v);\n", trace=False))
           PYEOF
           set +e
           "$RUNNER_TEMP/venv/bin/el_emit" GT2_mirror.py -o GT2_from_python.txt > gt2.out; rc2=$?
           "$RUNNER_TEMP/venv/bin/el_emit" GT1_mirror.py -o GT1_from_python.txt > gt1.out; rc1=$?
+          "$RUNNER_TEMP/venv/bin/el_emit" unproven_mirror.py -o unproven_from_python.txt > bad.out; rcb=$?
           set -e
-          cat gt2.out gt1.out
+          cat gt2.out gt1.out bad.out
           printf '%s\n' \
             'GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD' \
             'OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).' > want.txt
           head -n 2 gt2.out | diff want.txt -
           test "$rc2" -eq 0
-          grep -q 'NOT-PROVEN' gt1.out
-          grep -q 'atr, roc, stddev' gt1.out
-          test "$rc1" -eq 1
+          grep -q '^GT1_from_python.txt: 44 builtins used | 44 PROVEN | 0 NOT-PROVEN' gt1.out
+          test "$rc1" -eq 0
+          grep -q '^  variance$' bad.out
+          test "$rcb" -eq 1
 
   # Rule set lives in pyproject.toml ([tool.ruff]).
   ruff:
