@@ -178,6 +178,62 @@ def format_trace_row(trace, columns):
     return [format_trace_cell(get(k)) for k in columns]
 
 
+# EasyLanguage spellings that do not reduce to a trace key by case/underscore
+# folding alone (e.g. MarketPosition -> _market_position is handled by folding).
+_COLUMN_ALIASES = {
+    'marketpos': '_market_position',
+    'currentbar': '_barnumber',
+    'barnum': '_barnumber',
+    'openpositionprofit': 'open_position_profit',
+    'positionprofit': 'position_profit',
+}
+
+
+class UnknownTraceColumnError(ValueError):
+    """A requested trace column is not a key of the run's trace."""
+
+
+def _fold(name):
+    return name.lower().replace('_', '')
+
+
+def resolve_trace_columns(requested, available):
+    """Map requested column names onto trace keys, failing loud on unknowns.
+
+    Exact keys win; otherwise names match case-insensitively and ignoring
+    underscores (MarketPosition -> _market_position, NetProfit -> net_profit),
+    then via a small EL alias table. Raises UnknownTraceColumnError (a ValueError) listing every unknown
+    name with close-match suggestions.
+    """
+    import difflib
+    available = list(available)
+    exact = set(available)
+    folded = {}
+    for k in sorted(available, key=lambda k: (k.startswith('_'), k)):
+        folded.setdefault(_fold(k), k)
+    resolved, unknown = [], []
+    for name in requested:
+        if name in exact:
+            resolved.append(name)
+            continue
+        f = _fold(name)
+        key = folded.get(f)
+        if key is None and _COLUMN_ALIASES.get(f) in exact:
+            key = _COLUMN_ALIASES[f]
+        if key is None:
+            unknown.append(name)
+        resolved.append(key)
+    if unknown:
+        parts = []
+        for name in unknown:
+            close = [folded[m] for m in
+                     difflib.get_close_matches(_fold(name), list(folded), n=3, cutoff=0.6)]
+            parts.append(f"{name!r}" + (f" (did you mean {', '.join(close)}?)" if close else ""))
+        raise UnknownTraceColumnError(f"unknown trace column(s): {'; '.join(parts)}. "
+                         f"Available: {', '.join(sorted(available))}")
+    return resolved
+
+
 def resolve_trade_from(bars, *, from_date=None, from_bar=None):
     """First tape index that may fill / emit. 0 = no window (full tape).
 
@@ -219,6 +275,9 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     config        : InstrumentConfig (the per-run config; use get_config('NQ')).
     trace_columns : optional list of trace keys to emit as output columns. When
                     None, the first bar's trace keys (sorted) define the columns.
+                    Names match case-insensitively, ignoring underscores, plus
+                    EL aliases (MarketPosition, NetProfit, CurrentBar, ...).
+                    Unknown names raise ValueError on the first bar.
     partial       : opt-in partial mode. When True, unimplemented EL keywords
                     become execution-time stubs (raising only if evaluated) and the
                     stub manifest is printed LOUDLY to stderr before the run. The
@@ -287,21 +346,25 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
         retain_rows = row_sink is None
 
     rows = []
-    cols_holder = {'cols': None}
+    cols_holder = {'cols': None, 'keys': None}
     n_emitted = [0]
 
     def get_ohlcv(i):
         return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
 
     def emit_row(i, barnumber, trace):
-        cols = cols_holder['cols']
-        if cols is None:
-            cols = (list(trace_columns) if trace_columns is not None
-                    else sorted(trace.keys()))
+        keys = cols_holder['keys']
+        if keys is None:
+            if trace_columns is not None:
+                cols = list(trace_columns)
+                keys = resolve_trace_columns(cols, trace.keys())
+            else:
+                cols = keys = sorted(trace.keys())
             cols_holder['cols'] = cols
+            cols_holder['keys'] = keys
             if header_sink is not None:
                 header_sink(cols)
-        row = format_trace_row(trace, cols)
+        row = format_trace_row(trace, keys)
         n_emitted[0] += 1
         if retain_rows:
             rows.append(row)
@@ -419,11 +482,17 @@ def _main(ap, args):
     # not retained (that GC tax inflates the rest of the loop). The library
     # default still retains.
     if columns is not None:
-        writer.writerow(columns)
-        result = run_el(el_source, bars, config, trace_columns=columns,
-                        partial=args.partial, row_sink=writer.writerow,
-                        from_date=args.from_date, from_bar=args.from_bar,
-                        seed_warmup=not args.slice_tape)
+        try:
+            result = run_el(el_source, bars, config, trace_columns=columns,
+                            partial=args.partial, header_sink=writer.writerow,
+                            row_sink=writer.writerow,
+                            from_date=args.from_date, from_bar=args.from_bar,
+                            seed_warmup=not args.slice_tape)
+        except UnknownTraceColumnError as exc:
+            if out_path:
+                out_f.close()
+            print(f"pl_run: error: {exc}", file=sys.stderr)
+            return 2
     else:
         result = run_el(el_source, bars, config, trace_columns=None,
                         partial=args.partial,

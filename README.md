@@ -113,7 +113,7 @@ alone executes nothing).
 
 ```bash
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
-    --config NQ --columns marketpos,netprofit,totaltrades -o run_out.csv
+    --config NQ --columns MarketPosition,NetProfit,TotalTrades -o run_out.csv
 ```
 
 ```
@@ -125,15 +125,24 @@ The `note:` line goes to stderr and is expected without the optional
 [Rust fast path](#acceleration); results are identical either way.
 
 **4. Read the output.** `run_out.csv` has one row per bar with the columns you
-asked for:
+asked for. The strategy goes long, exits with a
+profit, and is long again at the end (excerpt):
 
 ```
-marketpos,netprofit,totaltrades
-0,0,0
-0,0,0
+MarketPosition,NetProfit,TotalTrades
+0,0.0,0
 ...
-0,0,1
+1,0.0,0
+...
+0,1343.7984375000087,1
+...
+1,1343.7984375000087,1
 ```
+
+Column names are the run's trace keys; omit `--columns` to get all of them in
+the header. EasyLanguage spellings such as `MarketPosition`, `NetProfit` or
+`CurrentBar` are accepted case-insensitively. An unknown name stops the run
+with exit code 2 and suggests the closest keys.
 
 For a compact, reproducible summary of the trade list, use `pl_oracle`:
 
@@ -182,9 +191,15 @@ out = run_el(
     open("ground_truth/GT2_strategy_orders_position.txt").read(),
     load_bars_csv("examples/NQ_sample_bars.csv"),
     get_config("NQ"),
-    trace_columns=["marketpos", "netprofit"],
+    trace_columns=["MarketPosition", "NetProfit"],
 )
 print(len(py.splitlines()), "lines;", len(out["rows"]), "bars;", len(out["trades"]), "trades")
+print(out["columns"], out["rows"][-1])
+```
+
+```
+108 lines; 140 bars; 4 trades
+['MarketPosition', 'NetProfit'] ['1', '4742.20703125']
 ```
 
 Look up a keyword:
