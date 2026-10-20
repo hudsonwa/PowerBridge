@@ -182,19 +182,37 @@ def warn_python_path(reason=None):
         sys.stderr.write("note: using the pure-Python engine (slower): %s\n" % reason)
 
 
+# Fill-log semantics this core implements (fill log v2; the oracle digest is
+# ``pl_oracle.DIGEST_VERSION``). The kernel exports its own value as
+# ``_accel.FILL_LOG_VERSION``; a kernel that is missing it or reports a
+# different value is not used, so the native path can never return different
+# fills from the Python path.
+FILL_LOG_VERSION = 2
+
+
+def _version_mismatch(accel):
+    """None if the kernel's fill-log version matches, else the reason."""
+    got = getattr(accel, "FILL_LOG_VERSION", None)
+    if got == FILL_LOG_VERSION:
+        return None
+    kernel = getattr(accel, "__version__", None) or "(unknown version)"
+    have = "fill-log v%s" % got if got is not None else "an older fill log (no FILL_LOG_VERSION)"
+    return ("powerbridge-accel %s implements %s; this powerbridge needs fill-log v%d; "
+            "using the Python path" % (kernel, have, FILL_LOG_VERSION))
+
+
 def accel_available():
-    """True iff the native extension imports."""
+    """True iff the native extension imports and matches this core's fill log."""
     try:
-        import pl_transpiler._accel  # noqa: F401
-        return True
+        import pl_transpiler._accel as accel
     except ImportError:
         return False
+    return _version_mismatch(accel) is None
 
 
 def _import_accel():
     try:
         import pl_transpiler._accel as accel
-        return accel
     except ImportError as exc:
         _record_fallback()
         raise AccelUnavailable(
@@ -202,6 +220,11 @@ def _import_accel():
             "'Acceleration', or tools/build_accel.sh); the Python "
             "path is the only path"
         ) from exc
+    reason = _version_mismatch(accel)
+    if reason is not None:
+        _record_fallback()
+        raise AccelUnavailable(reason)
+    return accel
 
 
 def _series_dict(bars):

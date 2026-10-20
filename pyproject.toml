@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "powerbridge"
-version = "0.3.0"
+version = "0.4.0.dev0"
 description = "Bidirectional EasyLanguage/PowerLanguage to Python transpiler for MultiCharts and TradeStation."
 requires-python = ">=3.9"
 license = "Apache-2.0"
@@ -29,7 +29,7 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 # remains pure-stdlib, zero-dependency, with no build step. This extra is
 # opt-in only. The native wheel, powerbridge-accel, is published separately to PyPI
 # by release.yml; keep this pin equal to `version`.
-accel = ["powerbridge-accel==0.3.0"]
+accel = ["powerbridge-accel==0.4.0.dev0"]
 
 [project.scripts]
 # `python3 -m pl_transpiler.tools.el_emit` / `.pl_run` / `.pl_transpile` / `.pl_oracle`

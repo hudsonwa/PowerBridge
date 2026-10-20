@@ -21,6 +21,13 @@
   and passes the README's GT2 example instead of a false `sellshort: too few
   args`. If the data is missing, `el_emit` exits 2 with a one-line error
   rather than passing. A new CI job checks this from a fresh venv.
+- The native kernel now exports `FILL_LOG_VERSION`, and the core checks it
+  before using the kernel (#78). A kernel that implements a different fill
+  log, or predates the check (the 0.3.0 wheel), is not used: the core prints
+  `powerbridge-accel X implements fill-log v1; this powerbridge needs
+  fill-log v2; using the Python path` and runs the Python engine, so the
+  native path can no longer return different fills. Main now carries version
+  `0.4.0.dev0` and the `accel` extra pins `powerbridge-accel==0.4.0.dev0`.
 - `pl_run` and `pl_oracle` now report an unimplemented EL keyword (for
   example `TradesToday`) as one `<tool>: error: ...` line naming the keyword
   and source line, exit 2, instead of a Python traceback.

@@ -764,9 +764,15 @@ fn run_program_audit_packet_batch(
         .collect()
 }
 
+/// Fill-log semantics this kernel implements. The core refuses the kernel
+/// (and runs the Python path) unless this equals its own `FILL_LOG_VERSION`.
+pub const FILL_LOG_VERSION: u32 = 2;
+
 /// Native extension module. Import as ``pl_transpiler._accel``.
 #[pymodule]
 fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("FILL_LOG_VERSION", FILL_LOG_VERSION)?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(ping, m)?)?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(run_program, m)?)?;
