@@ -18,6 +18,7 @@ import traceback
 
 from pl_transpiler.engine_dates import _el_date_to_day_of_week
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
+from pl_transpiler.runtime._rt_history import SeriesState
 
 
 # FillEngine.fill_pos_kwargs keys → attribute names. Persist 8-arg path
@@ -254,7 +255,8 @@ def run_bar_loop(
 
     barnumber = 0
     first_bar = True
-    state = {}
+    # O(1) `_state['x'] + [x]` lookback views; see runtime/_rt_history.
+    state = SeriesState()
     _throw_count = 0
     _total_strategy_calls = 0
     _first_traceback = None
