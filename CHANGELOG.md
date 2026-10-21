@@ -62,6 +62,12 @@
   `Value1 + 1` or `MarketPosition`) is refused at transpile time, with its line, and the runtime raises instead of returning false when it
   is handed a single value. The native kernel still refuses these operands and falls
   back to the Python path with its usual message.
+- `crosses above` / `crosses below` against a constant level now fire. A literal
+  (`X crosses above 0`) was treated as "no series" and never crossed, and a side that
+  is all zeros (a declared `Z(0)`) was skipped as warm-up padding, so the cross never
+  started. Leading zeros are now skipped only on a side that has a nonzero value; the
+  warm-up skip for indicator pairs is unchanged, and so are all existing digests. The
+  native kernel computes crosses the same way.
 
 ## 0.6.0 — 2026-10-21
 
