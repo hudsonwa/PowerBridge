@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 — 2026-10-21
+
 ### Added
 
 - `docs/ARCHITECTURE.md`: the pipeline, the bar-loop/fill model, the f32/f64
@@ -24,6 +26,13 @@
   little history for a `Close[n]` read, one warning per run is printed on
   stderr (values unchanged). An accel build without MaxBarsBack support is
   refused for N > 0 and the run falls back to Python with a note.
+- `--version` on `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
+- The accel CI job runs the full pytest suite with the native kernel loaded.
+- `--date-format dmy|mdy|ymd` on `pl_run`, `pl_oracle` and `bar_tape
+  csv2pbar`, and `date_format=` on `load_bars_csv` / `load_bars` /
+  `csv_to_pbar`. The default stays day-first (`dmy`); dates with a 4-digit
+  first field (`2024-01-02`) are read as year-month-day.
+- README: "Your own data" documents the bar CSV columns and date/time forms.
 
 ### Changed
 
@@ -108,16 +117,6 @@
   were dropped silently.
 - A day-first date whose month field is above 12 (a month-first export) gets
   a hint to pass `--date-format mdy`.
-
-### Added
-
-- `--version` on `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
-- The accel CI job runs the full pytest suite with the native kernel loaded.
-- `--date-format dmy|mdy|ymd` on `pl_run`, `pl_oracle` and `bar_tape
-  csv2pbar`, and `date_format=` on `load_bars_csv` / `load_bars` /
-  `csv_to_pbar`. The default stays day-first (`dmy`); dates with a 4-digit
-  first field (`2024-01-02`) are read as year-month-day.
-- README: "Your own data" documents the bar CSV columns and date/time forms.
 
 ## 0.4.0 — 2026-10-20
 
