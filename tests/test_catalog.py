@@ -64,7 +64,7 @@ def test_coverage_matches_data_files():
     assert cov["verified_builtins"] == len(builtins), (cov["verified_builtins"], len(builtins))
     assert cov["verified_with_signature"] == len(builtins & set(sigs.keys())), cov
     # Ground the specific numbers the charter states.
-    assert cov["signatures"] == 481, cov
+    assert cov["signatures"] == 565, cov
     assert cov["verified_builtins"] == 190, cov
 
 
@@ -99,11 +99,11 @@ def test_zero_arg_property_reports_true():
 
 
 def test_is_verified():
-    # 'datetime' is on the verified-builtin list (a reserved word WITHOUT a signature,
-    # so it is verified but get() returns None — proving the two catalogs are distinct).
-    assert catalog.is_verified("datetime") is True
-    assert catalog.is_verified("DATETIME") is True  # case-insensitive
-    assert catalog.get("datetime") is None
+    # 'abort' is on the verified-builtin list but has no signature (it is a statement,
+    # not a value), so it is verified but get() returns None — the two catalogs differ.
+    assert catalog.is_verified("abort") is True
+    assert catalog.is_verified("ABORT") is True  # case-insensitive
+    assert catalog.get("abort") is None
     # A made-up token is not verified.
     assert catalog.is_verified("definitely_not_a_real_keyword_zzz") is False
 

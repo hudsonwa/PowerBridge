@@ -22,6 +22,17 @@
   `catalog.verification()` read them, `catalog.coverage()` counts keywords per kind and
   level, and `pl_signatures.schema.json` describes a record. Existing fields are
   unchanged.
+- The keyword catalog fills more gaps, each checked by running PowerBridge
+  (`tests/test_catalog_returns.py` runs every keyword it fixes and compares the value
+  type with `catalog.returns()`). The 16 color constants and `OpenEntriesCount` now
+  return `numeric` instead of `unknown`, and 84 builtins that were on
+  `mc_verified_builtins.txt` without a signature record (such as `CurrentBar`,
+  `Symbol`, the `Array_*` helpers and the session-time words) gain one. Unknown returns
+  drop from 184 to 171; the rest are declaration and type words, order statements,
+  runtime stubs and the `Array_Set*Value` setters, whose return value PowerBridge's
+  own code marks as unsettled, so they stay `unknown`. Three verified tokens still have no
+  record, by design: `Abort` (a statement), and `CommandLine` and `EntryName` (not
+  implemented). The test pins these counts.
 
 ## 0.6.0 — 2026-10-21
 
