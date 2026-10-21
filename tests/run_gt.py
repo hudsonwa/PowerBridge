@@ -21,7 +21,10 @@ Usage:
     python tests/run_gt.py GT1 [--max-bars N]
     python tests/run_gt.py GT1 --output /tmp/predicted.csv [--max-bars N]
 """
-import csv, os, sys, json
+import csv
+import os
+import sys
+import json
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GT = os.path.join(REPO, "ground_truth")

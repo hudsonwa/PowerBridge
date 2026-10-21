@@ -22,7 +22,10 @@ catch the traps they were built for, while a known-good GT script still passes.
   Pass 3b: a keyword with min_arity>0 called with too few args.
   Regression guard: ground_truth/GT1_functions_indicators.txt must still exit 0.
 """
-import os, subprocess, sys, tempfile
+import os
+import subprocess
+import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)

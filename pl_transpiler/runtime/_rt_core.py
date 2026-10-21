@@ -281,7 +281,8 @@ def _install_loud_stubs():
     The loud wrapper is bound on the pl_runtime facade and on every runtime
     submodule that holds the name, so calls from inside a submodule hit the loud
     version too, exactly as they did when all of this lived in one module."""
-    import ast as _ast, sys as _sys
+    import ast as _ast
+    import sys as _sys
     pkg = __name__.rpartition('.')[0]
     facade = _sys.modules[pkg + '.pl_runtime']
     mods = [_sys.modules[pkg + '.' + n] for n in _RUNTIME_SUBMODULES]

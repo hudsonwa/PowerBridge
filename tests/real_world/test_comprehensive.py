@@ -17,7 +17,9 @@ Comprehensive real-world PL transpiler tests.
 Each test transpiles a PL script, compiles the Python output, and executes
 it against synthetic bar data to verify runtime correctness.
 """
-import sys, os, pytest
+import sys
+import os
+import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 def fresh_transpile(pl_source):

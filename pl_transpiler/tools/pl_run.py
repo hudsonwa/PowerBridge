@@ -39,6 +39,8 @@ CLI:
     python -m pl_transpiler.tools.pl_run <el_file> <bars_csv> [--config NQ] [-o out.csv] \
         [--columns a,b,c] [--from-date ELINT | --from-bar N] [--slice] [--lenient]
 """
+from __future__ import annotations
+
 import argparse
 import contextlib
 import csv
@@ -47,6 +49,15 @@ import math
 import os
 import re
 import sys
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+
+if TYPE_CHECKING:
+    from pl_transpiler.runtime.bar_tape import BarTape
+    from pl_transpiler.runtime.instrument_config import InstrumentConfig
+
+# A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
+# or a column-contiguous BarTape holding the same values.
+Bars = Union[Sequence[Mapping[str, Any]], "BarTape"]
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
@@ -86,7 +97,8 @@ def unimplemented_stop_message(prog, exc, el_file):
     return "%s: error%s: %s" % (prog, where, exc)
 
 
-def load_bars_csv(path, date_format=None):
+def load_bars_csv(path: Union[str, "os.PathLike[str]"],
+                  date_format: Optional[str] = None) -> List[Dict[str, Any]]:
     """Load a plain OHLCV CSV into the bar list run_el expects.
 
     Header must contain: date,time,open,high,low,close,volume (case-insensitive).
@@ -133,12 +145,13 @@ def _csv_bar(row, idx, date_format=None):
     }
 
 
-def pbar_for(path):
+def pbar_for(path: Union[str, "os.PathLike[str]"]) -> str:
     """Sibling ``.pbar`` path for a CSV path (same stem, ``.pbar`` extension)."""
     return os.path.splitext(str(path))[0] + ".pbar"
 
 
-def load_bars(path, prefer_pbar=True, date_format=None):
+def load_bars(path: Union[str, "os.PathLike[str]"], prefer_pbar: bool = True,
+              date_format: Optional[str] = None) -> Bars:
     """Load OHLCV from a CSV or a ``.pbar``.
 
     A ``.pbar`` is memory-mapped: opening one is ~0.006 s against
@@ -169,7 +182,9 @@ def load_bars(path, prefer_pbar=True, date_format=None):
     return load_bars_csv(p, date_format)
 
 
-def csv_to_pbar(csv_path, pbar_path, date_format=None):
+def csv_to_pbar(csv_path: Union[str, "os.PathLike[str]"],
+                pbar_path: Union[str, "os.PathLike[str]"],
+                date_format: Optional[str] = None) -> Any:
     """Write a ``.pbar`` from an OHLCV CSV using the same parse as load_bars_csv."""
     from pl_transpiler.runtime.bar_tape import write_pbar
     return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
@@ -366,10 +381,14 @@ def resolve_trade_from(bars, *, from_date=None, from_bar=None):
     return 0
 
 
-def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
-           row_sink=None, header_sink=None, retain_rows=None,
-           from_date=None, from_bar=None, seed_warmup=True, max_bars_back=0,
-           _python_path_notify=None):
+def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
+           trace_columns: Optional[Sequence[str]] = None, partial: bool = False,
+           row_sink: Optional[Callable[[List[str]], Any]] = None,
+           header_sink: Optional[Callable[[List[str]], Any]] = None,
+           retain_rows: Optional[bool] = None,
+           from_date: Optional[int] = None, from_bar: Optional[int] = None,
+           seed_warmup: bool = True, max_bars_back: int = 0,
+           _python_path_notify: Optional[Callable[..., Any]] = None) -> Dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -427,7 +446,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
         py_code = transpile(el_source, trace=True, partial=True)
     else:
         py_code = transpile(el_source, trace=True)
-    ns = {}
+    ns: Dict[str, Any] = {}
     exec(py_code, ns)
     strategy_fn = ns['strategy']
 
@@ -573,7 +592,7 @@ def _build_parser():
     return ap
 
 
-def main(argv=None):
+def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = _build_parser()
     # An unknown flag exits nonzero with a usage message (argparse default).
     args = ap.parse_args(argv)

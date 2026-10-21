@@ -337,16 +337,16 @@ class _StmtMixin:
             return
         input_args = call_node['args'][:7]  # first 7 are inputs
         output_names = [a['name'] for a in call_node['args'][7:]]  # last 4 are output var names
-        
+
         # Process input args with series context
         old_ctx = self._series_context
         self._series_context = True
         arg_exprs = [self.gen_expr(a) for a in input_args]
         self._series_context = old_ctx
-        
+
         call_str = f"pl_stochastic({', '.join(arg_exprs)})"
         result_var = "_stoch_result"
-        
+
         self.emit(f"{result_var} = {call_str}")
         # Unpack: [0]=status->target, [1]=FastK, [2]=FastD, [3]=SlowK, [4]=SlowD
         # Target (stochret) gets status at [0]

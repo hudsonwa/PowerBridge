@@ -709,13 +709,13 @@ class _ExprMixin:
                 self._series_context = True
             raw_args = [self.gen_expr(a) for a in series['args']]
             self._series_context = old_ctx
-            
+
             if index['type'] == 'number':
                 offset = int(index['value'])  # EL 1-indexed → remove N trailing elements
             else:
                 offset_expr = self.gen_expr(index)
                 offset = f"({offset_expr})"
-            
+
             # Inject high/low/close for indicators that need them (__adx__, __cci__, etc.)
             py_name = BUILTIN_FUNC_MAP.get(func_name)
             if py_name in ('__adx__', '__adxr__', '__dmiplus__', '__dmiminus__') and len(raw_args) == 1:
@@ -724,7 +724,7 @@ class _ExprMixin:
                 hlc = ', '.join(self._lagged(s, offset, slice_zero=True)
                                 for s in ('high', 'low', 'close'))
                 return f"{fn}({hlc}, {raw_args[0]})"
-            
+
             # For regular functions, pass series args with offset slicing
             # Slice each data series argument to shift the lookback window
             sliced_args = []
@@ -733,7 +733,7 @@ class _ExprMixin:
                     sliced_args.append(self._lagged(raw_args[i], offset))
                 else:
                     sliced_args.append(raw_args[i])
-            
+
             if py_name and not py_name.startswith('__'):
                 return f"{py_name}({', '.join(sliced_args)})"
             return self._impl_call(func_name, series, sliced_args)

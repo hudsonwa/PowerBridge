@@ -38,6 +38,7 @@ audited non-circular sourcing.
 import json
 import os
 from dataclasses import MISSING, dataclass, fields
+from typing import Any, Dict, Union
 
 
 @dataclass(frozen=True)
@@ -104,7 +105,7 @@ ES = InstrumentConfig(
 )
 
 
-_CONFIGS = {
+_CONFIGS: Dict[str, InstrumentConfig] = {
     "NQ": NQ,
     "ES": ES,
 }
@@ -114,7 +115,7 @@ class ConfigFileError(ValueError):
     """A malformed instrument config JSON file (one-line message)."""
 
 
-def _type_ok(value, typ):
+def _type_ok(value: Any, typ: Any) -> bool:
     # bool is an int subclass but never a valid numeric config value.
     if isinstance(value, bool):
         return False
@@ -123,7 +124,7 @@ def _type_ok(value, typ):
     return isinstance(value, typ)
 
 
-def load_config_file(path):
+def load_config_file(path: Union[str, "os.PathLike[str]"]) -> InstrumentConfig:
     """Load an InstrumentConfig from the JSON object in `path`.
 
     Keys are exactly the InstrumentConfig field names; `category` is optional
@@ -148,7 +149,7 @@ def load_config_file(path):
         raise ConfigFileError(
             f"bad config file {path}: missing key(s) {', '.join(missing)}")
     for name, value in data.items():
-        typ = spec[name].type
+        typ: Any = spec[name].type
         typ = {"float": float, "int": int, "str": str}.get(typ, typ)
         if not _type_ok(value, typ):
             raise ConfigFileError(
@@ -157,7 +158,7 @@ def load_config_file(path):
     return InstrumentConfig(**data)
 
 
-def get_config(name="NQ"):
+def get_config(name: str = "NQ") -> InstrumentConfig:
     """Return the InstrumentConfig registered under `name` (default 'NQ').
 
     A `name` ending in ``.json`` or naming an existing file is loaded with

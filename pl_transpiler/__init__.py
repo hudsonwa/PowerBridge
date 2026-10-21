@@ -18,6 +18,7 @@ __version__ = "0.5.0"
 # copy even when this source checkout shadows site-packages on sys.path, e.g.
 # when you run from the repository root after `pip install` of the accel wheel.
 from pkgutil import extend_path as _extend_path
+from typing import Any as _Any
 __path__ = _extend_path(__path__, __name__)
 
 # The public names below are imported on first use rather than here, so
@@ -33,7 +34,7 @@ _LAZY = {
 }
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> "_Any":
     module = _LAZY.get(name)
     if module is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -43,10 +44,11 @@ def __getattr__(name):
     return value
 
 
-def __dir__():
+def __dir__() -> "list[str]":
     return sorted(set(globals()) | set(_LAZY))
 
-def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
+def transpile(pl_source: str, trace: bool = False, partial: bool = False,
+              persist: "bool | None" = None) -> str:
     """Convert PowerLanguage source string to Python source string.
     If trace=True, generated code captures per-bar variable values into a _trace dict.
     persist: cross-bar `_state` container. None (default) follows `trace`.

@@ -43,7 +43,10 @@ two passes are MANUAL (no MC compiler here, so the MC editor "Verify" is still t
 Usage:  python pl_transpiler/tools/mc_ground_check.py <script.txt>
 Exit:   0 if every used builtin is PROVEN and no 0-arg property is mis-called; 1 otherwise.
 """
-import json, os, re, sys
+import json
+import os
+import re
+import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SIGNATURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pl_signatures.jsonl')

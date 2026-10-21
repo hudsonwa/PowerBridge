@@ -58,12 +58,19 @@ CLI:
         [--data2 CSV] [--lenient] [-o digest.txt] [--compare FILE] [--dump FILE] \\
         [--fills-csv FILE] [--digest-v1]
 """
+from __future__ import annotations
+
 import argparse
 import contextlib
 import csv
 import hashlib
 import os
 import sys
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+
+if TYPE_CHECKING:
+    from pl_transpiler.runtime.instrument_config import InstrumentConfig
+    from pl_transpiler.tools.pl_run import Bars
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
@@ -197,7 +204,7 @@ def count_round_turns(fills):
     return sum(1 for t in fill_trade_types(fills) if t.startswith("Exit"))
 
 
-def format_digest(*, fills, round_turns, sha256, version=2):
+def format_digest(*, fills: int, round_turns: int, sha256: str, version: int = 2) -> str:
     """Canonical four-line digest text. Always ends with a newline."""
     return (
         f"powerbridge-trade-digest v{version}\n"
@@ -320,9 +327,13 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     return digest, None
 
 
-def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
-               from_date=None, to_date=None, from_bar=None, seed_warmup=False,
-               use_native=False, digest_version=2, max_bars_back=0):
+def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
+               data2_closes: Optional[Sequence[float]] = None,
+               data2_bars: Optional[Bars] = None,
+               from_date: Optional[int] = None, to_date: Optional[int] = None,
+               from_bar: Optional[int] = None, seed_warmup: bool = False,
+               use_native: bool = False, digest_version: int = 2,
+               max_bars_back: int = 0) -> Dict[str, Any]:
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -419,7 +430,7 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
 
     reset_indicator_caches()
     py_code = transpile(el_source, persist=True)
-    ns = {}
+    ns: Dict[str, Any] = {}
     exec(compile(py_code, "<oracle>", "exec"), ns)
     strategy_fn = ns["strategy"]
 
@@ -558,7 +569,7 @@ def _build_parser():
     return ap
 
 
-def main(argv=None):
+def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = _build_parser()
     args = ap.parse_args(argv)
     if args.lenient:

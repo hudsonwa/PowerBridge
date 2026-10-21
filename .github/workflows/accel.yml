@@ -28,6 +28,10 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only token: no job here writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------
   # Job 1: RUN the accel path on the machine class actually used (arm64 mac).
@@ -37,14 +41,16 @@ jobs:
     runs-on: macos-14   # Apple Silicon (arm64)
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
 
       - name: Install maturin and pytest
         run: |
@@ -106,7 +112,7 @@ jobs:
           python -m pytest -q --timeout=60
 
       - name: Upload the macOS arm64 wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: accel-macos-arm64-wheel
           path: accel/target/wheels/*.whl
@@ -118,9 +124,9 @@ jobs:
     name: core (no accel) — zero-dep promise
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 

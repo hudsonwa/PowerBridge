@@ -50,7 +50,7 @@ class FillEngine:
     - Default point value 20 (NQ, per contract per full point); a config
       overrides it
     """
-    
+
     def __init__(self, point_value=20, tick=0.25, config=None):
         # Per-run instrument config (InstrumentConfig). When provided, it is the
         # single source of the chart/instrument constants — point_value (=$/point)
@@ -250,7 +250,7 @@ class FillEngine:
             if min(a, b) <= entry_price <= max(a, b):
                 return (entry_price,) + tuple(path[i + 1:])
         return tuple(path)
-    
+
     def after_bar(self, orders, risk, close_price, barnumber=0, date_str=0, time_str=0):
         """Queue new orders AFTER strategy runs and compute end-of-bar PnL.
 
@@ -328,13 +328,13 @@ class FillEngine:
         self._record_fills(action in ('buy', 'buytocover'), label, date_str, time_str,
                            close_price, prev_signed,
                            v1_qty=abs(self.contracts - prev_contracts) or qty)
-    
+
     def _is_valid_order(self, order):
         """Check that order tuple has expected structure."""
         if not isinstance(order, tuple) or len(order) < 5:
             return False
         return True
-    
+
     def _execute_pending_fills(self, open_price, barnumber, date_str=0, time_str=0,
                                high=None, low=None, close_price=None):
         """Fill next-bar pending orders against THIS bar's prices.
@@ -446,7 +446,7 @@ class FillEngine:
             self.fills.append(dict(rec))
         for _ in range(v1_qty):
             self.fills_v1.append(dict(rec))
-    
+
     def _fill(self, action, qty, fill_price, barnumber, date=0, time=0, label='', cat=3):
         """Execute a fill: update position, handle trade close/open.
 
@@ -735,7 +735,7 @@ class FillEngine:
         else:
             diff = close_price - self.entry_price
             self.open_position_profit = diff * self.market_position * self.point_value * self.contracts
-    
+
     def _check_money_management_stops(self, high, low, close_price, barnumber=None, open_price=None,
                                        date_str=0, time_str=0):
         """Close the position if the bar's intra-bar price path crosses any active
@@ -861,11 +861,11 @@ class FillEngine:
         # No stop fired: carry this bar's favorable excursion into the peak for the
         # NEXT bar's arming/trail level (MultiCharts uses the prior-bars peak).
         self._peak_profit = max(self._peak_profit, best_pnl)
-        
+
         # SetExitOnClose — only triggers on the last bar (deferred for now)
         # EL's SetExitOnClose exits all positions on the close of the last bar.
         # Not implemented yet (requires knowing when it's the last bar).
-    
+
     def _snap(self, price, direction='nearest'):
         """Snap a price to the instrument tick grid (MultiCharts order placement).
 
@@ -929,7 +929,7 @@ class FillEngine:
                            exit_date if fill_date is None else fill_date,
                            exit_time if fill_time is None else fill_time,
                            price, prev_signed)
-    
+
     def fill_pos_kwargs(self, d):
         """Write position kwargs into *d* in place (no new dict)."""
         d['market_position'] = self.market_position
@@ -969,7 +969,7 @@ class FillEngine:
         d = {}
         self.fill_pos_kwargs(d)
         return d
-    
+
     def get_mc_trades(self, v1=False):
         """Return list of MC-format trade dicts: order_no, type, signal, date, time, price, contracts.
 

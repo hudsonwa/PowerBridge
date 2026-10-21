@@ -40,7 +40,10 @@ Usage:
   python tests/golden_diff.py probe
   python tests/golden_diff.py diff <capture.csv> <predicted.csv> [--key bn] [--tol 1e-6]
 """
-import csv, struct, sys, os
+import csv
+import struct
+import sys
+import os
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAP = os.path.join(REPO, "ground_truth", "captures")

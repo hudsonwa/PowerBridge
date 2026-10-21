@@ -47,25 +47,28 @@ CLI::
     python -m pl_transpiler.catalog --search <substring>
     python -m pl_transpiler.catalog --coverage
 """
+from __future__ import annotations
+
 import json
 import sys
 from importlib import resources
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 _TOOLS_PACKAGE = "pl_transpiler.tools"
 _SIGNATURES_RESOURCE = "pl_signatures.jsonl"
 _BUILTINS_RESOURCE = "mc_verified_builtins.txt"
 
 # Lazily populated caches (keyed by lower-cased name for case-insensitive lookup).
-_signatures = None          # dict: lower-name -> record dict (record['keyword'] is original case)
-_verified_builtins = None   # frozenset of lower-cased verified builtin tokens
+_signatures: Optional[Dict[str, Dict[str, Any]]] = None          # dict: lower-name -> record dict (record['keyword'] is original case)
+_verified_builtins: Optional[FrozenSet[str]] = None   # frozenset of lower-cased verified builtin tokens
 
 
-def _read_resource(name):
+def _read_resource(name: str) -> str:
     """Read a shipped data file as text, from a wheel or a checkout."""
     return resources.files(_TOOLS_PACKAGE).joinpath(name).read_text(encoding="utf-8")
 
 
-def _load_signatures():
+def _load_signatures() -> Dict[str, Dict[str, Any]]:
     global _signatures
     if _signatures is None:
         recs = {}
@@ -79,7 +82,7 @@ def _load_signatures():
     return _signatures
 
 
-def _load_verified_builtins():
+def _load_verified_builtins() -> FrozenSet[str]:
     global _verified_builtins
     if _verified_builtins is None:
         toks = set()
@@ -92,7 +95,7 @@ def _load_verified_builtins():
     return _verified_builtins
 
 
-def get(name):
+def get(name: str) -> Optional[Dict[str, Any]]:
     """Return the signature record dict for ``name`` (case-insensitive), or None.
 
     The returned dict is a copy of the shipped record augmented with a derived
@@ -105,7 +108,7 @@ def get(name):
     return out
 
 
-def arity(name):
+def arity(name: str) -> Tuple[int, bool]:
     """Return ``(min_arity, zero_arg_property)`` for ``name`` (case-insensitive).
 
     Raises KeyError with a helpful message if the keyword is not in the signature
@@ -120,7 +123,7 @@ def arity(name):
     return (rec["min_arity"], rec["zero_arg_property"])
 
 
-def returns(name):
+def returns(name: str) -> str:
     """Return the declared return type of ``name`` (case-insensitive).
 
     Raises KeyError with a helpful message if the keyword is not in the catalog."""
@@ -134,19 +137,19 @@ def returns(name):
     return rec["returns"]
 
 
-def is_verified(name):
+def is_verified(name: str) -> bool:
     """True iff ``name`` (case-insensitive) is an MC-verified builtin."""
     return name.lower() in _load_verified_builtins()
 
 
-def search(substring):
+def search(substring: str) -> List[str]:
     """Return the sorted list of keyword names containing ``substring`` (case-insensitive)."""
     needle = substring.lower()
     sigs = _load_signatures()
     return sorted(rec["keyword"] for low, rec in sigs.items() if needle in low)
 
 
-def coverage():
+def coverage() -> Dict[str, int]:
     """Return derived catalog counts.
 
     Keys:

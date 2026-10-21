@@ -28,7 +28,9 @@ header rows (the Print(File()) appender concatenates runs if the file wasn't del
 Usage:  python pl_transpiler/tools/analyze_capture.py <capture.csv>
 Exit:   0 if the file parsed; 2 on usage/IO error. (It reports findings; it does not judge pass/fail.)
 """
-import csv, os, sys
+import csv
+import os
+import sys
 from collections import Counter
 
 
