@@ -1,0 +1,1155 @@
+{
+ "_about": "Hand-written source for docs/reference/. Descriptions and examples are original and based only on PowerBridge's code, tests and observed runs. Regenerate the pages with: python -m pl_transpiler.tools.gen_reference",
+ "topics": [
+  {
+   "slug": "orders",
+   "title": "Orders and exits",
+   "intro": "Words that place entries and exits. Order words are statements, so they have no return value. PowerBridge fills them in its own fill engine; see README for the fill model."
+  },
+  {
+   "slug": "position",
+   "title": "Position and entries",
+   "intro": "Read the state of the open position, its individual entries and recent positions. An index argument usually counts back: 0 is the current position or entry, 1 the one before."
+  },
+  {
+   "slug": "performance",
+   "title": "Strategy performance",
+   "intro": "Running totals over the closed trades of the strategy, updated as each trade closes."
+  },
+  {
+   "slug": "bar-data",
+   "title": "Bar and chart data",
+   "intro": "Facts about the bar being evaluated and the chart it belongs to. Several of these are fixed chart settings in PowerBridge rather than values computed from your data; each entry says so."
+  },
+  {
+   "slug": "symbol",
+   "title": "Symbol properties",
+   "intro": "Properties of the traded instrument. PowerBridge takes them from the instrument config passed to the run (for example `get_config(\"NQ\")`)."
+  },
+  {
+   "slug": "sessions",
+   "title": "Sessions",
+   "intro": "Trading-session times and days. PowerBridge does not read a session template from your data: most of these return fixed values that describe one session layout, so treat them as placeholders unless your data matches it."
+  },
+  {
+   "slug": "datetime",
+   "title": "Dates and times",
+   "intro": "EasyLanguage has two date encodings. An EL date is a number like 1240102 (years since 1900, then month and day: 2 January 2024); an EL time is HHMM, or HHMMSS for the `_s` forms. A DateTime value counts days, with the time of day as the fraction."
+  },
+  {
+   "slug": "math",
+   "title": "Math and lists",
+   "intro": "Numeric helpers. Results are rounded to float32 like MultiCharts. The trigonometric words work in degrees."
+  },
+  {
+   "slug": "arrays",
+   "title": "Arrays",
+   "intro": "Helpers for arrays declared with `Array:` or `Arrays:`. The array is passed by name as the first argument; index ranges are inclusive."
+  },
+  {
+   "slug": "drawing",
+   "title": "Drawing, colors and output",
+   "intro": "Chart objects, color constants and text output. A backtest has no chart, so PowerBridge accepts these calls but most have no visible effect; object-creating calls still return an ID."
+  }
+ ],
+ "entries": {
+  "Buy": {
+   "topic": "orders",
+   "desc": "Opens or adds to a long position. Any open short is closed first, so a Buy while short reverses the position.",
+   "example": "If Close > Open Then Buy (\"LE\") Next Bar At Market;"
+  },
+  "Sell": {
+   "topic": "orders",
+   "desc": "Closes all or part of a long position. It never opens a short; use `SellShort` for that.",
+   "example": "If MarketPosition = 1 and Close < Open Then Sell (\"LX\") Next Bar At Market;"
+  },
+  "SellShort": {
+   "topic": "orders",
+   "desc": "Opens or adds to a short position, reversing any open long. `Sell Short` written as two words means the same.",
+   "example": "If Close < Open Then SellShort (\"SE\") Next Bar At Market;"
+  },
+  "BuyToCover": {
+   "topic": "orders",
+   "desc": "Closes all or part of a short position without opening a long. `Buy To Cover` written as two words is the same order.",
+   "example": "If MarketPosition = -1 and Close > Open Then BuyToCover (\"SX\") Next Bar At Market;"
+  },
+  "Short": {
+   "topic": "orders",
+   "desc": "Only meaningful as the second word of `Sell Short`. PowerBridge reads the two words as `SellShort`; `Short` alone is not an order.",
+   "example": "If Close < Open Then Sell Short (\"SE\") Next Bar At Market;"
+  },
+  "Cover": {
+   "topic": "orders",
+   "desc": "Only meaningful as the last word of `Buy To Cover`. PowerBridge reads the phrase as `BuyToCover`; `Cover` alone is not an order.",
+   "example": "If MarketPosition = -1 Then Buy To Cover (\"SX\") Next Bar At Market;"
+  },
+  "SetStopLoss": {
+   "topic": "orders",
+   "desc": "Sets a protective stop for the open position, given as a money loss. PowerBridge always applies the amount to the whole position (the `SetStopPosition` mode).",
+   "example": "SetStopPosition;\nSetStopLoss(500);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetProfitTarget": {
+   "topic": "orders",
+   "desc": "Sets a profit target for the open position as a money amount; the position is closed once the open profit reaches it.",
+   "example": "SetProfitTarget(1000);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetBreakEven": {
+   "topic": "orders",
+   "desc": "Once the open profit has reached the given money amount, places a stop at the entry price so the trade cannot turn into a loss.",
+   "example": "SetBreakEven(300);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetDollarTrailing": {
+   "topic": "orders",
+   "desc": "Trails a stop the given money amount behind the best open profit reached so far in the position.",
+   "example": "SetDollarTrailing(400);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetPercentTrailing": {
+   "topic": "orders",
+   "desc": "Takes two arguments: a profit threshold in money and a percentage. After the threshold is reached, the position is closed if it gives back that percentage of its peak profit.",
+   "example": "SetPercentTrailing(500, 30);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetExitOnClose": {
+   "topic": "orders",
+   "desc": "Closes any open position at the close of the last bar of each session.",
+   "example": "SetExitOnClose;\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetStopContract": {
+   "topic": "orders",
+   "desc": "Asks for the money amounts of the built-in exits to apply per contract instead of to the whole position. PowerBridge accepts it but does not yet honour it: its fill engine still applies the amounts to the whole position, so trades match `SetStopPosition`.",
+   "example": "SetStopContract;\nSetStopLoss(250);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetStopShare": {
+   "topic": "orders",
+   "desc": "Equity-market spelling of `SetStopContract`. Like it, PowerBridge accepts it but still applies the exit amounts to the whole position.",
+   "example": "SetStopShare;\nSetProfitTarget(100);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetStopPosition": {
+   "topic": "orders",
+   "desc": "Makes the money amounts of the built-in exits (`SetStopLoss`, `SetProfitTarget` and the rest) apply to the whole position. This is the default.",
+   "example": "SetStopPosition;\nSetStopLoss(800);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetStopLoss_pt": {
+   "topic": "orders",
+   "desc": "Like `SetStopLoss`, but the distance is given in points (price units) from the entry price instead of in money.",
+   "example": "SetStopLoss_pt(10);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetProfitTarget_pt": {
+   "topic": "orders",
+   "desc": "Like `SetProfitTarget`, with the target given in points from the entry price.",
+   "example": "SetProfitTarget_pt(20);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetBreakEven_pt": {
+   "topic": "orders",
+   "desc": "Like `SetBreakEven`, with the trigger given in points of open profit per contract.",
+   "example": "SetBreakEven_pt(5);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetTrailingStop_pt": {
+   "topic": "orders",
+   "desc": "A trailing stop measured in points: it follows the best price reached in the position at the given distance.",
+   "example": "SetTrailingStop_pt(8);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SetPercentTrailing_pt": {
+   "topic": "orders",
+   "desc": "Like `SetPercentTrailing`, with the profit threshold given in points instead of money.",
+   "example": "SetPercentTrailing_pt(10, 25);\nIf MarketPosition = 0 Then Buy Next Bar At Market;"
+  },
+  "SameExitFromOneEntryOnce": {
+   "topic": "orders",
+   "desc": "A strategy setting that limits how often one named exit may fire against the same entry. PowerBridge's runtime does not implement it; a run that reaches it stops with an error."
+  },
+  "IntraBarOrderGeneration": {
+   "topic": "orders",
+   "desc": "Strategy setting for evaluating orders inside a bar rather than once at its close. PowerBridge evaluates once per bar and does not implement this setting; a run that reads it stops with an error."
+  },
+  "MarketPosition": {
+   "topic": "position",
+   "desc": "Direction of the open position: 1 when long, -1 when short, 0 when flat.",
+   "example": "If MarketPosition = 0 and Close > Close[1] Then Buy Next Bar At Market;"
+  },
+  "AvgEntryPrice": {
+   "topic": "position",
+   "desc": "Average fill price of the entries that make up the open position; 0 when flat.",
+   "example": "Vars: Gain(0);\nIf MarketPosition = 0 Then Buy Next Bar At Market;\nIf MarketPosition = 1 Then Gain = Close - AvgEntryPrice;"
+  },
+  "entrydate": {
+   "topic": "position",
+   "desc": "EL date on which the current position was entered; 0 before the first entry."
+  },
+  "entrytime": {
+   "topic": "position",
+   "desc": "EL time (HHMM) of the bar on which the current position was entered."
+  },
+  "entrydatetime": {
+   "topic": "position",
+   "desc": "Entry date and time of the current position as one DateTime value. On PowerBridge's sample run it stayed 0, so do not rely on it yet."
+  },
+  "ExitDate": {
+   "topic": "position",
+   "desc": "EL date on which the position the given number of positions ago was closed. `ExitDate(1)` is the most recent closed position.",
+   "example": "Vars: LastExit(0);\nLastExit = ExitDate(1);"
+  },
+  "ExitTime": {
+   "topic": "position",
+   "desc": "EL time (HHMM) at which the position the given number of positions ago was closed."
+  },
+  "ExitDateTime": {
+   "topic": "position",
+   "desc": "Exit date and time of an earlier position as one DateTime value, indexed like `ExitDate`."
+  },
+  "ExitPrice": {
+   "topic": "position",
+   "desc": "Price at which an earlier position was closed, indexed like `ExitDate`.",
+   "example": "Vars: LastOut(0);\nLastOut = ExitPrice(1);"
+  },
+  "ExitName": {
+   "topic": "position",
+   "desc": "Name (the label in parentheses) of the exit order that closed an earlier position. Write it with its index, for example `ExitName(1)`; PowerBridge rejects the bare word.",
+   "example": "Vars: Why(\"\");\nWhy = ExitName(1);"
+  },
+  "barssinceexit": {
+   "topic": "position",
+   "desc": "How many bars ago the given earlier position was closed."
+  },
+  "currententries": {
+   "topic": "position",
+   "desc": "Number of entries that are part of the open position."
+  },
+  "currentshares": {
+   "topic": "position",
+   "desc": "Size of the open position in shares or contracts."
+  },
+  "OpenEntriesCount": {
+   "topic": "position",
+   "desc": "Number of entries currently open in the position. Several entries build up when the strategy adds to a position.",
+   "example": "If OpenEntriesCount < 2 and Close > Open Then Buy Next Bar At Market;"
+  },
+  "OpenEntryContracts": {
+   "topic": "position",
+   "desc": "Contracts held by one open entry, chosen by its index among the open entries."
+  },
+  "OpenEntryDate": {
+   "topic": "position",
+   "desc": "EL date of one open entry, chosen by index."
+  },
+  "OpenEntryTime": {
+   "topic": "position",
+   "desc": "EL time of one open entry, chosen by index."
+  },
+  "OpenEntryPrice": {
+   "topic": "position",
+   "desc": "Fill price of one open entry, chosen by index."
+  },
+  "OpenEntryProfit": {
+   "topic": "position",
+   "desc": "Open profit of one open entry, in money, chosen by index."
+  },
+  "OpenEntryProfitPerContract": {
+   "topic": "position",
+   "desc": "Open profit of one open entry divided by its contracts."
+  },
+  "OpenEntryMaxProfit": {
+   "topic": "position",
+   "desc": "Best open profit one open entry has reached so far."
+  },
+  "OpenEntryMaxProfitPerContract": {
+   "topic": "position",
+   "desc": "Best open profit of one open entry, per contract."
+  },
+  "OpenEntryMinProfit": {
+   "topic": "position",
+   "desc": "Worst open profit (largest open loss) one open entry has reached so far."
+  },
+  "OpenEntryMinProfitPerContract": {
+   "topic": "position",
+   "desc": "Worst open profit of one open entry, per contract."
+  },
+  "OpenPositionProfit": {
+   "topic": "position",
+   "desc": "Unrealised profit of the open position in money at the current bar's close; 0 when flat.",
+   "example": "If MarketPosition = 0 Then Buy Next Bar At Market;\nIf OpenPositionProfit < -500 Then Sell Next Bar At Market;"
+  },
+  "PositionProfit": {
+   "topic": "position",
+   "desc": "Profit of a position chosen by how many positions ago it was; index 0 is the open one."
+  },
+  "MaxPositionProfit": {
+   "topic": "position",
+   "desc": "Largest open profit reached during a position, chosen by how many positions ago it was."
+  },
+  "MaxPositionLoss": {
+   "topic": "position",
+   "desc": "Largest open loss reached during a position, chosen by how many positions ago it was."
+  },
+  "MaxContractProfit": {
+   "topic": "position",
+   "desc": "Largest open profit per contract reached during a position."
+  },
+  "MaxContracts": {
+   "topic": "position",
+   "desc": "Largest number of contracts held at once during a position, chosen by how many positions ago it was."
+  },
+  "MaxShares": {
+   "topic": "position",
+   "desc": "Share-market spelling of the largest size held at once during the current position."
+  },
+  "MaxEntries": {
+   "topic": "position",
+   "desc": "Largest number of entries open at once during a position."
+  },
+  "maxcontractsheld": {
+   "topic": "position",
+   "desc": "Largest position size, in contracts, the strategy has held at any time so far."
+  },
+  "maxsharesheld": {
+   "topic": "position",
+   "desc": "Share-market spelling of `maxcontractsheld`."
+  },
+  "MaxPositionsAgo": {
+   "topic": "position",
+   "desc": "Position-history word that counts back over earlier positions. It returned 0 on every bar of PowerBridge's sample run, so check it on your own strategy before relying on it."
+  },
+  "PosTradeCount": {
+   "topic": "position",
+   "desc": "Number of trades (entry and exit pairs) inside the position the given number of positions ago.",
+   "example": "Vars: N(0);\nN = PosTradeCount(1);"
+  },
+  "PosTradeEntryBar": {
+   "topic": "position",
+   "desc": "Bars ago that a trade inside an earlier position was entered. The first argument picks the position, the second the trade within it."
+  },
+  "PosTradeEntryCategory": {
+   "topic": "position",
+   "desc": "Order category code of a trade's entry, indexed by position then trade."
+  },
+  "PosTradeEntryDateTime": {
+   "topic": "position",
+   "desc": "Entry date and time of a trade, as a DateTime value, indexed by position then trade."
+  },
+  "PosTradeEntryName": {
+   "topic": "position",
+   "desc": "Label of the entry order of a trade, indexed by position then trade."
+  },
+  "PosTradeEntryPrice": {
+   "topic": "position",
+   "desc": "Entry price of a trade, indexed by position then trade.",
+   "example": "Vars: P(0);\nP = PosTradeEntryPrice(1, 0);"
+  },
+  "PosTradeExitBar": {
+   "topic": "position",
+   "desc": "Bars ago that a trade inside an earlier position was closed, indexed by position then trade."
+  },
+  "PosTradeExitCategory": {
+   "topic": "position",
+   "desc": "Order category code of a trade's exit, indexed by position then trade."
+  },
+  "PosTradeExitDateTime": {
+   "topic": "position",
+   "desc": "Exit date and time of a trade, as a DateTime value, indexed by position then trade."
+  },
+  "PosTradeExitName": {
+   "topic": "position",
+   "desc": "Label of the exit order of a trade, indexed by position then trade."
+  },
+  "PosTradeExitPrice": {
+   "topic": "position",
+   "desc": "Exit price of a trade, indexed by position then trade."
+  },
+  "PosTradeIsLong": {
+   "topic": "position",
+   "desc": "True when the selected trade was long, indexed by position then trade."
+  },
+  "PosTradeIsOpen": {
+   "topic": "position",
+   "desc": "True while the selected trade has not been closed yet."
+  },
+  "PosTradeProfit": {
+   "topic": "position",
+   "desc": "Profit in money of a trade, indexed by position then trade."
+  },
+  "PosTradeSize": {
+   "topic": "position",
+   "desc": "Contracts in a trade, indexed by position then trade."
+  },
+  "grossprofit": {
+   "topic": "performance",
+   "desc": "Sum of the profits of all winning closed trades so far.",
+   "example": "Vars: PF(0);\nIf GrossLoss <> 0 Then PF = GrossProfit / -GrossLoss;"
+  },
+  "grossloss": {
+   "topic": "performance",
+   "desc": "Sum of the losses of all losing closed trades so far, as a negative number or 0."
+  },
+  "percentprofit": {
+   "topic": "performance",
+   "desc": "Share of closed trades that were winners, as a percentage."
+  },
+  "numwintrades": {
+   "topic": "performance",
+   "desc": "Count of closed trades with a profit."
+  },
+  "numlostrades": {
+   "topic": "performance",
+   "desc": "Count of closed trades with a loss."
+  },
+  "numeventrades": {
+   "topic": "performance",
+   "desc": "Count of closed trades that ended exactly flat."
+  },
+  "largestwintrade": {
+   "topic": "performance",
+   "desc": "Profit of the best closed trade so far."
+  },
+  "largestlostrade": {
+   "topic": "performance",
+   "desc": "Loss of the worst closed trade so far."
+  },
+  "maxconsecwinners": {
+   "topic": "performance",
+   "desc": "Longest run of back-to-back winning trades."
+  },
+  "maxconseclosers": {
+   "topic": "performance",
+   "desc": "Longest run of back-to-back losing trades."
+  },
+  "maxiddrawdown": {
+   "topic": "performance",
+   "desc": "Deepest drop in equity so far, measured bar by bar and including open profit. It is 0 or negative.",
+   "example": "If MarketPosition = 0 Then Buy Next Bar At Market;\nIf MaxIDDrawdown < -2000 Then Sell Next Bar At Market;"
+  },
+  "AvgBarsWinTrade": {
+   "topic": "performance",
+   "desc": "Average number of bars a winning trade was held."
+  },
+  "AvgBarsLosTrade": {
+   "topic": "performance",
+   "desc": "Average number of bars a losing trade was held."
+  },
+  "AvgBarsEvenTrade": {
+   "topic": "performance",
+   "desc": "Average number of bars a break-even trade was held."
+  },
+  "totalbarswintrades": {
+   "topic": "performance",
+   "desc": "Total bars spent in winning trades."
+  },
+  "totalbarslostrades": {
+   "topic": "performance",
+   "desc": "Total bars spent in losing trades."
+  },
+  "totalbarseventrades": {
+   "topic": "performance",
+   "desc": "Total bars spent in break-even trades."
+  },
+  "currentbar": {
+   "topic": "bar-data",
+   "desc": "Number of the bar being evaluated, counting from 1 at the first bar the strategy runs on.",
+   "example": "Vars: Warm(false);\nWarm = CurrentBar > 20;"
+  },
+  "BarInterval": {
+   "topic": "bar-data",
+   "desc": "Size of each bar in units of the chart's resolution, for example 1 on a 1-minute chart. PowerBridge returns 1."
+  },
+  "bartype": {
+   "topic": "bar-data",
+   "desc": "Numeric code for the chart resolution. PowerBridge returns the code for intraday bars (1)."
+  },
+  "bartype_ex": {
+   "topic": "bar-data",
+   "desc": "Extended resolution code that tells minutes apart from seconds or hours. PowerBridge returns the minute code (2)."
+  },
+  "intervaltype": {
+   "topic": "bar-data",
+   "desc": "Resolution code of the data series. PowerBridge returns the intraday code (1)."
+  },
+  "intervaltype_ex": {
+   "topic": "bar-data",
+   "desc": "Extended resolution code. PowerBridge returns the minute code (2)."
+  },
+  "barstatus": {
+   "topic": "bar-data",
+   "desc": "Whether the current tick opened, is inside, or closed the bar. A backtest only sees closed bars, and PowerBridge returns 0 on its sample run."
+  },
+  "basedatanumber": {
+   "topic": "bar-data",
+   "desc": "Number of the data series the strategy is applied to. PowerBridge runs on one series, so this is 1."
+  },
+  "currentdatanumber": {
+   "topic": "bar-data",
+   "desc": "Number of the data series currently being calculated. Always 1 in PowerBridge's single-series runs."
+  },
+  "maxbarsback": {
+   "topic": "bar-data",
+   "desc": "The study's maximum-bars-back setting. PowerBridge returns a fixed 50; it does not reflect the `max_bars_back` argument of `run_el`."
+  },
+  "maxbarsforward": {
+   "topic": "bar-data",
+   "desc": "Chart setting for how many empty bars are shown after the last bar. PowerBridge returns a fixed 16."
+  },
+  "tickid": {
+   "topic": "bar-data",
+   "desc": "Identifier of the latest tick, used in real-time trading. It is 0 on historical bars, and PowerBridge always returns 0."
+  },
+  "execoffset": {
+   "topic": "bar-data",
+   "desc": "Real-time execution offset. On historical bars it is 0, which is what PowerBridge returns."
+  },
+  "time_s": {
+   "topic": "bar-data",
+   "desc": "Closing time of the current bar with seconds, as HHMMSS.",
+   "example": "Vars: T(0);\nT = Time_s;"
+  },
+  "datetime": {
+   "topic": "bar-data",
+   "desc": "Date and time of the current bar as one number. In PowerBridge the date part is the calendar date written as YYYYMMDD, the form the `...FromDateTime` words read.",
+   "example": "Vars: Y(0);\nY = YearFromDateTime(DateTime);"
+  },
+  "dailyopen": {
+   "topic": "bar-data",
+   "desc": "Daily open price for the bar's day. On PowerBridge's sample run it returned 0, so check it on your data before relying on it."
+  },
+  "dailyhigh": {
+   "topic": "bar-data",
+   "desc": "Daily high for the bar's day. Returned 0 on PowerBridge's sample run; check it on your data."
+  },
+  "dailylow": {
+   "topic": "bar-data",
+   "desc": "Daily low for the bar's day. Returned 0 on PowerBridge's sample run; check it on your data."
+  },
+  "dailyclose": {
+   "topic": "bar-data",
+   "desc": "Daily close for the bar's day. Returned 0 on PowerBridge's sample run; check it on your data."
+  },
+  "tradedate": {
+   "topic": "bar-data",
+   "desc": "Date of the last trade in real-time data. Without a live feed PowerBridge returns a placeholder, so do not use it in backtest logic."
+  },
+  "tradetime": {
+   "topic": "bar-data",
+   "desc": "Time of the last trade in real-time data; 0 in PowerBridge backtests."
+  },
+  "tradevolume": {
+   "topic": "bar-data",
+   "desc": "Size of the last trade in real-time data; 0 in PowerBridge backtests."
+  },
+  "symbol": {
+   "topic": "symbol",
+   "desc": "Symbol of the instrument as a string, taken from the instrument config.",
+   "example": "Vars: S(\"\");\nS = Symbol;"
+  },
+  "symbolname": {
+   "topic": "symbol",
+   "desc": "Name of the instrument's symbol as a string; same value as `Symbol` in PowerBridge."
+  },
+  "description": {
+   "topic": "symbol",
+   "desc": "Long human-readable name of the instrument, from the instrument config."
+  },
+  "category": {
+   "topic": "symbol",
+   "desc": "Numeric asset-class code of the instrument. PowerBridge returns 0."
+  },
+  "bigpointvalue": {
+   "topic": "symbol",
+   "desc": "Money value of a one-point price move for one contract, from the instrument config (20 for NQ).",
+   "example": "Vars: Risk(0);\nRisk = 10 * BigPointValue;"
+  },
+  "pointvalue": {
+   "topic": "symbol",
+   "desc": "Money value of the smallest price unit, which is `BigPointValue` divided by `PriceScale`."
+  },
+  "pricescale": {
+   "topic": "symbol",
+   "desc": "How many price units make one point; for a quote with two decimals it is 100."
+  },
+  "expirationdate": {
+   "topic": "symbol",
+   "desc": "Contract expiration as an EL date. PowerBridge returns a fixed placeholder date, not one from your data."
+  },
+  "SymbolCurrencyCode": {
+   "topic": "symbol",
+   "desc": "Numeric code of the instrument's currency. PowerBridge returns 1."
+  },
+  "Convert_Currency": {
+   "topic": "symbol",
+   "desc": "Converts an amount between currencies at a given date and time. PowerBridge's runtime does not implement it; a run that reaches it stops with an error."
+  },
+  "sess1starttime": {
+   "topic": "sessions",
+   "desc": "Start time (HHMM) of the first session. PowerBridge returns a fixed 830."
+  },
+  "sess1endtime": {
+   "topic": "sessions",
+   "desc": "End time of the first session. PowerBridge returns a fixed 1515."
+  },
+  "sess1firstbartime": {
+   "topic": "sessions",
+   "desc": "Closing time of the first bar of the first session. PowerBridge returns a fixed 831."
+  },
+  "sess2starttime": {
+   "topic": "sessions",
+   "desc": "Start time of the second session. PowerBridge models one session and returns the first session's 830."
+  },
+  "sess2endtime": {
+   "topic": "sessions",
+   "desc": "End time of the second session; PowerBridge returns the first session's 1515."
+  },
+  "sess2firstbartime": {
+   "topic": "sessions",
+   "desc": "First-bar time of the second session; PowerBridge returns the first session's 831."
+  },
+  "sessioncount": {
+   "topic": "sessions",
+   "desc": "Number of sessions in the weekly template. PowerBridge returns 5 (one per weekday)."
+  },
+  "sessioncountms": {
+   "topic": "sessions",
+   "desc": "Variant of `SessionCount` for the money-management session template; also 5 in PowerBridge."
+  },
+  "SessionStartTime": {
+   "topic": "sessions",
+   "desc": "Start time of a session, given a session type and a session number. PowerBridge returns a fixed 1700.",
+   "example": "Vars: S0(0);\nS0 = SessionStartTime(0, 1);"
+  },
+  "SessionEndTime": {
+   "topic": "sessions",
+   "desc": "End time of a session, given a session type and a session number. PowerBridge returns a fixed 1600."
+  },
+  "SessionStartDay": {
+   "topic": "sessions",
+   "desc": "Weekday (0 = Sunday) on which a session starts, given a session type and number. PowerBridge models sessions 1 to 5 as opening the evening before each weekday and returns 0 for other numbers."
+  },
+  "sessionendday": {
+   "topic": "sessions",
+   "desc": "Weekday on which a session ends. PowerBridge returns 1 (Monday)."
+  },
+  "SessionStartTimeMS": {
+   "topic": "sessions",
+   "desc": "Start time of a session in the money-management template, by session number. PowerBridge returns 830."
+  },
+  "SessionEndTimeMS": {
+   "topic": "sessions",
+   "desc": "End time of a session in the money-management template. PowerBridge returns 1515."
+  },
+  "SessionStartDayMS": {
+   "topic": "sessions",
+   "desc": "Start weekday of a money-management session. PowerBridge returns 1."
+  },
+  "sessionenddayms": {
+   "topic": "sessions",
+   "desc": "End weekday of a money-management session. PowerBridge returns 1."
+  },
+  "sessionlastbar": {
+   "topic": "sessions",
+   "desc": "True on the last bar of a trading session. PowerBridge decides this from the bar dates: the bar is last when the next bar falls on a new day.",
+   "example": "If SessionLastBar and MarketPosition <> 0 Then Sell Next Bar At Market;"
+  },
+  "CurrentDate": {
+   "topic": "datetime",
+   "desc": "Today's date as an EL date. In a PowerBridge backtest it follows the bar being evaluated, so results do not depend on when you run them.",
+   "example": "Vars: D(0);\nD = CurrentDate;"
+  },
+  "CurrentTime": {
+   "topic": "datetime",
+   "desc": "Current time as HHMM. In a PowerBridge backtest it follows the bar being evaluated."
+  },
+  "CurrentTime_s": {
+   "topic": "datetime",
+   "desc": "Current time as HHMMSS. Unlike `CurrentTime`, PowerBridge does not tie this one to the bar, so treat it as a clock reading."
+  },
+  "LastCalcDateTime": {
+   "topic": "datetime",
+   "desc": "When the study was last calculated, as a DateTime value. Read from a clock, not from the bars."
+  },
+  "LastCalcJDate": {
+   "topic": "datetime",
+   "desc": "Date of the last calculation as a whole day count (the DateTime day number)."
+  },
+  "LastCalcMMTime": {
+   "topic": "datetime",
+   "desc": "Time of the last calculation in minutes since midnight."
+  },
+  "LastCalcSSTime": {
+   "topic": "datetime",
+   "desc": "Time of the last calculation in seconds since midnight."
+  },
+  "LastCalcmSTime": {
+   "topic": "datetime",
+   "desc": "Time of the last calculation in milliseconds since midnight."
+  },
+  "Year": {
+   "topic": "datetime",
+   "desc": "Year part of an EL date, as years since 1900 (2024 gives 124).",
+   "example": "Vars: Y(0);\nY = Year(Date) + 1900;"
+  },
+  "Month": {
+   "topic": "datetime",
+   "desc": "Month (1 to 12) of an EL date.",
+   "example": "If Month(Date) = 12 and MarketPosition <> 0 Then Sell Next Bar At Market;"
+  },
+  "DayOfMonth": {
+   "topic": "datetime",
+   "desc": "Day of the month (1 to 31) of an EL date."
+  },
+  "DayOfWeek": {
+   "topic": "datetime",
+   "desc": "Weekday of an EL date, with Sunday as 0 and Saturday as 6.",
+   "example": "If DayOfWeek(Date) = 5 and MarketPosition <> 0 Then Sell Next Bar At Market;"
+  },
+  "DateToJulian": {
+   "topic": "datetime",
+   "desc": "Turns an EL date into a day count (the date part of a DateTime value).",
+   "example": "Vars: Days(0);\nDays = DateToJulian(Date);"
+  },
+  "JulianToDate": {
+   "topic": "datetime",
+   "desc": "Turns a day count back into an EL date; the reverse of `DateToJulian`."
+  },
+  "ELDateToDateTime": {
+   "topic": "datetime",
+   "desc": "Turns an EL date into a DateTime day count with no time part.",
+   "example": "Vars: S(\"\");\nS = FormatDate(\"yyyy-MM-dd\", ELDateToDateTime(Date));"
+  },
+  "ELTimeToDateTime": {
+   "topic": "datetime",
+   "desc": "Turns an HHMM time into the matching fraction of a day, so it can be added to a DateTime date."
+  },
+  "ELTimeToDateTime_s": {
+   "topic": "datetime",
+   "desc": "Turns an HHMMSS time into the matching fraction of a day."
+  },
+  "DateTime2ELTime": {
+   "topic": "datetime",
+   "desc": "Takes the time of day from a DateTime value and returns it as HHMM.",
+   "example": "Vars: T(0);\nT = DateTime2ELTime(ELDateToDateTime(Date) + ELTimeToDateTime(Time));"
+  },
+  "DateTime2ELTime_s": {
+   "topic": "datetime",
+   "desc": "Takes the time of day from a DateTime value and returns it as HHMMSS."
+  },
+  "Time2Time_s": {
+   "topic": "datetime",
+   "desc": "Turns HHMM into HHMMSS by adding zero seconds (1015 becomes 101500)."
+  },
+  "Time_s2Time": {
+   "topic": "datetime",
+   "desc": "Turns HHMMSS into HHMM, dropping the seconds."
+  },
+  "EncodeDate": {
+   "topic": "datetime",
+   "desc": "Builds a DateTime day count from year, month and day. A two-digit year below 50 is read as 20xx, otherwise 19xx.",
+   "example": "Vars: D(0);\nD = EncodeDate(2024, 1, 2);"
+  },
+  "EncodeTime": {
+   "topic": "datetime",
+   "desc": "Builds a fraction of a day from hours, minutes, seconds and milliseconds.",
+   "example": "Vars: T(0);\nT = EncodeTime(9, 30, 0, 0);"
+  },
+  "IncMonth": {
+   "topic": "datetime",
+   "desc": "Adds a number of months to a DateTime value. The day of the month is kept, so 31 January plus one month rolls over into early March."
+  },
+  "DateToString": {
+   "topic": "datetime",
+   "desc": "Formats the date part of a DateTime value as text. PowerBridge uses a day/month/year layout such as `2/01/2024`.",
+   "example": "Vars: S(\"\");\nS = DateToString(ELDateToDateTime(Date));"
+  },
+  "TimeToString": {
+   "topic": "datetime",
+   "desc": "Formats the time part of a DateTime value as text with seconds and AM/PM, such as `9:30:00 AM`."
+  },
+  "DateTimeToString": {
+   "topic": "datetime",
+   "desc": "Formats a DateTime value as date and time text, in the same layouts as `DateToString` and `TimeToString`."
+  },
+  "DateTimeToString_Ms": {
+   "topic": "datetime",
+   "desc": "Like `DateTimeToString`, with a 24-hour clock and milliseconds."
+  },
+  "FormatDate": {
+   "topic": "datetime",
+   "desc": "Formats a DateTime value with a pattern string such as `\"yyyy-MM-dd\"`. The pattern comes first.",
+   "example": "Vars: S(\"\");\nS = FormatDate(\"yyyy-MM-dd\", ELDateToDateTime(Date));"
+  },
+  "FormatTime": {
+   "topic": "datetime",
+   "desc": "Formats the time part of a DateTime value with a pattern string such as `\"HH:mm\"`.",
+   "example": "Vars: S(\"\");\nS = FormatTime(\"HH:mm\", ELDateToDateTime(Date) + ELTimeToDateTime(Time));"
+  },
+  "StringToDate": {
+   "topic": "datetime",
+   "desc": "Reads a month/day/year text date and returns its DateTime day count.",
+   "example": "Vars: D(0);\nD = StringToDate(\"01/02/2024\");"
+  },
+  "StringToTime": {
+   "topic": "datetime",
+   "desc": "Reads a time of day such as `\"09:30:00 AM\"` and returns it as a fraction of a day."
+  },
+  "StringToDateTime": {
+   "topic": "datetime",
+   "desc": "Reads a month/day/year date followed by a time and returns one DateTime value.",
+   "example": "Vars: D(0);\nD = StringToDateTime(\"01/02/2024 09:30:00 AM\");"
+  },
+  "StringToDTFormatted": {
+   "topic": "datetime",
+   "desc": "Reads a date (and optionally time) using a pattern you give as the second argument.",
+   "example": "Vars: D(0);\nD = StringToDTFormatted(\"2024-01-02\", \"yyyy-MM-dd\");"
+  },
+  "YearFromDateTime": {
+   "topic": "datetime",
+   "desc": "Year of a DateTime value. PowerBridge expects the date part written as YYYYMMDD, which is what its `DateTime` word gives."
+  },
+  "MonthFromDateTime": {
+   "topic": "datetime",
+   "desc": "Month of a DateTime value (date part as YYYYMMDD in PowerBridge)."
+  },
+  "DayFromDateTime": {
+   "topic": "datetime",
+   "desc": "Day of the month of a DateTime value (date part as YYYYMMDD in PowerBridge)."
+  },
+  "DayOfWeekFromDateTime": {
+   "topic": "datetime",
+   "desc": "Weekday of a DateTime value, Sunday = 0 (date part as YYYYMMDD in PowerBridge)."
+  },
+  "HoursFromDateTime": {
+   "topic": "datetime",
+   "desc": "Hour (0 to 23) of the time part of a DateTime value."
+  },
+  "MinutesFromDateTime": {
+   "topic": "datetime",
+   "desc": "Minute (0 to 59) of the time part of a DateTime value."
+  },
+  "SecondsFromDateTime": {
+   "topic": "datetime",
+   "desc": "Second (0 to 59) of the time part of a DateTime value."
+  },
+  "MilliSecondsFromDateTime": {
+   "topic": "datetime",
+   "desc": "Millisecond (0 to 999) of the time part of a DateTime value."
+  },
+  "AbsValue": {
+   "topic": "math",
+   "desc": "Absolute value: the number without its sign.",
+   "example": "Vars: Range(0);\nRange = AbsValue(Close - Open);"
+  },
+  "Sign": {
+   "topic": "math",
+   "desc": "Returns 1 for a positive number, -1 for a negative one and 0 for zero."
+  },
+  "Square": {
+   "topic": "math",
+   "desc": "The number multiplied by itself."
+  },
+  "SquareRoot": {
+   "topic": "math",
+   "desc": "Square root of a number.",
+   "example": "Vars: R(0);\nR = SquareRoot(Square(High - Low));"
+  },
+  "Power": {
+   "topic": "math",
+   "desc": "Raises the first argument to the power of the second.",
+   "example": "Vars: P(0);\nP = Power(2, 10);"
+  },
+  "Log": {
+   "topic": "math",
+   "desc": "Natural logarithm (base e)."
+  },
+  "ExpValue": {
+   "topic": "math",
+   "desc": "e raised to the given power; the reverse of `Log`."
+  },
+  "Round": {
+   "topic": "math",
+   "desc": "Rounds the first argument to the number of decimals given by the second. The result is a float32, so it may print as a close neighbour such as 2.3499999.",
+   "example": "Vars: R(0);\nR = Round(Close / 3, 2);"
+  },
+  "IntPortion": {
+   "topic": "math",
+   "desc": "Whole-number part of a value, cutting toward zero (-2.75 gives -2)."
+  },
+  "FracPortion": {
+   "topic": "math",
+   "desc": "Fractional part of a value, keeping its sign (-2.75 gives -0.75)."
+  },
+  "Floor": {
+   "topic": "math",
+   "desc": "Largest whole number not above the value (-2.5 gives -3)."
+  },
+  "Ceiling": {
+   "topic": "math",
+   "desc": "Smallest whole number not below the value (-2.5 gives -2)."
+  },
+  "Sine": {
+   "topic": "math",
+   "desc": "Sine of an angle given in degrees."
+  },
+  "Cosine": {
+   "topic": "math",
+   "desc": "Cosine of an angle given in degrees."
+  },
+  "Tangent": {
+   "topic": "math",
+   "desc": "Tangent of an angle given in degrees."
+  },
+  "Cotangent": {
+   "topic": "math",
+   "desc": "Cotangent (one over the tangent) of an angle given in degrees."
+  },
+  "ArcTangent": {
+   "topic": "math",
+   "desc": "Inverse tangent, returned in degrees (1 gives 45)."
+  },
+  "Random": {
+   "topic": "math",
+   "desc": "A random number below the given limit. PowerBridge's runtime does not implement it; a run that reaches it stops with an error."
+  },
+  "MaxList": {
+   "topic": "math",
+   "desc": "Largest of the values passed in. Takes any number of arguments.",
+   "example": "Vars: Top(0);\nTop = MaxList(Open, Close, High[1]);"
+  },
+  "MinList": {
+   "topic": "math",
+   "desc": "Smallest of the values passed in. Takes any number of arguments."
+  },
+  "MaxList2": {
+   "topic": "math",
+   "desc": "Second-largest of the values passed in."
+  },
+  "MinList2": {
+   "topic": "math",
+   "desc": "Second-smallest of the values passed in."
+  },
+  "NthMaxList": {
+   "topic": "math",
+   "desc": "The first argument N picks the N-th largest of the remaining values; 0 when N is out of range.",
+   "example": "Vars: Second(0);\nSecond = NthMaxList(2, Close, Close[1], Close[2], Close[3]);"
+  },
+  "NthMinList": {
+   "topic": "math",
+   "desc": "The first argument N picks the N-th smallest of the remaining values."
+  },
+  "SumList": {
+   "topic": "math",
+   "desc": "Sum of all values passed in."
+  },
+  "AvgList": {
+   "topic": "math",
+   "desc": "Arithmetic mean of all values passed in.",
+   "example": "Vars: Mid(0);\nMid = AvgList(High, Low, Close);"
+  },
+  "Crosses": {
+   "topic": "math",
+   "desc": "Used in `A crosses above B` or `A crosses below B`: true on the bar where A moves from one side of B to the other. It only works in that phrase.",
+   "example": "Vars: Fast(0), Slow(0);\nFast = Average(Close, 5);\nSlow = Average(Close, 20);\nIf Fast crosses above Slow Then Buy Next Bar At Market;"
+  },
+  "array_getmaxindex": {
+   "topic": "arrays",
+   "desc": "Highest index of a dynamic or fixed array (an array declared `A[4]` has indices 0 to 4).",
+   "example": "Array: A[4](0);\nVars: Last(0);\nLast = Array_GetMaxIndex(A);"
+  },
+  "array_setmaxindex": {
+   "topic": "arrays",
+   "desc": "Resizes an array so that its highest index is the given number. Returns true.",
+   "example": "Array: A[](0);\nVars: Ok(false);\nOk = Array_SetMaxIndex(A, 9);"
+  },
+  "array_sum": {
+   "topic": "arrays",
+   "desc": "Sum of the elements from a start index to an end index, both included.",
+   "example": "Array: A[4](0);\nVars: Total(0);\nA[0] = Close; A[1] = Close[1];\nTotal = Array_Sum(A, 0, 1);"
+  },
+  "array_contains": {
+   "topic": "arrays",
+   "desc": "True when the value appears anywhere in the array."
+  },
+  "array_indexof": {
+   "topic": "arrays",
+   "desc": "Index of the first element equal to the value, or -1 when there is none.",
+   "example": "Array: A[4](0);\nVars: At(0);\nA[2] = 7;\nAt = Array_IndexOf(A, 7);"
+  },
+  "array_compare": {
+   "topic": "arrays",
+   "desc": "Compares a run of elements of two arrays: source array, source start, target array, target start, count. Returns 0 when equal, 1 when the first difference is larger in the source and -1 when smaller."
+  },
+  "array_copy": {
+   "topic": "arrays",
+   "desc": "Copies a run of elements from one array into another (or within one array): source, source start, target, target start, count. Elements that would fall outside either array are skipped.",
+   "example": "Array: A[4](1), B[4](0);\nArray_Copy(A, 0, B, 0, 5);"
+  },
+  "array_setvalrange": {
+   "topic": "arrays",
+   "desc": "Sets every element from a start index to an end index (both included) to one value."
+  },
+  "array_sort": {
+   "topic": "arrays",
+   "desc": "Sorts the elements between two indexes in place: ascending when the last argument is true, descending when false.",
+   "example": "Array: A[4](0);\nA[0] = 3; A[1] = 1; A[2] = 4;\nArray_Sort(A, 0, 4, true);"
+  },
+  "array_gettype": {
+   "topic": "arrays",
+   "desc": "Code for the array's element type: 2 for true/false, 3 for text, 7 for numbers."
+  },
+  "array_getfloatvalue": {
+   "topic": "arrays",
+   "desc": "Reads a numeric element by index; an out-of-range index gives 0."
+  },
+  "array_getintegervalue": {
+   "topic": "arrays",
+   "desc": "Reads an element by index as a whole-number value."
+  },
+  "array_getbooleanvalue": {
+   "topic": "arrays",
+   "desc": "Reads a true/false element by index."
+  },
+  "array_getstringvalue": {
+   "topic": "arrays",
+   "desc": "Reads a text element by index; an out-of-range index gives an empty string."
+  },
+  "array_setfloatvalue": {
+   "topic": "arrays",
+   "desc": "Writes a numeric value into an element: array, index, value."
+  },
+  "array_setintegervalue": {
+   "topic": "arrays",
+   "desc": "Writes a whole-number value into an element: array, index, value."
+  },
+  "array_setbooleanvalue": {
+   "topic": "arrays",
+   "desc": "Writes a true/false value into an element: array, index, value."
+  },
+  "array_setstringvalue": {
+   "topic": "arrays",
+   "desc": "Writes a text value into an element: array, index, value."
+  },
+  "fill_array": {
+   "topic": "arrays",
+   "desc": "Sets every element of an array to one value, including every row of a multi-dimensional array.",
+   "example": "Array: A[9](0);\nFill_Array(A, -1);"
+  },
+  "ArraySize": {
+   "topic": "arrays",
+   "desc": "Array size query. PowerBridge's runtime does not implement it; use `Array_GetMaxIndex` instead. A run that reaches it stops with an error."
+  },
+  "TL_New": {
+   "topic": "drawing",
+   "desc": "Draws a trend line between two points, each given as date, time (HHMM) and price, and returns the new line's ID.",
+   "example": "Vars: ID(0);\nIf CurrentBar = 10 Then ID = TL_New(Date[5], Time[5], Low[5], Date, Time, Low);"
+  },
+  "TL_New_s": {
+   "topic": "drawing",
+   "desc": "Like `TL_New`, with times given as HHMMSS."
+  },
+  "TL_SetColor": {
+   "topic": "drawing",
+   "desc": "Sets a trend line's color: line ID, then a color value."
+  },
+  "TL_SetStyle": {
+   "topic": "drawing",
+   "desc": "Sets a trend line's line style (solid, dashed and so on): line ID, then a style constant such as `Tool_Solid`."
+  },
+  "TL_SetExtLeft": {
+   "topic": "drawing",
+   "desc": "Turns extending a trend line to the left on or off: line ID, then true or false."
+  },
+  "TL_SetExtRight": {
+   "topic": "drawing",
+   "desc": "Turns extending a trend line to the right on or off: line ID, then true or false."
+  },
+  "Tool_Solid": {
+   "topic": "drawing",
+   "desc": "Line-style constant for a solid line (0), used with `TL_SetStyle`."
+  },
+  "Arw_New": {
+   "topic": "drawing",
+   "desc": "Places an arrow at a date, time and price; the fourth argument is a true/false direction flag. Returns the arrow's ID.",
+   "example": "Vars: ID(0);\nIf Close > Close[1] Then ID = Arw_New(Date, Time, Low, false);"
+  },
+  "Arw_New_s": {
+   "topic": "drawing",
+   "desc": "Like `Arw_New`, with the time given as HHMMSS."
+  },
+  "text_new": {
+   "topic": "drawing",
+   "desc": "Places a text label at a date, time and price and returns its ID.",
+   "example": "Vars: ID(0);\nIf CurrentBar = 1 Then ID = Text_New(Date, Time, High, \"start\");"
+  },
+  "text_new_s": {
+   "topic": "drawing",
+   "desc": "Like `Text_New`, with the time given as HHMMSS."
+  },
+  "Commentary": {
+   "topic": "drawing",
+   "desc": "Writes text to the per-bar commentary window. A backtest has no such window; PowerBridge accepts the statement.",
+   "example": "Commentary(\"bar \" + NumToStr(CurrentBar, 0));"
+  },
+  "alertenabled": {
+   "topic": "drawing",
+   "desc": "True when alerts are switched on for the study. PowerBridge backtests run with alerts off, so it is false."
+  },
+  "Black": {
+   "topic": "drawing",
+   "desc": "Color constant for black (0).",
+   "example": "Vars: C(0);\nC = Black;"
+  },
+  "White": {
+   "topic": "drawing",
+   "desc": "Color constant for white."
+  },
+  "Red": {
+   "topic": "drawing",
+   "desc": "Color constant for red.",
+   "example": "Vars: C(0);\nIf Close < Open Then C = Red Else C = Green;"
+  },
+  "Green": {
+   "topic": "drawing",
+   "desc": "Color constant for bright green."
+  },
+  "Blue": {
+   "topic": "drawing",
+   "desc": "Color constant for blue."
+  },
+  "Yellow": {
+   "topic": "drawing",
+   "desc": "Color constant for yellow."
+  },
+  "Cyan": {
+   "topic": "drawing",
+   "desc": "Color constant for cyan."
+  },
+  "Magenta": {
+   "topic": "drawing",
+   "desc": "Color constant for magenta."
+  },
+  "LightGray": {
+   "topic": "drawing",
+   "desc": "Color constant for light gray."
+  },
+  "DarkGray": {
+   "topic": "drawing",
+   "desc": "Color constant for dark gray."
+  },
+  "DarkRed": {
+   "topic": "drawing",
+   "desc": "Color constant for dark red."
+  },
+  "DarkGreen": {
+   "topic": "drawing",
+   "desc": "Color constant for dark green."
+  },
+  "DarkBlue": {
+   "topic": "drawing",
+   "desc": "Color constant for dark blue."
+  },
+  "DarkCyan": {
+   "topic": "drawing",
+   "desc": "Color constant for dark cyan."
+  },
+  "DarkMagenta": {
+   "topic": "drawing",
+   "desc": "Color constant for dark magenta."
+  },
+  "DarkYellow": {
+   "topic": "drawing",
+   "desc": "Color constant for dark yellow (olive)."
+  }
+ }
+}

@@ -20,7 +20,8 @@ PowerBridge transpiles MultiCharts PowerLanguage / EasyLanguage (EL) strategies 
 Python, emits EL back from its AST or from a bounded Python dialect, and backtests EL
 over OHLCV bars with exact, digest-checked trade lists. The human guide is
 [README.md](README.md), the public Python and CLI reference is
-[docs/API.md](docs/API.md), and the full API, CLI and invariant reference is
+[docs/API.md](docs/API.md), the EL keyword reference is
+[docs/reference/](docs/reference/README.md), and the full API, CLI and invariant reference is
 [docs/dev/agent-guide-details.md](docs/dev/agent-guide-details.md).
 
 ## Layout
@@ -32,6 +33,8 @@ over OHLCV bars with exact, digest-checked trade lists. The human guide is
     `mc_ground_check` compile-safety check.
   - `runtime/` — per-bar engine, instrument config, `.pbar` bar tape, native-kernel caller.
 - `accel/` — optional Rust native kernel ([docs/ACCEL.md](docs/ACCEL.md)).
+- `docs/reference/` — generated keyword reference (`tools/gen_reference.py` from the
+  catalog and `docs/reference/_notes.json`; edit the notes, then regenerate).
 - `tests/` — verification gates (not packaged into the wheel).
 - `ground_truth/`, `emitted/`, `examples/` — EL sources and synthetic sample data.
 

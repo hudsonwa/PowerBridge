@@ -4,6 +4,12 @@
 
 ### Added
 
+- `docs/reference/`: a keyword reference for the 256 EasyLanguage builtins PowerBridge
+  supports or has evidence for, grouped by topic. Each entry shows the catalog's kind,
+  return type, arity and verification level, the run status observed when PowerBridge
+  runs it, a short description and, for many, an example. `tools/gen_reference.py`
+  builds the pages from the catalog and `docs/reference/_notes.json`; a test runs every
+  example and fails when the pages are stale.
 - `docs/API.md`: a reference for the public library functions and the CLIs,
   with runnable examples. `pl_transpiler.__all__` lists the public names, and
   `run_oracle`, `load_bars`, `load_config_file`, `catalog` and

@@ -296,6 +296,10 @@ print(catalog.coverage())
 python3 -m pl_transpiler.catalog --search date
 ```
 
+For readable entries (what each supported keyword does, its arguments, how
+well PowerBridge has verified it, and a runnable example), see the
+[keyword reference](docs/reference/README.md).
+
 Agents and scripts: see [AGENTS.md](AGENTS.md). LLM dialect notes:
 [docs/LLM_DIALECT.md](docs/LLM_DIALECT.md). Bar and capture format:
 [docs/CAPTURES.md](docs/CAPTURES.md).

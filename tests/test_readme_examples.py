@@ -199,7 +199,9 @@ def test_no_dead_relative_links():
             if not name.endswith(".md"):
                 continue
             path = os.path.join(root, name)
-            for m in re.finditer(r"\]\(([^)\s]+)\)", open(path, encoding="utf-8").read()):
+            # Fenced code is not markdown: EL such as `A[4](0)` there is not a link.
+            text = re.sub(r"(?ms)^```.*?^```", "", open(path, encoding="utf-8").read())
+            for m in re.finditer(r"\]\(([^)\s]+)\)", text):
                 target = m.group(1).split("#")[0]
                 if target and not re.match(r"[a-z]+:", target) and \
                         not os.path.exists(os.path.join(root, target)):
