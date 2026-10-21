@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.0 — 2026-10-21
+
 ### Added
 
 - `--max-entries-per-direction N` for `pl_run` and `pl_oracle`
@@ -39,8 +41,8 @@
   has type annotations, and the package ships `py.typed`. CI runs mypy on
   those modules. Runtime behaviour and digests do not change.
 - CI: every action in `ci.yml` and `accel.yml` is pinned to a commit SHA, the
-  workflows run with a read-only token, Dependabot updates actions, cargo and
-  pip weekly, Python 3.14 joins the test matrix, and one pytest job uploads a
+  workflows run with a read-only token, Dependabot watches actions, cargo and
+  pip, Python 3.14 joins the test matrix, and one pytest job uploads a
   coverage report.
 - ruff also checks pycodestyle `E4`/`E7` and `W` rules.
 - Dependabot runs monthly with one grouped PR per ecosystem (at most two

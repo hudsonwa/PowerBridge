@@ -21,7 +21,7 @@
 
 EasyLanguage / PowerLanguage to Python transpiler, and back.
 
-**Status: preview.** Trade lists match MultiCharts fill-for-fill on the
+**Status: beta.** Trade lists match MultiCharts fill-for-fill on the
 1-minute @NQ ground-truth suite and on 1-minute @ES (four configurations of a
 multi-entry strategy, 4,278 of 4,278 fills identical). An optional Rust kernel
 runs the same backtest about 5x faster with identical fills
@@ -70,28 +70,28 @@ It would rather stop than guess. Unsupported keywords are reported in one pass.
 ## Install
 
 Python 3.9 or newer, no other dependencies. Install the wheel attached to the
-[v0.5.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.5.0):
+[v0.6.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.6.0):
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.5.0/powerbridge-0.5.0-py3-none-any.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.6.0/powerbridge-0.6.0-py3-none-any.whl
 ```
 
 The optional native fast path is a separate wheel per platform. Pick the
-`powerbridge_accel-0.5.0-cp39-abi3-<platform>.whl` file for your machine from
-the [release page](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.5.0)
+`powerbridge_accel-0.6.0-cp39-abi3-<platform>.whl` file for your machine from
+the [release page](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.6.0)
 (see [the platform table](#acceleration)), for example:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.5.0/powerbridge_accel-0.5.0-cp39-abi3-<platform>.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.6.0/powerbridge_accel-0.6.0-cp39-abi3-<platform>.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.5.0"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.6.0"
 ```
 
 PyPI publishing is coming in a later release.

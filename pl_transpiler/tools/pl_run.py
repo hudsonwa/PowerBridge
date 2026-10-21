@@ -395,7 +395,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     el_source     : EL/PowerLanguage source string.
     bars          : list of dicts with keys date,time,open,high,low,close,volume
-                    (date as EL int YYMMDD, time as EL int HHMM — see load_bars_csv)
+                    (date as EL int CYYMMDD, time as EL int HHMM — see load_bars_csv)
                     or a BarTape (column-contiguous .pbar view; same values).
     config        : InstrumentConfig (the per-run config; use get_config('NQ')).
     trace_columns : optional list of trace keys to emit as output columns. When
