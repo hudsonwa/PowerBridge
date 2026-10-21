@@ -16,7 +16,7 @@
 """
 test_persist_mode.py — runnable no-trace dialect.
 
-transpile(trace=False) is the clean mirror dialect for py_front and does NOT
+transpile(dialect="mirror") is the clean mirror dialect for py_front and does NOT
 persist EL Variables across bars (every var is re-initialised). That is
 intentional and must stay byte-identical.
 
@@ -70,10 +70,11 @@ def _order_bars(py, n=8):
 
 def test_clean_dialect_unchanged():
     src = open(GT1, encoding="utf-8").read()
-    clean = transpile(src, trace=False)
+    clean = transpile(src, dialect="mirror")
     explicit = transpile(src, trace=False, persist=False)
-    default = transpile(src)
-    assert clean == explicit == default, "clean dialect drifted"
+    assert clean == explicit, "clean dialect drifted"
+    assert transpile(src) == transpile(src, trace=False, persist=True), \
+        "library default must be the runnable dialect"
     assert "_state = kwargs.setdefault" not in clean
     assert "_trace =" not in clean
     # py_front still reads the clean mirror.
@@ -96,7 +97,7 @@ def test_persist_only_has_state_not_trace():
     src = open(GT1, encoding="utf-8").read()
     persist = transpile(src, persist=True)
     traced = transpile(src, trace=True)
-    clean = transpile(src, trace=False)
+    clean = transpile(src, dialect="mirror")
     assert persist != clean, "persist-only must differ from the clean dialect"
     assert persist != traced, "persist-only must omit _trace vs trace=True"
     assert "_state = kwargs.setdefault" in persist
@@ -109,7 +110,7 @@ def test_persist_only_has_state_not_trace():
 
 
 def test_count_strategy_needs_persist():
-    clean = transpile(COUNT_EL, trace=False)
+    clean = transpile(COUNT_EL, dialect="mirror")
     persist = transpile(COUNT_EL, persist=True)
     traced = transpile(COUNT_EL, trace=True)
 
@@ -142,7 +143,7 @@ def test_persist_first_bar_state_seed():
     via setdefault on every bar. Clean dialect is unchanged (no `_state`)."""
     persist = transpile(COUNT_EL, persist=True)
     traced = transpile(COUNT_EL, trace=True)
-    clean = transpile(COUNT_EL, trace=False)
+    clean = transpile(COUNT_EL, dialect="mirror")
     for label, py in (("persist", persist), ("trace", traced)):
         assert "if '__pb_seeded' not in _state:" in py, label
         assert "_state['__pb_seeded'] = 1" in py, label
@@ -169,7 +170,7 @@ INPUT_EL = (
 
 def test_persist_hoists_inputs():
     persist = transpile(INPUT_EL, persist=True)
-    clean = transpile(INPUT_EL, trace=False)
+    clean = transpile(INPUT_EL, dialect="mirror")
     assert "_state['__pb_inputs']" in persist
     assert "threshold, = _state['__pb_inputs']" in persist
     assert "if '__pb_seeded' not in _state:" in persist
@@ -183,7 +184,7 @@ def test_persist_hoists_inputs():
 
 def test_input_threshold_strategy():
     persist = transpile(INPUT_EL, persist=True)
-    clean = transpile(INPUT_EL, trace=False)
+    clean = transpile(INPUT_EL, dialect="mirror")
     traced = transpile(INPUT_EL, trace=True)
 
     def _hits(py, n=8, **extra):
@@ -233,7 +234,7 @@ def test_unindexed_var_is_scalar():
         assert "_pb_slots[:] = (count,)" in py, label
         assert "_state['count'] = count" not in py, label
         assert "].append(" not in py, label
-    clean = transpile(COUNT_EL, trace=False)
+    clean = transpile(COUNT_EL, dialect="mirror")
     assert "_state" not in clean
     print("  [ok] unindexed Count is a persist scalar packed in __pb_slots; clean has no _state")
 
@@ -283,7 +284,7 @@ def test_series_func_arg_keeps_history():
     assert "_state['avgc'] = [f32(0)]" in persist or "_state['avgc'] = [0]" in persist
     assert "(_state['avgc'] + [avgc])" in persist
     assert "_state['avgc'].append(avgc)" in persist
-    clean = transpile(CROSSES_EL, trace=False)
+    clean = transpile(CROSSES_EL, dialect="mirror")
     assert "_state = kwargs.setdefault" not in clean
     print("  [ok] CrossesAbove(Close, AvgC) keeps AvgC as a history list")
 
@@ -299,7 +300,7 @@ def test_persist_hoists_ohlcv_f32():
     """Persist/trace f32 current-bar OHLCV once; clean keeps f32(f32(close[-1]))."""
     persist = transpile(OHLCV_EL, persist=True)
     traced = transpile(OHLCV_EL, trace=True)
-    clean = transpile(OHLCV_EL, trace=False)
+    clean = transpile(OHLCV_EL, dialect="mirror")
     for label, py in (("persist", persist), ("trace", traced)):
         for line in (
             "_open = f32(open[-1])",

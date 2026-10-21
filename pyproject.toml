@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 readme = "README.md"
-authors = [{ name = "Josh Hudson" }]
+authors = [{ name = "Joshua Hudson" }]
 keywords = ["easylanguage", "powerlanguage", "multicharts", "tradestation", "transpiler", "backtesting", "trading"]
 classifiers = [
     "Development Status :: 4 - Beta",

@@ -43,7 +43,7 @@ def parse_el(el_text: str):
 
 def el_to_py(el_text: str) -> str:
     """EL source text -> clean mirror-dialect Python (forward transpiler)."""
-    return transpile(el_text, trace=False)
+    return transpile(el_text, dialect="mirror")
 
 
 def py_to_el(py_text: str) -> str:

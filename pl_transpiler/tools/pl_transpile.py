@@ -112,8 +112,8 @@ def _main(args):
     # Detect unimplemented keywords via the strict transpile (collect-all).
     errors = []
     try:
-        persist = True if args.persist else None
-        strict_out = transpile(src, trace=args.trace, persist=persist)
+        dialect = "mirror" if not (args.persist or args.trace) else "runnable"
+        strict_out = transpile(src, trace=args.trace, dialect=dialect)
     except UnimplementedKeywordError as e:
         errors = e.errors
         strict_out = None
@@ -124,8 +124,8 @@ def _main(args):
             return 2
         out = strict_out
     else:
-        persist = True if args.persist else None
-        out = transpile(src, trace=args.trace, partial=True, persist=persist)
+        dialect = "mirror" if not (args.persist or args.trace) else "runnable"
+        out = transpile(src, trace=args.trace, partial=True, dialect=dialect)
         if errors:
             _print_partial_manifest(args.in_file, errors)
 

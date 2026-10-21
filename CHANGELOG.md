@@ -4,6 +4,14 @@
 
 ### Changed
 
+- **`transpile(src)` now returns the runnable dialect by default**, the same
+  code `pl_transpile` writes and `pl_run` executes. Before, the library default
+  was the clean mirror dialect, which keeps no cross-bar `_state`: EL Variables
+  reset every bar, so a stateful strategy run from it silently produced zero or
+  wrong orders. The mirror dialect (input for `el_emit`) now needs
+  `transpile(src, dialect="mirror")`; `persist=False` still works. The bar loop
+  refuses mirror-dialect strategies with a one-line error naming the fix.
+  The `pl_transpile` CLI is unchanged (`--no-persist` still emits the mirror).
 - The public API (`transpile`, `run_el`, `run_oracle`, `load_bars_csv`,
   `load_bars`, `get_config`, `load_config_file` and the `catalog` accessors)
   has type annotations, and the package ships `py.typed`. CI runs mypy on
@@ -13,6 +21,11 @@
   pip weekly, Python 3.14 joins the test matrix, and one pytest job uploads a
   coverage report.
 - ruff also checks pycodestyle `E4`/`E7` and `W` rules.
+
+### Fixes
+
+- A strategy that declares arrays but no Variables or Inputs no longer fails
+  with `NameError: _state` in the trace and runnable dialects.
 
 ## 0.5.0 — 2026-10-21
 

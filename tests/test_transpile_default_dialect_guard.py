@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Documented reproducer: running the clean mirror dialect as a strategy engine input.
+"""Guard: the library default of ``transpile`` is the runnable dialect.
 
-This test's diagnosis is that the clean (trace=False, persist=False) dialect is being
-executed in a bar loop where state persistence is required. That dialect intentionally
-does not persist EL Variables across bars, so a state-gated order system can silently
-emit zero trades.
+The clean mirror dialect (``dialect="mirror"``) does not persist EL Variables
+across bars, so a state-gated order system run from it used to emit zero trades
+silently. The default is now runnable, and the bar loop refuses mirror output.
 """
 
 import pytest
@@ -41,20 +40,16 @@ If gate = 4 Then
 """
 
 
-def _fills_for_transpile(*, trace=False, persist=None):
-    py = transpile(_STATEFUL_GATE_EL, trace=trace, persist=persist)
+_BARS = [(1.0, 1.2, 0.8, 1.0, 1.0)] * 6
+
+
+def _fills_for_transpile(trades=False, **kw):
+    py = transpile(_STATEFUL_GATE_EL, **kw)
     ns = {}
     exec(compile(py, "<repro>", "exec"), ns)
     strategy = ns["strategy"]
 
-    bars = [
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-        (1.0, 1.2, 0.8, 1.0, 1.0),
-    ]
+    bars = _BARS
     dates = [1240102] * len(bars)
     times = [930 + i for i in range(len(bars))]
 
@@ -72,11 +67,23 @@ def _fills_for_transpile(*, trace=False, persist=None):
         strict=True,
         emit_trace=False,
     )
-    return len(fe.get_mc_trades())
+    return fe.get_mc_trades() if trades else len(fe.get_mc_trades())
 
 
-@pytest.mark.xfail(reason="Documented reproducer: clean mirror dialect run as strategy input")
-def test_clean_untraced_mirror_dialect_silent_zero_trade_reproducer():
+def test_default_transpile_matches_traced_fills():
     traced_fills = _fills_for_transpile(trace=True)
-    clean_fills = _fills_for_transpile(trace=False)
-    assert traced_fills == clean_fills
+    default_fills = _fills_for_transpile()
+    assert traced_fills == default_fills > 0
+
+
+def test_mirror_dialect_refused_by_bar_loop():
+    with pytest.raises(ValueError, match="mirror-dialect"):
+        _fills_for_transpile(dialect="mirror")
+
+
+def test_stateful_default_matches_run_el():
+    from pl_transpiler.tools.pl_run import run_el
+    bars = [dict(date=1240102, time=930 + i, open=1.0, high=1.2, low=0.8,
+                 close=1.0, volume=1.0) for i in range(len(_BARS))]
+    ref = run_el(_STATEFUL_GATE_EL, bars, get_config("NQ"))["trades"]
+    assert ref and _fills_for_transpile(trades=True) == ref

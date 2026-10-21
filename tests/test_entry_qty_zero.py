@@ -58,7 +58,7 @@ def _bars(n, px=1.0):
     ]
 
 
-def test_bare_entry_does_not_pyramid():
+def test_bare_entry_fills_grow_linearly():
     """Fill count grows linearly with tape length, not as 2**n."""
     counts = {}
     for n in (8, 16, 32, 64):
@@ -69,7 +69,7 @@ def test_bare_entry_does_not_pyramid():
         assert c <= n, f"fills must stay <= bars (was 2**n): {counts}"
     # 8x the tape must give roughly 8x the fills, not an explosion.
     assert counts[64] <= 12 * counts[8], f"fills growing super-linearly: {counts}"
-    print(f"  [ok] bare entry does not pyramid: {counts}")
+    print(f"  [ok] bare entry fills grow linearly: {counts}")
 
 
 def test_bare_entry_adds_one_contract():
@@ -119,7 +119,7 @@ def test_explicit_quantities_unaffected():
 
 def main():
     tests = [
-        test_bare_entry_does_not_pyramid,
+        test_bare_entry_fills_grow_linearly,
         test_bare_entry_adds_one_contract,
         test_bare_exit_still_closes_entire_position,
         test_bare_sellshort_entry_is_not_an_exit,

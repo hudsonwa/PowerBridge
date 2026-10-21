@@ -45,7 +45,7 @@ COUNT_EL = (
 
 
 def test_clean_dialect_keeps_starstar_kwargs():
-    clean = transpile(COUNT_EL, trace=False)
+    clean = transpile(COUNT_EL, dialect="mirror")
     assert "def strategy(open, high, low, close, volume, date, time, **kwargs):" in clean
     assert "kwargs=None" not in clean
     ast = py_front.py_to_ast(clean)

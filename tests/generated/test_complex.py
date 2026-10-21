@@ -36,7 +36,7 @@ def test_complex_syntax():
 
 
 def test_complex_content():
-    result = transpile(STRATEGY)
+    result = transpile(STRATEGY, dialect="mirror")
     assert 'pl_average' in result, f"'pl_average' not found in:\n{result}"
     assert '_orders.append' in result, f"'_orders.append' not found in:\n{result}"
     assert '_plots' in result, f"'_plots' not found in:\n{result}"

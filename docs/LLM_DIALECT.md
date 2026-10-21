@@ -2,7 +2,7 @@
 
 PowerBridge's Python → EasyLanguage direction does **not** accept arbitrary Python. It
 accepts exactly one narrow, fail-loud shape: the **mirror dialect**, which is precisely
-the clean Python the forward transpiler itself emits (`transpile(el_src, trace=False)`).
+the clean Python the forward transpiler itself emits (`transpile(el_src, dialect="mirror")`).
 The front-end that reads it back is `pl_transpiler/py_front.py`; anything outside the
 dialect raises `PyFrontError` instead of guessing.
 
@@ -105,7 +105,7 @@ generates it from a shipping EasyLanguage indicator and reads it straight back:
 # 1. Produce mirror-dialect Python from a shipping EL indicator.
 from pl_transpiler import transpile
 el_src = open("ground_truth/GT1_functions_indicators.txt").read()
-mirror_py = transpile(el_src, trace=False)
+mirror_py = transpile(el_src, dialect="mirror")
 open("llm_dialect_example.py", "w", encoding="utf-8").write(mirror_py)
 print("mirror-dialect Python:", len(mirror_py.splitlines()), "lines")
 

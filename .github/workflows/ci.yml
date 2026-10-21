@@ -99,10 +99,10 @@ jobs:
               with open(f"{gt}/{src}.txt") as fh:
                   el = fh.read()
               with open(f"{name}_mirror.py", "w") as fh:
-                  fh.write(transpile(el, trace=False))
+                  fh.write(transpile(el, dialect="mirror", trace=False))
           # Fail-closed check: Variance is not in the proven list.
           with open("unproven_mirror.py", "w") as fh:
-              fh.write(transpile("Vars: v(0);\nv = Variance(Close, 10, 1);\nPlot1(v);\n", trace=False))
+              fh.write(transpile("Vars: v(0);\nv = Variance(Close, 10, 1);\nPlot1(v);\n", dialect="mirror", trace=False))
           PYEOF
           set +e
           "$RUNNER_TEMP/venv/bin/el_emit" GT2_mirror.py -o GT2_from_python.txt > gt2.out; rc2=$?

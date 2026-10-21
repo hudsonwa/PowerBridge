@@ -15,7 +15,7 @@
 """py_front.py — Python front-end: parse the MIRROR DIALECT back to the AST.
 
 The forward transpiler (transpiler/codegen.py) turns the dict AST into clean Python
-via `transpile(src, trace=False)`. This module is its inverse over that exact dialect:
+via `transpile(src, dialect="mirror")`. This module is its inverse over that exact dialect:
 it parses the generated Python with the stdlib `ast` module and reconstructs the
 parser's dict AST (the shared IR). Composed with `codegen_el.emit_el`, it closes the
 loop  EL -> AST1 -> Python -> AST2 -> EL''  (the two-way gate, tests/verify_twoway.py).

@@ -78,7 +78,7 @@ def _price_seq():
 def test_clean_dialect_list_guard_unchanged():
     src = open(os.path.join(REPO, "ground_truth", "GT1_functions_indicators.txt"),
                encoding="utf-8").read()
-    clean = transpile(src, trace=False)
+    clean = transpile(src, dialect="mirror")
     persist = transpile(src, persist=True)
     traced = transpile(src, trace=True)
     assert CLEAN_GUARD in clean, "clean mirror dialect lost the list coercion"

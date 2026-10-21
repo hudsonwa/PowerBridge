@@ -86,7 +86,7 @@ def test_persist_folds_literal_zero():
 
 
 def test_clean_dialect_keeps_f32_literal():
-    clean = transpile(RESET_EL, trace=False)
+    clean = transpile(RESET_EL, dialect="mirror")
     explicit = transpile(RESET_EL, trace=False, persist=False)
     assert clean == explicit
     assert "bestclosesincesignal = f32(0)" in clean

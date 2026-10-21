@@ -231,7 +231,7 @@ What you can verify yourself, digest gating and captures are in
 ```python
 from pl_transpiler import transpile
 el = open("ground_truth/GT2_strategy_orders_position.txt").read()
-open("out/GT2_mirror.py", "w").write(transpile(el, trace=False))
+open("out/GT2_mirror.py", "w").write(transpile(el, dialect="mirror"))
 ```
 
 ```bash
@@ -270,8 +270,13 @@ print(len(py.splitlines()), "lines;", len(out["rows"]), "bars;", len(out["trades
 print(out["columns"], out["rows"][-1])
 ```
 
+`transpile()` returns the runnable dialect (the same code `pl_transpile` writes
+and `pl_run` executes), with EL Variables kept in a cross-bar `_state`. Pass
+`dialect="mirror"` only for the clean Python that `el_emit` reads back; it
+resets Variables every bar, so the bar loop refuses to run it.
+
 ```
-108 lines; 140 bars; 7 trades
+65 lines; 140 bars; 7 trades
 ['MarketPosition', 'NetProfit'] ['1', '4742.20703125']
 ```
 
@@ -394,9 +399,9 @@ What the engine assumes, whatever the config:
   `bigpointvalue` times contracts, with nothing deducted; `next bar at market`
   fills at the next bar's open. The `Commission` and `Slippage` keywords
   return 0, and the native kernel is passed commission 0 and slippage 0.
-- **No position limit.** Every `Buy` / `SellShort` fills and adds to the
-  position (there is no pyramiding cap); `Buy` while short and `SellShort`
-  while long reverse; `Sell` / `BuyToCover` only close.
+- **No position limit.** `Buy` while short and `SellShort` while long
+  reverse; `Sell` / `BuyToCover` only close. Repeat entries in the same
+  direction always add (see [Limitations](#limitations)).
 - `tick` is only used to round money-management stop and target fill prices
   (`SetStopLoss`, `SetProfitTarget`, trailing, breakeven) to the price grid.
 - The session end is not configurable: it is 1515 (the @NQ#C / @ES#C close)
@@ -528,6 +533,9 @@ want to attach your own.
 - The `accel` fast path is optional and builds from source. It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
   `pl_run` (per-bar trace rows) always uses the Python path.
+- Repeat entries in the same direction always add to the position (no
+  pyramiding limit). MultiCharts' default refuses them; documented
+  behaviour, not yet verified against a capture.
 - `Sell from entry("A")` with two entries open closes the whole position.
   Per the documented EasyLanguage semantics it should close only entry A.
   This is documented behaviour that has not yet been verified against a

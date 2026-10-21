@@ -48,7 +48,7 @@ def _mirror(src_path, dst_path):
     with open(src_path, encoding='utf-8') as fh:
         el = fh.read()
     with open(dst_path, 'w', encoding='utf-8') as fh:
-        fh.write(transpile(el, trace=False))
+        fh.write(transpile(el, dialect="mirror"))
 
 
 def test_committed_data_matches_ground_truth():
@@ -102,7 +102,7 @@ def test_installed_wheel_outside_repo():
         _mirror(GT2, os.path.join(run_dir, 'GT2_mirror.py'))
         _mirror(GT1, os.path.join(run_dir, 'GT1_mirror.py'))
         with open(os.path.join(run_dir, 'unproven_mirror.py'), 'w', encoding='utf-8') as fh:
-            fh.write(transpile(UNPROVEN_EL, trace=False))
+            fh.write(transpile(UNPROVEN_EL, dialect="mirror"))
         exe = os.path.join(bindir, 'el_emit')
         p = subprocess.run([exe, 'GT2_mirror.py', '-o', 'GT2_from_python.txt'], cwd=run_dir,
                            capture_output=True, text=True)

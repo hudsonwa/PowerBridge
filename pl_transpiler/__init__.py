@@ -48,16 +48,27 @@ def __dir__() -> "list[str]":
     return sorted(set(globals()) | set(_LAZY))
 
 def transpile(pl_source: str, trace: bool = False, partial: bool = False,
-              persist: "bool | None" = None) -> str:
+              persist: "bool | None" = None, dialect: str = "runnable") -> str:
     """Convert PowerLanguage source string to Python source string.
+
+    dialect="runnable" (default) emits the code pl_transpile and pl_run execute:
+    EL Variables live in a cross-bar `_state` dict, so the result can be driven
+    bar by bar. dialect="mirror" emits the clean, stateless dialect that
+    py_front reads back (Vars reset every bar; not for execution).
     If trace=True, generated code captures per-bar variable values into a _trace dict.
-    persist: cross-bar `_state` container. None (default) follows `trace`.
-    persist=True with trace=False is the runnable no-trace dialect (`_state`
-    lives, `_trace` does not). The default persist=False / trace=False path
-    remains the clean mirror dialect that py_front reads back.
+    persist: cross-bar `_state` container. None (default) follows the dialect;
+    persist=False is a legacy spelling of dialect="mirror".
     If partial=True (opt-in), unimplemented EL keywords become execution-time
     stubs under a NOT-FAITHFUL watermark instead of raising at transpile time
     (the strict default)."""
+    if dialect == "mirror":
+        if trace or persist:
+            raise ValueError("dialect='mirror' cannot be combined with trace or persist")
+        persist = False
+    elif dialect != "runnable":
+        raise ValueError(f"unknown dialect {dialect!r}; expected 'runnable' or 'mirror'")
+    elif persist is None and not trace:
+        persist = True
     from .lexer import tokenise
     from .parser import parse
     from .codegen import generate

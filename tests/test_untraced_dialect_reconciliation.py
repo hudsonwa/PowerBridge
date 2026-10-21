@@ -20,14 +20,14 @@ This test settles the withdrawn "untraced emits 0 trades" claim against the
 reference strategy. The three dialect modes are:
 
   traced            transpile(trace=True)            -> run_el          (fills N)
-  clean mirror      transpile()                      -> NOT runnable    (0 fills)
+  clean mirror      transpile(dialect="mirror")      -> refused by run_bar_loop
   runnable untraced transpile(trace=False, persist=True) -> run_oracle  (fills N)
 
 The finding is pinned in two legs:
 
   1. A portable stateful-gate program (no captures, no audit tape) asserts
      the runnable untraced dialect AGREES with the traced dialect (identical
-     fills, identical digest) while the clean mirror dialect emits 0 fills.
+     fills, identical digest) while the clean mirror dialect is refused by the bar loop.
 
   2. An audit-tape leg (the reference audit EL over the 2,322,973-bar NQ tape with
      aligned Data2) asserts trace == persist == AUDIT_REF_3 (7364 fills /
@@ -108,16 +108,19 @@ def _fills_for(mode, el=GATE_EL):
 def test_three_way_portable_gate():
     traced = _fills_for("trace")
     persist = _fills_for("persist")
-    mirror = _fills_for("mirror")
+    try:
+        _fills_for("mirror")
+    except ValueError as exc:
+        assert "mirror-dialect" in str(exc), exc
+    else:
+        raise AssertionError("bar loop must refuse the mirror dialect")
 
     # The stateful counter arms Buy on bar 2 and Sell on bar 4 -> 2 fills,
     # 1 round-turn. The runnable untraced dialect must AGREE with traced.
     assert traced == (2, 1, traced[2]), traced
     assert persist == traced, (
         f"runnable untraced ({persist}) must agree with traced ({traced})")
-    assert mirror == (0, 0, fills_sha256([])), (
-        f"clean mirror dialect must emit 0 fills, got {mirror}")
-    print(f"  [ok] three-way: trace={traced[:2]} persist={persist[:2]} mirror={mirror[:2]}")
+    print(f"  [ok] three-way: trace={traced[:2]} persist={persist[:2]} mirror=refused")
 
 
 def test_transpile_mode_signatures():
@@ -125,11 +128,12 @@ def test_transpile_mode_signatures():
     trace_py = transpile(GATE_EL, trace=True)
     persist_py = transpile(GATE_EL, trace=False, persist=True)
     mirror_py = transpile(GATE_EL, trace=False, persist=False)
-    assert transpile(GATE_EL) == mirror_py, "default must equal clean mirror"
+    assert transpile(GATE_EL) == persist_py, "default must equal runnable persist"
+    assert transpile(GATE_EL, dialect="mirror") == mirror_py
     assert "_state" in trace_py and "_trace" in trace_py
     assert "_state" in persist_py and "_trace" not in persist_py
     assert "_state" not in mirror_py and "_trace" not in mirror_py
-    print("  [ok] trace=_state+_trace, persist=_state, mirror=neither (default)")
+    print("  [ok] trace=_state+_trace, persist=_state, mirror=neither; default=persist")
 
 
 # --- audit-tape leg (not shipped) -------------------------------------------

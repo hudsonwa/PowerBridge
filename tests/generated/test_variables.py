@@ -28,7 +28,7 @@ def test_variables_syntax():
 
 def test_variables_content():
     pl = 'Variables: Value1(0), Condition1(False), MyStr("");'
-    result = transpile(pl)
+    result = transpile(pl, dialect="mirror")
     assert 'value1 = f32(0)' in result, f"'value1 = f32(0)' not found in:\n{result}"
     assert 'condition1 = False' in result, f"'condition1 = False' not found in:\n{result}"
     assert 'mystr' in result, f"'mystr' not found in:\n{result}"
@@ -45,7 +45,7 @@ def test_var_shorthand_syntax():
 
 def test_var_shorthand_content():
     pl = "Var: X(0);"
-    result = transpile(pl)
+    result = transpile(pl, dialect="mirror")
     assert 'x = f32(0)' in result, f"'x = f32(0)' not found in:\n{result}"
 
 

@@ -73,6 +73,21 @@ def _code_has_const(fn, name):
     return False
 
 
+_MIRROR_PARAMS = ("open", "high", "low", "close", "volume", "date", "time")
+
+
+def _is_mirror_dialect(strategy_fn, code):
+    """True for a strategy emitted by transpile(..., dialect='mirror'): the
+    generated module marker plus `(open, ..., time, **kwargs)` with no `_state`."""
+    if code is None or not code.co_flags & 0x08:  # CO_VARKEYWORDS
+        return False
+    glb = getattr(strategy_fn, "__globals__", {})
+    return ("__builtin_len" in glb
+            and code.co_argcount == 7
+            and code.co_varnames[:8] == _MIRROR_PARAMS + ("kwargs",)
+            and "_state" not in code.co_varnames)
+
+
 def run_bar_loop(
     strategy_fn,
     *,
@@ -170,6 +185,11 @@ def run_bar_loop(
         and _fn_code.co_argcount >= 8
         and _fn_code.co_varnames[7] == "kwargs"
     )
+    if _is_mirror_dialect(strategy_fn, _fn_code):
+        raise ValueError(
+            "strategy is mirror-dialect transpiler output (no cross-bar _state, "
+            "so Vars reset every bar); transpile it with the default "
+            "dialect='runnable' instead of dialect='mirror' / --no-persist")
     # Persist/trace 8-arg path: skip unused kwargs work when the generated
     # body never names the key. **kwargs callers (tests, dumps) always compute.
     if not _pass_kw_dict:

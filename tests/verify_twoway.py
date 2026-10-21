@@ -17,7 +17,7 @@
 
 Closes the full loop through the *Python* side of the transpiler:
 
-  original EL --parse--> AST1 --LIVE transpile(src, trace=False)--> clean Python
+  original EL --parse--> AST1 --LIVE transpile(src, dialect="mirror")--> clean Python
       --py_front.py_to_ast--> AST2 --emit_el--> EL''
       --(ground_truth/.twoway/<label>.txt)--> run_gt.GT_FILES / golden_diff.GT_FILES
       repointed at EL''  -->  verify_all.run_gt_checks(max_bars, scratch)  [VERBATIM]
@@ -33,7 +33,7 @@ Two independent assertions per GT_EXPECT label, BOTH required to pass:
       with verify_roundtrip._first_divergence (again reused — the diff engine is not
       forked). The first divergent path is printed on failure.
 
-Both use the LIVE forward transpiler (`transpile(..., trace=False)`), so a drift in
+Both use the LIVE forward transpiler (`transpile(..., dialect="mirror")`), so a drift in
 either direction (codegen changes the dialect, or py_front stops inverting it) reddens
 this gate the moment it happens.
 
@@ -161,7 +161,7 @@ def _two_way(source_text):
     """EL -> AST1 ; EL -> clean Python -> AST2 ; AST2 -> EL''. Uses the LIVE forward
     transpiler for the clean Python (a codegen drift reddens the gate immediately)."""
     ast1 = build_ast(source_text)
-    clean_py = transpile(source_text, trace=False)
+    clean_py = transpile(source_text, dialect="mirror")
     ast2 = py_front.py_to_ast(clean_py)
     return ast1, ast2, emit_el(ast2)
 

@@ -232,7 +232,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # unpack to named locals each bar. 30 dict load+store was ~0.8 s on the
         # FAST window vs ~0.3 s list-unpack + slice-assign (same values).
         # Lookback / series-arg vars stay named lists under `_state[name]`.
-        if self.persist and (self._stateful_vars or self._input_inits):
+        if self.persist and (self._stateful_vars or self._input_inits
+                             or self._array_vars):
             self._slot_vars = [
                 n for n in sorted(self._stateful_vars)
                 if n not in self._history_vars

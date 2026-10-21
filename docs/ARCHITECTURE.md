@@ -62,10 +62,13 @@ gives the same trades whichever dialect you pick:
 - **trace**: cross-bar `_state` plus a per-bar `_trace` record. `pl_run` uses it
   to print per-bar columns.
 - **runnable (persist, no trace)**: cross-bar `_state` without per-bar stores.
-  `pl_oracle` uses it, since only the fill list matters there.
-- **mirror**: clean, readable Python. This is the only dialect `py_front`
-  accepts, which is why the Python → EL direction reads our own output and not
-  arbitrary Python.
+  `pl_oracle` uses it, since only the fill list matters there. This is the
+  default of both `transpile()` and `pl_transpile`.
+- **mirror** (`transpile(src, dialect="mirror")`, `pl_transpile --no-persist`):
+  clean, readable Python without cross-bar `_state`, so it is not runnable;
+  `run_bar_loop` refuses it with a one-line error. This is the only dialect
+  `py_front` accepts, which is why the Python → EL direction reads our own
+  output and not arbitrary Python.
 
 ## Bar loop and fill engine
 

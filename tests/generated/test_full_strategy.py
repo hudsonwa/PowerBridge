@@ -50,7 +50,7 @@ def test_full_strategy_content_inputs():
 
 
 def test_full_strategy_content_variables():
-    result = transpile(STRATEGY)
+    result = transpile(STRATEGY, dialect="mirror")
     assert 'value1 = f32(0)' in result, f"'value1 = f32(0)' not found in:\n{result}"
     assert 'value2 = f32(0)' in result, f"'value2 = f32(0)' not found in:\n{result}"
     assert 'condition1 = False' in result, f"'condition1 = False' not found in:\n{result}"
