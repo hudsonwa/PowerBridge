@@ -79,7 +79,7 @@ Public surface:
         ``pl_oracle``).
 
     marshalled_series(bars, data2_bars=None) -> (series, data2)
-        The frozen FFI ``series`` / ``data2`` dicts, cached by tape identity
+        The stable FFI ``series`` / ``data2`` dicts, cached by tape identity
         so a sweep of N variants over one tape marshals once. Sweep runners
         hoist this out of the per-variant loop; ``run_native`` uses it too.
 
@@ -169,17 +169,26 @@ def warn_python_path(reason=None):
     """One short stderr line (once per process) that the slower Python path ran.
 
     ``reason=None`` means the Rust module is not installed.
+    For CLI entry points only; library code logs :func:`python_path_note`
+    instead so importing callers never get unsolicited stderr output.
     """
     global _ACCEL_MISSING_WARNED
     if _ACCEL_MISSING_WARNED:
         return
     _ACCEL_MISSING_WARNED = True
     import sys
+    sys.stderr.write(python_path_note(reason) + "\n")
+
+
+def python_path_note(reason=None):
+    """The one-line note that the slower Python path ran (no trailing newline).
+
+    ``reason=None`` means the Rust module is not installed.
+    """
     if reason is None:
-        sys.stderr.write("note: powerbridge-accel not installed; using the pure-Python "
-                         "engine (slower). See README#acceleration\n")
-    else:
-        sys.stderr.write("note: using the pure-Python engine (slower): %s\n" % reason)
+        return ("note: powerbridge-accel not installed; using the pure-Python "
+                "engine (slower). See README#acceleration")
+    return "note: using the pure-Python engine (slower): %s" % reason
 
 
 # Fill-log semantics this core implements (fill log v2; the oracle digest is
@@ -290,10 +299,10 @@ def marshalled_series(bars, data2_bars=None):
     Keyed on the identity of ``bars`` and ``data2_bars``, never on config.
     A different tape object is always a miss (never a stale dict). Sweep
     runners can call this once outside the per-variant loop and pass the
-    dicts to the frozen ``_accel.run_program``; ``run_native`` uses the
+    dicts to the stable ``_accel.run_program``; ``run_native`` uses the
     same cache internally.
 
-    The returned dicts are the frozen ``series`` shape (seven plain lists).
+    The returned dicts are the stable ``series`` shape (seven plain lists).
     """
     series = _cached_series_dict(bars)
     data2 = _cached_series_dict(data2_bars) if data2_bars is not None else None

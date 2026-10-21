@@ -85,7 +85,7 @@ pub(crate) fn run_configured_window<S: NativeStrategy>(
     )
 }
 
-/// Run natively and build the frozen [`TraceReport`] surface.
+/// Run natively and build the stable [`TraceReport`] surface.
 ///
 /// The projection returns strategy-owned trace values as already rendered
 /// strings. `None` is the Python missing/`None` cell and renders as `"0"`.
@@ -95,7 +95,7 @@ pub(crate) fn run_configured_window<S: NativeStrategy>(
 /// `emit_gta6` matches Python's `_emit_gta6` switch; general `pl_run` callers
 /// pass `false`, while a capture requesting those fields passes `true`.
 ///
-/// No parallel trace type is introduced: the retained result is the frozen
+/// No parallel trace type is introduced: the retained result is the stable
 /// `TraceReport` itself.
 pub(crate) fn run_native_with_trace<S, F>(
     tape: &BarTape,

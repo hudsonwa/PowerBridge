@@ -14,7 +14,7 @@
 
 //! Native fill engine, session state, bar loop, and trace/report assembly.
 //!
-//! The implementation is confined to this module and implements the frozen
+//! The implementation is confined to this module and implements the stable
 //! [`SessionEngine`](crate::types::SessionEngine) contract directly. Strategy
 //! evaluation remains behind [`NativeStrategy`](crate::types::NativeStrategy);
 //! no Python callback or per-bar FFI crossing is introduced here.

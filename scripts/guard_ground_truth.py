@@ -17,8 +17,8 @@
 
 Asserts the ground-truth captures are byte-identical to the sha256 values pinned
 in ground_truth/captures/MANIFEST.md, and that the gate's tolerances/required
-counts have not been weakened. Run by the autonomous loop driver BEFORE each
-worker turn; a non-zero exit aborts the loop (a worker tried to game the gate).
+counts have not been weakened. Run it before trusting a verification result; a
+non-zero exit means a capture or gate threshold changed and needs review.
 
 The captures are the independent evaluator's ground truth. They are READ-ONLY.
 """
@@ -91,13 +91,12 @@ def main():
         if re.search(r"^[+-].*(rtol|atol)\s*=", diff, re.M):
             failures.append(f"TOLERANCE EDIT in {rel} (working tree) — needs human review")
 
-    # 3. No uncommitted edits to ANY gate file. A worker that authors a gate must
-    #    not later weaken it invisibly (the independent verdict only sees
-    #    diff --stat). Gate changes may only land via a reviewed checkpoint
+    # 3. No uncommitted edits to ANY gate file. A gate must not be weakened
+    #    invisibly (a summary review may only see diff --stat). Gate changes may only land via a reviewed checkpoint
     #    commit; any working-tree diff to tests/verify_*.py is fail-closed.
     #    Exception: GUARD_ALLOW_GATE_EDITS (comma-separated relpaths) — set ONLY
-    #    inline in a units.json check line (part of the human-reviewed charter,
-    #    never worker-controlled) for units whose brief legitimately edits a gate.
+    #    explicitly by the person running the check, for a change that
+    #    legitimately edits a gate.
     allowed = {p.strip() for p in
                os.environ.get("GUARD_ALLOW_GATE_EDITS", "").split(",") if p.strip()}
     try:

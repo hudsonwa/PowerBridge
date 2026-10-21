@@ -14,8 +14,8 @@
 
 //! PowerBridge native kernel extra (`pl_transpiler._accel`).
 //!
-//! The frozen Rust-side contract lives in [`types`]; the native bar loop and
-//! fill engine live in [`kernel`]. The frozen [`run`] call still refuses
+//! The stable Rust-side contract lives in [`types`]; the native bar loop and
+//! fill engine live in [`kernel`]. The stable [`run`] call still refuses
 //! execution because its seven-array signature provides no EL program, AST,
 //! strategy identifier, instrument configuration, or Data2. Hard-coding one
 //! strategy would silently return wrong trades for every other program, so
@@ -28,7 +28,7 @@ use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
-/// Frozen shared contract (interface v2): bar/series shapes, the order/fill/
+/// Stable shared contract (interface v2): bar/series shapes, the order/fill/
 /// position surface, the closed-position ledger, the output/report surface,
 /// the session/engine/interpreter seams, and the explicit config. Re-exported
 /// at the crate root so the engine, strategy and FFI code name the shared
@@ -42,8 +42,8 @@ pub(crate) mod types;
 mod kernel;
 
 // Module skeletons for the engine and strategy implementations (see `types` for the
-// contracts they implement against); created by the freeze so the modules never
-// contend for this file.
+// contracts they implement against); kept as separate modules so each owns its
+// own files.
 mod audit;
 mod engine;
 mod strategy;
@@ -85,7 +85,7 @@ fn ping() -> u32 {
 /// Raises
 /// ------
 /// NotImplementedError
-///     The native bar loop and fill engine exist, but this frozen call does not
+///     The native bar loop and fill engine exist, but this stable call does not
 ///     carry a strategy program. The caller must loudly fall back to Python.
 #[pyfunction]
 #[pyo3(signature = (open, high, low, close, volume, date, time))]
@@ -113,7 +113,7 @@ fn run(
 
     // Selected strategy-semantics approach: fail-loud fallback.
     //
-    // The frozen signature has no EL/AST/strategy argument, and the reference strategy needs
+    // The stable signature has no EL/AST/strategy argument, and the reference strategy needs
     // aligned Data2 closes that are also absent. Running a no-op or hard-coded
     // strategy would be plausible-but-wrong. Raise a stable built-in exception
     // so the Python wiring owner can select the existing Python path explicitly.
@@ -127,7 +127,7 @@ fn run(
 
 /// Execute a v2 `program_ir` over a `series` with an explicit `config`.
 ///
-/// This is the strategy-bearing contract the frozen [`run`] refuses to be: it
+/// This is the strategy-bearing contract the stable [`run`] refuses to be: it
 /// carries the serialised IR program, the aligned Data2 tape (if the program
 /// references Data2), and the explicit instrument config, so a single FFI
 /// crossing can produce the native trade list. Fidelity gate: the returned
@@ -202,7 +202,7 @@ fn run_program_core(
     config: &Config,
 ) -> Result<Vec<Fill>, KernelError> {
     // No input overrides from the FFI surface: an empty map uses the IR Input
-    // defaults (the frozen `run_program` signature has no `inputs` argument).
+    // defaults (the stable `run_program` signature has no `inputs` argument).
     let inputs = HashMap::<String, strategy::Value>::new();
     run_variant_core(program_ir, series, data2, config, &inputs)
 }
@@ -264,7 +264,7 @@ fn run_program_batch_parallel_core(
 
 /// Map a native [`KernelError`] to the Python exception its class signals:
 /// `input` → `ValueError`; `unsupported` / `strategy` → `NotImplementedError`
-/// (the same "fall back loudly" signal as the frozen [`run`] refusal).
+/// (the same "fall back loudly" signal as the stable [`run`] refusal).
 fn kernel_error_to_py(error: KernelError) -> PyErr {
     let message = error.to_string();
     if message.starts_with("invalid accel input:") {
@@ -376,7 +376,7 @@ fn extract_tape(series: &Bound<'_, PyAny>) -> PyResult<BarTape> {
     .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
-/// Convert a native fill to the frozen Python dictionary shape.
+/// Convert a native fill to the stable Python dictionary shape.
 ///
 /// Kept next to the FFI boundary so a future strategy-bearing contract can
 /// return kernel fills without changing their keys or value types.
@@ -626,7 +626,7 @@ fn run_program_batch_parallel(
 }
 
 /// SPIKE: production `run_program` loop returning one framed `audit-event-v1`
-/// packet (`bytes`). Does not change the frozen `run_program` fill list.
+/// packet (`bytes`). Does not change the stable `run_program` fill list.
 ///
 /// `hash_tapes` (default false) SHA-256s the in-memory Data1 columns into the
 /// header. Data2 hashing is reserved (zeros). Tape hashing is off the timed

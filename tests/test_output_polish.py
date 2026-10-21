@@ -72,3 +72,21 @@ def test_native_refusal_reported_once(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert err.count("native path refused") == 1, err
     assert "using the pure-Python engine" in err
+
+
+def test_run_el_logs_python_path_note_instead_of_printing(monkeypatch, capsys, caplog):
+    import logging
+    from pl_transpiler.runtime.instrument_config import get_config
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    with open(EL, encoding="utf-8") as f:
+        source = f.read()
+    with caplog.at_level(logging.INFO, logger="pl_transpiler.tools.pl_run"):
+        pl_run.run_el(source, pl_run.load_bars_csv(BARS), get_config("NQ"))
+    assert "pure-Python engine" not in capsys.readouterr().err
+    assert any("pure-Python engine" in r.getMessage() for r in caplog.records)
+
+
+def test_pl_run_cli_still_prints_python_path_note(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
+    assert "note: " in capsys.readouterr().err

@@ -1,6 +1,6 @@
 # accel — PowerBridge native kernel extra
 
-Optional PyO3 extension. Frozen names (do not change):
+Optional PyO3 extension. Stable names (do not change):
 
 | thing | name |
 |---|---|
@@ -24,7 +24,7 @@ The crate deliberately chooses the allowed **fail-loud fallback** approach.
 `NotImplementedError` with an `ACCEL_FALLBACK_REQUIRED` prefix. It never
 returns an empty or partial trade list.
 
-The frozen call has no EL source, AST, strategy identifier, instrument
+The stable call has no EL source, AST, strategy identifier, instrument
 configuration, or Data2 column. The reference strategy itself needs aligned Data2 closes.
 Consequently, this call cannot distinguish two strategies over the same tape.
 Hard-coding the reference strategy or silently running no strategy would violate the
@@ -60,11 +60,11 @@ must not grow a second Python implementation.
 ## Exports
 
 - `ping() -> int` — trivial FFI probe. Always returns `42`.
-- `run(open, high, low, close, volume, date, time) -> list[dict]` — frozen
+- `run(open, high, low, close, volume, date, time) -> list[dict]` — stable
   bars-in / trades-out signature. It validates equal-length numeric columns,
   then raises the fail-loud fallback described above because no strategy is
   present. It never returns a computed result under the current contract.
-  The implemented native fill conversion is frozen to `FillEngine.fills` /
+  The implemented native fill conversion matches `FillEngine.fills` exactly /
   `pl_oracle`: `{type, signal, date, time, price, contracts}`.
 
 One FFI call per run is the only viable shape. A per-bar callback is
@@ -83,7 +83,7 @@ call sites.
 ## Still required for an active native strategy
 
 - An owner-approved way to supply strategy semantics and required auxiliary
-  data without changing or ambiguously overloading the frozen call.
+  data without changing or ambiguously overloading the stable call.
 - Python-side fallback wiring and packaging, owned outside this crate.
 - Closed-position/GTA6 introspection ledgers, which are not needed by the
   currently implemented explicit-order fill list but would be required by a

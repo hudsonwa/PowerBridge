@@ -29,7 +29,7 @@ code exists, so the boundary is agreed rather than discovered later. It changes 
 behaviour. It promises no speed. This document is the contract; the kernel, CI, and
 conformance work implements against it.
 
-## The interface (frozen — shared across the kernel, CI, and test code)
+## The interface (stable — shared across the kernel, CI, and test code)
 
 These three facts are the whole public interface of the fast path. Do not rename
 them anywhere:
@@ -40,9 +40,9 @@ them anywhere:
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
-Because these three facts are shared verbatim with the kernel work, the CI/wheel
-work, and the tests, they are frozen here: renaming any of them in a later
-PR is a contract break, not a cleanup.
+These three names are shared verbatim by the kernel, the CI/wheel build and the
+tests, and users' install commands depend on them, so we keep them stable:
+renaming any of them is an interface break, not a cleanup.
 
 The fallback rule in the third row is not decoration — it is the load-bearing
 invariant, restated in the Invariants section of [AGENTS.md](../AGENTS.md) and in
@@ -127,7 +127,7 @@ separately, whose wheel provides `pl_transpiler._accel`.** That distribution is
 installs the matching kernel wheel where one is published for the platform.
 `powerbridge-accel` is not on PyPI yet, so today the extra does not resolve:
 install the release wheel by URL or build from source (README "Acceleration"). The
-extra name `accel` stays frozen so the kernel, CI/wheel build, conformance work
+extra name `accel` stays stable so the kernel, CI/wheel build, conformance work
 and tests share one name.
 
 What is true *today*, verifiably, without the artifact:
@@ -139,10 +139,10 @@ python3 -c "import pl_transpiler._accel"   # -> ModuleNotFoundError
 
 (`ModuleNotFoundError` — CPython's "no module named …" error from the default
 importer — is a subclass of `ImportError` (verified on the 3.9 floor this project
-supports), so the frozen contract's `ImportError` is raised by every compliant
+supports), so the stable interface's `ImportError` is raised by every compliant
 importer and caught by every compliant caller.)
 
-That `ImportError` **is** the extra-absent behaviour from the frozen contract, and
+That `ImportError` **is** the extra-absent behaviour from the stable interface, and
 it is correct: callers must treat it as "run the Python path, and say so", never as
 a failure to swallow.
 

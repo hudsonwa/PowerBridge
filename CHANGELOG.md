@@ -4,6 +4,10 @@
 
 ### Added
 
+- `docs/ARCHITECTURE.md`: the pipeline, the bar-loop/fill model, the f32/f64
+  numeric model, the native kernel and how parity is established.
+- PyPI metadata for `powerbridge` and `powerbridge-accel`: readme, author,
+  classifiers, keywords and Documentation/Changelog/Issues links.
 - Standard EasyLanguage shorthand: `O`, `H`, `L`, `C`, `V` and `I` (any case)
   read as `Open`, `High`, `Low`, `Close`, `Volume` and `OpenInt`, including
   `C[1]` and `Average(C, 10)`. A declared input or variable of the same name
@@ -23,6 +27,13 @@
 
 ### Changed
 
+- `run_el` no longer writes the "powerbridge-accel not installed" note to
+  stderr; it logs it on the `pl_transpiler.tools.pl_run` logger. The `pl_run`
+  and `pl_oracle` commands still print it, unchanged.
+- Native-kernel skip messages and docs say `./tools/build_accel.sh` instead
+  of `maturin develop --release`. Interface docs and comments describe what
+  is stable and why, and `docs/dev/ACCEL-INTERFACE-V2.md` reads as a
+  reference.
 - `pl_run` CSV output rounds money columns (`NetProfit`, `GrossProfit`,
   `OpenPositionProfit`, ...) to cents and price columns (`EntryPrice`,
   `ExitPrice`, `AvgEntryPrice`, `Close`) to the instrument's tick decimals,

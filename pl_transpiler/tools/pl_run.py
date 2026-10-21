@@ -42,6 +42,7 @@ CLI:
 import argparse
 import contextlib
 import csv
+import logging
 import math
 import os
 import re
@@ -55,6 +56,9 @@ from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
+from pl_transpiler.runtime.accel import warn_python_path  # noqa: E402
+
+_log = logging.getLogger(__name__)
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
@@ -364,7 +368,8 @@ def resolve_trade_from(bars, *, from_date=None, from_bar=None):
 
 def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
            row_sink=None, header_sink=None, retain_rows=None,
-           from_date=None, from_bar=None, seed_warmup=True, max_bars_back=0):
+           from_date=None, from_bar=None, seed_warmup=True, max_bars_back=0,
+           _python_path_notify=None):
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -481,11 +486,14 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     # counted. The transpiled strategy's own Print(File(...)) lands on stdout; we
     # discard it here so it can never corrupt the returned data or the CLI's stdout.
     from pl_transpiler.runtime.pl_runtime import pl_unimplemented_reset, pl_unimplemented_warn
-    from pl_transpiler.runtime.accel import accel_available, warn_python_path
+    from pl_transpiler.runtime.accel import accel_available, python_path_note
+    # The library logs the "Python path" note; the CLI passes warn_python_path
+    # to print it on stderr instead.
+    notify = _python_path_notify or (lambda r=None: _log.info(python_path_note(r)))
     if accel_available():
-        warn_python_path("per-bar trace rows need it; pl_oracle uses the Rust kernel")
+        notify("per-bar trace rows need it; pl_oracle uses the Rust kernel")
     else:
-        warn_python_path()
+        notify()
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
     with open(os.devnull, 'w', encoding='utf-8') as _devnull, contextlib.redirect_stdout(_devnull):
@@ -606,7 +614,8 @@ def _main(ap, args):
                             row_sink=row_sink,
                             from_date=args.from_date, from_bar=args.from_bar,
                             seed_warmup=not args.slice_tape,
-                            max_bars_back=args.max_bars_back)
+                            max_bars_back=args.max_bars_back,
+                            _python_path_notify=warn_python_path)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
@@ -619,7 +628,8 @@ def _main(ap, args):
                         row_sink=row_sink,
                         from_date=args.from_date, from_bar=args.from_bar,
                         seed_warmup=not args.slice_tape,
-                        max_bars_back=args.max_bars_back)
+                        max_bars_back=args.max_bars_back,
+                        _python_path_notify=warn_python_path)
     if out_path:
         out_f.close()
 

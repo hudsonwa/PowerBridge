@@ -43,7 +43,7 @@ pub(crate) enum Cell {
     Str(String),
 }
 
-/// The frozen typed trace surface: `columns` are the sorted column names
+/// The stable typed trace surface: `columns` are the sorted column names
 /// emitted by the first bar, `rows` one typed row per emitted bar. This is the
 /// typed counterpart of `crate::types::TraceReport`.
 #[derive(Debug, Clone, PartialEq)]

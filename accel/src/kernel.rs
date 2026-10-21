@@ -18,7 +18,7 @@
 //! here must be a Rust implementation of [`NativeStrategy`], so the complete
 //! tape stays on the Rust side of the FFI boundary.
 //!
-//! The shipped Python entry point does not select a strategy yet: its frozen
+//! The shipped Python entry point does not select a strategy yet: its stable
 //! seven-array signature contains neither an EL program/AST nor a stable
 //! strategy identifier (and the reference strategy also needs Data2). The selected
 //! strategy policy is therefore **fail-loud fallback**, not an implicit
@@ -26,7 +26,7 @@
 
 use std::collections::VecDeque;
 
-// The frozen shared contract lives in `types`; the engine re-exports it here so
+// The stable shared contract lives in `types`; the engine re-exports it here so
 // the body below and the `tests` module (`use super::*`) keep naming the types
 // directly. Nothing is redefined — see `crate::types` for every invariant.
 pub(crate) use crate::types::*;
@@ -112,7 +112,7 @@ pub(crate) struct FillEngine {
     on_close_pending: Vec<OnCloseOrder>,
     risk: RiskSettings,
     fills: Vec<Fill>,
-    // Closed-position ledger (contract freeze). Empty in this pre-ledger
+    // Closed-position ledger (shared `types` surface). Empty in this pre-ledger
     // engine; the `accel/engine` module fills it via
     // `SessionEngine::record_closed_trade` and it feeds `KernelOutcome`.
     closed_positions: Vec<ClosedPosition>,
@@ -1004,7 +1004,7 @@ where
         position,
         total_trades: engine.total_trades,
         max_id_drawdown: engine.max_id_drawdown,
-        // The closed-position ledger (contract freeze output surface). The
+        // The closed-position ledger (shared `types` output surface). The
         // pre-ledger `FillEngine` above never records a closed trade yet — the
         // `accel/engine` module wires `SessionEngine::record_closed_trade` into
         // the close paths, after which this is populated and

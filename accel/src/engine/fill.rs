@@ -94,7 +94,7 @@ enum Snap {
     Up,
 }
 
-/// Stateful native implementation of the frozen fill/session boundary.
+/// Stateful native implementation of the stable fill/session boundary.
 ///
 /// Contract quantities remain signed from `Order.quantity` through position
 /// mutation. A non-negative magnitude is needed only as a signed loop bound

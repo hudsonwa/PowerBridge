@@ -28,8 +28,8 @@ you already place in a strategy file:
 - **the publisher of the native wheel** — whoever produced the binary the
   installer downloads, and the signing or provenance signals you accept at
   install time;
-- **the build toolchain** behind that binary (a Rust/cargo + PyO3 build, per
-  the kernel plan), and everything it pulls in;
+- **the build toolchain** behind that binary (a Rust/cargo + PyO3 build via
+  maturin), and everything it pulls in;
 - **a binary blob that can change the trade list without being readable.**
   The Python path gives you an audit trail; the kernel path does not.
 

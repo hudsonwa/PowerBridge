@@ -411,7 +411,7 @@ run_native_sweep(el_source, bars, config, variants, *, data2_bars=None, threads=
 The underlying `_accel` FFI additions are `run_program_inputs(program_ir, series,
 data2, config, inputs)`, `run_program_batch(program_ir, series, data2, config,
 variants)`, and `run_program_batch_parallel(program_ir, series, data2, config,
-variants, threads)`. The frozen `run_program` contract is untouched.
+variants, threads)`. The stable `run_program` contract is untouched.
 
 ### `pl_transpiler.tools.pl_oracle`
 
@@ -448,7 +448,7 @@ run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     #   shape (a Data2 program is served by forwarding data2_bars); a refusal (or a
     #   missing extension) falls back to the Python path LOUDLY (a stderr note) --
     #   never a partial trade list. The native path is correct-but-slower today:
-    #   it reproduces the frozen digest but is not yet a speed win over the Python
+    #   it reproduces the stable digest but is not yet a speed win over the Python
     #   path.
     # records: FillEngine.get_mc_trades() list (ordered). On the native path the
     #   records are the kernel fills (no 'order_no') and closed_positions is None
@@ -465,7 +465,7 @@ fills_sha256(fills, version=2) -> str
     #   "{type}\\t{signal}\\t{date}\\t{time}\\t{price.hex()}\\t{contracts}\\n"
     #   {type} is the buy/sell SIDE, not a position label: "EntryLong" = buy side
     #   (Buy, BuyToCover), "ExitLong" = sell side (Sell, SellShort). A SellShort
-    #   from flat hashes as "ExitLong". Frozen: every pinned digest depends on it.
+    #   from flat hashes as "ExitLong". Stable: every pinned digest depends on it.
 fill_trade_types(fills) -> list[str]
     # Position-aware label per fill (EntryLong / ExitLong / EntryShort / ExitShort),
     # replayed from flat. Reversals split into exit records then entry records.

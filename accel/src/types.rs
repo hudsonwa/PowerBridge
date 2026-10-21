@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Frozen Rust-side contract for the native accel kernel (interface v2).
+//! Stable Rust-side types for the native accel kernel (interface v2).
 //!
 //! This module owns the *types and boundaries* the downstream modules build
 //! against: the bar/series shapes, the order/fill/position surface, the
@@ -25,13 +25,13 @@
 //!
 //! * **bit-exact or refuse** — every f32 narrowing point is explicit
 //!   ([`narrow_f32`]); a missing or extra narrowing site is a silent trade
-//!   divergence and a contract violation (v2 requirement 5).
+//!   divergence and a contract violation (interface v2).
 //! * **fail loud** — any construct the kernel does not implement must raise;
 //!   there is no partial-credit mode and no fallback inside the kernel.
 //! * **deterministic** — no clock, timezone, locale, filesystem or RNG.
 //! * **config is explicit** — nothing the Python path reads from outside the
 //!   bars may be defaulted inside Rust; a missing field must raise, never be
-//!   invented (v2 requirements 2-3). [`Config`] therefore has no `Default`.
+//!   invented (interface v2). [`Config`] therefore has no `Default`.
 //! * **signed sizes** — Python-reachable negative and zero contract sizes are
 //!   `isize`, never unsigned.
 
@@ -43,12 +43,11 @@ use std::fmt;
 /// INVARIANT — this is the ONLY place kernel arithmetic narrows to f32, and it
 /// is called only where the Python engine calls `f32()` (`ctypes.c_float(x).value`).
 /// Keeping kernel values as `f64` and narrowing at explicit sites avoids Rust
-/// `f32`'s implicit round-after-every-op semantics. The verifier reconciled the
-/// Python sites against the Rust sites exactly (17 Python `f32()` call sites
-/// vs 16 Rust `narrow_f32` sites: the 3 missing are inside the omitted
-/// `_record_closed_trade` ledger, and the 2 Rust-extra are unrolled match arms
-/// of Python's two conditional-price lines). `narrow_f32` is bit-identical to
-/// `ctypes.c_float(x).value` on the audited extreme values.
+/// `f32`'s implicit round-after-every-op semantics. Every Python `f32()` site has a
+/// matching `narrow_f32` site (17 Python sites vs 16 Rust: 3 sit in the
+/// `_record_closed_trade` ledger, which the kernel omits, and 2 Rust sites are
+/// unrolled match arms of Python's two conditional-price lines). `narrow_f32`
+/// is bit-identical to `ctypes.c_float(x).value`, including at extreme values.
 #[inline]
 pub(crate) fn narrow_f32(value: f64) -> f64 {
     (value as f32) as f64
@@ -567,8 +566,8 @@ pub(crate) struct KernelOutcome {
 /// per column. Cell format is unchanged from the Python path: a
 /// missing/`None` value renders as `'0'`, every other value as `str(value)`.
 /// These columns are what the caller actually consumes — leaving them out of
-/// the original bars-only `run()` contract was the mistake the v2 refreeze
-/// exists to avoid.
+/// the original bars-only `run()` contract was the gap interface v2
+/// closes.
 ///
 /// Produced by the interpreter/engine; not yet constructed by this crate.
 #[allow(dead_code)]
@@ -581,7 +580,7 @@ pub(crate) struct TraceReport {
 /// One trading-session boundary, in EL HHmm (NQ: 0830 -> 1515).
 ///
 /// INVARIANT — session bounds are EXPLICIT config, never derived or guessed
-/// natively (v2 requirement 3: a program that reads session words must run
+/// natively (interface v2: a program that reads session words must run
 /// against the right session, or be refused — never silently against the
 /// wrong one). The engine module owns the session logic (`SetExitOnClose`
 /// rollover, `SessionLastBar`) built on these bounds.
@@ -751,7 +750,7 @@ impl From<&Config> for Instrument {
 /// INVARIANT — EVERY field is supplied by the caller and there is NO `Default`:
 /// nothing the Python path reads from outside the bars may be defaulted inside
 /// Rust, and a missing field must raise at the boundary, never be invented
-/// (v2 requirements 2-3). Field names and values mirror the Python
+/// (interface v2). Field names and values mirror the Python
 /// `InstrumentConfig` (NQ: `bigpointvalue` 20, `tick` 0.25, `sess1starttime`
 /// 830) plus the v2-required commission, slippage, session bounds, MaxBarsBack
 /// and warmup seed. [`From<&Config> for Instrument`] pins the narrowing-free
@@ -781,24 +780,16 @@ pub(crate) struct Config {
 }
 
 // ============================================================================
-// FROZEN CONTRACT ENDS HERE. Nothing above this line may be edited by an
-// implementation module. Two modules work in parallel against this contract:
+// END OF SHARED TYPES. Everything above is the interface both implementation
+// modules build against:
 //
 //   ENGINE   (accel/src/engine/**)   — fill engine, bar loop, session state
 //   STRATEGY (accel/src/strategy/**) — the generated-strategy interpreter
 //
-// Each module appends ONLY inside its own region below. Two edits to the SAME file
-// merge cleanly when they land in DIFFERENT regions (verified) and conflict when
-// both append at the same point — which is why the regions are separated here.
-//
-// If the frozen contract is genuinely wrong for what you need, STOP and say so in
-// your report. Do NOT silently widen it: two modules independently widening the same
-// contract produce two half-contracts that each compile but disagree, and a clean
-// git merge of divergent semantics is worse than a conflict, because nothing flags
-// it.
-//
-// The trace/report surface the caller consumes is `TraceReport` (see above) — it is
-// already in the freeze. Do not invent a second one.
+// We keep these types in one place so the engine and the interpreter cannot
+// drift into two incompatible views of the same order/fill/trace surface;
+// widening them is a deliberate interface change, not a local edit. The
+// trace/report surface the caller consumes is `TraceReport` (see above).
 // ============================================================================
 
 // ===== ENGINE-LANE REGION — append below this line only =====

@@ -15,7 +15,7 @@ PowerBridge exists so that strategy research can happen in Python (including wit
 ## Documentation
 
 - [`docs/ACCEL.md`](docs/ACCEL.md): the optional `accel` fast path — decision
-  record: the frozen interface (`accel` extra, `pl_transpiler._accel`, loud
+  record: the stable interface (`accel` extra, `pl_transpiler._accel`, loud
   fallback), the honest install mechanism, the trust model of the native path,
   and the wheel/CI story (maturin-built macOS arm64 wheel,
   `.github/workflows/accel.yml` runs the accel path and a zero-dep job).

@@ -80,7 +80,7 @@ def python_trade_runner(el_source, bars):
 
 
 def accel_trade_runner(accel_module):
-    """Return the native runner over the frozen ``run_program`` contract.
+    """Return the native runner over the stable ``run_program`` contract.
 
     ``accel_module`` is ``pl_transpiler._accel``, already imported by the caller;
     a successful import is the caller's proof the extension is present.  The

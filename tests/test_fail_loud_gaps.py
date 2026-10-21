@@ -111,7 +111,10 @@ def test_bar_column_lenient_reads_zero_and_warns(monkeypatch, capsys):
 def test_cli_reports_missing_column_on_one_line(strict, tmp_path, capsys):
     el = _write(tmp_path, "Vars: x(0);\nx = OpenInt;\nif x > 0 then buy next bar at market;\n")
     assert pl_run.main([el, BARS_CSV]) == 2
-    err = capsys.readouterr().err.strip().splitlines()
+    # Ignore the one-off "note: ... pure-Python engine" line, which depends on
+    # whether an earlier test in this process already printed it.
+    err = [ln for ln in capsys.readouterr().err.strip().splitlines()
+           if not ln.startswith("note: ")]
     assert len(err) == 1
     assert err[0].startswith("pl_run: error (s.el line 2): ")
     assert "'openint' column" in err[0]

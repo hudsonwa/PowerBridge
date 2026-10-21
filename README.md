@@ -217,6 +217,10 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
+The digest goes to stdout. The `[pl_oracle] … fills` summary line, and a
+`note:` line when the native kernel is not installed, go to stderr, so
+`pl_oracle … > digest.txt` captures only the block above.
+
 What you can verify yourself, digest gating and captures are in
 [docs/verification.md](docs/verification.md).
 
@@ -516,12 +520,9 @@ want to attach your own.
   0/'', the run ends with a `WARNING` naming them, and
   `run_el(...)["unimplemented"]` lists them. Cosmetic ones (drawing, sound,
   print) never stop a run and are not reported.
-- **No MaxBarsBack warm-up yet.** Strategies are evaluated from bar 1. A
-  price lookback past the available history (`Close[5]` on bar 3) returns the
-  current bar's `Open`, and a windowed function such as `Average(Close, 10)`
-  returns 0 until it has 10 bars. MultiCharts instead skips bars until
-  MaxBarsBack is satisfied, so trades near the start of a tape can differ;
-  feed extra leading bars if your strategy looks back.
+- **MaxBarsBack is opt-in.** By default strategies are evaluated from bar 1,
+  and a windowed function such as `Average(Close, 10)` returns 0 until it has
+  10 bars. See "Matching MultiCharts" below for `--max-bars-back`.
 - Per-bar MultiCharts parity captures are not shipped. Those tests skip on a
   fresh clone.
 - The `accel` fast path is optional and builds from source. It does not yet
@@ -559,6 +560,8 @@ compatibility.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Open an issue before a large change.
 Small fixes can be a pull request on their own.
+For how the transpiler, fill engine and native kernel fit together, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Development started in a private repository; this public repository begins at
 the 0.2.0 export. Changes since then are made here in the open.

@@ -84,7 +84,7 @@ jobs:
 
       - name: Differential conformance harness + wheel-load gate
         # The python-vs-accel differential gate and the digest gate arm once
-        # the kernel's execution boundary is frozen; otherwise they skip cleanly from
+        # the kernel's execution boundary is stable; otherwise they skip cleanly from
         # the repo root (repo package shadows the installed module), exactly as their
         # authors designed. The wheel-load gate above is the load proof.
         run: python3 -m pytest tests/test_accel_conformance.py tests/test_accel_wheel.py tests/test_accel_digest_gate.py -q

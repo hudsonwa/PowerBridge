@@ -7,7 +7,7 @@
 
 //! SPIKE: typed `audit-event-v1` packet collected on the production kernel loop.
 //!
-//! This is a **new entry point**, not a change to the frozen `run_program`
+//! This is a **new entry point**, not a change to the stable `run_program`
 //! contract or to [`crate::types::TraceReport`]. Numeric values stay typed
 //! across the FFI; Python owns legacy text rendering.
 

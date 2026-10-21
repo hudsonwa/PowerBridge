@@ -14,17 +14,16 @@
  limitations under the License.
 -->
 
-# ACCEL interface v2 — the strategy-bearing contract
+# ACCEL interface v2 — reference
 
-This is the refreeze of the optional native fast path: the interface the Rust
-kernel (`accel/`) exposes to Python once an EL program can be executed natively.
-It is the single source of truth for the names and shapes the FFI layer, the
+The interface the Rust kernel (`accel/`) exposes to Python for executing an EL
+program natively. It is the single source of truth for the names and shapes the FFI layer, the
 kernel modules, and the Python fallback wiring all build against. It supplements
 `docs/ACCEL.md` (the decision record) and `types.rs` (the Rust-side contract
 invariants); `docs/ACCEL.md` remains authoritative for the *packaging* decision,
 and `types.rs` remains authoritative for the *Rust* semantics.
 
-## Frozen public names (unchanged from v1)
+## Stable public names (unchanged from v1)
 
 | Fact | Value |
 |---|---|
@@ -81,7 +80,7 @@ does not yet implement Data2; a program that references it, or a supplied
 
 Explicit per-run instrument config. **Every field is required** — `Config` has
 no `Default`, and nothing the Python path reads from outside the bars may be
-defaulted inside Rust (v2 requirements 2-3):
+defaulted inside Rust:
 
 ```python
 config = {
@@ -130,7 +129,7 @@ bit-for-bit.
 run(open, high, low, close, volume, date, time) -> NotImplementedError
 ```
 
-The frozen seven-array call carries no EL program, AST, strategy identifier,
+The original seven-array call carries no EL program, AST, strategy identifier,
 instrument config, or Data2, so it still raises `NotImplementedError` with the
 `ACCEL_FALLBACK_REQUIRED` prefix. It was **not** removed, weakened, or re-pointed;
 `run_program` is additive and does not change `run`'s behaviour.
