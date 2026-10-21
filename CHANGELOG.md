@@ -21,6 +21,8 @@
   pip weekly, Python 3.14 joins the test matrix, and one pytest job uploads a
   coverage report.
 - ruff also checks pycodestyle `E4`/`E7` and `W` rules.
+- Dependabot runs monthly with one grouped PR per ecosystem (at most two
+  open) and skips major versions, which are upgraded deliberately.
 
 ### Fixes
 
