@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Standard EasyLanguage shorthand: `O`, `H`, `L`, `C`, `V` and `I` (any case)
+  read as `Open`, `High`, `Low`, `Close`, `Volume` and `OpenInt`, including
+  `C[1]` and `Average(C, 10)`. A declared input or variable of the same name
+  still wins, as documented for EasyLanguage. `Sell Short` and `Buy To Cover`
+  are accepted as `SellShort` and `BuyToCover`; before, `Sell Short` failed
+  with a misleading "unimplemented EL keyword 'short'". Shorthand and
+  long-form strategies give identical digests (native and `--python`).
+
 ### Fixes
 
 - The default runnable `pl_transpile` output now runs in time linear in bar

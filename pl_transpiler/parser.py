@@ -54,6 +54,13 @@ def _reconstruct_tokens(toks):
     return ''.join(out)
 
 
+# EL price-series abbreviations (see Parser.parse_primary).
+_PRICE_ABBREVIATIONS = {'o': 'open', 'h': 'high', 'l': 'low', 'c': 'close',
+                        'v': 'volume', 'i': 'openint'}
+_DECL_KEYWORDS = frozenset(('inputs', 'input', 'variables', 'variable', 'vars',
+                            'var', 'arrays', 'array'))
+
+
 class Parser:
     def __init__(self, tokens, positions=None, source=''):
         self.tokens = tokens
@@ -68,6 +75,38 @@ class Parser:
         # Inputs/Vars/Arrays declared so far. A declared name shadows a reserved
         # position/MC keyword of the same spelling (an input `ExitTime`), as in MC.
         self._user_names = set()
+        # Every Inputs/Vars/Arrays name in the program, collected up front so a
+        # declaration later in the source still shadows a price abbreviation.
+        self._declared_names = self._collect_declared_names()
+
+    def _collect_declared_names(self):
+        """Cheap token pre-pass: the names declared by every Inputs/Vars/Arrays
+        statement (identifiers at nesting depth 0 that start a comma-separated
+        item, up to the terminating semicolon)."""
+        names = set()
+        toks = self.tokens
+        i, n = 0, len(toks)
+        while i < n:
+            tt, val = toks[i][0], toks[i][1]
+            i += 1
+            if tt != TT_KEYWORD or val not in _DECL_KEYWORDS:
+                continue
+            if i < n and toks[i][0] == TT_OP and toks[i][1] == ':':
+                i += 1
+            depth, expect_name = 0, True
+            while i < n and not (depth == 0 and toks[i][0] == TT_SEMICOLON):
+                tt, val = toks[i][0], toks[i][1]
+                if tt in (TT_LPAREN, TT_LBRACKET):
+                    depth += 1
+                elif tt in (TT_RPAREN, TT_RBRACKET):
+                    depth -= 1
+                elif depth == 0 and tt == TT_COMMA:
+                    expect_name = True
+                elif expect_name and tt == TT_IDENT:
+                    names.add(val)
+                    expect_name = False
+                i += 1
+        return names
 
     def _spelling_at(self, tok_index):
         """The verbatim source spelling of the identifier token at `tok_index`, or
@@ -605,6 +644,17 @@ class Parser:
     # ---- Order ----
     def parse_order(self):
         action = self.advance()[1]  # buy/sell/sellshort/buytocover
+        # Documented two-word EL forms: `Sell Short` == SellShort and
+        # `Buy To Cover` == BuyToCover (unless the second word is a declared name).
+        if action == 'sell' and self.peek()[1] == 'short' and 'short' not in self._user_names:
+            self.advance()
+            action = 'sellshort'
+        elif (action == 'buy' and self.peek()[1] == 'to'
+              and self.pos + 1 < len(self.tokens)
+              and self.tokens[self.pos + 1][1] == 'cover'):
+            self.advance()
+            self.advance()
+            action = 'buytocover'
         label = ''
         quantity = None
         total = False
@@ -875,6 +925,16 @@ class Parser:
     def parse_primary(self):
         tok = self.peek()
         tt, val = tok
+
+        # Price abbreviations O/H/L/C/V/I = Open/High/Low/Close/Volume/OpenInt.
+        # Documented behaviour: a declared input/variable of the same name
+        # shadows the abbreviation, and `I(...)` stays a function call.
+        if (tt == TT_IDENT and val in _PRICE_ABBREVIATIONS
+                and val not in self._declared_names
+                and not (self.pos + 1 < len(self.tokens)
+                         and self.tokens[self.pos + 1][0] == TT_LPAREN)):
+            # Build the long-form node; the token keeps its original spelling.
+            tt, val = TT_IDENT, _PRICE_ABBREVIATIONS[val]
 
         # Number
         if tt == TT_NUMBER:
@@ -1165,16 +1225,17 @@ class Parser:
 
         # Identifier — could be func call, bar ref, or plain ident
         if tt == TT_IDENT or (tt == TT_KEYWORD and val in BUILTIN_FUNC_MAP):
-            return self._parse_ident_or_call()
+            return self._parse_ident_or_call(val)
 
         self._err(
             f"unexpected {self._describe(tok)} where an expression was expected",
             hint="check for a missing operator, operand, or a typo'd keyword")
 
-    def _parse_ident_or_call(self):
+    def _parse_ident_or_call(self, name=None):
         name_index = self.pos
         tok = self.advance()
-        name = tok[1]
+        if name is None:
+            name = tok[1]
         line, col = self._pos_of(name_index)
         ident = self._ident_spelling(name, name_index)
 
