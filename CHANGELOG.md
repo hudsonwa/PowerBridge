@@ -8,6 +8,20 @@
   with runnable examples. `pl_transpiler.__all__` lists the public names, and
   `run_oracle`, `load_bars`, `load_config_file`, `catalog` and
   `UnimplementedKeywordError` now import from `pl_transpiler` directly.
+- The EL keyword catalog records how much evidence backs each keyword. Each line of
+  `pl_signatures.jsonl` gains `kind` (`syntax` for language and filler words such as
+  `If` or `Shares`, `builtin` otherwise), `arg_types`, `max_arity`, `verification` and
+  `verified_by`, all generated from PowerBridge's own code and tests by
+  `tools/gen_catalog_fields.py` (a test fails if the shipped file is stale and prints
+  the regenerate command). `verification` is `n/a` for syntax words; for builtins it is
+  `verified:capture-strategy` (used by a strategy whose per-bar outputs (required
+  columns) match a MultiCharts capture in `tests/verify_all.py`; the captures are not public, so that
+  check skips in a clone), `verified:test` or `documented-unverified`. `max_arity` and
+  `arg_types` are filled only where PowerBridge itself defines an arity and are `null`
+  otherwise. `catalog.kind()`, `catalog.arg_types()`, `catalog.max_arity()` and
+  `catalog.verification()` read them, `catalog.coverage()` counts keywords per kind and
+  level, and `pl_signatures.schema.json` describes a record. Existing fields are
+  unchanged.
 
 ## 0.6.0 — 2026-10-21
 

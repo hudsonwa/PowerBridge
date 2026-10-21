@@ -1,481 +1,481 @@
-{"keyword": "Arw_GetDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetDirection", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetFirst", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetLock", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetNext", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_GetSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetStyle", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetText", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTextAttribute", "returns": "bool", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_GetTextBGColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTextColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTextFontName", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTextSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTime_DT", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetTime_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_GetVal", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_Get_Anchor_to_Bars", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Arw_Lock", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_New", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_New_BN", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_New_DT", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_New_s", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_New_self", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_New_Self_DT", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_New_self_s", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_SetBarNumber", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetColor", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetLocation", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_SetLocation_BN", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_SetLocation_DT", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_SetLocation_s", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Arw_SetSize", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetStyle", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetText", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetTextAttribute", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Arw_SetTextBGColor", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetTextColor", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetTextFontName", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Arw_SetTextSize", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "MC_Arw_GetActive", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AllowSendOrdersAlways", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "IntraBarOrderGeneration", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LegacyColorValue", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ProcessMouseEvents", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SameExitFromOneEntryOnce", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Black", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Blue", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Cyan", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkBlue", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkBrown", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkCyan", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkGray", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkGreen", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkMagenta", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkRed", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DarkYellow", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "GetBValue", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "GetGValue", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "GetRValue", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "GradientColor", "returns": "numeric", "min_arity": 5, "zero_arg_property": false}
-{"keyword": "Green", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LegacyColorToRGB", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "LightGray", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Magenta", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Red", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "RGB", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "RGBToLegacyColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "White", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Yellow", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Above", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "And", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Begin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Below", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Break", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "case", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Cross", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Crosses", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DownTo", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Else", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "End", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "False", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "For", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "If", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Not", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Or", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Over", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "switch", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Then", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "To", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "True", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Under", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "While", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AUD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CAD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CHF", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Convert_Currency", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "EUR", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "GBP", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "HKD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "JPY", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NOK", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "None", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NZD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_CurrencyCode", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SEK", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SGD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SymbolCurrencyCode", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TRY_", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "USD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ZAR", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Ago", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Bar", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "BarInterval", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Bars", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CurrentDate", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CurrentTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CurrentTime_s", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DateTime2ELTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DateTime2ELTime_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DateTimeToString", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DateTimeToString_Ms", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DateToJulian", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DateToString", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DayFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DayOfMonth", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DayOfWeek", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DayOfWeekFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ELDateToDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ELTimeToDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ELTimeToDateTime_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "El_DateStr", "returns": "string", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "El_DateToDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "EL_TimeToDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "EL_TimeToDateTime_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "EncodeDate", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "EncodeTime", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "FormatDate", "returns": "string", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "FormatTime", "returns": "string", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Friday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "HoursFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "IncMonth", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "JulianToDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "LastCalcDateTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LastCalcJDate", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LastCalcMMTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LastCalcmSTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LastCalcSSTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MilliSecondsFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "MinutesFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Monday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Month", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "MonthFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Saturday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SecondsFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "StringToDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "StringToDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "StringToDTFormatted", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "StringToTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Sunday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Thursday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Time2Time_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TimeToString", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Time_s2Time", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Tuesday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Wednesday", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Year", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "YearFromDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Array", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Arrays", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Input", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Inputs", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "IntraBarPersist", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Numeric", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NumericArray", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NumericArrayRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NumericRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NumericSeries", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "NumericSimple", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "RecalcPersist", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "String", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "StringArray", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "StringArrayRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "StringRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "StringSeries", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "StringSimple", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalse", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalseArray", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalseArrayRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalseRef", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalseSeries", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "TrueFalseSimple", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Var", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Variable", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Variables", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Vars", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ArraySize", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ArrayStartAddr", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Bool", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Byte", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Char", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DefineDLLFunc", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Double", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DWORD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "External", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Float", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "iEasyLanguageObject", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Int", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Int64", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Long", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPBool", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPByte", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPDouble", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPDWORD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPFloat", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPInt", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPLong", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPSTR", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "LPWORD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Method", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "OnCreate", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "OnDestroy", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Self", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ThreadSafe", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Unsigned", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "VarSize", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "VarStartAddr", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Void", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "WORD", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "#Events", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DOM_AskPrice", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DOM_AsksCount", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DOM_AskSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DOM_BidPrice", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DOM_BidsCount", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "DOM_BidSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "DOM_IsConnected", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AtCommentaryBar", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "CheckCommentary", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Commentary", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "CommentaryCL", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "CommentaryEnabled", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "#BeginCmtry", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AbsValue", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ArcTangent", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "AvgList", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Ceiling", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Cosine", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Cotangent", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExpValue", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Floor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "FracPortion", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "IntPortion", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Log", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "MaxList", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "MaxList2", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "MinList", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "MinList2", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Mod", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Neg", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "NthMaxList", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "NthMinList", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "Power", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Random", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Round", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Sign", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Sine", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Square", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SquareRoot", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SumList", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "Tangent", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Contract", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Contracts", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Market", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Next", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "This", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Today", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Yesterday", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MouseClickBarNumber", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MouseClickCtrlPressed", "returns": "bool", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "pmms_strategies_set_status_for_all", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "pmms_strategy_allow_entries", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "pmms_strategy_allow_exits", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "pmms_strategy_allow_exit_from_long", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "pmms_strategy_allow_exit_from_short", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Portfolio_CalcMaxPotentialLossForEntry", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Portfolio_CurrentEntries", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_MaxOpenPositionPotentialLoss", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_OpenPositionProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_SetMaxPotentialLossPerContract", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "PortfolioEntriesPriority", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_GetMarginPerContract", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_GetMaxPotentialLossPerContract", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Portfolio_MaxRiskEquityPerPosPercent", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SessionEndTime", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "SessionEndTimeMS", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SessionStartDay", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "SessionStartDayMS", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SessionStartTime", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "SessionStartTimeMS", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "A", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "An", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "At", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Based", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "By", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Does", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "From", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Is", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Of", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "On", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Place", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Than", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "The", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Was", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "All", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Buy", "returns": "unknown", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "BuyToCover", "returns": "unknown", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "Cover", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Entry", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Higher", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Limit", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Lower", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Sell", "returns": "unknown", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "SellShort", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetBreakEven", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetBreakEven_pt", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetDollarTrailing", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetExitOnClose", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SetPercentTrailing", "returns": "unknown", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "SetPercentTrailing_pt", "returns": "unknown", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "SetProfitTarget", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetProfitTarget_pt", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetStopContract", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SetStopLoss", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetStopLoss_pt", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "SetStopPosition", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SetStopShare", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "SetTrailingStop_pt", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Share", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Shares", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Short", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Stop", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Total", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgBarsEvenTrade", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgBarsLosTrade", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgBarsWinTrade", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgEntryPrice", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgEntryPrice_at_Broker", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "AvgEntryPrice_at_Broker_for_The_Str", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "EntryTime_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ExitDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitDateTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitDateTime_Checked", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitDate_Checked", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitName", "returns": "string", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "ExitPrice", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitPrice_Checked", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "ExitTime_Checked", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "i_MarketPosition_at_Broker", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "i_MarketPosition_at_Broker_for_The_Strategy", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MarketPosition", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MarketPosition_at_Broker", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MarketPosition_at_Broker_for_The_Strategy", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MarketPosition_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxContractProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxContractProfit_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxContracts", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "MaxContracts_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxEntries", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "MaxEntries_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxPositionLoss", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "MaxPositionLoss_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxPositionProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "MaxPositionProfit_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxPositionsAgo", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxShares", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MaxShares_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "OpenPositionProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "PositionProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "PositionProfit_Checked", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "ChangeMarketPosition", "returns": "unknown", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "PlaceMarketOrder", "returns": "unknown", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "OpenEntriesCount", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "OpenEntryComission", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "OpenEntryContracts", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "OpenEntryDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "OpenEntryMaxProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "OpenEntryMaxProfitPerContract", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "OpenEntryMinProfit", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "OpenEntryMinProfitPerContract", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "OpenEntryPrice", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "OpenEntryProfit", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "OpenEntryProfitPerContract", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "OpenEntryTime", "returns": "numeric", "min_arity": 0, "zero_arg_property": false}
-{"keyword": "PosTradeCommission", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeCount", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "PosTradeEntryBar", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeEntryCategory", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeEntryDateTime", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeEntryName", "returns": "string", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeEntryPrice", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeExitBar", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeExitCategory", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeExitDateTime", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeExitName", "returns": "string", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeExitPrice", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeIsLong", "returns": "bool", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeIsOpen", "returns": "bool", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeProfit", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "PosTradeSize", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Commission", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "GetStrategyName", "returns": "unknown", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Margin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Slippage", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "MC_Text_GetActive", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Text_Anchor_to_Bars", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Text_Delete", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetActive", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Text_GetAttribute", "returns": "bool", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Text_GetBarNumber", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetBGColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetBorder", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetFirst", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetFontName", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetHStyle", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetLock", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetNext", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Text_GetSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "Text_GetString", "returns": "string", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetBegin_BN", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetBegin_Dt", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetColor", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEndDate", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEndTime", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEndTime_s", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEndVal", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEnd_BN", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetEnd_Dt", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetExtLeft", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetExtRight", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetFirst", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetLock", "returns": "bool", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetNext", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_GetSize", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetStyle", "returns": "numeric", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_GetValue", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_GetValue_BN", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_GetValue_Dt", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_GetValue_s", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_Get_Anchor_to_Bars", "returns": "unknown", "min_arity": 1, "zero_arg_property": false}
-{"keyword": "TL_Lock", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_New", "returns": "numeric", "min_arity": 6, "zero_arg_property": false}
-{"keyword": "TL_New_BN", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_New_Dt", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_New_s", "returns": "numeric", "min_arity": 6, "zero_arg_property": false}
-{"keyword": "TL_New_self", "returns": "numeric", "min_arity": 6, "zero_arg_property": false}
-{"keyword": "TL_New_Self_BN", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_New_Self_Dt", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_New_Self_s", "returns": "numeric", "min_arity": 6, "zero_arg_property": false}
-{"keyword": "TL_SetAlert", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_SetBegin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_SetBegin_BN", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_SetBegin_DT", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_SetBegin_s", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_SetColor", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_SetEnd", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_SetEnd_BN", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_SetEnd_Dt", "returns": "numeric", "min_arity": 3, "zero_arg_property": false}
-{"keyword": "TL_SetEnd_s", "returns": "numeric", "min_arity": 4, "zero_arg_property": false}
-{"keyword": "TL_SetExtLeft", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_SetExtRight", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_SetSize", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "TL_SetStyle", "returns": "numeric", "min_arity": 2, "zero_arg_property": false}
-{"keyword": "Tool_Dashed", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Tool_Dashed2", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Tool_Dashed3", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Tool_Dotted", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
-{"keyword": "Tool_Solid", "returns": "numeric", "min_arity": 0, "zero_arg_property": true}
+{"keyword": "Arw_GetDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetDirection", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetFirst", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetLock", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetNext", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetStyle", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetText", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTextAttribute", "kind": "builtin", "returns": "bool", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTextBGColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTextColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTextFontName", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTextSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTime_DT", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_GetVal", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_Get_Anchor_to_Bars", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_Lock", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": ["any", "any", "any", "any"], "max_arity": 4, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "Arw_New_BN", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New_DT", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New_s", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": ["any", "any", "any", "any"], "max_arity": 4, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New_self", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New_Self_DT", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_New_self_s", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetBarNumber", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetColor", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetLocation", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetLocation_BN", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetLocation_DT", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetLocation_s", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetSize", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetStyle", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetText", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetTextAttribute", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetTextBGColor", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetTextColor", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetTextFontName", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Arw_SetTextSize", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MC_Arw_GetActive", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "AllowSendOrdersAlways", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "IntraBarOrderGeneration", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_ast_retention.py"}
+{"keyword": "LegacyColorValue", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ProcessMouseEvents", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SameExitFromOneEntryOnce", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Black", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Blue", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "Cyan", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkBlue", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkBrown", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkCyan", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkGray", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkGreen", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkMagenta", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkRed", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DarkYellow", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GetBValue", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GetGValue", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GetRValue", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GradientColor", "kind": "builtin", "returns": "numeric", "min_arity": 5, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Green", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "LegacyColorToRGB", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LightGray", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Magenta", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Red", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/sample_stub_arw.txt"}
+{"keyword": "RGB", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "RGBToLegacyColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "White", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Yellow", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "Above", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "And", "kind": "syntax", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Begin", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Below", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Break", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "case", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Cross", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Crosses", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "DownTo", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Else", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "End", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "False", "kind": "syntax", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "For", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "If", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Not", "kind": "syntax", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Or", "kind": "syntax", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Over", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "switch", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Then", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "To", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "True", "kind": "syntax", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Under", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "While", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "AUD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "CAD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "CHF", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Convert_Currency", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_ground_check_traps.py"}
+{"keyword": "EUR", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GBP", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "HKD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "JPY", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NOK", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "None", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NZD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_CurrencyCode", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SEK", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SGD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SymbolCurrencyCode", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "TRY_", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "USD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ZAR", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Ago", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Bar", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "BarInterval", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Bars", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "CurrentDate", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "CurrentTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "CurrentTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DateTime2ELTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DateTime2ELTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DateTimeToString", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DateTimeToString_Ms", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DateToJulian", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "DateToString", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": ["any"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "DayFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "DayOfMonth", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "DayOfWeek", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT3_coverage_indicator.txt)"}
+{"keyword": "DayOfWeekFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ELDateToDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ELTimeToDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["any"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ELTimeToDateTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "El_DateStr", "kind": "builtin", "returns": "string", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "El_DateToDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "EL_TimeToDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "EL_TimeToDateTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "EncodeDate", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "EncodeTime", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "FormatDate", "kind": "builtin", "returns": "string", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "FormatTime", "kind": "builtin", "returns": "string", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Friday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "HoursFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "IncMonth", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "JulianToDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "LastCalcDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "LastCalcJDate", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "LastCalcMMTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "LastCalcmSTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "LastCalcSSTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MilliSecondsFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MinutesFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Monday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Month", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "MonthFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Saturday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SecondsFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "StringToDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "StringToDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "StringToDTFormatted", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "StringToTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Sunday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Thursday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Time2Time_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "TimeToString", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": ["any"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Time_s2Time", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Tuesday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Wednesday", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Year", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "YearFromDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Array", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Arrays", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Input", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Inputs", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "IntraBarPersist", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Numeric", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NumericArray", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NumericArrayRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NumericRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NumericSeries", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NumericSimple", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "RecalcPersist", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "String", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "StringArray", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "StringArrayRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "StringRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "StringSeries", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "StringSimple", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalse", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalseArray", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalseArrayRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalseRef", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalseSeries", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TrueFalseSimple", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Var", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Variable", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Variables", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Vars", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "ArraySize", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_release_020_regressions.py"}
+{"keyword": "ArrayStartAddr", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Bool", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Byte", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Char", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DefineDLLFunc", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Double", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DWORD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "External", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Float", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "iEasyLanguageObject", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Int", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Int64", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Long", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPBool", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPByte", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPDouble", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPDWORD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPFloat", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPInt", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPLong", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPSTR", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "LPWORD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Method", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "OnCreate", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "OnDestroy", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Self", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ThreadSafe", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Unsigned", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "VarSize", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "VarStartAddr", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Void", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "WORD", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "#Events", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_AskPrice", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_AsksCount", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_AskSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_BidPrice", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_BidsCount", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_BidSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "DOM_IsConnected", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "AtCommentaryBar", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "CheckCommentary", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Commentary", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/generated/test_commentary.py"}
+{"keyword": "CommentaryCL", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "CommentaryEnabled", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "#BeginCmtry", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "AbsValue", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "ArcTangent", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT3_coverage_indicator.txt)"}
+{"keyword": "AvgList", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Ceiling", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Cosine", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT3_coverage_indicator.txt)"}
+{"keyword": "Cotangent", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ExpValue", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Floor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "FracPortion", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "IntPortion", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Log", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "MaxList", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "MaxList2", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MinList", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "MinList2", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Mod", "kind": "syntax", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Neg", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "NthMaxList", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "NthMinList", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Power", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": ["numeric", "numeric"], "max_arity": 2, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Random", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_release_020_regressions.py"}
+{"keyword": "Round", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": ["numeric", "numeric"], "max_arity": 2, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Sign", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "Sine", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT3_coverage_indicator.txt)"}
+{"keyword": "Square", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "SquareRoot", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": ["numeric"], "max_arity": 1, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT1_functions_indicators.txt)"}
+{"keyword": "SumList", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Tangent", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT4_coverage_indicator.txt)"}
+{"keyword": "Contract", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Contracts", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Market", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Next", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "This", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Today", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Yesterday", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MouseClickBarNumber", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MouseClickCtrlPressed", "kind": "builtin", "returns": "bool", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "pmms_strategies_set_status_for_all", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "pmms_strategy_allow_entries", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "pmms_strategy_allow_exits", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "pmms_strategy_allow_exit_from_long", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "pmms_strategy_allow_exit_from_short", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_CalcMaxPotentialLossForEntry", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_CurrentEntries", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_MaxOpenPositionPotentialLoss", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_OpenPositionProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_SetMaxPotentialLossPerContract", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "PortfolioEntriesPriority", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_GetMarginPerContract", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_GetMaxPotentialLossPerContract", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Portfolio_MaxRiskEquityPerPosPercent", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "SessionEndTime", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SessionEndTimeMS", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "SessionStartDay", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "SessionStartDayMS", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "SessionStartTime", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SessionStartTimeMS", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "A", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "An", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "At", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Based", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "By", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Does", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "From", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Is", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Of", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "On", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Place", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Than", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "The", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Was", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "All", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Buy", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "BuyToCover", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "Cover", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_el_abbreviations.py"}
+{"keyword": "Entry", "kind": "syntax", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Higher", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Limit", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Lower", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Sell", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SellShort", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetBreakEven", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetBreakEven_pt", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SetDollarTrailing", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetExitOnClose", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetPercentTrailing", "kind": "builtin", "returns": "unknown", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetPercentTrailing_pt", "kind": "builtin", "returns": "unknown", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SetProfitTarget", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetProfitTarget_pt", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SetStopContract", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetStopLoss", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetStopLoss_pt", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "SetStopPosition", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetStopShare", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "SetTrailingStop_pt", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "Share", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Shares", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Short", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/test_el_abbreviations.py"}
+{"keyword": "Stop", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "Total", "kind": "syntax", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "n/a", "verified_by": null}
+{"keyword": "AvgBarsEvenTrade", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "AvgBarsLosTrade", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "AvgBarsWinTrade", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "AvgEntryPrice", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "AvgEntryPrice_at_Broker", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "AvgEntryPrice_at_Broker_for_The_Str", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "EntryTime_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ExitDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ExitDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ExitDateTime_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ExitDate_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ExitName", "kind": "builtin", "returns": "string", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ExitPrice", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "ExitPrice_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ExitTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "ExitTime_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "i_MarketPosition_at_Broker", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "i_MarketPosition_at_Broker_for_The_Strategy", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MarketPosition", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "MarketPosition_at_Broker", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MarketPosition_at_Broker_for_The_Strategy", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MarketPosition_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxContractProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxContractProfit_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxContracts", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxContracts_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxEntries", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxEntries_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxPositionLoss", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxPositionLoss_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxPositionProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxPositionProfit_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MaxPositionsAgo", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxShares", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "MaxShares_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "OpenPositionProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GT2_strategy_orders_position.txt)"}
+{"keyword": "PositionProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA5_strategy.txt)"}
+{"keyword": "PositionProfit_Checked", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "ChangeMarketPosition", "kind": "builtin", "returns": "unknown", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "PlaceMarketOrder", "kind": "builtin", "returns": "unknown", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "OpenEntriesCount", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryComission", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "OpenEntryContracts", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryMaxProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryMaxProfitPerContract", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryMinProfit", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryMinProfitPerContract", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryPrice", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryProfit", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryProfitPerContract", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "OpenEntryTime", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeCommission", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "PosTradeCount", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeEntryBar", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeEntryCategory", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeEntryDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeEntryName", "kind": "builtin", "returns": "string", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeEntryPrice", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeExitBar", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeExitCategory", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeExitDateTime", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeExitName", "kind": "builtin", "returns": "string", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeExitPrice", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeIsLong", "kind": "builtin", "returns": "bool", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeIsOpen", "kind": "builtin", "returns": "bool", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeProfit", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "PosTradeSize", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:capture-strategy", "verified_by": "tests/verify_all.py (ground_truth/GTA6_strategy.txt)"}
+{"keyword": "Commission", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "GetStrategyName", "kind": "builtin", "returns": "unknown", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Margin", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Slippage", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "MC_Text_GetActive", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_Anchor_to_Bars", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_Delete", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetActive", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetAttribute", "kind": "builtin", "returns": "bool", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetBarNumber", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetBGColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetBorder", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetFirst", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetFontName", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetHStyle", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetLock", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetNext", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Text_GetString", "kind": "builtin", "returns": "string", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetBegin_BN", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetBegin_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetColor", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEndDate", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEndTime", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEndTime_s", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEndVal", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEnd_BN", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetEnd_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetExtLeft", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetExtRight", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetFirst", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetLock", "kind": "builtin", "returns": "bool", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetNext", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetSize", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetStyle", "kind": "builtin", "returns": "numeric", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetValue", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetValue_BN", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetValue_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_GetValue_s", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_Get_Anchor_to_Bars", "kind": "builtin", "returns": "unknown", "min_arity": 1, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_Lock", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New", "kind": "builtin", "returns": "numeric", "min_arity": 6, "zero_arg_property": false, "arg_types": ["any", "any", "any", "any", "any", "any"], "max_arity": 6, "verification": "verified:test", "verified_by": "tests/generated/test_drawing_functions.py"}
+{"keyword": "TL_New_BN", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_s", "kind": "builtin", "returns": "numeric", "min_arity": 6, "zero_arg_property": false, "arg_types": ["any", "any", "any", "any", "any", "any"], "max_arity": 6, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_self", "kind": "builtin", "returns": "numeric", "min_arity": 6, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_Self_BN", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_Self_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_New_Self_s", "kind": "builtin", "returns": "numeric", "min_arity": 6, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetAlert", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetBegin", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetBegin_BN", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetBegin_DT", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetBegin_s", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetColor", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "TL_SetEnd", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetEnd_BN", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetEnd_Dt", "kind": "builtin", "returns": "numeric", "min_arity": 3, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetEnd_s", "kind": "builtin", "returns": "numeric", "min_arity": 4, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetExtLeft", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "TL_SetExtRight", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "TL_SetSize", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "TL_SetStyle", "kind": "builtin", "returns": "numeric", "min_arity": 2, "zero_arg_property": false, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}
+{"keyword": "Tool_Dashed", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Tool_Dashed2", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Tool_Dashed3", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Tool_Dotted", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "documented-unverified", "verified_by": null}
+{"keyword": "Tool_Solid", "kind": "builtin", "returns": "numeric", "min_arity": 0, "zero_arg_property": true, "arg_types": null, "max_arity": null, "verification": "verified:test", "verified_by": "tests/real_world/test_comprehensive.py"}

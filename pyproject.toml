@@ -74,7 +74,7 @@ include = ["pl_transpiler*"]
 "pl_transpiler" = ["py.typed"]
 # The keyword catalog, verified-builtins list and proven-token data load __file__-relative
 # from the tools subpackage, so they must ride along inside the wheel.
-"pl_transpiler.tools" = ["pl_signatures.jsonl", "mc_verified_builtins.txt", "mc_proven.json"]
+"pl_transpiler.tools" = ["pl_signatures.jsonl", "pl_signatures.schema.json", "mc_verified_builtins.txt", "mc_proven.json"]
 
 [tool.mypy]
 # Type-checks the public library API only (CI job "mypy"). Everything else is

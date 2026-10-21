@@ -250,23 +250,39 @@ keyword catalog (`catalog.coverage()` gives the counts). Names are case-insensit
 
 | Function | Returns |
 |---|---|
-| `get(name)` | The record dict (`keyword`, `returns`, `min_arity`, `zero_arg_property`, `verified`), or `None`. |
+| `get(name)` | The record dict (`keyword`, `kind`, `returns`, `min_arity`, `zero_arg_property`, `arg_types`, `max_arity`, `verification`, `verified_by`, `verified`), or `None`. |
+| `kind(name)` | `"syntax"` for a language or filler word, else `"builtin"`; `KeyError` if unknown. |
 | `arity(name)` | `(min_arity, zero_arg_property)`; `KeyError` if unknown. |
+| `max_arity(name)` | Largest argument count accepted, or `None` when PowerBridge does not define one; `KeyError` if unknown. |
+| `arg_types(name)` | Per-argument types (`"numeric"` or `"any"`), or `None` when unknown; `KeyError` if unknown. |
 | `returns(name)` | Declared return type (`"numeric"`, `"string"`, ...); `KeyError` if unknown. |
+| `verification(name)` | Evidence level: `"verified:capture-strategy"`, `"verified:test"`, `"documented-unverified"` or `"n/a"`; `KeyError` if unknown. |
 | `is_verified(name)` | Whether the keyword is on the verified-builtin list. |
 | `search(substring)` | Sorted keyword names containing `substring`. |
-| `coverage()` | Counts: `signatures`, `verified_builtins`, `verified_with_signature`. |
+| `coverage()` | Counts: `signatures`, `verified_builtins`, `verified_with_signature`, `kind:<kind>`, `verification:<level>`, `with_max_arity`. |
+
+`verified` (the bool from `get()` / `is_verified()`) only means the name is on the
+verified-builtin list; `verification` is the separate evidence level for PowerBridge's
+own behaviour. `verified:capture-strategy` means a ground-truth strategy using the
+keyword has per-bar outputs (required columns) that match a MultiCharts capture in
+`tests/verify_all.py` (the captures are not public, so that check skips in a clone);
+`verified:test` means EL embedded in a PowerBridge test calls it. Record fields are
+described in
+[`pl_transpiler/tools/pl_signatures.schema.json`](../pl_transpiler/tools/pl_signatures.schema.json).
 
 ```python
 from pl_transpiler import catalog
 
 print(catalog.arity("MarketPosition"), catalog.returns("MarketPosition"))
 print(catalog.search("crosses"))
+print(catalog.kind("SquareRoot"), catalog.max_arity("SquareRoot"),
+      catalog.arg_types("SquareRoot"), catalog.verification("SquareRoot"))
 ```
 
 ```text
 (0, True) numeric
 ['Crosses']
+builtin 1 ['numeric'] verified:capture-strategy
 ```
 
 ### Errors
