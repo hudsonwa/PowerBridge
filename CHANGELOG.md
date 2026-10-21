@@ -42,6 +42,17 @@
   record, by design: `Abort` (a statement), and `CommandLine` and `EntryName` (not
   implemented). The test pins these counts.
 
+### Fixed
+
+- Inside a strategy, `NumWinTrades`, `NumLosTrades`, `NumEvenTrades`,
+  `PercentProfit`, `LargestWinTrade`, `LargestLosTrade`, `MaxConsecWinners`,
+  `MaxConsecLosers`, `TotalBarsWinTrades`, `TotalBarsLosTrades`,
+  `TotalBarsEvenTrades`, `AvgBarsWinTrade`, `AvgBarsLosTrade` and
+  `AvgBarsEvenTrade` always read 0. The engine counted closed trades but never
+  passed those counts to the strategy. They now update on every bar, at the same
+  point as `TotalTrades` and `GrossProfit`. The native kernel still refuses these
+  words and falls back to the Python engine with a message.
+
 ## 0.6.0 — 2026-10-21
 
 ### Added
