@@ -115,7 +115,7 @@ def run_bar_loop(
     (Once / Average / Close[1] / Variables see the prefix), but FillEngine fills
     are suppressed. The last warmup bar may queue "next bar" orders so a signal
     on the bar before the window still fills on the first trading bar. Default 0
-    is byte-identical to the previous loop. Independent of `warmup`, which only
+    runs every bar normally. Independent of `warmup`, which only
     skips output rows (GT capture alignment) and still processes fills.
 
     emit_trace: when True (default), FillEngine.inject_trace writes position
@@ -133,8 +133,8 @@ def run_bar_loop(
     ``barnumber`` / ``outpath`` / ``_first_bar`` writes follow the same
     rule — skip the per-bar write when the 8-arg body never names the
     key. Config / LastCalc / len / prec are restored only for keys the
-    previous bar's ``per_bar_extra`` overrode, so an omitted extra still
-    matches the old rebuilt-dict defaults. Hand-written ``**kwargs``
+    previous bar's ``per_bar_extra`` overrode, so a key the extra omits
+    reads its default. Hand-written ``**kwargs``
     still gets DateTime, daily OHLC, session, every position field, and
     the bar-id keys every bar.
     """
@@ -463,8 +463,8 @@ def run_bar_loop(
                 _ck[_k] = _cd[_k]
             _restore_consts = ()
 
-        # Drop hook-only keys from the previous bar so a missing capture column
-        # cannot leak (the old extra_kwargs dict was rebuilt every bar).
+        # Drop hook-only keys from the previous bar so a value from a capture
+        # column missing on this bar does not carry over.
         if _hook_only:
             for k in _hook_only:
                 call_kwargs.pop(k, None)
@@ -482,8 +482,8 @@ def run_bar_loop(
                         _hook_only.append(k)
                 _restore_consts = tuple(k for k in extra if k in _const_defaults)
 
-        # Position kwargs last so they win over extra on overlap (**pos_kwargs
-        # used to unpack after **extra_kwargs). Persist 8-arg path writes only
+        # Position kwargs last so they win over extra on overlap. Persist 8-arg
+        # path writes only
         # the keys the body names.
         if _need_all_pos:
             fill_engine.fill_pos_kwargs(call_kwargs)
@@ -498,7 +498,7 @@ def run_bar_loop(
                 for _k, _a in _pos_extra:
                     _ck[_k] = getattr(_fp, _a)
 
-        # These used to be explicit keyword args, so they win over extra.
+        # Bar-id keys are written after extra, so they win over it.
         # Persist 8-arg path skips keys the body never names.
         if _need_barnumber:
             call_kwargs['barnumber'] = barnumber

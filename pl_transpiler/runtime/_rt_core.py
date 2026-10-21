@@ -122,6 +122,35 @@ class UnimplementedBuiltinError(NotImplementedError):
             % self.builtin)
 
 
+class MissingBarColumnError(UnimplementedBuiltinError):
+    """A strategy read a per-bar field (Ticks, OpenInt, ...) the bar data lacks."""
+
+    def __init__(self, word, column):
+        self.builtin = word
+        self.column = column
+        NotImplementedError.__init__(
+            self,
+            "EasyLanguage '%s' needs a '%s' column in the bar data, which this data "
+            "does not have, so the run stopped instead of guessing 0; rerun with "
+            "PL_STRICT=0 (or --lenient) to treat it as 0 and get a warning instead"
+            % (word, column))
+
+
+def pl_bar_column(kwargs, column, word):
+    """Value of per-bar data column ``column`` (EL reserved word ``word``).
+
+    Returns the value the bar loop supplied. When the data has no such column,
+    strict mode raises MissingBarColumnError; lenient mode records the miss
+    (reported by pl_unimplemented_warn) and returns 0."""
+    if column in kwargs:
+        return kwargs[column]
+    name = 'pl_' + column
+    _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
+    if _PL_STRICT:
+        raise MissingBarColumnError(word, column)
+    return 0
+
+
 def set_strict_mode(strict):
     """Set strict mode for this process (pl_run / pl_oracle --lenient use it)."""
     global _PL_STRICT
@@ -262,7 +291,7 @@ def _install_loud_stubs():
         # Read the runtime sources with an EXPLICIT utf-8 codec, never the locale
         # default. On a legacy codepage (cp932/936/949) or an ascii/LC_ALL=C
         # locale the default codec would raise UnicodeDecodeError on any
-        # non-ASCII byte in these files, which used to SILENTLY disable every
+        # non-ASCII byte in these files, which would SILENTLY disable every
         # loud stub (see the except below) -- the worst failure mode there is:
         # production pl_run would then return plausible-but-wrong 0/'' values.
         for _m in mods:

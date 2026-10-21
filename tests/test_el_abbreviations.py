@@ -56,14 +56,13 @@ def _bars(n=120):
 
 
 LONG = """Inputs: Len(10);
-Vars: A(0), B(0), R(0), Rng(0), Vol(0), Op(0), OI(0);
+Vars: A(0), B(0), R(0), Rng(0), Vol(0), Op(0);
 A = Average(Close, Len);
 B = Highest(High, 5);
 R = RSI(Close, 14);
 Rng = High[1] - Low[1];
 Vol = Volume;
 Op = Open;
-OI = OpenInt;
 If Close > A and Close[1] <= A[1] Then Buy ("LE") Next Bar At Market;
 If Close < A and Close[1] >= A[1] Then Sell ("LX") Next Bar At Market;
 If R > 70 and MarketPosition = 0 Then SellShort ("SE") Next Bar At Market;
@@ -71,14 +70,13 @@ If R < 45 Then BuyToCover ("SX") Next Bar At Market;
 """
 
 SHORT = """Inputs: Len(10);
-Vars: A(0), B(0), R(0), Rng(0), Vol(0), Op(0), OI(0);
+Vars: A(0), B(0), R(0), Rng(0), Vol(0), Op(0);
 A = Average(C, Len);
 B = Highest(h, 5);
 R = RSI(C, 14);
 Rng = H[1] - l[1];
 Vol = V;
 Op = o;
-OI = I;
 If c > A and C[1] <= A[1] Then Buy ("LE") Next Bar At Market;
 If C < A and C[1] >= A[1] Then Sell ("LX") Next Bar At Market;
 If R > 70 and MarketPosition = 0 Then Sell Short ("SE") Next Bar At Market;
@@ -144,6 +142,12 @@ def test_two_word_order_verbs():
         a = f'If Close > 0 Then {two} ("X") Next Bar At Market;\n'
         b = f'If Close > 0 Then {one} ("X") Next Bar At Market;\n'
         assert _strip(_ast(a)) == _strip(_ast(b)), two
+
+
+def test_openint_abbreviation():
+    # Kept out of the digest twins: OpenInt needs an openint column that the
+    # sample bars don't have.
+    assert _strip(_ast("Value1 = I;\n")) == _strip(_ast("Value1 = OpenInt;\n"))
 
 
 def test_digest_matches_long_form_python():

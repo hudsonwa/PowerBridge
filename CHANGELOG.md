@@ -14,6 +14,20 @@
 
 ### Fixes
 
+- A call with the wrong number of arguments to a builtin whose arity is
+  known (`x = Stochastic;`, `Stochastic(Close)`, a bare `MaxList`) now fails
+  at transpile time with one line, e.g. `'Stochastic' at line 2 takes 11
+  arguments, got 0`, from `pl_transpile`, `pl_run` and `pl_oracle`. Before,
+  it transpiled and `pl_run` crashed with a `TypeError` traceback.
+- `Ticks`, `UpTicks`, `DownTicks` and `OpenInt` no longer read as 0 when the
+  bar data has no such column. In strict mode (the default) the run stops
+  with one line naming the missing column; `--lenient` / `PL_STRICT=0` reads
+  0 and lists it in the end-of-run warning. Data that supplies the column is
+  used as before.
+- `python -m pl_transpiler.catalog` no longer prints a runpy
+  `RuntimeWarning`: the package `__init__` imports its public names lazily.
+- The `FillEngine` docstring describes the stop/limit fills it implements,
+  and code comments that narrated change history now describe behaviour.
 - The default runnable `pl_transpile` output now runs in time linear in bar
   count. Lookback variables passed to series functions copied their whole
   history every bar, so the README's `run.py` loop was quadratic (40k bars:

@@ -20,9 +20,9 @@ class UnimplementedKeywordError(Exception):
     """Raised at transpile time when the codegen would emit one or more generic
     `pl_<name>` targets that have no implementation in pl_transpiler.builtins.
 
-    Surfacing this at codegen time (with the original EL keyword spelling and
-    source line) replaces the old failure mode: a bare runtime NameError on a
-    lowercased `pl_x` name with no EL line.
+    Surfacing this at codegen time names the original EL keyword spelling and
+    source line, instead of letting the run hit a NameError on a lowercased
+    `pl_x` name with no EL line.
 
     Diagnostics are collect-all: a single transpile walks the ENTIRE program and
     reports EVERY unimplemented keyword at once. The `errors` attribute is a list
@@ -50,19 +50,22 @@ def _describe(e):
     if e.get('kind') == 'undeclared':
         name = e.get('spelling', e['name'])
         return f"undeclared variable '{name}'{where} (declare it under Vars:)"
+    if e.get('kind') == 'arity':
+        name = e.get('spelling', e['name'])
+        return f"'{name}'{where} {e['detail']}"
     return f"'{e['name']}'{where}"
 
 
 def unimplemented_message(errors):
     """The one-line UnimplementedKeywordError message for ``errors``. A single
-    unimplemented keyword keeps the legacy byte-compatible format."""
+    unimplemented keyword uses the short one-line format."""
     if len(errors) == 1:
         e = errors[0]
-        if e.get('kind') == 'undeclared':
+        if e.get('kind') in ('undeclared', 'arity'):
             return _describe(e)
         where = f" at line {e['line']}" if e['line'] else ""
         return f"unimplemented EL keyword '{e['name']}'{where}"
-    if any(e.get('kind') == 'undeclared' for e in errors):
+    if any(e.get('kind') in ('undeclared', 'arity') for e in errors):
         return (f"cannot transpile: {len(errors)} errors: "
                 + "; ".join(_describe(e) for e in errors))
     return (f"cannot transpile: {len(errors)} unimplemented keywords: "
@@ -75,7 +78,7 @@ def restore_spelling(errors, source):
     lines = source.splitlines()
     for e in errors:
         line = e.get('line')
-        if e.get('kind') != 'undeclared' or not line or line > len(lines):
+        if e.get('kind') not in ('undeclared', 'arity') or not line or line > len(lines):
             continue
         m = re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])' % re.escape(e['name']),
                       lines[line - 1], re.IGNORECASE)

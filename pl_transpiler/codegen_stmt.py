@@ -17,6 +17,7 @@
 from . import catalog as _catalog
 from .codegen_util import (
     _expr_already_f32,
+    call_arity_problem,
     _is_numeric_literal_node,
     _f32_literal_const,
 )
@@ -192,18 +193,17 @@ class _StmtMixin:
     # ---- Switch/Case ----
     def gen_switch(self, node):
         expr = self.gen_expr(node['expr'])
-        # FAIL-CLOSED: the switch subject was previously emitted
-        # ONLY inside the per-case `if/elif <expr> == <val>:` lines. With ZERO case
-        # labels (`Switch (X) Begin End;` or a Default-only switch) that loop emits
+        # FAIL-CLOSED: the switch subject is otherwise emitted ONLY inside the
+        # per-case `if/elif <expr> == <val>:` lines. With ZERO case labels
+        # (`Switch (X) Begin End;` or a Default-only switch) that loop emits
         # nothing, so the subject expression — and, in partial mode, any
-        # pl_partial_stub(...)() it carries — was silently DROPPED (the run then
-        # completes with a wrong value while the watermark claims a stub) and a
-        # Default-only switch emitted an orphan `else:` (a SyntaxError). EL always
+        # pl_partial_stub(...)() it carries — would be silently dropped (the run
+        # would complete with a wrong value while the watermark claims a stub) and a
+        # Default-only switch would emit an orphan `else:` (a SyntaxError). EL always
         # evaluates the subject once regardless of case matches, so with no case
         # labels emit the subject as a standalone statement (evaluating it — and
         # firing any stub) and, if present, run the Default body unconditionally
-        # (nothing can match). The normal (>=1 case) path below is UNCHANGED, so
-        # existing corpus output stays byte-identical.
+        # (nothing can match). Switches with >=1 case take the normal path below.
         if not node['cases']:
             self.emit(expr)
             if node.get('default'):
@@ -332,6 +332,9 @@ class _StmtMixin:
     def _gen_stochastic_assign(self, target, call_node):
         """Generate multi-statement unpacking for Stochastic's (status, FastK, FastD, SlowK, SlowD) tuple."""
         # Args: high, low, close, length, smoothk, smoothd, smoothtype, oFastK, oFastD, oSlowK, oSlowD
+        if call_arity_problem('stochastic', len(call_node['args'])) is not None:
+            self.emit(f"{target} = {self.gen_expr(call_node)}")
+            return
         input_args = call_node['args'][:7]  # first 7 are inputs
         output_names = [a['name'] for a in call_node['args'][7:]]  # last 4 are output var names
         
@@ -396,7 +399,7 @@ class _StmtMixin:
         timing = node.get('bar_timing', 'next')
         # The `total` order modifier (EL: `... N contracts total ...`) is a rare,
         # position-sizing-scope flag. It is appended as a trailing sentinel string
-        # 'total' ONLY when present, so non-total orders keep byte-identical tuples
+        # 'total' ONLY when present, so non-total orders keep the plain 5/6-tuple
         # (every GT source) and the FillEngine's type-based price detection at
         # order[5] is unaffected. py_front._inv_order strips it back to node['total'].
         total_suffix = ", 'total'" if node.get('total') else ""

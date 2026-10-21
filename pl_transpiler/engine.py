@@ -22,10 +22,9 @@ tests/run_gt.py so the SHIPPED package is self-contained. The installed ``pl_run
 console script (pl_transpiler.tools.pl_run) drives this engine directly from a
 bare wheel, with no dependency on the private tests/ harness.
 
-tests/run_gt.py re-imports these names, so its public surface
-(run_gt.FillEngine, run_gt.run_bar_loop, run_gt._parse_el_date, ...) is unchanged
-and every existing caller / monkeypatcher keeps working -- single source, zero
-duplication.
+tests/run_gt.py re-imports these names (run_gt.FillEngine,
+run_gt.run_bar_loop, run_gt._parse_el_date, ...), so this module is the single
+definition of them.
 """
 from pl_transpiler.runtime.pl_runtime import f32
 from pl_transpiler.runtime.instrument_config import NQ
@@ -39,14 +38,17 @@ from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
 
 
 class FillEngine:
-    """Stub fill engine: tracks position state, processes orders, tracks PnL.
-    
-    Implements EL fill model:
+    """Fill engine: tracks position state, processes orders, tracks PnL.
+
+    Implements the EL fill model:
     - "next bar at market" fills at the next bar's Open price
-    - Stop/limit fills are not yet implemented (deferred)
+    - "next bar at <price> stop/limit" fills on the next bar when its range
+      reaches the price (see _execute_pending_fills for prices and ordering)
+    - "this bar on close" fills at the signal bar's Close
     - Money management stops: SetStopLoss, SetProfitTarget, SetBreakEven,
       SetPercentTrailing, SetDollarTrailing, SetExitOnClose, SetStopContract
-    - NQ point value multiplier = 20 (per contract, per full point)
+    - Default point value 20 (NQ, per contract per full point); a config
+      overrides it
     """
     
     def __init__(self, point_value=20, tick=0.25, config=None):
@@ -112,10 +114,10 @@ class FillEngine:
         self.closed_trades = []     # list of dicts (one per closed position)
         # Incremental GTA6-stat aggregates, updated at trade CLOSE in
         # _record_closed_trade so _inject_gta6_stats reads O(1) running fields
-        # instead of rescanning the entire growing ledger every bar (the old
-        # rescan was O(trades) per bar -> O(trades^2) over a full-range run).
+        # instead of rescanning the entire growing ledger every bar (a rescan is
+        # O(trades) per bar -> O(trades^2) over a full-range run).
         # Integer counts/sums/run-lengths and selected float extremes are exactly
-        # reproducible, so these stay byte-identical to the former full rescan.
+        # reproducible, so these equal a full rescan byte for byte.
         self._st_nwin = 0           # NumWinTrades
         self._st_nlos = 0           # NumLosTrades
         self._st_neven = 0          # NumEvenTrades
@@ -130,7 +132,7 @@ class FillEngine:
         self._st_maxclos = 0        # MaxConsecLosers
         # When False, skip GTA6 stat/introspection injection entirely for captures
         # whose header contains none of those columns (e.g. GT2). Set per-run from
-        # the capture header; defaults True so existing callers are unaffected.
+        # the capture header; defaults True (inject).
         self._emit_gta6 = True
         self._pos_mfe_pc = 0.0      # open position: max favorable excursion per contract ($)
         self._pos_mae_pc = 0.0      # open position: max adverse excursion per contract ($, <=0)
@@ -629,7 +631,7 @@ class FillEngine:
         })
         # Fold this just-closed trade into the incremental GTA6 aggregates (see
         # __init__). pnl/bars are the SAME values stored in the snapshot above, so
-        # the running counts/sums/extremes/run-lengths reproduce the former full
+        # the running counts/sums/extremes/run-lengths reproduce a full
         # rescan exactly (win=pnl>0, loss=pnl<0, even=pnl==0; floors at 0.0).
         pnl = self.position_profit
         if pnl > 0:

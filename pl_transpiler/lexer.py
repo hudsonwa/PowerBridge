@@ -95,7 +95,7 @@ def tokenise(source: str):
     """Tokenise PL source. PL is case-insensitive — all tokens lowercased.
 
     Returns (tokens, positions) where `tokens` is a list of (type, value) pairs
-    (unchanged from the historical contract) and `positions` is a parallel list
+    and `positions` is a parallel list
     of (line, col) 1-based source positions, one per token (the EOF token gets
     the position just past the end of the source).
     """
@@ -249,8 +249,8 @@ def tokenise(source: str):
 
     tokens.append((TT_EOF, ''))
     positions.append(_line_col(src, len(src)))
-    # Expose the collected comments on the side channel (does not alter the return
-    # contract — every existing caller unpacks exactly (tokens, positions)).
+    # Expose the collected comments on the side channel; the return value stays
+    # exactly (tokens, positions).
     last_comments.clear()
     last_comments.extend(comments)
     return tokens, positions

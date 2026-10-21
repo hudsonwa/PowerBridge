@@ -65,9 +65,8 @@ class InstrumentConfig:
     category: int = 0
 
 
-# The NQ config reproduces today's exact validated values (previously hard-coded
-# in tests/run_gt.py extra_kwargs + FillEngine). Selected for all current GT
-# labels, which are all @NQ#C captures.
+# The NQ config holds the validated @NQ#C instrument values. Selected for all
+# current GT labels, which are all @NQ#C captures.
 NQ = InstrumentConfig(
     name="NQ",
     bigpointvalue=20,

@@ -20,7 +20,7 @@
 from .errors import UnimplementedKeywordError  # noqa: F401
 
 # Tables, helpers and the statement/expression mixins live in sibling modules;
-# they are re-exported here so `from pl_transpiler.codegen import ...` keeps working.
+# they are re-exported here so `from pl_transpiler.codegen import ...` finds them.
 from .codegen_tables import (  # noqa: F401
     DIALECT_VERSION,
     BUILTIN_FUNC_MAP,
@@ -48,7 +48,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self.has_math = False
         self._series_context = False  # True when inside function call args
         self.trace = bool(trace)
-        # persist defaults to matching trace so existing callers are unchanged:
+        # persist defaults to matching trace:
         #   trace=True  -> persist=True  (current trace dialect: _state + _trace)
         #   trace=False -> persist=False (clean mirror dialect for py_front)
         # persist=True with trace=False is the runnable no-trace dialect:
@@ -411,8 +411,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         imports += 'from pl_transpiler.runtime.pl_runtime import f32, el_round0, el_round, pl_file\n'
         imports += 'from pl_transpiler.runtime.pl_runtime import *\n'
         # Partial output that actually emitted stubs imports the stub factory
-        # explicitly. This line is added ONLY for partial output with N>0 stubs, so
-        # the strict transpile stays byte-identical (proven by the corpus baseline).
+        # explicitly. This line is added ONLY for partial output with N>0 stubs;
+        # strict output never imports it.
         if self._partial and self._unimpl_errors:
             imports += 'from pl_transpiler.runtime.pl_runtime import pl_partial_stub\n'
         if self._series_state:
@@ -534,8 +534,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         """First-bar seed for a persist var.
 
         Numeric non-accumulators are f32-narrowed at seed so the per-bar load
-        does not re-wrap (f32 is idempotent; the old load wrap was 20 ctypes
-        calls/bar on Audit Ref 3). Partial-mode stubs stay bare so they raise.
+        does not re-wrap (f32 is idempotent, and a wrap on every load costs
+        ctypes calls each bar). Partial-mode stubs stay bare so they raise.
         """
         if 'pl_partial_stub' in init_val:
             return init_val
@@ -710,12 +710,12 @@ class CodeGen(_ExprMixin, _StmtMixin):
 def generate(ast, trace=False, partial=False, persist=None):
     """Walk AST and emit Python source string.
     If trace=True, generated code captures per-bar variable values into _trace dict.
-    persist: cross-bar `_state` container. None (default) follows `trace`, so
-    existing callers are unchanged. persist=True with trace=False emits a
+    persist: cross-bar `_state` container. None (default) follows `trace`.
+    persist=True with trace=False emits a
     runnable backtest without `_trace` stores (the clean mirror dialect is
     persist=False and is NOT this path).
     If partial=True (opt-in), unimplemented EL keywords become execution-time
     stubs (pl_partial_stub) under a NOT-FAITHFUL watermark instead of raising at
-    transpile time; the strict default (partial=False) is unchanged."""
+    transpile time; the strict default (partial=False) raises."""
     cg = CodeGen(trace=trace, partial=partial, persist=persist)
     return cg.gen_program(ast)

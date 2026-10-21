@@ -31,6 +31,45 @@ def _available_pl_targets():
     return _PL_TARGETS_CACHE
 
 
+# Argument counts for builtins the signature catalog does not cover but codegen
+# relies on positionally: name -> (min, max).
+_EXTRA_ARITY = {
+    # Stochastic(High, Low, Close, Length, SmoothK, SmoothD, SmoothType,
+    #            oFastK, oFastD, oSlowK, oSlowD)
+    'stochastic': (11, 11),
+}
+
+
+def call_arity_problem(name, nargs):
+    """Describe why calling EL builtin ``name`` with ``nargs`` arguments is
+    malformed, or return None when the count is acceptable or unknown.
+
+    ``_EXTRA_ARITY`` gives exact bounds. For other names, the signature catalog
+    only decides the zero-argument case: a keyword the catalog says needs
+    arguments, and that is not a zero-arg property, cannot be called bare.
+    Positive counts are not checked against the catalog because its
+    ``min_arity`` overstates some variadic keywords (MaxList, MinList)."""
+    lo_hi = _EXTRA_ARITY.get(name)
+    if lo_hi is None:
+        if nargs:
+            return None
+        from . import catalog
+        rec = catalog.get(name)
+        if rec is None or rec['zero_arg_property'] or not rec['min_arity']:
+            return None
+        lo_hi = (rec['min_arity'], None)
+    lo, hi = lo_hi
+    if nargs >= lo and (hi is None or nargs <= hi):
+        return None
+    if hi == lo:
+        need = '%d argument%s' % (lo, '' if lo == 1 else 's')
+    elif hi is None:
+        need = 'at least %d argument%s' % (lo, '' if lo == 1 else 's')
+    else:
+        need = '%d to %d arguments' % (lo, hi)
+    return 'takes %s, got %d' % (need, nargs)
+
+
 _RUNTIME_BARE_CACHE = None
 
 

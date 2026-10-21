@@ -18,6 +18,7 @@ from .errors import UnimplementedKeywordError, unimplemented_message
 from .codegen_tables import BUILTIN_FUNC_MAP, COMPARE_OPS, _SERIES_PARAMS
 from .codegen_util import (
     _available_pl_targets,
+    call_arity_problem,
     _runtime_bound_bare_names,
     _OHLCV_F32_NAMES,
 )
@@ -28,6 +29,13 @@ _POS_AGO_KWARGS = frozenset((
     'entry_date', 'entry_time', 'entry_price',
     'exit_date', 'exit_time', 'exit_price', 'maxshares',
 ))
+
+
+# EL reserved words backed by an optional bar-data column -> EL spelling.
+_BAR_COLUMN_WORDS = {
+    'ticks': 'Ticks', 'upticks': 'UpTicks',
+    'downticks': 'DownTicks', 'openint': 'OpenInt',
+}
 
 class _ExprMixin:
     # ==== Expression Generation ====
@@ -81,10 +89,10 @@ class _ExprMixin:
                 # the whole trace dict. Resolve to their runtime fns.
                 'currenttime_s': "pl_currenttime_s()",
                 'currentdate_s': "pl_currentdate_s()",
-                'ticks': "kwargs.get('ticks', 0)",
-                'upticks': "kwargs.get('upticks', 0)",
-                'downticks': "kwargs.get('downticks', 0)",
-                'openint': "kwargs.get('openint', 0)",
+                'ticks': "pl_bar_column(kwargs, 'ticks', 'Ticks')",
+                'upticks': "pl_bar_column(kwargs, 'upticks', 'UpTicks')",
+                'downticks': "pl_bar_column(kwargs, 'downticks', 'DownTicks')",
+                'openint': "pl_bar_column(kwargs, 'openint', 'OpenInt')",
             }
             # A user-DECLARED name always WINS over a builtin of the same name —
             # including a name declared in a NESTED Variables:/Inputs:/Arrays: block
@@ -153,8 +161,7 @@ class _ExprMixin:
             # PARTIAL mode, if either side collected an unimplemented entry, collapse
             # the whole boolean to a single argless execution-time stub named after
             # the unimplemented operand so it ALWAYS raises when evaluated. Strict
-            # mode is unaffected (any recorded entry aborts the whole transpile), so
-            # the byte-identical default is preserved.
+            # mode is unaffected (any recorded entry aborts the whole transpile).
             if op in ('and', 'or') and self._partial and len(self._unimpl_errors) > before:
                 e = self._unimpl_errors[before]
                 return f"pl_partial_stub({e['name']!r}, {e['line']!r})()"
@@ -175,6 +182,11 @@ class _ExprMixin:
 
         if ntype == 'position_kw':
             kwarg = node['kwarg']
+            # Per-bar data columns the bar data may lack: read them through
+            # pl_bar_column so a missing column stops the run (strict) instead
+            # of reading as 0.
+            if kwarg in _BAR_COLUMN_WORDS:
+                return f"pl_bar_column(kwargs, '{kwarg}', '{_BAR_COLUMN_WORDS[kwarg]}')"
             # Some position keywords have non-zero defaults.
             # AlertEnabled is False during a backtest/data export (alerts only
             # fire on the live last bar), which is the context every GT capture
@@ -327,6 +339,8 @@ class _ExprMixin:
             out = {'name': e['name'], 'line': e['line']}
             if e.get('kind'):
                 out['kind'] = e['kind']
+            if e.get('detail'):
+                out['detail'] = e['detail']
             errors.append(out)
         errors.sort(key=lambda e: (e['line'] is None, e['line'] or 0, e['name']))
         return errors
@@ -354,7 +368,7 @@ class _ExprMixin:
     def _raise_unimplemented(self):
         """Deduplicate + sort the recorded unimplemented keywords and raise ONE
         UnimplementedKeywordError. Dedup by (name, line); sort by (line, name) with
-        None lines last. Single-error message is the legacy byte-compatible format;
+        None lines last. Single-error message is the short one-line format;
         N>1 uses the multi-keyword report format."""
         errors = self._sorted_unimpl()
         message = unimplemented_message(errors)
@@ -389,6 +403,13 @@ class _ExprMixin:
 
     def _gen_call_impl(self, node):
         name = node['name']
+        problem = call_arity_problem(name, len(node['args']))
+        if problem is not None:
+            line = node.get('_line') or self._cur_stmt_line
+            self._unimpl_errors.append({'name': name, 'line': line,
+                                        'kind': 'arity', 'detail': problem})
+            if self._partial:
+                return f"pl_partial_stub({name!r}, {line!r})()"
         # Enable series context for functions that accept series args
         old_ctx = self._series_context
         if name in self._SERIES_FUNCS:
@@ -634,9 +655,9 @@ class _ExprMixin:
         #
         # The positions-ago INDEX must still be WALKED so a nested
         # unimplemented keyword inside it is recorded (e.g. MaxContracts(FakeF(Close))
-        # / EntryPrice(FakeF(Close))). Previously the index was never visited, so
-        # the unknown was silently accepted (strict emitted kwargs.get(...) and
-        # partial reported '0 unimplemented constructs' — a watermark lie). Its
+        # / EntryPrice(FakeF(Close))); otherwise the unknown would be silently
+        # accepted (strict would emit kwargs.get(...) and partial would report
+        # '0 unimplemented constructs' — a watermark lie). Its
         # emitted value is discarded (the kwarg is a scalar with no history), but
         # its subtree is scanned exactly like any other arg; in partial mode, if the
         # index collected an unimplemented entry, emit the argless stub so it raises.

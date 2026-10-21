@@ -62,6 +62,7 @@ the residue that the clean dialect cannot carry):
     `float(s)` -> StrToNum (codegen.py:1359-1377);
   * the inline `(((int(X)//100)*3600 + (int(X)%100)*60)/86400.0)` -> ELTimeToDateTime,
     `(X // 100)` -> Hour (codegen.py:1383-1433);
+  * `pl_bar_column(kwargs, '<kwarg>', '<word>')` -> position_kw (Ticks/OpenInt/...);
   * `pl_pos_trade_field(kwargs, '<name>', a, b)` -> position_kw_call (codegen 2-arg
     PosTrade* form); `pl_pos_ago(kwargs, '<kwarg>', n)` -> bar_ref(position_kw, n)
     (EntryDate(n) and friends); zero-arg `pl_xxx()` emissions are bare reserved-word properties and
@@ -654,6 +655,11 @@ def _inv_pl_call(name, args):
             and _is_name(args[0], 'kwargs') and isinstance(args[1], ast.Constant):
         return {'type': 'position_kw_call', 'kwarg': args[1].value,
                 'args': [inv_expr(a) for a in args[2:]]}
+    # Optional bar-data column: pl_bar_column(kwargs, '<kwarg>', '<EL word>')
+    # (codegen emits this for Ticks/UpTicks/DownTicks/OpenInt).
+    if name == 'pl_bar_column' and len(args) == 3 \
+            and _is_name(args[0], 'kwargs') and isinstance(args[1], ast.Constant):
+        return {'type': 'position_kw', 'kwarg': args[1].value}
     # Positions-ago keyword: pl_pos_ago(kwargs, '<kwarg>', n) -> bar_ref(position_kw, n)
     # (codegen emits this for EntryDate(n)/ExitPrice(n)/...).
     if name == 'pl_pos_ago' and len(args) == 3 \
@@ -1176,7 +1182,7 @@ def _parse_decls(body, i, out, declared):
     Array inits (`[x]` / `[x] * (size + 1)`) are recognised structurally; every other
     init is a Var declaration whose init is the inverted RHS (this covers
     non-literal inits such as `Vars: D2Close(Close)` -> `d2close = f32(f32(close[-1]))`,
-    which the literal-only rule used to misclassify as executable assignments)."""
+    which a literal-only rule would misclassify as executable assignments)."""
     n = len(body)
     while i < n:
         stmt = body[i]

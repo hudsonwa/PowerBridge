@@ -35,8 +35,8 @@ def _valid_window(series, length):
     # instead of copying the whole `series[start:]` tail every call — that copy
     # made this O(n) per bar (O(n^2) over a full run, the GT2 full-range wall).
     # Padding lives only at the front, so when n_valid >= length the last
-    # `length` elements are all valid and series[-length:] is byte-identical to
-    # the old valid[-length:].
+    # `length` elements are all valid and series[-length:] equals the
+    # valid-only tail.
     if n_valid >= length:
         return series[-length:], length
     return series[start:], n_valid
@@ -157,8 +157,8 @@ def pl_rsi(series, length):
     Skips leading padding zeros to match EL behavior.
     NUMERIC MODEL: EL/PowerLanguage computes indicator internals in DOUBLE precision
     and rounds only the FINAL result to float32 (the same model proven by GT1's
-    runsum/double-cumsum capture). The former f32-per-step model stayed within
-    tolerance at ~1500 bars but drifted past it for the long-memory Wilder recursion
+    runsum/double-cumsum capture). An f32-per-step model stays within
+    tolerance at ~1500 bars but drifts past it for the long-memory Wilder recursion
     at full range (GT1 rsi diverged ~5e-6 by bar ~107k). So the Wilder accumulation
     runs in double; inputs are f32 (prices are f32-stored) and the return is f32.
     Incremental: carries (start, gain-index, seed sums, avg_gain/avg_loss) across
@@ -245,7 +245,7 @@ def _ema(series, length):
     EL semantics: first value = price, then k*price + (1-k)*prev.
     Skips leading padding zeros to match EL behavior.
     Incremental: carries the running ema_val across bars (keyed by id(series),
-    length); byte-identical to the former series[start+1:] full recompute."""
+    length); byte-identical to a series[start+1:] full recompute."""
     if not series or length <= 0:
         return 0.0
     n = len(series)
@@ -629,10 +629,11 @@ def _find_first_valid(series):
 def _adx_engine(high_s, low_s, close_s, length_val):
     """Incremental Wilder ADX engine. Carries the running smoothed TR/+DM/-DM and
     ADX state across bars (keyed by the series ids + length), extending by the new
-    bars only instead of recomputing the whole history every call (the old O(n^2)).
-    Reproduces the EXACT float op sequence of the former full recompute; reset
+    bars only instead of recomputing the whole history every call (O(n) per run,
+    not O(n^2)). Reproduces the EXACT float op sequence of a full recompute; reset
     between runs via reset_indicator_caches(). Returns the state dict, whose
-    st['vals'][b] is the ADX value as of bar b (== old pl_adx(series[:b+1]))."""
+    st['vals'][b] is the ADX value as of bar b (== a full recompute over
+    series[:b+1])."""
     n = min(len(high_s), len(low_s), len(close_s))
     key = ('adxeng', id(high_s), id(low_s), id(close_s), length_val)
     st = _ind_cache.get(key)
@@ -649,8 +650,8 @@ def _adx_engine(high_s, low_s, close_s, length_val):
             st['start'] = s
             st['next_i'] = s + 1
     # NUMERIC MODEL: the Wilder smoothing runs in DOUBLE precision; only the per-bar
-    # ADX result is rounded to f32 (see pl_rsi note / GT1 runsum). The former
-    # f32-per-step model drifted past tolerance for the long-memory recursion at full
+    # ADX result is rounded to f32 (see pl_rsi note / GT1 runsum). An
+    # f32-per-step model drifts past tolerance for the long-memory recursion at full
     # range (GT4 adx ~3.7e-5 by bar ~11.8k). Inputs are f32 (prices are f32-stored).
     alpha = 1.0 / length_val
     one_minus = 1.0 - alpha
@@ -705,7 +706,7 @@ def _adx_engine(high_s, low_s, close_s, length_val):
 def pl_adx(*args, **kwargs):
     """ADX(high, low, close, Length): Average Directional Index.
     Uses f32 at every intermediate step for float32 fidelity.
-    Incremental via _adx_engine; byte-identical to the former full recompute."""
+    Incremental via _adx_engine; byte-identical to a full recompute."""
     if len(args) >= 4:
         high_s, low_s, close_s, length_val = args[0], args[1], args[2], int(args[3])
         if not all(hasattr(s, '__len__') for s in (high_s, low_s, close_s)):
@@ -807,8 +808,8 @@ def _calc_dmi(high, low, close, length, direction='plus'):
     """Helper to calculate DM+ or DM- for ADX family.
     Incremental Wilder smoothing keyed by (series ids, length, direction): carries
     the running smoothed TR/DM across bars instead of rebuilding the whole history
-    every call (the old O(n^2)); reset per run via reset_indicator_caches().
-    Byte-identical to the former full recompute. NOTE: the DM/TR here use RAW double
+    every call (O(n^2) over a run); reset per run via reset_indicator_caches().
+    Gives the same bytes as a full recompute. NOTE: the DM/TR here use RAW double
     arithmetic (no per-op f32) on purpose — this differs from pl_adx's f32 DM/TR, so
     the two engines are kept separate."""
     if not all(hasattr(s, '__len__') for s in (high, low, close)):
@@ -908,9 +909,9 @@ def pl_stochastic(*args, **kwargs):
     Uses f32 at every intermediate step for float32 fidelity.
     Computes with partial data when fewer than `length` bars are available.
     Incremental: the Fast %K series is cached per (series ids, length) and extended
-    by the new bar only (the old recompute rebuilt the whole %K/%SlowK history every
-    call -> O(n^2)); the %D/SlowK/SlowD readouts derive from the cached tail. Reset
-    per run via reset_indicator_caches(). Byte-identical to the former recompute."""
+    by the new bar only (rebuilding the whole %K/%SlowK history every call would
+    be O(n^2)); the %D/SlowK/SlowD readouts derive from the cached tail. Reset
+    per run via reset_indicator_caches(). Gives the same bytes as a full recompute."""
     if len(args) >= 7:
         high_s = args[0]
         low_s = args[1]
@@ -950,7 +951,7 @@ def pl_stochastic(*args, **kwargs):
         st['next'] = i
         st['cn'] = N
 
-        n = len(fk)  # == valid bar count (matches the old `n`)
+        n = len(fk)  # == valid bar count
         if n < 1:
             return (1, f32(50.0), f32(50.0), f32(50.0), f32(50.0))
 

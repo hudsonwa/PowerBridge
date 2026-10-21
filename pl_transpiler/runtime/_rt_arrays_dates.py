@@ -17,7 +17,7 @@ reserved words and daily session data.
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import f32, el_array_items, el_array_store
+from ._rt_core import f32, el_array_items, el_array_store, pl_bar_column
 
 # EL built-in constants
 newline = "\n"
@@ -228,19 +228,19 @@ def pl_minlist2(*args, **kwargs):
 
 def pl_ticks(*args, **kwargs):
     """Ticks: current bar tick count."""
-    return kwargs.get('ticks', 0)
+    return pl_bar_column(kwargs, 'ticks', 'Ticks')
 
 def pl_upticks(*args, **kwargs):
     """UpTicks: current bar uptick count."""
-    return kwargs.get('upticks', 0)
+    return pl_bar_column(kwargs, 'upticks', 'UpTicks')
 
 def pl_downticks(*args, **kwargs):
     """DownTicks: current bar downtick count."""
-    return kwargs.get('downticks', 0)
+    return pl_bar_column(kwargs, 'downticks', 'DownTicks')
 
 def pl_openint(*args, **kwargs):
     """OpenInt: open interest."""
-    return kwargs.get('openint', 0)
+    return pl_bar_column(kwargs, 'openint', 'OpenInt')
 
 
 # ---- Daily Session Data Functions ----

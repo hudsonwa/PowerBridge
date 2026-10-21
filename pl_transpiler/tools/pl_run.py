@@ -331,7 +331,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     partial       : opt-in partial mode. When True, unimplemented EL keywords
                     become execution-time stubs (raising only if evaluated) and the
                     stub manifest is printed LOUDLY to stderr before the run. The
-                    DEFAULT path (partial=False) is byte-identical to before.
+                    default (partial=False) refuses to transpile them.
     row_sink      : optional callable(row: list[str]) invoked once per emitted bar.
                     Additive. The CLI uses this to stream CSV without retaining.
     header_sink   : optional callable(columns: list[str]) invoked once when the
@@ -468,8 +468,8 @@ def _build_parser():
         description="General EL -> trades entrypoint: run transpiled EL over "
                     "supplied OHLCV bars + an instrument config.")
     ap.add_argument("el_file", help="EL/PowerLanguage source file.")
-    # bars_csv is a positional but optional so a lone el_file gives the same rc2
-    # 'need a bars CSV' error the hand-rolled walk used to emit.
+    # bars_csv is a positional but optional so a lone el_file gets the rc2
+    # 'need a bars CSV' error instead of an argparse usage error.
     ap.add_argument("bars_csv", nargs="?", default=None,
                     help="plain OHLCV CSV (date,time,open,high,low,close,volume) "
                          "or a .pbar produced by csv_to_pbar / "
@@ -506,8 +506,7 @@ def _build_parser():
 
 def main(argv=None):
     ap = _build_parser()
-    # An unknown flag now exits nonzero with a usage message (argparse default),
-    # replacing the old silent-ignore behaviour of the hand-rolled walk.
+    # An unknown flag exits nonzero with a usage message (argparse default).
     args = ap.parse_args(argv)
     if args.lenient:
         set_strict_mode(False)

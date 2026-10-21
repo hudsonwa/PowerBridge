@@ -20,10 +20,31 @@ __version__ = "0.4.0"
 from pkgutil import extend_path as _extend_path
 __path__ = _extend_path(__path__, __name__)
 
-from .lexer import tokenise
-from .parser import parse
-from .codegen import generate
-from .errors import UnimplementedKeywordError, restore_spelling, unimplemented_message
+# The public names below are imported on first use rather than here, so
+# `python -m pl_transpiler.<module>` (catalog, tools) runs without the package
+# having already imported that module (runpy would warn about it).
+_LAZY = {
+    'tokenise': 'lexer',
+    'parse': 'parser',
+    'generate': 'codegen',
+    'UnimplementedKeywordError': 'errors',
+    'restore_spelling': 'errors',
+    'unimplemented_message': 'errors',
+}
+
+
+def __getattr__(name):
+    module = _LAZY.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from importlib import import_module
+    value = getattr(import_module(f'.{module}', __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_LAZY))
 
 def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
     """Convert PowerLanguage source string to Python source string.
@@ -33,8 +54,12 @@ def transpile(pl_source: str, trace=False, partial=False, persist=None) -> str:
     lives, `_trace` does not). The default persist=False / trace=False path
     remains the clean mirror dialect that py_front reads back.
     If partial=True (opt-in), unimplemented EL keywords become execution-time
-    stubs under a NOT-FAITHFUL watermark instead of raising at transpile time; the
-    strict default (partial=False) stays byte-identical."""
+    stubs under a NOT-FAITHFUL watermark instead of raising at transpile time
+    (the strict default)."""
+    from .lexer import tokenise
+    from .parser import parse
+    from .codegen import generate
+    from .errors import UnimplementedKeywordError, restore_spelling, unimplemented_message
     tokens, positions = tokenise(pl_source)
     ast = parse(tokens, positions=positions, source=pl_source)
     try:
