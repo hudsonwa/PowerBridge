@@ -232,8 +232,16 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # unpack to named locals each bar. 30 dict load+store was ~0.8 s on the
         # FAST window vs ~0.3 s list-unpack + slice-assign (same values).
         # Lookback / series-arg vars stay named lists under `_state[name]`.
+        # `A crosses above B` needs each operand's value on earlier bars. A
+        # series operand (a data column or a declared variable) already has
+        # that history; any other operand (a function call, a literal, an
+        # offset like Close[3]) gets a hidden per-site history, filled at the
+        # top of every bar exactly as if it were assigned to a variable there.
+        self._cross_sites = {}
+        if self.persist:
+            self._collect_cross_sites(node['body'])
         if self.persist and (self._stateful_vars or self._input_inits
-                             or self._array_vars):
+                             or self._array_vars or self._cross_sites):
             self._slot_vars = [
                 n for n in sorted(self._stateful_vars)
                 if n not in self._history_vars
@@ -254,6 +262,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     continue
                 seed = self._persist_var_seed(name)
                 self.emit(f"_state['{name}'] = [{seed}]")
+            for k, _ in self._cross_sites.values():
+                self.emit(f"_state['__pb_x{k}'] = [f32(0)]")
             if self._slot_vars:
                 seeds = ", ".join(self._persist_var_seed(n) for n in self._slot_vars)
                 self.emit(f"_state['__pb_slots'] = [{seeds}]")
@@ -283,6 +293,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     self.emit(f"{packed}, = _pb_slots")
                 else:
                     self.emit(f"{packed} = _pb_slots")
+            for k, arg in self._cross_sites.values():
+                self._cur_stmt_line = arg.get('_line')
+                self.emit(f"_state['__pb_x{k}'].append(f32({self.gen_expr(arg)}))")
+            self._cur_stmt_line = None
         # Comments: in clean (trace=False, persist=False) mode, carry the source EL
         # comments through as `#| <verbatim>` lines, anchored (by object identity)
         # to the same statements the reverse emitter uses. Trace and persist-only
@@ -521,6 +535,65 @@ class CodeGen(_ExprMixin, _StmtMixin):
         for v in node.values():
             if isinstance(v, (dict, list)):
                 self._collect_history_vars(v, series_context)
+
+    def _is_series_operand(self, node):
+        """True if a crosses operand already has a bar history in persist
+        output: a data column or a declared (stateful) variable."""
+        return (node.get('type') == 'ident'
+                and (node.get('name') in _SERIES_PARAMS
+                     or node.get('name') in self._stateful_vars))
+
+    def _is_bar_pure(self, node):
+        """True if an expression's value depends only on bar data and inputs,
+        so evaluating it at the top of the bar gives the value it has where it
+        is written. Variables, position state and the like can change within
+        the bar and are not bar-pure."""
+        t = node.get('type')
+        if t in ('number', 'boolean'):
+            return True
+        if t == 'ident':
+            name = node.get('name')
+            return (name in _SERIES_PARAMS
+                    or name in {n for n, _ in self._input_inits})
+        if t == 'binop' or t == 'compare':
+            return self._is_bar_pure(node['left']) and self._is_bar_pure(node['right'])
+        if t == 'unaryop':
+            return self._is_bar_pure(node['operand'])
+        if t == 'bar_ref':
+            return (self._is_bar_pure(node['series'])
+                    and self._is_bar_pure(node['index']))
+        if t == 'call':
+            name = node.get('name')
+            return (name not in ('crossesabove', 'crossesbelow')
+                    and (name in BUILTIN_FUNC_MAP or name in self._SERIES_FUNCS)
+                    and all(self._is_bar_pure(a) for a in node.get('args') or []))
+        return False
+
+    def _collect_cross_sites(self, node):
+        """Number every non-series crosses operand (a hidden history site), in
+        source order. An operand whose value can change within the bar cannot
+        be given a faithful history this way: raise instead of guessing."""
+        if isinstance(node, list):
+            for n in node:
+                self._collect_cross_sites(n)
+            return
+        if not isinstance(node, dict):
+            return
+        if node.get('type') == 'call' and node.get('name') in ('crossesabove', 'crossesbelow'):
+            for arg in node.get('args') or []:
+                if not isinstance(arg, dict) or self._is_series_operand(arg):
+                    continue
+                if not self._is_bar_pure(arg):
+                    from pl_transpiler.codegen_el import emit_expr
+                    raise ValueError(
+                        f"line {node.get('_line', '?')}: unsupported crosses operand "
+                        f"{emit_expr(arg)!r}: it is not a series and its value can "
+                        f"change within the bar; assign it to a declared variable "
+                        f"and cross that variable instead")
+                self._cross_sites[id(arg)] = (len(self._cross_sites) + 1, arg)
+        for v in node.values():
+            if isinstance(v, (dict, list)):
+                self._collect_cross_sites(v)
 
     def _persist_var_seed(self, name):
         """First-bar seed expression for one persist var (scalar slot or list)."""

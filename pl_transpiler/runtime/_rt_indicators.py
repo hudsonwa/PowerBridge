@@ -81,13 +81,22 @@ def _cross_prior_relation(series_a, series_b, start):
         i -= 1  # equal on this bar: keep walking back through the equal run
     return 0
 
+def _require_cross_series(series_a, series_b):
+    """A cross compares this bar with earlier bars, so both operands must be
+    histories. Codegen gives every non-series operand its own history; a
+    scalar here would otherwise never cross, so refuse it."""
+    for s in (series_a, series_b):
+        if not hasattr(s, '__len__'):
+            raise TypeError(
+                f"crosses operand {s!r} is a single value, not a series; "
+                f"a cross needs the operand's earlier values")
+
 def pl_crosses_above(series_a, series_b):
     """True if series_a crossed above series_b on this bar.
     Skips leading padding zeros so the first real bar never fires a false cross.
     A run of equal bars immediately preceding the current bar is transparent;
     the pre-cross relation is taken from the bar before that run (pdf:2502-2509)."""
-    if not hasattr(series_a, '__len__') or not hasattr(series_b, '__len__'):
-        return False
+    _require_cross_series(series_a, series_b)
     if len(series_a) < 2 or len(series_b) < 2:
         return False
     start = max(_find_first_valid(series_a), _find_first_valid(series_b))
@@ -100,8 +109,7 @@ def pl_crosses_below(series_a, series_b):
     Skips leading padding zeros so the first real bar never fires a false cross.
     A run of equal bars immediately preceding the current bar is transparent;
     the pre-cross relation is taken from the bar before that run (pdf:2561-2569)."""
-    if not hasattr(series_a, '__len__') or not hasattr(series_b, '__len__'):
-        return False
+    _require_cross_series(series_a, series_b)
     if len(series_a) < 2 or len(series_b) < 2:
         return False
     start = max(_find_first_valid(series_a), _find_first_valid(series_b))

@@ -52,6 +52,15 @@
   passed those counts to the strategy. They now update on every bar, at the same
   point as `TotalTrades` and `GrossProfit`. The native kernel still refuses these
   words and falls back to the Python engine with a message.
+- `A crosses above B` and `crosses below` on the Python path silently never fired
+  when an operand was not a series: a function call such as `Average(Close, 10)`, a
+  literal, or an offset such as `Close[3]`. Each such operand now keeps its own
+  hidden history, filled at the start of every bar, so the strategy trades exactly as
+  if the operand were first assigned to a variable. An operand that can change within
+  the bar (a variable such as `Value1` that is not declared, or `MarketPosition`) is
+  refused at transpile time, and the runtime raises instead of returning false when it
+  is handed a single value. The native kernel still refuses these operands and falls
+  back to the Python path with its usual message.
 
 ## 0.6.0 — 2026-10-21
 
