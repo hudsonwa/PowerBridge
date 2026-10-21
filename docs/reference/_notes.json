@@ -939,7 +939,7 @@
   },
   "Crosses": {
    "topic": "math",
-   "desc": "Used in `A crosses above B` or `A crosses below B`: true on the bar where A moves from one side of B to the other. It only works in that phrase.",
+   "desc": "Used in `A crosses above B` or `A crosses below B`: true on the bar where A moves from one side of B to the other. It only works in that phrase. `crosses over` and `crosses under` are accepted as the same as `crosses above` and `crosses below`.",
    "example": "Vars: Fast(0), Slow(0);\nFast = Average(Close, 5);\nSlow = Average(Close, 20);\nIf Fast crosses above Slow Then Buy Next Bar At Market;"
   },
   "array_getmaxindex": {

@@ -70,7 +70,7 @@ Cotangent (one over the tangent) of an angle given in degrees.
 |---|---|---|---|---|---|---|
 | builtin | bool | none (used as a value) | not established | capture (strategy-level) | no | runs |
 
-Used in `A crosses above B` or `A crosses below B`: true on the bar where A moves from one side of B to the other. It only works in that phrase.
+Used in `A crosses above B` or `A crosses below B`: true on the bar where A moves from one side of B to the other. It only works in that phrase. `crosses over` and `crosses under` are accepted as the same as `crosses above` and `crosses below`.
 
 ```easylanguage
 Vars: Fast(0), Slow(0);
