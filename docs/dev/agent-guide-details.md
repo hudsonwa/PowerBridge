@@ -470,9 +470,9 @@ fill_trade_types(fills) -> list[str]
     # Position-aware label per fill (EntryLong / ExitLong / EntryShort / ExitShort),
     # replayed from flat. Reversals split into exit records then entry records.
     # Not hashed; same result for native and Python records.
-write_fills_csv(path, fills)
+write_fills_csv(path, fills, tick=None)
     # Readable fill log: order_no,trade_type,side,signal,date,time,price,contracts,
-    # position_after. Used by --fills-csv.
+    # position_after. Used by --fills-csv (price rounded to the tick decimals).
 window_bars(bars, from_date=None, to_date=None, extra=None)
     -> (sliced_bars, sliced_extra)
 data2_closes_from_bars(bars, data2_bars) -> list[float]

@@ -25,6 +25,3 @@ pl_transpiler/_accel*.so
 pl_transpiler/_accel*.dylib
 pl_transpiler/_accel*.pyd
 
-# truth — local index/config (machine-specific, do not commit)
-.truth/
-truth.toml

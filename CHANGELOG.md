@@ -12,6 +12,15 @@
   with a misleading "unimplemented EL keyword 'short'". Shorthand and
   long-form strategies give identical digests (native and `--python`).
 
+### Changed
+
+- `pl_run` CSV output rounds money columns (`NetProfit`, `GrossProfit`,
+  `OpenPositionProfit`, ...) to cents and price columns (`EntryPrice`,
+  `ExitPrice`, `AvgEntryPrice`, `Close`) to the instrument's tick decimals,
+  so `1343.7984375000087` prints as `1343.80`. `--full-precision` restores the
+  raw floats. `pl_oracle --fills-csv` rounds `price` the same way. Display
+  only: `run_el` rows and every digest are unchanged.
+
 ### Fixes
 
 - A call with the wrong number of arguments to a builtin whose arity is
@@ -28,6 +37,9 @@
   `RuntimeWarning`: the package `__init__` imports its public names lazily.
 - The `FillEngine` docstring describes the stop/limit fills it implements,
   and code comments that narrated change history now describe behaviour.
+- A native-kernel refusal in `pl_oracle` is reported once
+  (`[pl_oracle] native path refused: ...; using the pure-Python engine
+  (slower)`) instead of twice.
 - The default runnable `pl_transpile` output now runs in time linear in bar
   count. Lookback variables passed to series functions copied their whole
   history every bar, so the README's `run.py` loop was quadratic (40k bars:

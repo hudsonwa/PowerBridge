@@ -82,7 +82,7 @@ from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
 from pl_transpiler.tools import _cli  # noqa: E402
 from pl_transpiler.tools.pl_run import (  # noqa: E402
-    load_bars, resolve_trade_from, unimplemented_stop_message,
+    load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
 
 DIGEST_VERSION = "v2"
@@ -150,13 +150,17 @@ FILLS_CSV_COLUMNS = ("order_no", "trade_type", "side", "signal", "date", "time",
                      "price", "contracts", "position_after")
 
 
-def write_fills_csv(path, fills):
+def write_fills_csv(path, fills, tick=None):
     """Write the human-facing fill log: one row per fill, with ``trade_type``.
+
+    ``price`` is rounded to the decimals of ``tick`` when given (display only;
+    the digest hashes the unrounded fills).
 
     ``side`` is the hashed buy/sell field (``buy`` / ``sell``); ``trade_type``
     is from ``fill_trade_types``; ``position_after`` is the signed position.
     """
     position = 0
+    dp = None if tick is None else tick_decimals(tick)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(FILLS_CSV_COLUMNS)
@@ -165,8 +169,12 @@ def write_fills_csv(path, fills):
             buy = fill["type"] == BUY_SIDE
             position += qty if buy else -qty
             writer.writerow([i, label, "buy" if buy else "sell", fill["signal"],
-                             fill["date"], fill["time"], repr(float(fill["price"])),
+                             fill["date"], fill["time"], _fmt_price(fill["price"], dp),
                              qty, position])
+
+
+def _fmt_price(price, dp):
+    return repr(float(price)) if dp is None else f"{float(price):.{dp}f}"
 
 
 def hashed_payload(fills, version=2):
@@ -450,7 +458,7 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     # prints only that error.
     if fallback_reason is not None and fallback_reason.startswith("native path refused"):
         print(
-            f"[pl_oracle] {fallback_reason}; falling back to the Python path (loud)",
+            f"[pl_oracle] {fallback_reason}; using the pure-Python engine (slower)",
             file=sys.stderr,
         )
 
@@ -581,7 +589,9 @@ def _main(ap, args):
             pass  # explicitly requested
         elif not accel_available():
             warn_python_path()
-        else:
+        elif not (result.get("native_fallback_reason") or "").startswith(
+                "native path refused"):
+            # A refusal was already reported once by run_oracle.
             warn_python_path(result.get("native_fallback_reason") or "native kernel refused")
     text = result["text"]
 
@@ -594,7 +604,7 @@ def _main(ap, args):
         with open(args.dump, "w", encoding="utf-8") as f:
             f.write(hashed_payload(result["records"], 1 if args.digest_v1 else 2))
     if args.fills_csv:
-        write_fills_csv(args.fills_csv, result["records"])
+        write_fills_csv(args.fills_csv, result["records"], tick=config.tick)
 
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")

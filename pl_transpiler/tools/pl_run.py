@@ -42,6 +42,7 @@ CLI:
 import argparse
 import contextlib
 import csv
+import math
 import os
 import re
 import sys
@@ -236,6 +237,53 @@ _EL_COLUMN_NAMES = {
 
 def _el_name(key):
     return _EL_COLUMN_NAMES.get(key, key)
+
+
+# Display rounding for the CLI's CSV only (run_el rows stay full precision).
+# Money columns get cents; price columns get the instrument's tick decimals.
+_MONEY_COLUMNS = frozenset((
+    'netprofit', 'grossprofit', 'grossloss', 'openpositionprofit',
+    'positionprofit', 'maxiddrawdown',
+))
+_PRICE_COLUMNS = frozenset(('entryprice', 'exitprice', 'avgentryprice', 'close'))
+
+
+def tick_decimals(tick):
+    """Decimal places of a tick size (0.25 -> 2, 1.0 -> 0), capped at 8."""
+    text = f"{float(tick):.8f}".rstrip('0')
+    return len(text.split('.')[1]) if '.' in text else 0
+
+
+def display_row_sink(sink, tick):
+    """Wrap a (header, row) sink pair so money/price cells print rounded.
+
+    Returns ``(header_sink, row_sink)``. Cells that are not plain floats
+    (empty, ints, text) pass through unchanged.
+    """
+    price_dp = tick_decimals(tick)
+    places = []
+
+    def header(cols):
+        for c in cols:
+            f = _fold(c)
+            places.append(2 if f in _MONEY_COLUMNS
+                          else price_dp if f in _PRICE_COLUMNS else None)
+        sink(cols)
+
+    def row(cells):
+        out = list(cells)
+        for i, dp in enumerate(places):
+            if dp is None or i >= len(out) or '.' not in str(out[i]):
+                continue
+            try:
+                v = float(out[i])
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(v):
+                out[i] = f"{v:.{dp}f}"
+        sink(out)
+
+    return header, row
 
 
 class UnknownTraceColumnError(ValueError):
@@ -500,6 +548,9 @@ def _build_parser():
     ap.add_argument("--slice", dest="slice_tape", action="store_true",
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
+    ap.add_argument("--full-precision", dest="full_precision", action="store_true",
+                    help="write every float at full precision instead of rounding "
+                         "money to cents and prices to the instrument tick.")
     _cli.add_version(ap, "pl_run")
     return ap
 
@@ -530,6 +581,10 @@ def _main(ap, args):
     out_path = _cli.output_path(args.output)
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout
     writer = csv.writer(out_f)
+    if args.full_precision:
+        header_sink = row_sink = writer.writerow
+    else:
+        header_sink, row_sink = display_row_sink(writer.writerow, config.tick)
 
     # Stream formatted rows during the bar loop so 2.32M list[str] rows are
     # not retained (that GC tax inflates the rest of the loop). The library
@@ -537,8 +592,8 @@ def _main(ap, args):
     if columns is not None:
         try:
             result = run_el(el_source, bars, config, trace_columns=columns,
-                            partial=args.partial, header_sink=writer.writerow,
-                            row_sink=writer.writerow,
+                            partial=args.partial, header_sink=header_sink,
+                            row_sink=row_sink,
                             from_date=args.from_date, from_bar=args.from_bar,
                             seed_warmup=not args.slice_tape)
         except UnknownTraceColumnError as exc:
@@ -549,8 +604,8 @@ def _main(ap, args):
     else:
         result = run_el(el_source, bars, config, trace_columns=None,
                         partial=args.partial,
-                        header_sink=writer.writerow,
-                        row_sink=writer.writerow,
+                        header_sink=header_sink,
+                        row_sink=row_sink,
                         from_date=args.from_date, from_bar=args.from_bar,
                         seed_warmup=not args.slice_tape)
     if out_path:

@@ -219,7 +219,7 @@ def test_run_oracle_use_native_falls_back_loudly_on_refusal(capsys):
     assert result["native_fallback_reason"].startswith("native path refused:")
     stderr = capsys.readouterr().err
     assert "native path refused" in stderr
-    assert "falling back to the Python path" in stderr
+    assert "using the pure-Python engine" in stderr
     # The fallback digest agrees with a pure-Python run (identical trade list).
     assert result["text"] == run_oracle(DATA2_SOURCE, bars, NQ)["text"]
 

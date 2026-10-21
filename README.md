@@ -184,16 +184,17 @@ profit, and is long again at the end (excerpt):
 <!-- readme-test: file run_out.csv -->
 ```
 MarketPosition,NetProfit,TotalTrades
-0,0.0,0
+0,0.00,0
 ...
-1,0.0,0
+1,0.00,0
 ...
-0,1343.7984375000087,1
+0,1343.80,1
 ...
-1,1343.7984375000087,1
+1,1343.80,1
 ```
 
-Column names are the run's trace keys; omit `--columns` to get all of them in
+Money columns are rounded to cents and price columns to the instrument's tick
+(`--full-precision` writes the raw floats). Column names are the run's trace keys; omit `--columns` to get all of them in
 the header. EasyLanguage spellings such as `MarketPosition`, `NetProfit` or
 `CurrentBar` are accepted case-insensitively. An unknown name stops the run
 with exit code 2 and suggests the closest keys.
@@ -371,7 +372,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 MarketPosition,NetProfit
 ...
-0,3359.496093750022
+0,3359.50
 ...
 ```
 
