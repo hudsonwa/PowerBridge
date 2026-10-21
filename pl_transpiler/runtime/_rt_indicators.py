@@ -130,6 +130,35 @@ def reset_indicator_caches():
     _ind_cache.clear()
 
 
+def _pb_lag(site, series, k):
+    """``series[:-k]`` for ``Func(series)[k]``, as one list per call site.
+
+    The bar loop's price histories only grow, so the lagged prefix is kept per
+    ``site`` and extended in place instead of re-sliced (an O(bars) copy every
+    bar). Same contents and type as the slice; the stable identity also lets
+    the incremental indicators (XAverage, RSI, ...) extend instead of
+    recomputing, and means the ``id()``-keyed caches can no longer mix up two
+    calls: a freed temporary slice used to hand its id (and its state) to the
+    next one. Rebuilt whenever ``series`` is a different object."""
+    if type(k) is not int:
+        return series[:-k]
+    n = len(series)
+    m = max(slice(None, -k).indices(n)[1], 0)
+    key = ('lag', site)
+    st = _ind_cache.get(key)
+    if st is None or st[0] is not series:
+        lst = series[:m]
+        _ind_cache[key] = (series, lst)
+        return lst
+    lst = st[1]
+    cur = len(lst)
+    if m > cur:
+        lst.extend(series[cur:m])
+    elif m < cur:
+        del lst[m:]
+    return lst
+
+
 def pl_partial_stub(name, line):
     """Partial-transpile stub factory (opt-in --partial mode).
 

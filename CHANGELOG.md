@@ -23,6 +23,17 @@
 
 ### Fixes
 
+- A lagged function call such as `Highest(High, Len)[1]`, the usual
+  breakout idiom, no longer makes the Python path O(bars^2): it copied the
+  whole price history on every bar. The lagged history is now kept per call
+  site and extended in place. On a synthetic tape a breakout strategy took
+  1.5 s / 4.1 s / 14.9 s for 20k / 40k / 80k bars and now takes
+  0.5 s / 0.5 s / 1.0 s. Digests and all `ground_truth/` outputs are
+  unchanged. This also fixes wrong values when two lagged recursive calls
+  on different series, such as `XAverage(Low, 10)[1] + XAverage(High, 10)[1]`
+  (or an RSI pair), shared an `id()`-keyed cache entry: the freed temporary
+  slice of one could hand its id, and so its EMA/RSI state, to the other.
+  The native kernel still refuses this construct and falls back to Python.
 - A call with the wrong number of arguments to a builtin whose arity is
   known (`x = Stochastic;`, `Stochastic(Close)`, a bare `MaxList`) now fails
   at transpile time with one line, e.g. `'Stochastic' at line 2 takes 11

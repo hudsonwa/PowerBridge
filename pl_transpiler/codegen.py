@@ -58,6 +58,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self._stateful_vars = set()  # vars needing cross-bar persistence (var_decl only)
         self._numeric_vars = set()  # user-declared numeric (not string) vars
         self._double_accum_vars = set()  # self-referential numeric accumulators (kept double, not f32)
+        self._lag_sites = 0  # Func(series)[n] call sites, numbered for _pb_lag
         self._history_vars = set()  # stateful vars that need a lookback list (Var[n] / series-fn arg)
         self._series_state = False  # runnable output seeds `_state` as a SeriesState
         self._slot_vars = []  # sorted unindexed persist vars packed into `_state['__pb_slots']`
@@ -415,6 +416,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # strict output never imports it.
         if self._partial and self._unimpl_errors:
             imports += 'from pl_transpiler.runtime.pl_runtime import pl_partial_stub\n'
+        if self._lag_sites:
+            imports += 'from pl_transpiler.runtime.pl_runtime import _pb_lag\n'
         if self._series_state:
             imports += 'from pl_transpiler.runtime._rt_history import SeriesState as _PbSeriesState\n'
         imports += '__builtin_len = len\n'

@@ -455,8 +455,10 @@ Measured on an Apple M4 laptop, CPython 3.14, release-lto build from
 | 100,000 | 7,671 | 2.34 s | 0.42 s | 5.5x |
 
 Both paths scale linearly with the bar count (the earlier super-linear
-slowdown of the Python path, issue #4, is fixed). Measure your own strategy
-before relying on a ratio.
+slowdowns of the Python path, issue #4 and a lagged function call such as
+`Highest(High, Len)[1]`, are fixed). The native kernel does not run a lagged
+function call yet; such a strategy runs on the Python path. Measure your own
+strategy before relying on a ratio.
 
 **Absent extra = identical behaviour.** Without the module, the auditable
 Python path runs and produces the same trades. Programs the native kernel

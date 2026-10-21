@@ -37,7 +37,7 @@ from ._rt_core import (  # noqa: F401
 )
 from ._rt_indicators import (  # noqa: F401
     _adx_engine, _calc_dmi, _compute_adx_series, _cross_prior_relation, _ema,
-    _find_first_valid, _ind_cache, _linreg_window, _tr_rma, _true_range_for_adx,
+    _find_first_valid, _ind_cache, _pb_lag, _linreg_window, _tr_rma, _true_range_for_adx,
     _valid_window,
 )
 from ._rt_builtins_az import (  # noqa: F401

@@ -308,6 +308,16 @@ class _ExprMixin:
                 return f"pl_partial_stub({name!r}, {line!r})"
         return target
 
+    def _lagged(self, s, offset, slice_zero=False):
+        """``s[:-offset]`` for ``Func(s)[offset]``, emitted as a per-site
+        ``_pb_lag`` so the Python path does not copy the history every bar.
+        A literal offset of 0 passes ``s`` through unless ``slice_zero``
+        (the ADX family has always sliced, giving an empty series)."""
+        if isinstance(offset, int) and offset <= 0 and not slice_zero:
+            return s
+        self._lag_sites += 1
+        return f"_pb_lag({self._lag_sites}, {s}, {offset})"
+
     def _impl_call(self, name, node, args):
         """Emit the call expression for a builtin target `pl_<name>(args)`.
 
@@ -708,25 +718,19 @@ class _ExprMixin:
             
             # Inject high/low/close for indicators that need them (__adx__, __cci__, etc.)
             py_name = BUILTIN_FUNC_MAP.get(func_name)
-            if py_name == '__adx__' and len(raw_args) == 1:
-                return f"pl_adx(high[:-{offset}], low[:-{offset}], close[:-{offset}], {raw_args[0]})" if isinstance(offset, int) else f"pl_adx(high[:-{offset}], low[:-{offset}], close[:-{offset}], {raw_args[0]})"
-            if py_name == '__adxr__' and len(raw_args) == 1:
-                return f"pl_adxr(high[:-{offset}], low[:-{offset}], close[:-{offset}], {raw_args[0]})"
-            if py_name == '__dmiplus__' and len(raw_args) == 1:
-                return f"pl_dmiplus(high[:-{offset}], low[:-{offset}], close[:-{offset}], {raw_args[0]})"
-            if py_name == '__dmiminus__' and len(raw_args) == 1:
-                return f"pl_dmiminus(high[:-{offset}], low[:-{offset}], close[:-{offset}], {raw_args[0]})"
+            if py_name in ('__adx__', '__adxr__', '__dmiplus__', '__dmiminus__') and len(raw_args) == 1:
+                fn = {'__adx__': 'pl_adx', '__adxr__': 'pl_adxr',
+                      '__dmiplus__': 'pl_dmiplus', '__dmiminus__': 'pl_dmiminus'}[py_name]
+                hlc = ', '.join(self._lagged(s, offset, slice_zero=True)
+                                for s in ('high', 'low', 'close'))
+                return f"{fn}({hlc}, {raw_args[0]})"
             
             # For regular functions, pass series args with offset slicing
             # Slice each data series argument to shift the lookback window
             sliced_args = []
             for i, arg in enumerate(series['args']):
                 if arg['type'] == 'ident' and arg['name'] in _SERIES_PARAMS:
-                    s = raw_args[i]
-                    if isinstance(offset, int):
-                        sliced_args.append(f"{s}[:-{offset}]" if offset > 0 else s)
-                    else:
-                        sliced_args.append(f"{s}[:-{offset}]" if offset else s)
+                    sliced_args.append(self._lagged(raw_args[i], offset))
                 else:
                     sliced_args.append(raw_args[i])
             
