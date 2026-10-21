@@ -56,9 +56,10 @@
   when an operand was not a series: a function call such as `Average(Close, 10)`, a
   literal, or an offset such as `Close[3]`. Each such operand now keeps its own
   hidden history, filled at the start of every bar, so the strategy trades exactly as
-  if the operand were first assigned to a variable. An operand that can change within
-  the bar (a variable such as `Value1` that is not declared, or `MarketPosition`) is
-  refused at transpile time, and the runtime raises instead of returning false when it
+  if the operand were first assigned to a variable. `Value1`..`Value99` used directly
+  as an operand also never fired; they now keep their history like a declared
+  variable starting at 0. An operand that can change within the bar (such as
+  `Value1 + 1` or `MarketPosition`) is refused at transpile time, with its line, and the runtime raises instead of returning false when it
   is handed a single value. The native kernel still refuses these operands and falls
   back to the Python path with its usual message.
 

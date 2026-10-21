@@ -39,6 +39,9 @@ from .codegen_util import (  # noqa: F401
 from .codegen_expr import _ExprMixin
 from .codegen_stmt import _StmtMixin
 
+# EL numeric scratch variables, usable without a Vars: declaration.
+_VALUE_SCRATCH = frozenset(f"value{i}" for i in range(100))
+
 
 class CodeGen(_ExprMixin, _StmtMixin):
     def __init__(self, trace=False, partial=False, persist=None):
@@ -159,6 +162,15 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     if name:
                         self._trace_vars.add(name)
                         self._array_vars.add(name)
+        # A ValueN scratch variable used as a crosses operand needs its bar
+        # history, so treat it like `Vars: ValueN(0);` (EL scratch variables
+        # keep their value across bars and start at zero).
+        if self.persist:
+            for name in sorted(self._crossed_scratch_vars(node['body'])):
+                self._trace_vars.add(name)
+                self._stateful_vars.add(name)
+                self._numeric_vars.add(name)
+                self._state_inits[name] = '0'
 
         # Detect self-referential numeric accumulators: assignments of the form
         # `Var = ...Var...` (Var referenced on its own RHS, as ident or Var[n]).
@@ -543,6 +555,27 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 and (node.get('name') in _SERIES_PARAMS
                      or node.get('name') in self._stateful_vars))
 
+    def _crossed_scratch_vars(self, node, out=None):
+        """Undeclared Value0..Value99 names used directly as crosses operands."""
+        if out is None:
+            out = set()
+        if isinstance(node, list):
+            for n in node:
+                self._crossed_scratch_vars(n, out)
+        elif isinstance(node, dict):
+            if (node.get('type') == 'call'
+                    and node.get('name') in ('crossesabove', 'crossesbelow')):
+                for arg in node.get('args') or []:
+                    name = arg.get('name') if isinstance(arg, dict) else None
+                    if (arg.get('type') == 'ident' and name in _VALUE_SCRATCH
+                            and name not in self._stateful_vars
+                            and name not in self._declared_all):
+                        out.add(name)
+            for v in node.values():
+                if isinstance(v, (dict, list)):
+                    self._crossed_scratch_vars(v, out)
+        return out
+
     def _is_bar_pure(self, node):
         """True if an expression's value depends only on bar data and inputs,
         so evaluating it at the top of the bar gives the value it has where it
@@ -569,16 +602,17 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     and all(self._is_bar_pure(a) for a in node.get('args') or []))
         return False
 
-    def _collect_cross_sites(self, node):
+    def _collect_cross_sites(self, node, line='?'):
         """Number every non-series crosses operand (a hidden history site), in
         source order. An operand whose value can change within the bar cannot
         be given a faithful history this way: raise instead of guessing."""
         if isinstance(node, list):
             for n in node:
-                self._collect_cross_sites(n)
+                self._collect_cross_sites(n, line)
             return
         if not isinstance(node, dict):
             return
+        line = node.get('_line', line)
         if node.get('type') == 'call' and node.get('name') in ('crossesabove', 'crossesbelow'):
             for arg in node.get('args') or []:
                 if not isinstance(arg, dict) or self._is_series_operand(arg):
@@ -586,14 +620,14 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 if not self._is_bar_pure(arg):
                     from pl_transpiler.codegen_el import emit_expr
                     raise ValueError(
-                        f"line {node.get('_line', '?')}: unsupported crosses operand "
+                        f"line {line}: unsupported crosses operand "
                         f"{emit_expr(arg)!r}: it is not a series and its value can "
                         f"change within the bar; assign it to a declared variable "
                         f"and cross that variable instead")
                 self._cross_sites[id(arg)] = (len(self._cross_sites) + 1, arg)
         for v in node.values():
             if isinstance(v, (dict, list)):
-                self._collect_cross_sites(v)
+                self._collect_cross_sites(v, line)
 
     def _persist_var_seed(self, name):
         """First-bar seed expression for one persist var (scalar slot or list)."""

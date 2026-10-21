@@ -105,11 +105,31 @@ def test_hoisted_operand_is_evaluated_every_bar():
             == run_oracle(var, BARS, cfg)['sha256'])
 
 
-@pytest.mark.parametrize('operand', ['Value1', 'Average(Value1, 5)', 'MarketPosition'])
+@pytest.mark.parametrize('operand', ['Value1 + 1', 'Average(Value1, 5)', 'MarketPosition'])
 def test_operand_that_changes_within_the_bar_is_refused(operand):
     src = f"Value1 = Close;\nIf Close crosses above {operand} then Buy next bar at market;\n"
     with pytest.raises(ValueError, match='unsupported crosses operand'):
         transpile(src, persist=True)
+
+
+def test_refusal_names_the_line():
+    src = "Vars: L(10);\nIf Close crosses above Average(Close, L) then Buy next bar at market;\n"
+    with pytest.raises(ValueError, match='^line 2: '):
+        transpile(src, persist=True)
+
+
+def test_value_scratch_vars_cross_like_declared_vars():
+    # Undeclared Value1..Value99 keep their value across bars, so crossing
+    # them works exactly like crossing declared variables.
+    body = ("{a} = Average(Close, 9);\n{b} = Average(Close, 21);\n"
+            "If {a} crosses above {b} then Buy next bar at market;\n"
+            "If {a} crosses below {b} then Sell next bar at market;\n")
+    scratch = body.format(a='Value1', b='Value2')
+    declared = "Vars: A(0), B(0);\n" + body.format(a='A', b='B')
+    cfg = get_config('NQ')
+    want = run_oracle(declared, BARS, cfg)
+    assert want['round_turns'] > 5
+    assert run_oracle(scratch, BARS, cfg)['sha256'] == want['sha256']
 
 
 def test_runtime_refuses_a_scalar():
