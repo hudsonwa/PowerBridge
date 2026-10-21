@@ -13,19 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""catalog.py — a small, documented query API over the distilled EL keyword catalogs.
+"""catalog.py — a small, documented query API over PowerBridge's EL keyword catalogs.
 
-This is the redistributable replacement for the copyrighted MultiCharts reference
-corpus (this private preview distribution includes that corpus in the repository
-tree, but it is excluded from public releases and from the installable wheel). It
-exposes two shipped,
-machine-readable data files as a clean query surface:
+The catalogs are PowerBridge's own data; no third-party reference material ships
+with the project (see NOTICE). Two machine-readable files are exposed as a
+query surface:
 
   * ``pl_transpiler/tools/pl_signatures.jsonl`` — one JSON object per line, each with
     ``keyword``, ``returns``, ``min_arity``, and ``zero_arg_property``.
   * ``pl_transpiler/tools/mc_verified_builtins.txt`` — one token per line (blank lines
-    and ``#`` comment lines ignored; a trailing ``# pdf:<line>`` citation is stripped),
-    listing builtins manually confirmed to have a real keyword-reference entry.
+    and ``#`` comments ignored), listing builtins known to compile in MultiCharts.
 
 Both files are read via ``importlib.resources`` so the API works identically from an
 installed wheel and from a source checkout. All counts are DERIVED from the data at
@@ -34,9 +31,9 @@ load time — nothing is hardcoded.
 Library usage::
 
     from pl_transpiler import catalog
-    catalog.get("AverageFC")            # -> record dict (case-insensitive) or None
-    catalog.arity("MaxBarsBack")        # -> (min_arity, zero_arg_property)
-    catalog.returns("AverageFC")        # -> "numeric"
+    catalog.get("CurrentDate")          # -> record dict (case-insensitive) or None
+    catalog.arity("CurrentDate")        # -> (0, True): min_arity, zero_arg_property
+    catalog.returns("CurrentDate")      # -> "numeric"
     catalog.is_verified("datetime")     # -> True
     catalog.search("date")              # -> sorted list of matching keyword names
     catalog.coverage()                  # -> {'signatures': N, 'verified_builtins': M, ...}
