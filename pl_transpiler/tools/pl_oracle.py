@@ -88,7 +88,8 @@ from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E40
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
 from pl_transpiler.tools import _cli  # noqa: E402
-from pl_transpiler.lookback import check_max_bars_back, warn_short_history  # noqa: E402
+from pl_transpiler.lookback import (  # noqa: E402
+    check_max_bars_back, check_max_entries_per_direction, warn_short_history)
 from pl_transpiler.tools.pl_run import (  # noqa: E402
     load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
@@ -276,7 +277,7 @@ def window_bars(bars, from_date=None, to_date=None, extra=None):
 
 def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
                        to_date, from_bar, seed_warmup, digest_version=2,
-                       max_bars_back=0):
+                       max_bars_back=0, max_entries_per_direction=0):
     """Attempt the native kernel path for one ``run_oracle`` call.
 
     The native path serves exactly the full-tape, non-windowed shape — the
@@ -301,7 +302,8 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
         return None, "--digest-v1 is served by the Python path only"
     try:
         fills = run_native(el_source, bars, config, data2_bars=data2_bars,
-                           max_bars_back=max_bars_back)
+                           max_bars_back=max_bars_back,
+                           max_entries_per_direction=max_entries_per_direction)
     except (AccelUnavailable, AccelRefused) as exc:
         return None, f"native path refused: {exc}"
     n = ohlcv_columns(bars)["n"]
@@ -333,7 +335,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                from_date: Optional[int] = None, to_date: Optional[int] = None,
                from_bar: Optional[int] = None, seed_warmup: bool = False,
                use_native: bool = False, digest_version: int = 2,
-               max_bars_back: int = 0) -> Dict[str, Any]:
+               max_bars_back: int = 0,
+               max_entries_per_direction: Optional[int] = None) -> Dict[str, Any]:
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -372,6 +375,10 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back : skip the first N bars (after any window) as history only:
                     no evaluation, no orders, BarNumber starts at 1 on bar N+1
                     (MultiCharts MaxBarsBack). Default 0 evaluates every bar.
+    max_entries_per_direction : None/0 (default): every Buy/SellShort adds
+                    to the position. N >= 1: an entry in the open position's
+                    direction is refused while N entries are open (N=1 is
+                    MultiCharts' documented default). Reversals always fill.
 
     Returns a dict with keys:
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
@@ -388,6 +395,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     closed-position ledger — neither is in the digest text).
     """
     max_bars_back = check_max_bars_back(max_bars_back)
+    max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
     fallback_reason = None
     if use_native:
@@ -396,6 +404,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
             from_date=from_date, to_date=to_date, from_bar=from_bar,
             seed_warmup=seed_warmup, digest_version=digest_version,
             max_bars_back=max_bars_back,
+            max_entries_per_direction=max_entries_per_direction,
         )
         if native_digest is not None:
             return native_digest
@@ -440,7 +449,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     c_arr, v_arr = cols["close"], cols["volume"]
     dates, times = cols["date"], cols["time"]
 
-    fill_engine = FillEngine(config=config)
+    fill_engine = FillEngine(config=config,
+                             max_entries_per_direction=max_entries_per_direction)
     fill_engine._emit_gta6 = False
 
     extra = None
@@ -537,6 +547,7 @@ def _build_parser():
                          "dropping it. A disagreeing digest fails the check.")
     _cli.add_date_format_arg(ap)
     _cli.add_max_bars_back_arg(ap)
+    _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
                          "data2_close per bar on the Python path, and the full "
@@ -606,6 +617,7 @@ def _main(ap, args):
         use_native=(accel_available() if args.use_native is None else args.use_native),
         digest_version=1 if args.digest_v1 else 2,
         max_bars_back=args.max_bars_back,
+        max_entries_per_direction=args.max_entries_per_direction,
     )
     if not result.get("native"):
         if args.use_native is False or args.digest_v1:

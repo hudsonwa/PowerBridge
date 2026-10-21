@@ -66,6 +66,7 @@ fn config() -> Config {
         commission: 0.0,
         slippage: 0.0,
         max_bars_back: 50,
+        max_entries_per_direction: 0,
         warmup_seed: 0,
         symccy: 840,
         symnm: "NQ".to_owned(),
@@ -640,6 +641,7 @@ fn non_finite_tick_snap_fails_loud() {
     let mut engine = FillEngine::new(Instrument {
         point_value: 20.0,
         tick: f64::NAN,
+        max_entries_per_direction: 0,
     });
     queue(
         &mut engine,

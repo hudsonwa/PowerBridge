@@ -115,16 +115,21 @@ fn run_with_max_bars_back(
     run_native_from_offset(&rest, config.into(), strategy, skip, |_, _, _, _| Ok(()))
 }
 
-/// The trace, audit and batch entry points do not implement MaxBarsBack yet;
-/// refuse rather than silently evaluate the warm-up bars.
-fn refuse_max_bars_back(config: &Config, entry: &str) -> Result<(), KernelError> {
-    if config.max_bars_back == 0 {
-        Ok(())
-    } else {
-        Err(KernelError::unsupported(format!(
+/// The trace, audit and batch entry points do not implement MaxBarsBack or the
+/// same-direction entry cap yet; refuse rather than silently ignore them.
+fn refuse_run_program_options(config: &Config, entry: &str) -> Result<(), KernelError> {
+    if config.max_bars_back != 0 {
+        return Err(KernelError::unsupported(format!(
             "max_bars_back > 0 is not supported by {entry}"
-        )))
+        )));
     }
+    // Likewise the same-direction entry cap: only `run_program` honours it.
+    if config.max_entries_per_direction != 0 {
+        return Err(KernelError::unsupported(format!(
+            "max_entries_per_direction is not supported by {entry}"
+        )));
+    }
+    Ok(())
 }
 
 /// Produce the typed per-bar trace plus the outcome fills.
@@ -134,7 +139,7 @@ pub(crate) fn run_program_trace(
     data2: Option<&BarTape>,
     config: &Config,
 ) -> Result<(TypedTrace, Vec<Fill>), KernelError> {
-    refuse_max_bars_back(config, "run_program_trace")?;
+    refuse_run_program_options(config, "run_program_trace")?;
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, &HashMap::new(), data2_aligned)?;
@@ -166,7 +171,7 @@ pub(crate) fn run_program_audit_packet(
     inputs: &HashMap<String, Value>,
     hash_tapes: bool,
 ) -> Result<(KernelOutcome, Vec<u8>), KernelError> {
-    refuse_max_bars_back(config, "run_program_audit_packet")?;
+    refuse_run_program_options(config, "run_program_audit_packet")?;
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2_aligned)?;
@@ -242,7 +247,7 @@ pub(crate) fn run_program_audit_packet_sliced(
     eval_from: usize,
     source_bar_count: usize,
 ) -> Result<Vec<u8>, KernelError> {
-    refuse_max_bars_back(config, "run_program_audit_packet_sliced")?;
+    refuse_run_program_options(config, "run_program_audit_packet_sliced")?;
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2_aligned)?;
@@ -293,7 +298,7 @@ pub(crate) fn run_program_audit_packet_batch(
     eval_from: usize,
     source_bar_count: usize,
 ) -> Result<Vec<Vec<u8>>, KernelError> {
-    refuse_max_bars_back(config, "run_program_audit_packet_batch")?;
+    refuse_run_program_options(config, "run_program_audit_packet_batch")?;
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let base = compile(&ast, &HashMap::new())?;
@@ -349,7 +354,7 @@ pub(crate) fn run_program_batch(
     config: &Config,
     variants: &[HashMap<String, Value>],
 ) -> Result<Vec<Vec<Fill>>, KernelError> {
-    refuse_max_bars_back(config, "run_program_batch")?;
+    refuse_run_program_options(config, "run_program_batch")?;
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let base = compile(&ast, &HashMap::new())?;
@@ -399,7 +404,7 @@ pub(crate) fn run_program_batch_parallel(
     variants: &[HashMap<String, Value>],
     threads: usize,
 ) -> Result<Vec<Vec<Fill>>, KernelError> {
-    refuse_max_bars_back(config, "run_program_batch_parallel")?;
+    refuse_run_program_options(config, "run_program_batch_parallel")?;
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let base = compile(&ast, &HashMap::new())?;
@@ -464,6 +469,7 @@ mod tests {
             commission: 0.0,
             slippage: 0.0,
             max_bars_back: 0,
+            max_entries_per_direction: 0,
             warmup_seed: 0,
             symccy: 1,
             symnm: "@NQ#C".into(),

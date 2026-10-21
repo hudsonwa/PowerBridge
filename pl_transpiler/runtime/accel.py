@@ -309,7 +309,7 @@ def marshalled_series(bars, data2_bars=None):
     return series, data2
 
 
-def _config_dict(config, max_bars_back=0):
+def _config_dict(config, max_bars_back=0, max_entries_per_direction=0):
     """InstrumentConfig -> the FFI ``config`` mapping (v2, all fields explicit)."""
     return {
         "name": config.name,
@@ -326,6 +326,7 @@ def _config_dict(config, max_bars_back=0):
         "commission": 0.0,
         "slippage": 0.0,
         "max_bars_back": int(max_bars_back),
+        "max_entries_per_direction": int(max_entries_per_direction or 0),
         "warmup_seed": 0,
         "symccy": int(config.symccy),
         "symnm": str(config.symnm),
@@ -335,7 +336,8 @@ def _config_dict(config, max_bars_back=0):
     }
 
 
-def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0):
+def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
+               max_entries_per_direction=0):
     """Execute ``el_source`` over ``bars`` through the native kernel.
 
     Exactly one FFI crossing (``run_program``): serialise the EL to ``program_ir``,
@@ -357,6 +359,8 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0):
     ``max_bars_back`` (default 0) skips the first N bars as history only. A
     kernel built before MaxBarsBack support ignores the config field, so for
     N > 0 such a kernel is refused (``AccelRefused``) rather than trusted.
+    ``max_entries_per_direction`` (default 0 = unlimited) caps same-direction
+    entries; an older kernel without that support is refused the same way.
     """
     accel = _import_accel()
     if max_bars_back and not getattr(accel, "MAX_BARS_BACK", False):
@@ -364,11 +368,16 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0):
         raise AccelRefused(
             "this accel build predates max_bars_back; rebuild accel "
             "(tools/build_accel.sh) to run it natively")
+    if max_entries_per_direction and not getattr(accel, "MAX_ENTRIES_PER_DIRECTION", False):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build predates max_entries_per_direction; rebuild accel "
+            "(tools/build_accel.sh) to run it natively")
     tokens, positions = tokenise(el_source)
     ast = parse(tokens, positions=positions, source=el_source)
     program_ir = serialise_ir(ast)
     series, data2 = marshalled_series(bars, data2_bars)
-    config_map = _config_dict(config, max_bars_back)
+    config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
         return accel.run_program(program_ir, series, data2, config_map)
     except NotImplementedError as exc:

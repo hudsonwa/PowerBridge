@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- `--max-entries-per-direction N` for `pl_run` and `pl_oracle`
+  (`max_entries_per_direction=N` in `run_el` / `run_oracle`): a Buy or
+  SellShort in the open position's direction is refused while N entries are
+  open; reversals still fill. N=1 follows MultiCharts' documented default
+  (not verified against a capture). The default stays unlimited, so existing
+  digests do not change. The native kernel supports it; an older kernel build
+  falls back to Python with a note.
+
 ### Changed
 
 - **`transpile(src)` now returns the runnable dialect by default**, the same

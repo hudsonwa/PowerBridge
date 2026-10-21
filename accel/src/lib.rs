@@ -151,8 +151,8 @@ fn run(
 ///     Explicit instrument config (no defaults): ``name``, ``bigpointvalue``,
 ///     ``pointvalue``, ``minmove``, ``pricescale``, ``tick``, ``barinterval``,
 ///     ``session`` (``{"start", "end"}``), ``commission``, ``slippage``,
-///     ``max_bars_back``, ``warmup_seed``, ``symccy``, ``symnm``, ``symalt``,
-///     ``descstr``, ``expdate``.
+///     ``max_bars_back``, ``max_entries_per_direction``, ``warmup_seed``,
+///     ``symccy``, ``symnm``, ``symalt``, ``descstr``, ``expdate``.
 ///
 /// Returns
 /// -------
@@ -324,6 +324,7 @@ fn extract_config(config: &Bound<'_, PyDict>) -> PyResult<Config> {
         commission: cfg_f64(config, "commission")?,
         slippage: cfg_f64(config, "slippage")?,
         max_bars_back: cfg_usize(config, "max_bars_back")?,
+        max_entries_per_direction: cfg_usize(config, "max_entries_per_direction")?,
         warmup_seed: cfg_usize(config, "warmup_seed")?,
         symccy: cfg_int(config, "symccy")?,
         symnm: cfg_str(config, "symnm")?,
@@ -776,6 +777,8 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Capability flag: `run_program` honours `config["max_bars_back"]`. A
     // kernel without it ignores the field, so Python falls back for N > 0.
     m.add("MAX_BARS_BACK", true)?;
+    // Capability flag: `run_program` honours `config["max_entries_per_direction"]`.
+    m.add("MAX_ENTRIES_PER_DIRECTION", true)?;
     m.add_function(wrap_pyfunction!(ping, m)?)?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(run_program, m)?)?;

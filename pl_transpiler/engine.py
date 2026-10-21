@@ -51,7 +51,7 @@ class FillEngine:
       overrides it
     """
 
-    def __init__(self, point_value=20, tick=0.25, config=None):
+    def __init__(self, point_value=20, tick=0.25, config=None, max_entries_per_direction=0):
         # Per-run instrument config (InstrumentConfig). When provided, it is the
         # single source of the chart/instrument constants — point_value (=$/point)
         # and tick are derived from it so the fill PnL responds to the injected
@@ -61,6 +61,11 @@ class FillEngine:
         if config is not None:
             point_value = config.bigpointvalue
             tick = config.tick
+        # Same-direction entry cap. 0 (default) = unlimited: every Buy /
+        # SellShort adds, as with MultiCharts' "allow multiple entries" setting.
+        # N >= 1 refuses an entry while N entries are open in its direction
+        # (N=1 is MultiCharts' documented default). Reversals are never refused.
+        self.max_entries_per_direction = int(max_entries_per_direction or 0)
         self.market_position = 0    # 0=flat, 1=long, -1=short
         self.contracts = 0
         self.entry_price = 0.0
@@ -316,9 +321,21 @@ class FillEngine:
             self._fill_close_order(order, price, bn, ds, ts)
         self._onclose_pending = []
 
+    def _entry_refused(self, action):
+        """True when ``max_entries_per_direction`` blocks this entry: it adds
+        in the open position's direction and the cap is already reached."""
+        cap = self.max_entries_per_direction
+        if cap <= 0:
+            return False
+        same_dir = ((action == 'buy' and self.market_position > 0)
+                    or (action == 'sellshort' and self.market_position < 0))
+        return same_dir and self.open_entries_count >= cap
+
     def _fill_close_order(self, order, close_price, barnumber, date_str=0, time_str=0):
         """Fill a 'this bar on close' order at the stored (signal-bar) close price."""
         action = order[0].lower()
+        if self._entry_refused(action):
+            return
         qty = int(order[2]) if len(order) > 2 and order[2] else 1
         label = order[4] if len(order) > 4 else ''
         prev_contracts = self.contracts
@@ -401,6 +418,8 @@ class FillEngine:
         """Fill one order at the resolved price; record the fill. qty==0 (the
         OrderMode-4 exit orders emit 0) means exit the entire open position."""
         action = order[0].lower()
+        if self._entry_refused(action):
+            return
         raw_qty = order[2] if len(order) > 2 else 1
         if raw_qty == 0:
             # OrderMode-4 EXIT orders emit 0 to mean "close the whole position".

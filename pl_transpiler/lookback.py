@@ -77,3 +77,15 @@ def check_max_bars_back(max_bars_back):
     if mbb < 0:
         raise ValueError(f"max_bars_back must be >= 0, got {max_bars_back}")
     return mbb
+
+
+def check_max_entries_per_direction(max_entries_per_direction):
+    """Validate and normalise a ``max_entries_per_direction`` argument.
+
+    ``None`` or 0 means unlimited (the default); otherwise it must be >= 1.
+    """
+    n = int(max_entries_per_direction or 0)
+    if n < 0:
+        raise ValueError("max_entries_per_direction must be >= 1 (or None/0 for "
+                         f"unlimited), got {max_entries_per_direction}")
+    return n

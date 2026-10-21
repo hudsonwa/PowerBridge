@@ -108,6 +108,10 @@ pub(crate) struct FillEngine {
     position_mfe_per_contract: f64,
     position_mae_per_contract: f64,
     entry_prices: VecDeque<f64>,
+    // Open quantity of each entry of the current position, in fill order
+    // (Python `_entry_qtys`). FIFO exits consume it; its length is
+    // OpenEntriesCount, which `max_entries_per_direction` caps.
+    entry_qtys: VecDeque<isize>,
     pending_orders: Vec<Order>,
     on_close_pending: Vec<OnCloseOrder>,
     risk: RiskSettings,
@@ -144,6 +148,7 @@ impl FillEngine {
             position_mfe_per_contract: 0.0,
             position_mae_per_contract: 0.0,
             entry_prices: VecDeque::new(),
+            entry_qtys: VecDeque::new(),
             pending_orders: Vec::new(),
             on_close_pending: Vec::new(),
             risk: RiskSettings::default(),
@@ -240,6 +245,9 @@ impl FillEngine {
             // Python's this-bar-on-close path (`_fill_close_order`) treats a
             // zero/omitted quantity as one, unlike its next-bar qty=0 "exit
             // all" convention; otherwise it applies `int(raw_qty)`.
+            if self.entry_refused(queued.order.action) {
+                continue;
+            }
             let quantity = resolve_on_close_quantity(queued.order.quantity)?;
             let previous = self.signed_position();
             self.apply_action(
@@ -359,6 +367,9 @@ impl FillEngine {
         // `int(raw_qty)` truncates toward zero and stays signed (0.4 -> 0
         // contracts, -3 -> 3 fills), never the truncated usize the old kernel
         // used to mint a contract from a fractional quantity.
+        if self.entry_refused(order.action) {
+            return Ok(());
+        }
         let quantity = self.resolve_fill_quantity(order.action, order.quantity)?;
         let previous = self.signed_position();
         self.apply_action(order.action, quantity, fill_price, bar)?;
@@ -371,6 +382,34 @@ impl FillEngine {
             previous,
         );
         Ok(())
+    }
+
+    /// Python `_entry_refused`: `max_entries_per_direction` blocks an entry
+    /// that adds in the open position's direction once the cap is reached.
+    fn entry_refused(&self, action: Action) -> bool {
+        let cap = self.instrument.max_entries_per_direction;
+        let same_direction = match action {
+            Action::Buy => self.market_position > 0,
+            Action::SellShort => self.market_position < 0,
+            Action::Sell | Action::BuyToCover => false,
+        };
+        cap > 0 && same_direction && self.entry_qtys.len() >= cap
+    }
+
+    /// Take `quantity` contracts off the oldest entries first (Python
+    /// `_consume_entry_qtys`).
+    fn consume_entry_qtys(&mut self, mut quantity: isize) {
+        while quantity > 0 {
+            let Some(front) = self.entry_qtys.front_mut() else {
+                break;
+            };
+            let take = quantity.min(*front);
+            *front -= take;
+            quantity -= take;
+            if *front <= 0 {
+                self.entry_qtys.pop_front();
+            }
+        }
     }
 
     /// Open contracts, signed: + long, - short, 0 flat.
@@ -466,7 +505,9 @@ impl FillEngine {
             self.entry_bar = bar;
             self.position_profit = 0.0;
             self.reset_position_stats();
+            self.entry_qtys.clear();
         }
+        self.entry_qtys.push_back(quantity);
         self.bars_since_entry = 0;
         self.peak_profit = 0.0;
         self.max_contracts_held = self.max_contracts_held.max(self.contracts);
@@ -501,7 +542,9 @@ impl FillEngine {
         if old_contracts == 0 {
             self.entry_bar = bar;
             self.reset_position_stats();
+            self.entry_qtys.clear();
         }
+        self.entry_qtys.push_back(quantity);
         self.bars_since_entry = 0;
         self.position_profit = 0.0;
         self.peak_profit = 0.0;
@@ -517,6 +560,7 @@ impl FillEngine {
         for _ in 0..closed {
             self.entry_prices.pop_front();
         }
+        self.consume_entry_qtys(closed);
         if self.contracts > 0 {
             let total: f64 = self.entry_prices.iter().sum();
             // Python narrows only after the f64 sum/division.
@@ -563,6 +607,7 @@ impl FillEngine {
         self.open_position_profit = 0.0;
         self.peak_profit = 0.0;
         self.entry_prices.clear();
+        self.entry_qtys.clear();
     }
 
     fn compute_pnl(&mut self, close: f64) {
@@ -1722,6 +1767,72 @@ mod tests {
         assert_eq!(engine.market_position, 0);
         assert_eq!(engine.fills.len(), 4);
         assert_eq!(engine.fills[2].fill_type, "EntryLong");
+    }
+
+    #[test]
+    fn max_entries_per_direction_refuses_repeat_entries() {
+        let mut engine = FillEngine::new(Instrument {
+            max_entries_per_direction: 1,
+            ..Instrument::default()
+        });
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        assert_eq!(engine.contracts, 1);
+        assert_eq!(engine.fills.len(), 1);
+
+        // A reversal is never refused.
+        queue(
+            &mut engine,
+            vec![Order::market(Action::SellShort, 1.0, "SE")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+            2,
+        );
+        engine
+            .before_bar(bar(99.0, 99.0, 99.0, 99.0, 1240102, 932), 3)
+            .unwrap();
+        assert_eq!(engine.market_position, -1);
+        assert_eq!(engine.contracts, 1);
+        assert_eq!(engine.fills.len(), 3);
+    }
+
+    #[test]
+    fn unlimited_entries_by_default() {
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        assert_eq!(engine.contracts, 2);
+        assert_eq!(engine.entry_qtys.len(), 2);
+    }
+
+    #[test]
+    fn partial_exit_frees_an_entry_slot() {
+        let mut engine = FillEngine::new(Instrument {
+            max_entries_per_direction: 2,
+            ..Instrument::default()
+        });
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        assert_eq!(engine.contracts, 2);
+
+        queue(
+            &mut engine,
+            vec![Order::market(Action::Sell, 1.0, "LX")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+            2,
+        );
+        engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 932), 3)
+            .unwrap();
+        assert_eq!(engine.contracts, 1);
+        assert_eq!(engine.entry_qtys.len(), 1);
+
+        enter_long(&mut engine);
+        assert_eq!(engine.contracts, 2);
+        assert_eq!(engine.entry_qtys.len(), 2);
+        assert_eq!(engine.fills.len(), 4);
     }
 
     #[test]

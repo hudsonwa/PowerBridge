@@ -86,6 +86,23 @@ def add_max_bars_back_arg(ap):
                          "50); pass 50 to reproduce that. Default: 0.")
 
 
+def _positive_int(text):
+    value = _non_negative_int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return value
+
+
+def add_max_entries_per_direction_arg(ap):
+    """The shared ``--max-entries-per-direction N`` option."""
+    ap.add_argument("--max-entries-per-direction", dest="max_entries_per_direction",
+                    default=None, type=_positive_int, metavar="N",
+                    help="refuse a Buy (SellShort) while N entries are already "
+                         "open long (short); reversals still fill. Default: "
+                         "unlimited, as with MultiCharts' 'allow multiple "
+                         "entries' setting. Pass 1 for MultiCharts' documented default.")
+
+
 def bars_or_error(load, path, date_format=None):
     """Call ``load(path)``, turning a malformed or empty bars file into a CliError."""
     try:

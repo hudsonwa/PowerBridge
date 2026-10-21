@@ -79,7 +79,8 @@ from pl_transpiler.engine import (  # noqa: E402
 )
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
 from pl_transpiler.tools import _cli  # noqa: E402
-from pl_transpiler.lookback import check_max_bars_back, warn_short_history  # noqa: E402
+from pl_transpiler.lookback import (  # noqa: E402
+    check_max_bars_back, check_max_entries_per_direction, warn_short_history)
 
 
 def unimplemented_stop_message(prog, exc, el_file):
@@ -388,6 +389,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            retain_rows: Optional[bool] = None,
            from_date: Optional[int] = None, from_bar: Optional[int] = None,
            seed_warmup: bool = True, max_bars_back: int = 0,
+           max_entries_per_direction: Optional[int] = None,
            _python_path_notify: Optional[Callable[..., Any]] = None) -> Dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
@@ -426,6 +428,10 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     BarNumber starts at 1 on bar N+1. Default 0 evaluates every
                     bar. With too little history for a ``Close[n]`` read, one
                     warning is printed on stderr; values are unchanged.
+    max_entries_per_direction : None/0 (default): every Buy/SellShort adds
+                    to the position. N >= 1: an entry in the open position's
+                    direction is refused while N entries are open (N=1 is
+                    MultiCharts' documented default). Reversals always fill.
 
     Returns {'columns': [...], 'rows': [[str, ...], ...], 'trades': [...],
     'n_rows': int, 'n_warmup': int}, where rows are formatted exactly as the GT
@@ -435,6 +441,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     when the tape is sliced or no window is set).
     """
     max_bars_back = check_max_bars_back(max_bars_back)
+    max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     reset_indicator_caches()
     if partial:
         # Surface the manifest loudly before running. Detect the stubs via the
@@ -466,7 +473,8 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     c_arr, v_arr = cols['close'], cols['volume']
     dates, times = cols['date'], cols['time']
 
-    fill_engine = FillEngine(config=config)
+    fill_engine = FillEngine(config=config,
+                             max_entries_per_direction=max_entries_per_direction)
     # General single-data path: GTA6 multi-file stat/introspection injection is a
     # capture-specific concern and stays off here.
     fill_engine._emit_gta6 = False
@@ -585,6 +593,7 @@ def _build_parser():
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
     _cli.add_max_bars_back_arg(ap)
+    _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
                          "money to cents and prices to the instrument tick.")
@@ -634,6 +643,7 @@ def _main(ap, args):
                             from_date=args.from_date, from_bar=args.from_bar,
                             seed_warmup=not args.slice_tape,
                             max_bars_back=args.max_bars_back,
+                            max_entries_per_direction=args.max_entries_per_direction,
                             _python_path_notify=warn_python_path)
         except UnknownTraceColumnError as exc:
             if out_path:
@@ -648,6 +658,7 @@ def _main(ap, args):
                         from_date=args.from_date, from_bar=args.from_bar,
                         seed_warmup=not args.slice_tape,
                         max_bars_back=args.max_bars_back,
+                        max_entries_per_direction=args.max_entries_per_direction,
                         _python_path_notify=warn_python_path)
     if out_path:
         out_f.close()

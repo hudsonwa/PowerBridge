@@ -545,9 +545,10 @@ See [docs/CAPTURES.md](docs/CAPTURES.md) if you want to attach your own.
 - The `accel` fast path is optional and builds from source. It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
   `pl_run` (per-bar trace rows) always uses the Python path.
-- Repeat entries in the same direction always add to the position (no
-  pyramiding limit). MultiCharts' default refuses them; documented
-  behaviour, not yet verified against a capture.
+- Same-direction entries always add to the position (as with MultiCharts'
+  'allow multiple entries' setting). MultiCharts' default setting refuses
+  them; that default is documented behaviour, not verified against a capture.
+  Pass `--max-entries-per-direction 1` to get it.
 - `Sell from entry("A")` with two entries open closes the whole position.
   Per the documented EasyLanguage semantics it should close only entry A.
   This is documented behaviour that has not yet been verified against a
@@ -560,6 +561,8 @@ See [docs/CAPTURES.md](docs/CAPTURES.md) if you want to attach your own.
   default is 0: every bar is evaluated, and a `Close[n]` read with too little
   history returns that bar's Open (one stderr warning per run says so).
   Only literal lookbacks are checked for that warning; `Close[Length]` is not.
+  To refuse repeat same-direction entries as MultiCharts' default setting
+  does, pass `--max-entries-per-direction 1`.
 - This tree is the library, tests, and docs. Internal build tooling is not
   shipped.
 

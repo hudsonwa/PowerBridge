@@ -87,6 +87,7 @@ fn nq_config() -> Config {
         commission: 0.0,
         slippage: 0.0,
         max_bars_back: 0,
+        max_entries_per_direction: 0,
         warmup_seed: 0,
         symccy: 1,
         symnm: "@NQ#C".into(),

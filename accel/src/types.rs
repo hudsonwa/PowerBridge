@@ -725,6 +725,9 @@ where
 pub(crate) struct Instrument {
     pub(crate) point_value: f64,
     pub(crate) tick: f64,
+    /// Same-direction entry cap (`Config::max_entries_per_direction`); 0 is
+    /// unlimited.
+    pub(crate) max_entries_per_direction: usize,
 }
 
 impl Default for Instrument {
@@ -732,6 +735,7 @@ impl Default for Instrument {
         Self {
             point_value: 20.0,
             tick: 0.25,
+            max_entries_per_direction: 0,
         }
     }
 }
@@ -741,6 +745,7 @@ impl From<&Config> for Instrument {
         Self {
             point_value: config.bigpointvalue,
             tick: config.tick,
+            max_entries_per_direction: config.max_entries_per_direction,
         }
     }
 }
@@ -771,6 +776,9 @@ pub(crate) struct Config {
     pub(crate) commission: f64,
     pub(crate) slippage: f64,
     pub(crate) max_bars_back: usize,
+    /// 0 = unlimited same-direction entries; N >= 1 refuses a Buy/SellShort
+    /// while N entries are open in that direction (reversals still fill).
+    pub(crate) max_entries_per_direction: usize,
     pub(crate) warmup_seed: usize,
     pub(crate) symccy: i64,
     pub(crate) symnm: String,
