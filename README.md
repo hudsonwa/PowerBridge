@@ -591,7 +591,8 @@ compatibility.
 See [CONTRIBUTING.md](CONTRIBUTING.md). Open an issue before a large change.
 Small fixes can be a pull request on their own.
 For how the transpiler, fill engine and native kernel fit together, see
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The design decisions and their trade-offs are in
+[docs/DESIGN.md](docs/DESIGN.md).
 
 Development started in a private repository; this public repository begins at
 the 0.2.0 export. Changes since then are made here in the open.

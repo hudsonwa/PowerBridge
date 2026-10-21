@@ -22,7 +22,8 @@ over OHLCV bars with exact, digest-checked trade lists. The human guide is
 [README.md](README.md), the public Python and CLI reference is
 [docs/API.md](docs/API.md), the EL keyword reference is
 [docs/reference/](docs/reference/README.md), and the full API, CLI and invariant reference is
-[docs/dev/agent-guide-details.md](docs/dev/agent-guide-details.md).
+[docs/dev/agent-guide-details.md](docs/dev/agent-guide-details.md). Design decisions and
+trade-offs are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Layout
 
