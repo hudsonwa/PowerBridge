@@ -33,6 +33,24 @@ ruff check .                       # lint (rules in pyproject.toml)
 also runs without pytest as `python3 tests/run_public_tier.py` (stdlib only;
 CI uses it on every OS).
 
+## Keyword reference and catalog: where facts come from
+
+`docs/reference/` and the keyword catalog (`pl_signatures.jsonl`) describe
+EasyLanguage as PowerBridge supports it. Every fact in them must come from
+PowerBridge itself:
+
+- its code, its tests, or behaviour you see by running it;
+- a parity test or capture result that is already in the repo.
+
+Never copy or paraphrase vendor documentation (MultiCharts or TradeStation
+manuals, help files, PDFs), and don't have it open while you write an entry.
+Write descriptions and examples in your own words. If you can't show a
+behaviour with PowerBridge, mark it `documented-unverified` rather than
+stating it as fact. After editing `docs/reference/_notes.json`, run
+`python3 tools/gen_reference.py` and commit the regenerated pages.
+
+## Dependencies
+
 Please do not add dependencies. The library is standard-library only.
 
 By contributing you agree your work is licensed under Apache 2.0,

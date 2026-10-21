@@ -10,6 +10,8 @@
   runs it, a short description and, for many, an example. `tools/gen_reference.py`
   builds the pages from the catalog and `docs/reference/_notes.json`; a test runs every
   example and fails when the pages are stale.
+- CONTRIBUTING: where reference and catalog facts must come from (PowerBridge's
+  code, tests and observed behaviour, never vendor documentation).
 - `docs/API.md`: a reference for the public library functions and the CLIs,
   with runnable examples. `pl_transpiler.__all__` lists the public names, and
   `run_oracle`, `load_bars`, `load_config_file`, `catalog` and
