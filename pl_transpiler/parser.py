@@ -707,6 +707,12 @@ class Parser:
                 price = self.parse_expression()
                 if self.peek()[0] == TT_IDENT and self.peek()[1] in ('stop', 'limit'):
                     order_type = self.advance()[1]
+                elif self.peek()[0] == TT_IDENT:
+                    # A stray word after the price (e.g. an unsupported unit
+                    # like `2 Ticks`): name it rather than misreporting the
+                    # trailing `stop`/`limit` as unimplemented.
+                    self._err(f"unexpected {self._describe(self.peek())} "
+                              "after the order price")
         elif self.peek()[0] == TT_IDENT and self.peek()[1] == 'this':
             self.advance()  # 'this'
             if self.peek()[0] == TT_IDENT and self.peek()[1] == 'bar':
@@ -920,7 +926,15 @@ class Parser:
         if self.peek()[0] == TT_OP and self.peek()[1] == '+':
             self.advance()
             return self.parse_unary()
-        return self.parse_primary()
+        node = self.parse_primary()
+        if self.peek()[0] == TT_IDENT and self.peek()[1] in ('point', 'points'):
+            # `N Point(s)`: N minimum price moves, N * (MinMove / PriceScale).
+            self.advance()
+            tick = {'type': 'binop', 'op': '/',
+                    'left': {'type': 'position_kw', 'kwarg': 'minmove'},
+                    'right': {'type': 'position_kw', 'kwarg': 'pricescale'}}
+            node = {'type': 'binop', 'op': '*', 'left': node, 'right': tick}
+        return node
 
     def parse_primary(self):
         tok = self.peek()

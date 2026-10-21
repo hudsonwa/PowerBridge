@@ -190,22 +190,23 @@ def tokenise(source: str):
             if word in KEYWORDS:
                 emit((TT_KEYWORD, word), start)
             elif word == 'crosses':
-                # Two-word keyword: "crosses above" / "crosses below"
+                # Two-word keyword: "crosses above" / "crosses below";
+                # "over" / "under" are synonyms for "above" / "below".
                 j = i + m.end()
                 while j < len(src) and src[j] in ' \t\r\n':
                     j += 1
                 m2 = re.match(r'[A-Za-z_#][A-Za-z0-9_.]*', src[j:])
                 if m2:
                     next_word = m2.group().lower()
-                    if next_word == 'above':
+                    if next_word in ('above', 'over'):
                         emit((TT_KEYWORD, 'crossesabove'), start)
                         i = j + m2.end()
                         continue
-                    elif next_word == 'below':
+                    elif next_word in ('below', 'under'):
                         emit((TT_KEYWORD, 'crossesbelow'), start)
                         i = j + m2.end()
                         continue
-                # Not followed by above/below; emit as regular ident
+                # Not followed by above/below/over/under; emit as regular ident
                 emit((TT_IDENT, word), start)
             else:
                 emit((TT_IDENT, word), start)
