@@ -20,6 +20,15 @@
   so `1343.7984375000087` prints as `1343.80`. `--full-precision` restores the
   raw floats. `pl_oracle --fills-csv` rounds `price` the same way. Display
   only: `run_el` rows and every digest are unchanged.
+- The `pl_oracle` summary line no longer ends in `N fast-path`. With
+  `--verbose` it prints a second line saying how many bars had no pending
+  orders, position or risk exits and skipped fill processing.
+- The README examples write their files into `out/`, which git and
+  `ruff check .` ignore, instead of the repository root.
+- Install docs no longer suggest `pip install powerbridge[accel]`, which
+  cannot resolve until `powerbridge-accel` is on PyPI: install the release
+  wheel or build `accel/` from source. The README now lists the missing
+  MaxBarsBack warm-up under Limitations.
 
 ### Fixes
 
@@ -34,6 +43,9 @@
   (or an RSI pair), shared an `id()`-keyed cache entry: the freed temporary
   slice of one could hand its id, and so its EMA/RSI state, to the other.
   The native kernel still refuses this construct and falls back to Python.
+- `pl_run` and `pl_oracle` stop with exit code 2 and one `error:` line when
+  a bars file has a header but no bars. Before, they exited 0 and printed a
+  digest for an empty run.
 - A call with the wrong number of arguments to a builtin whose arity is
   known (`x = Stochastic;`, `Stochastic(Close)`, a bare `MaxList`) now fails
   at transpile time with one line, e.g. `'Stochastic' at line 2 takes 11

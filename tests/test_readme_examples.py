@@ -115,6 +115,9 @@ def to_argv(argv):
         return [sys.executable, "-m", COMMANDS[argv[0]]] + argv[1:]
     if argv[0] in ("python", "python3"):
         return [sys.executable] + argv[1:]
+    if argv[:2] == ["mkdir", "-p"]:
+        return [sys.executable, "-c",
+                "import os, sys; [os.makedirs(p, exist_ok=True) for p in sys.argv[1:]]"] + argv[2:]
     raise AssertionError(
         f"README command {argv[0]!r} is not runnable here; mark the block "
         "<!-- readme-test: skip (reason) -->")

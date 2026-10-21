@@ -19,7 +19,7 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 [project.optional-dependencies]
 # OPTIONAL FAST PATH — decision record: docs/ACCEL.md. Strictly additive.
 # Interface frozen across the kernel, CI and test code; do not rename:
-#   extra name    -> `accel`        (pip install .[accel])
+#   extra name    -> `accel`        (resolves only once powerbridge-accel is on PyPI)
 #   native module -> `pl_transpiler._accel`
 #   extra absent  -> `import pl_transpiler._accel` raises ImportError; callers fall
 #                    back to the Python path LOUDLY and produce identical results
@@ -27,8 +27,10 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 #
 # The core `dependencies` list above stays [] and the default `pip install .`
 # remains pure-stdlib, zero-dependency, with no build step. This extra is
-# opt-in only. The native wheel, powerbridge-accel, is published separately to PyPI
-# by release.yml; keep this pin equal to `version`.
+# opt-in only. The native wheel, powerbridge-accel, is not on PyPI yet, so
+# `pip install .[accel]` fails today: install the wheel from the GitHub Release
+# or build accel/ from source (README "Acceleration"). release.yml will publish
+# it to PyPI; keep this pin equal to `version`.
 accel = ["powerbridge-accel==0.4.0"]
 
 [project.scripts]
@@ -54,7 +56,7 @@ include = ["pl_transpiler*"]
 # Lint only; no formatter is enforced. emitted/ and tests/generated/ hold
 # machine-generated output, so they are not linted.
 target-version = "py39"
-extend-exclude = ["emitted", "tests/generated", "accel/target"]
+extend-exclude = ["emitted", "tests/generated", "accel/target", "out"]
 
 [tool.ruff.lint]
 # Conservative set: syntax errors (E9) and pyflakes (F) only.

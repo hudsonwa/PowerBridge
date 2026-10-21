@@ -20,7 +20,7 @@
 //!
 //! The shipped Python entry point does not select a strategy yet: its frozen
 //! seven-array signature contains neither an EL program/AST nor a stable
-//! strategy identifier (and Audit Ref 3 also needs Data2). The selected phase-2
+//! strategy identifier (and the reference strategy also needs Data2). The selected
 //! strategy policy is therefore **fail-loud fallback**, not an implicit
 //! hard-coded strategy. See `lib.rs` and `README.md`.
 

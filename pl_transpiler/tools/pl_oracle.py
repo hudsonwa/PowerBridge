@@ -87,7 +87,7 @@ from pl_transpiler.tools.pl_run import (  # noqa: E402
 
 DIGEST_VERSION = "v2"
 
-# Headline Audit Ref 3 Config C audit (Audit_Ref_3_Audit2.EL over the 2,322,973-bar NQ
+# Headline reference-strategy digest (the reference EL over the 2,322,973-bar NQ
 # tape, persist=True min-emit). Full tape and the 2018-01-01 window (856,914
 # bars) produce this identical digest. This module does not load that private
 # tape; the constants are kept as a fixed reference.
@@ -608,12 +608,12 @@ def _main(ap, args):
 
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")
-    fast_note = ""
-    if result.get("fast_path_hits") is not None:
-        fast_note = f", {result['fast_path_hits']} fast-path"
     print(f"[pl_oracle] {result['n_bars']} bars{warmup_note}, {result['fills']} fills, "
-          f"{result['round_turns']} round-turns{fast_note} [{path_note}]"
+          f"{result['round_turns']} round-turns [{path_note}]"
           + (f" -> {output}" if output else ""), file=sys.stderr)
+    if args.verbose and result.get("fast_path_hits") is not None:
+        print(f"[pl_oracle] {result['fast_path_hits']} bars had no pending orders, "
+              "position or risk exits and skipped fill processing", file=sys.stderr)
 
     if args.compare:
         want = open(args.compare, encoding="utf-8").read()

@@ -209,7 +209,7 @@ def run_bar_loop(
     # These stay Python lists. Isolated FAST-LANE (856,914 bars):
     # array.array append+[-1] is ~1.2× slower (re-boxes a float on every read);
     # a Python __getitem__ wrapper is ~2.7× slower; MaxBarsBack pop(0) cap is
-    # noise on Audit Ref 3. strategy() wants Python floats; list.append stores the
+    # noise on the reference strategy. strategy() wants Python floats; list.append stores the
     # tape's existing PyFloat. A contiguous buffer is the right FFI layout for
     # the optional accel extra — do not silently switch this path.
     if init_hist is not None:

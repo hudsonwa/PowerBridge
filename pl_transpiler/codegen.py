@@ -171,7 +171,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self._collect_double_accums(node['body'])
         # Unindexed Variables are stored as scalars. Only vars read as Var[n]
         # or passed into a series-context function keep a growing history list
-        # (Audit Ref 3 has zero lookbacks — 30 appends/bar of unused history).
+        # (the reference strategy has zero lookbacks — 30 appends/bar of unused history).
         self._history_vars = set()
         if self.persist:
             self._collect_history_vars(node['body'])
@@ -354,7 +354,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # that exact prologue. persist/trace also accept array.array / memoryview
         # so a contiguous buffer can be passed in without being wrapped as a
         # 1-element list. Engine still passes Python lists:
-        # array[-1] re-boxes a float and measured slower on Audit Ref 3.
+        # array[-1] re-boxes a float and measured slower on the reference strategy.
         header = (
             sig
             + (

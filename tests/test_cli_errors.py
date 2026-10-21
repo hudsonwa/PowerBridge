@@ -42,8 +42,11 @@ def files(tmp_path):
     bad_row.write_text("date,time,open,high,low,close,volume\n1240102,930,x,2,0,1,5\n")
     empty = tmp_path / "empty.csv"
     empty.write_text("")
+    header_only = tmp_path / "header_only.csv"
+    header_only.write_text("date,time,open,high,low,close,volume\n")
     return {"bad_el": str(bad_el), "no_hdr": str(no_hdr),
             "bad_row": str(bad_row), "empty": str(empty),
+            "header_only": str(header_only),
             "missing": str(tmp_path / "nope.el")}
 
 
@@ -68,6 +71,7 @@ def test_unknown_config_lists_known(tool):
     ("no_hdr", "missing column(s) volume"),
     ("bad_row", "line 2"),
     ("empty", "empty file"),
+    ("header_only", "contains no bars"),
 ])
 def test_bad_csv(tool, files, which, needle):
     _assert_one_line(_run(tool, EL, files[which]), tool, needle)
@@ -104,6 +108,20 @@ def test_pl_run_summary_wording():
     assert proc.returncode == 0, proc.stderr
     summary = proc.stderr.strip().splitlines()[-1]
     assert " fills, " in summary and " round-turns" in summary, summary
+
+
+def test_pl_oracle_status_line_has_no_jargon():
+    proc = _run("pl_oracle", EL, BARS, "--python")
+    assert proc.returncode == 0, proc.stderr
+    summary = [ln for ln in proc.stderr.splitlines() if ln.startswith("[pl_oracle]")]
+    assert summary == ["[pl_oracle] 140 bars, 3 fills, 1 round-turns [python]"], proc.stderr
+
+
+def test_pl_oracle_verbose_explains_skipped_bars():
+    proc = _run("pl_oracle", EL, BARS, "--python", "--verbose")
+    assert proc.returncode == 0, proc.stderr
+    assert any(ln.startswith("[pl_oracle] ") and "skipped fill processing" in ln
+               for ln in proc.stderr.splitlines()), proc.stderr
 
 
 UNIMPL_EL = "Vars: X(0);\nX = TradesToday(0);\nIf X > 5 then Buy next bar at market;\n"

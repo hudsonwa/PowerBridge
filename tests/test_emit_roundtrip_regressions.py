@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_tier1_quickwins.py — Tier-1 quick-win regressions (2026-07-11 report).
+"""test_emit_roundtrip_regressions.py — transpile and EL round-trip regressions.
 
 Five independent, small-surface fixes, one assertion group each:
 
@@ -106,7 +106,7 @@ def main():
         g()
         passed += 1
         print(f"  ok: {g.__name__}")
-    print(f"TIER1 QUICKWINS: {passed}/{len(GROUPS)} groups pass")
+    print(f"EMIT ROUNDTRIP REGRESSIONS: {passed}/{len(GROUPS)} groups pass")
     return 0 if passed == len(GROUPS) else 1
 
 

@@ -19,7 +19,7 @@
 //! execution because its seven-array signature provides no EL program, AST,
 //! strategy identifier, instrument configuration, or Data2. Hard-coding one
 //! strategy would silently return wrong trades for every other program, so
-//! phase 2 deliberately chooses the fail-loud fallback policy. The `engine`
+//! the crate deliberately chooses the fail-loud fallback policy. The `engine`
 //! and `strategy` module skeletons are pre-wired for the engine and strategy implementations.
 
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ pub(crate) mod types;
 
 // The selected fail-loud strategy policy leaves the completed native loop
 // dormant in production until an owner-approved strategy-bearing contract can
-// call it. Rust unit tests exercise it directly in this phase.
+// call it. Rust unit tests exercise it directly.
 #[allow(dead_code)]
 mod kernel;
 
@@ -113,7 +113,7 @@ fn run(
 
     // Selected strategy-semantics approach: fail-loud fallback.
     //
-    // The frozen signature has no EL/AST/strategy argument, and Audit Ref 3 needs
+    // The frozen signature has no EL/AST/strategy argument, and the reference strategy needs
     // aligned Data2 closes that are also absent. Running a no-op or hard-coded
     // strategy would be plausible-but-wrong. Raise a stable built-in exception
     // so the Python wiring owner can select the existing Python path explicitly.

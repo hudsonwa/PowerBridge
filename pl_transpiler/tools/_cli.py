@@ -66,13 +66,17 @@ def add_date_format_arg(ap):
 
 
 def bars_or_error(load, path, date_format=None):
-    """Call ``load(path)``, turning a malformed bars file into a CliError."""
+    """Call ``load(path)``, turning a malformed or empty bars file into a CliError."""
     try:
         if date_format is not None:
-            return load(path, date_format=date_format)
-        return load(path)
+            bars = load(path, date_format=date_format)
+        else:
+            bars = load(path)
     except (ValueError, IndexError, StopIteration) as exc:
         raise CliError("bad bars file %s: %s" % (path, exc)) from exc
+    if len(bars) == 0:
+        raise CliError("bars file %s contains no bars" % path)
+    return bars
 
 
 def _describe(exc):

@@ -28,7 +28,7 @@ and `types.rs` remains authoritative for the *Rust* semantics.
 
 | Fact | Value |
 |---|---|
-| Extra name | `accel` (`pip install .[accel]`) |
+| Extra name | `accel` (resolves once `powerbridge-accel` is on PyPI) |
 | Native extension import | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers fall back to the Python path loudly |
 

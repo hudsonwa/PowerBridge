@@ -19,15 +19,15 @@ exercise those pieces without crossing into Python.
 
 ## Strategy-semantics policy: fail-loud fallback
 
-Phase 2 deliberately chooses the allowed **fail-loud fallback** approach.
+The crate deliberately chooses the allowed **fail-loud fallback** approach.
 `run` validates and marshals all seven columns in one FFI call, then raises
 `NotImplementedError` with an `ACCEL_FALLBACK_REQUIRED` prefix. It never
 returns an empty or partial trade list.
 
 The frozen call has no EL source, AST, strategy identifier, instrument
-configuration, or Data2 column. Audit Ref 3 itself needs aligned Data2 closes.
+configuration, or Data2 column. The reference strategy itself needs aligned Data2 closes.
 Consequently, this call cannot distinguish two strategies over the same tape.
-Hard-coding Audit Ref 3 or silently running no strategy would violate the
+Hard-coding the reference strategy or silently running no strategy would violate the
 fail-loud contract. The Python wiring owner must catch this refusal and run
 the existing Python path. A future owner-approved strategy-bearing contract
 can connect a generated Rust strategy to the already-native loop.
@@ -44,8 +44,8 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 # cargo / rustc / maturin on PATH (~/.cargo/bin)
 maturin develop --release
 # Import from a cwd that is NOT the repo root: the real `pl_transpiler`
-# package on the repo path would otherwise shadow this extra until phase 2
-# installs the .so next to it.
+# package on the repo path would otherwise shadow this extra unless the .so
+# is installed next to it.
 python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
 ```
 
@@ -89,4 +89,4 @@ call sites.
   currently implemented explicit-order fill list but would be required by a
   native strategy that reads those reserved words.
 - Differential trade-list fidelity for any strategy implementation before
-  enabling it. The Audit Ref 3 full-tape oracle has not been run by this phase.
+  enabling it. The reference strategy's full-tape oracle has not been run against this call.

@@ -181,7 +181,7 @@ fn bench_scale() {
 
 // A zero-lookback "audit"-shaped program: scalar arithmetic on Data-of-Data2
 // plus a long incrementally-built string line. No series functions, no
-// lookback — this is the shape Audit Ref 3 (zero lookback) presents.
+// lookback — this is the shape the reference strategy (zero lookback) presents.
 #[test]
 #[ignore]
 fn bench_zerolookback() {

@@ -300,7 +300,7 @@ fn series_lookback(program: &Program) -> Result<usize, &'static str> {
 
 /// Longest var-to-var copy chain in a `Date <> SessionDate` then-block.
 ///
-/// Audit Ref 3 copies SessionClose → Prior → TwoAgo (depth 2). Over-warming is
+/// The reference strategy copies SessionClose → Prior → TwoAgo (depth 2). Over-warming is
 /// safe; under-warming is a missed fill. If no session rollover is found, 0.
 fn session_rollover_then_ranges(program: &Program) -> Vec<(usize, usize)> {
     let instrs = &program.instrs;
@@ -1193,10 +1193,10 @@ mod tests {
     #[ignore]
     fn audit_ref3_ir_proves_prefix_skip() {
         let path = std::env::var("AUDIT_REF3_IR")
-            .expect("set AUDIT_REF3_IR to the serialised Audit Ref 3 IR");
+            .expect("set AUDIT_REF3_IR to the serialised reference-strategy IR");
         let payload = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
         let ast = super::super::ir::load_program_ir(&payload).expect("load IR");
-        let program = compile(&ast, &HashMap::new()).expect("compile Audit Ref 3");
+        let program = compile(&ast, &HashMap::new()).expect("compile reference strategy");
         let mut dates = Vec::new();
         for d in [
             1030101i64, 1100101, 1171231, 1180101, 1180211, 1180212, 1180213,
@@ -1209,7 +1209,7 @@ mod tests {
         let plan = plan(&program, tape.dates());
         assert!(
             plan.proven,
-            "Audit Ref 3 must prove a skip, got: {}",
+            "reference strategy must prove a skip, got: {}",
             plan.reason
         );
         assert!(plan.eval_from > 0, "{}", plan.reason);
@@ -1224,7 +1224,7 @@ mod tests {
             plan.reason
         );
         eprintln!(
-            "audit-ref-3 plan: eval_from={} reason={}",
+            "reference strategy plan: eval_from={} reason={}",
             plan.eval_from, plan.reason
         );
     }

@@ -249,8 +249,8 @@ def pl_pos_trade_field(kwargs, field, pos_ago=0, trade_number=0):
 
     Looks up a per-trade value supplied by the runner via kwargs. The runner
     may key these either generically (just the field name) or per (pos_ago,
-    trade_number). Until the capture-driven per-trade supply is wired up
-    (a later phase), this defaults to 0 so transpiled code executes.
+    trade_number). When the runner supplies no
+    value, this defaults to 0 so transpiled code executes.
     """
     try:
         pos_ago = int(pos_ago)

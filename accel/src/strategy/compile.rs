@@ -1367,7 +1367,7 @@ mod tests {
     }
 
     /// One numeric variable, only ever used as a scalar: neither history is
-    /// attached (the Audit Ref 3 shape).
+    /// attached (the reference-strategy shape).
     #[test]
     fn scalar_only_variable_needs_no_history() {
         let (value, numeric) = needs(

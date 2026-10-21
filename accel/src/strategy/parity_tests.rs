@@ -449,7 +449,7 @@ fn crosses_of_variables_match_python_numeric_history() {
 
 // ---- Data2 (`Close of Data2` / `Close of Data(2)`) parity ----
 
-/// Audit-Ref-3-shaped Data2 program: reads `Close of Data2`, `Close of Data(2)`,
+/// Reference-strategy-shaped Data2 program: reads `Close of Data2`, `Close of Data(2)`,
 /// `High of Data2` and `Low of Data2` into numeric variables, then trades on the
 /// Data2 close. The limit price is the *narrowed* `D2C`, so the f32 narrowing
 /// point on the Data2 path is bit-exercised in every fill price, exactly like

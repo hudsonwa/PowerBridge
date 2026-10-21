@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .scratch/
+# Scratch output from the README examples.
+/out/
 .venv/
 .pytest_cache/
 build/

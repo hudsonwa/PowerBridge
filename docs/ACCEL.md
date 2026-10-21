@@ -36,7 +36,7 @@ them anywhere:
 
 | Fact | Value |
 |---|---|
-| Extra name | `accel` — `pip install .[accel]` (source tree) / `powerbridge[accel]` (distribution name) |
+| Extra name | `accel` — resolves once `powerbridge-accel` is on PyPI; until then install the wheel from the GitHub Release or build `accel/` (README "Acceleration") |
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
@@ -124,7 +124,9 @@ decision recorded here is the fourth option: **a second distribution, published
 separately, whose wheel provides `pl_transpiler._accel`.** That distribution is
 `powerbridge-accel`, pinned by the extra to the same version as `powerbridge`
 (`accel = ["powerbridge-accel==<version>"]`), so `pip install powerbridge[accel]`
-installs the matching kernel wheel where one is published for the platform. The
+installs the matching kernel wheel where one is published for the platform.
+`powerbridge-accel` is not on PyPI yet, so today the extra does not resolve:
+install the release wheel by URL or build from source (README "Acceleration"). The
 extra name `accel` stays frozen so the kernel, CI/wheel build, conformance work
 and tests share one name.
 

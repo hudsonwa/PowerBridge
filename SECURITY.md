@@ -22,7 +22,7 @@ timing, or its rounding, and you cannot diff it against the Python path. That
 is a genuinely different trust decision, and installing the extra is you
 choosing to make it.
 
-When you install `powerbridge[accel]` you are trusting, on top of the trust
+When you install the `powerbridge-accel` wheel you are trusting, on top of the trust
 you already place in a strategy file:
 
 - **the publisher of the native wheel** — whoever produced the binary the

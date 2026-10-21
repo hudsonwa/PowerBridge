@@ -20,10 +20,10 @@ Detailed API, CLI and invariant reference for agents and scripts. The short guid
 
 ## Public naming
 
-The reference strategy this project is benchmarked against is called **Audit Ref 3**
-in every public artefact: issues, pull requests, commit messages, docs, code
-comments, constant names and test names. That is the only name that appears in
-this repository or on its tracker.
+The private strategy this project is benchmarked against is called **the
+reference strategy** in docs, comments, issues and pull requests; its pinned
+constants keep the `AUDIT_REF_3_` prefix. No other name for it appears in this
+repository or on its tracker.
 
 ## Package layout
 
@@ -429,7 +429,7 @@ run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     # from_date / to_date: inclusive EL-integer (YYYMMDD). None = unbounded.
     # from_bar: 0-based tape index (mutually exclusive with from_date).
     # seed_warmup=False (default): tape slice — drop the prefix. The fast
-    #   path; Audit Ref 3 from 2018-01-01 matches the full tape only because that EL has
+    #   path; the reference strategy from 2018-01-01 matches the full tape only because that EL has
     #   zero lookback.
     # seed_warmup=True: keep the prefix, run it with fills suppressed (Once /
     #   lookback / Variables stay primed). A windowed run that disagrees on trades
@@ -484,11 +484,11 @@ data2_closes_from_bars(bars, data2_bars) -> list[float]
 Two runs on unchanged code produce **byte-identical** `text`. The hash covers
 every fill (entry, exit, both reversal legs, Set* risk exits); `round_turns`
 is the number of exit records (one contract per fill record). The v1 digest
-(`digest_version=1` / `--digest-v1`) used `len(fills) // 2` — Audit Ref 3:
+(`digest_version=1` / `--digest-v1`) used `len(fills) // 2` — the reference strategy:
 7,364 fills / 3,682 round-turns is a v1 pin. `closed_positions`
 is `len(FillEngine.closed_trades)` and is **not** in the digest (a scale-in
 ladder is one closed position but many round-turns). A windowed tape that
-disagrees on trades fails the check, not a speed win — Audit Ref 3 is only safe
+disagrees on trades fails the check, not a speed win — the reference strategy is only safe
 to **slice** because its EL has zero lookback; that property is *measured* by
 comparing digests, not assumed. Strategies that use Once, Close[n], Average, or
 a bar-1 cumulative need ``seed_warmup=True`` (or must not be windowed).

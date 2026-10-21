@@ -87,7 +87,7 @@ class _StmtMixin:
                 # `_pb_slots` in the prologue. Lookback vars load the last
                 # appended value. Numeric non-accumulators were f32-narrowed at
                 # seed and on every assignment, so the load does not re-wrap
-                # (idempotent, but 20 ctypes calls/bar on Audit Ref 3).
+                # (idempotent, but 20 ctypes calls/bar on the reference strategy).
                 # Self-referential accumulators stay double (see _collect_double_accums).
                 if name in self._history_vars:
                     self.emit(f"{name} = _state['{name}'][-1]")

@@ -65,7 +65,7 @@ MEMBERS = [
     ("test_lexer_failloud",          "tests/test_lexer_failloud.py",                [], False),
     ("test_collect_errors",          "tests/test_collect_errors.py",                [], False),
     ("test_partial_mode",            "tests/test_partial_mode.py",                  [], False),
-    ("test_tier1_quickwins",         "tests/test_tier1_quickwins.py",               [], False),
+    ("test_emit_roundtrip_regressions", "tests/test_emit_roundtrip_regressions.py",   [], False),
     ("test_runtime_config",          "tests/test_runtime_config.py",                [], False),
     ("test_runtime_encoding",        "tests/test_runtime_encoding.py",              [], False),
     ("test_f32",                     "tests/test_f32.py",                           [], False),

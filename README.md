@@ -115,25 +115,30 @@ pip install .
 That installs the `powerbridge` distribution (import name `pl_transpiler`) and
 four commands: `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
 
-**2. Transpile an example** to Python:
+**2. Transpile an example** to Python. The examples below write their files
+into `out/`, which git and ruff ignore:
 
 ```bash
-pl_transpile examples/ma_cross.el -o ma_cross.py
+mkdir -p out
+pl_transpile examples/ma_cross.el -o out/ma_cross.py
 ```
 
 ```
-[pl_transpile] wrote ma_cross.py
+[pl_transpile] wrote out/ma_cross.py
 ```
 
-`ma_cross.py` is runnable: it defines `strategy(open, high, low, close, volume,
+`out/ma_cross.py` is runnable: it defines `strategy(open, high, low, close, volume,
 date, time, kwargs)`, takes the bar series so far, and keeps its cross-bar
 state (`Vars`, lookback, `Inputs`) in `kwargs['_state']`. Pass the same
-`kwargs` dict on every bar. To see its order signals, save this as `run.py`
-next to `ma_cross.py` and run `python run.py` from the repository root:
+`kwargs` dict on every bar. To see its order signals, save this as `out/run.py`
+and run `python out/run.py` from the repository root:
 
 ```python
 import csv
-from ma_cross import strategy
+import sys
+
+sys.path.insert(0, "out")
+from ma_cross import strategy  # noqa: E402
 
 cols = {k: [] for k in ("open", "high", "low", "close", "volume", "date", "time")}
 kwargs = {}  # strategy keeps its cross-bar state in kwargs['_state']
@@ -166,22 +171,22 @@ alone executes nothing).
 
 ```bash
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
-    --config NQ --columns MarketPosition,NetProfit,TotalTrades -o run_out.csv
+    --config NQ --columns MarketPosition,NetProfit,TotalTrades -o out/run_out.csv
 ```
 
 ```
 note: powerbridge-accel not installed; using the pure-Python engine (slower). See README#acceleration
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> run_out.csv
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/run_out.csv
 ```
 
 The `note:` line goes to stderr and is expected without the optional
 [Rust fast path](#acceleration); results are identical either way.
 
-**4. Read the output.** `run_out.csv` has one row per bar with the columns you
+**4. Read the output.** `out/run_out.csv` has one row per bar with the columns you
 asked for. The strategy goes long, exits with a
 profit, and is long again at the end (excerpt):
 
-<!-- readme-test: file run_out.csv -->
+<!-- readme-test: file out/run_out.csv -->
 ```
 MarketPosition,NetProfit,TotalTrades
 0,0.00,0
@@ -222,15 +227,15 @@ What you can verify yourself, digest gating and captures are in
 ```python
 from pl_transpiler import transpile
 el = open("ground_truth/GT2_strategy_orders_position.txt").read()
-open("GT2_mirror.py", "w").write(transpile(el, trace=False))
+open("out/GT2_mirror.py", "w").write(transpile(el, trace=False))
 ```
 
 ```bash
-el_emit GT2_mirror.py -o GT2_from_python.txt
+el_emit out/GT2_mirror.py -o out/GT2_from_python.txt
 ```
 
 ```
-GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD
+out/GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD
 OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
 ```
 
@@ -319,14 +324,14 @@ digest as the EL-integer original:
 ```python
 import csv
 rows = list(csv.reader(open("examples/NQ_sample_bars.csv")))
-with open("my_bars.csv", "w", newline="") as f:
+with open("out/my_bars.csv", "w", newline="") as f:
     w = csv.writer(f)
     w.writerow(["Date", "Time", "Open", "High", "Low", "Close", "Volume"])
     for d, t, *ohlcv in rows[1:]:
         d, t = int(d), int(t)
         w.writerow(["%02d/%02d/%d" % (d % 100, d // 100 % 100, 1900 + d // 10000),
                     "%02d:%02d:00" % (t // 100, t % 100)] + ohlcv)
-print(open("my_bars.csv").readlines()[1].strip())
+print(open("out/my_bars.csv").readlines()[1].strip())
 ```
 
 ```
@@ -334,7 +339,7 @@ print(open("my_bars.csv").readlines()[1].strip())
 ```
 
 ```bash
-pl_oracle examples/ma_cross.el my_bars.csv
+pl_oracle examples/ma_cross.el out/my_bars.csv
 ```
 
 ```
@@ -361,14 +366,14 @@ The same bars and strategy with the ES point value ($50 instead of $20):
 
 ```bash
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
-    --config examples/configs/ES.json --columns MarketPosition,NetProfit -o es_out.csv
+    --config examples/configs/ES.json --columns MarketPosition,NetProfit -o out/es_out.csv
 ```
 
 ```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> es_out.csv
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/es_out.csv
 ```
 
-<!-- readme-test: file es_out.csv -->
+<!-- readme-test: file out/es_out.csv -->
 ```
 MarketPosition,NetProfit
 ...
@@ -402,6 +407,9 @@ fast path is a Rust crate in `accel/` that builds the module
 `pl_transpiler._accel`. It runs the whole bar loop and fill engine natively in
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
+
+`powerbridge-accel` is not on PyPI yet (coming); install it from a release
+wheel or from source as below.
 
 **Prebuilt wheel (no Rust needed).** Each GitHub Release from v0.3.0 on
 carries one `powerbridge-accel` wheel per platform, built for CPython 3.9 and
@@ -508,6 +516,12 @@ want to attach your own.
   0/'', the run ends with a `WARNING` naming them, and
   `run_el(...)["unimplemented"]` lists them. Cosmetic ones (drawing, sound,
   print) never stop a run and are not reported.
+- **No MaxBarsBack warm-up yet.** Strategies are evaluated from bar 1. A
+  price lookback past the available history (`Close[5]` on bar 3) returns the
+  current bar's `Open`, and a windowed function such as `Average(Close, 10)`
+  returns 0 until it has 10 bars. MultiCharts instead skips bars until
+  MaxBarsBack is satisfied, so trades near the start of a tape can differ;
+  feed extra leading bars if your strategy looks back.
 - Per-bar MultiCharts parity captures are not shipped. Those tests skip on a
   fresh clone.
 - The `accel` fast path is optional and builds from source. It does not yet

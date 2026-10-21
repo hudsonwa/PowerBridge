@@ -63,7 +63,7 @@ commit `b6b8701`) **compiled, ran, and traded** in MultiCharts. Verified with
   (a coverage strategy, not a profitable one — expected). All 90 columns present; Data2 100%
   populated. **The earlier "no trades" was the slow per-bar `Print(File())` write, not a bug.**
 - **Dataset DIFFERS from the GT captures:** span `1240102 → 1260618` = **2024-01-02 → 2026-06-18**,
-  **249,113 bars** (vs the GTs' 202,208 bars ending 2025-12-31). Phase-4 must feed the transpiler
+  **249,113 bars** (vs the GTs' 202,208 bars ending 2025-12-31). A runner must feed the transpiler
   the matching 249,113-bar series exported from MC, not the GT 202k series, or per-bar diffs are spurious.
 - **Raw file has ~3.41× rows/bar (849,961 rows / 249,113 bars) — a DATA1/DATA2 SESSION-TEMPLATE MISMATCH,
   not intrabar calc.** Re-running gives byte-identical output (deterministic). Bar Magnifier is OFF and IOG
@@ -77,7 +77,7 @@ commit `b6b8701`) **compiled, ran, and traded** in MultiCharts. Verified with
   holidays (2025-01-08 before the Jan-9 day of mourning → 1,906; July-3 pre-July-4 → 1,351).
 - **RESOLVED (2026-06-19): `GTA5_o0_mm0_v3.csv` is the corrected capture** — the owner aligned Data1/Data2
   sessions and re-ran. It is natively clean: **249,113 rows = 249,113 bars (1.0×, no duplication)**, 90
-  columns, Data2 100% populated, `totaltrades`=14,212 (trade logic unchanged). **Use v3 for Phase-4 diffing.**
+  columns, Data2 100% populated, `totaltrades`=14,212 (trade logic unchanged). **Use v3 for per-bar diffing.**
   The fix was: Format each data series → Settings → Sessions → set Data1 and Data2 to the SAME template,
   delete the CSV (`Print` appends), re-run.
 - **Why the earlier dedup was retired:** diffing the old keep-last dedup vs v3 showed **exactly 617 bars
@@ -86,7 +86,7 @@ commit `b6b8701`) **compiled, ran, and traded** in MultiCharts. Verified with
   Data2 row after the close-exit had already settled. So the dedup was wrong on those 617 bars; it has been
   deleted. v1 (session-mismatched raw) is superseded and removed locally (re-downloadable via its Drive id).
 
-## GTA5 INPUT DATA (the bar series to feed the Phase-4 transpiler) — verified 2026-06-19
+## GTA5 INPUT DATA (the bar series to feed the transpiler) — verified 2026-06-19
 
 MultiCharts ASCII exports of the two series that produced `GTA5_o0_mm0_v3.csv`. Format:
 `<Date>, <Time>, <Open>, <High>, <Low>, <Close>, <Volume>` (Date = `D/MM/YYYY`, 1-minute bars).
@@ -104,7 +104,7 @@ Gitignored (`captures/*.txt`); large, local-only.
   (08:31→09:20 = 50 bars; capture `bn=1` is at 09:21 = raw row 51, so **MaxBarsBack = 50**). The first
   captured bar (2024-01-02 09:21) and last (2026-06-18 14:29) match the raw @NQ#C OHLCV byte-for-byte,
   and the capture's `d2close/d2h/d2l` match the raw @NQ# bars at those timestamps.
-- **Phase-4 runner contract:** feed ALL 249,163 @NQ#C bars as Data1 (the first 50 are warmup — emit no
+- **Runner input contract:** feed ALL 249,163 @NQ#C bars as Data1 (the first 50 are warmup — emit no
   comparison output until raw row 51 / capture `bn=1`), and @NQ# as Data2 (it covers Data1's range with
   years to spare; align Data2 to Data1 by `date`+`time`). Diff the runner's per-bar output against
   `GTA5_o0_mm0_v3.csv` on `bn`/`date`+`time`, never row index.
