@@ -20,6 +20,7 @@ PowerBridge exists so that strategy research can happen in Python (including wit
   and the wheel/CI story (maturin-built macOS arm64 wheel,
   `.github/workflows/accel.yml` runs the accel path and a zero-dep job).
 - [README](README.md): install, both conversion workflows, worked quickstart, verification tiers, keyword catalog, and the full Limitations section.
+- [API reference](docs/API.md): the public Python functions (signatures, options, return values, runnable examples) and the CLI flags.
 - [AGENTS](AGENTS.md): the machine-facing contract — API surface, CLI specifications, invariants, and error semantics for agents using the tool.
 - [LLM dialect cheatsheet](docs/LLM_DIALECT.md): a copy-pasteable system prompt that constrains an LLM to emit only the supported mirror dialect, with a worked example and the fail-loud contract.
 - [Bring-your-own captures](docs/CAPTURES.md): the bar/data format and how to attach your own MultiCharts captures to run the full parity tier.

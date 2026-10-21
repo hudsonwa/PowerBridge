@@ -273,6 +273,9 @@ and `pl_run` executes), with EL Variables kept in a cross-bar `_state`. Pass
 `dialect="mirror"` only for the clean Python that `el_emit` reads back; it
 resets Variables every bar, so the bar loop refuses to run it.
 
+Every public function, its options and return values, and each CLI's flags are
+described in [docs/API.md](docs/API.md).
+
 ```
 65 lines; 140 bars; 7 trades
 ['MarketPosition', 'NetProfit'] ['1', '4742.20703125']

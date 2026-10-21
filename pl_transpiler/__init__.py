@@ -34,13 +34,35 @@ _LAZY = {
     'unimplemented_message': 'errors',
     'run_el': 'tools.pl_run',
     'load_bars_csv': 'tools.pl_run',
+    'load_bars': 'tools.pl_run',
+    'run_oracle': 'tools.pl_oracle',
     'get_config': 'runtime.instrument_config',
+    'load_config_file': 'runtime.instrument_config',
+    'catalog': '',
 }
 
+# The documented public API (docs/API.md).
+__all__ = [
+    'transpile',
+    'run_el',
+    'run_oracle',
+    'load_bars_csv',
+    'load_bars',
+    'get_config',
+    'load_config_file',
+    'catalog',
+    'UnimplementedKeywordError',
+]
+
 if _TYPE_CHECKING:
+    from . import catalog as catalog
+    from .errors import UnimplementedKeywordError as UnimplementedKeywordError
+    from .tools.pl_oracle import run_oracle as run_oracle
+    from .tools.pl_run import load_bars as load_bars
     from .tools.pl_run import load_bars_csv as load_bars_csv
     from .tools.pl_run import run_el as run_el
     from .runtime.instrument_config import get_config as get_config
+    from .runtime.instrument_config import load_config_file as load_config_file
 
 
 def __getattr__(name: str) -> "_Any":
@@ -48,7 +70,10 @@ def __getattr__(name: str) -> "_Any":
     if module is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     from importlib import import_module
-    value = getattr(import_module(f'.{module}', __name__), name)
+    if not module:  # a submodule, e.g. catalog
+        value = import_module(f'.{name}', __name__)
+    else:
+        value = getattr(import_module(f'.{module}', __name__), name)
     globals()[name] = value
     return value
 

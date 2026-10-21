@@ -19,7 +19,8 @@
 PowerBridge transpiles MultiCharts PowerLanguage / EasyLanguage (EL) strategies to
 Python, emits EL back from its AST or from a bounded Python dialect, and backtests EL
 over OHLCV bars with exact, digest-checked trade lists. The human guide is
-[README.md](README.md); the full API, CLI and invariant reference is
+[README.md](README.md), the public Python and CLI reference is
+[docs/API.md](docs/API.md), and the full API, CLI and invariant reference is
 [docs/dev/agent-guide-details.md](docs/dev/agent-guide-details.md).
 
 ## Layout

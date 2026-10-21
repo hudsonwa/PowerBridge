@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- `docs/API.md`: a reference for the public library functions and the CLIs,
+  with runnable examples. `pl_transpiler.__all__` lists the public names, and
+  `run_oracle`, `load_bars`, `load_config_file`, `catalog` and
+  `UnimplementedKeywordError` now import from `pl_transpiler` directly.
+
 ## 0.6.0 — 2026-10-21
 
 ### Added
