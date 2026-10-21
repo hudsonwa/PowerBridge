@@ -44,6 +44,25 @@ _POS_KWARGS = (
     ('maxshares', 'max_shares'),
     ('openentriescount', 'open_entries_count'),
 )
+# Closed-trade performance words (NumWinTrades, PercentProfit, ...) → engine
+# attributes. Updated at trade close, like totaltrades / gross_profit.
+_PERF_KWARGS = (
+    ('numwintrades', '_st_nwin'),
+    ('numlostrades', '_st_nlos'),
+    ('numeventrades', '_st_neven'),
+    ('percentprofit', 'pct_profit'),
+    ('largestwintrade', '_st_lrgwin'),
+    ('largestlostrade', '_st_lrglos'),
+    ('maxconsecwinners', '_st_maxcwin'),
+    ('maxconseclosers', '_st_maxclos'),
+    ('totalbarswintrades', '_st_totbwin'),
+    ('totalbarslostrades', '_st_totblos'),
+    ('totalbarseventrades', '_st_totbeven'),
+    ('avgbarswintrade', 'avg_bars_win'),
+    ('avgbarslostrade', 'avg_bars_los'),
+    ('avgbarseventrade', 'avg_bars_even'),
+)
+_POS_KWARGS = _POS_KWARGS + _PERF_KWARGS
 _DAILY_OHLC_KEYS = ('opend_0', 'highd_0', 'lowd_0', 'closed_0', 'closed_1')
 
 
