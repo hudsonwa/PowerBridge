@@ -11,6 +11,15 @@
   are accepted as `SellShort` and `BuyToCover`; before, `Sell Short` failed
   with a misleading "unimplemented EL keyword 'short'". Shorthand and
   long-form strategies give identical digests (native and `--python`).
+- `--max-bars-back N` for `pl_run` / `pl_oracle` (`max_bars_back=` on
+  `run_el` / `run_oracle`, and in the native kernel): the first N bars are
+  history only, with no strategy evaluation and no orders, and `BarNumber`
+  starts at 1 on bar N+1. This is how MultiCharts runs a strategy (checked
+  against a MultiCharts capture); pass `--max-bars-back 50` to reproduce its
+  default. The default stays 0, so existing digests do not change. With too
+  little history for a `Close[n]` read, one warning per run is printed on
+  stderr (values unchanged). An accel build without MaxBarsBack support is
+  refused for N > 0 and the run falls back to Python with a note.
 
 ### Changed
 

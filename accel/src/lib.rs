@@ -773,6 +773,9 @@ pub const FILL_LOG_VERSION: u32 = 2;
 fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("FILL_LOG_VERSION", FILL_LOG_VERSION)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    // Capability flag: `run_program` honours `config["max_bars_back"]`. A
+    // kernel without it ignores the field, so Python falls back for N > 0.
+    m.add("MAX_BARS_BACK", true)?;
     m.add_function(wrap_pyfunction!(ping, m)?)?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(run_program, m)?)?;

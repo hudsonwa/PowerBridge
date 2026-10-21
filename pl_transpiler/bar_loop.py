@@ -91,6 +91,7 @@ def run_bar_loop(
     strict=None,
     trade_from=0,
     emit_trace=True,
+    max_bars_back=0,
 ):
     """Shared per-bar execution core used by BOTH run_gt (the GT capture harness)
     and the general entrypoint (tools/pl_run.run_el).
@@ -124,6 +125,12 @@ def run_bar_loop(
     dict; pass False to skip the 14 unused stores/bar. Fills and `_state` are
     unchanged. Default True is the previous loop.
 
+    max_bars_back: the first N tape bars are history only (MultiCharts
+    MaxBarsBack): prices are appended so lookbacks see them, but the strategy
+    does not run, no order is placed or filled, no row is emitted, and
+    BarNumber starts at 1 on bar N+1. Daily OHLC tracking still sees them.
+    Default 0 evaluates every bar (the previous loop).
+
     Unused persist-path kwargs: generated persist/trace never pops keys.
     DateTime arithmetic runs only when the 8-arg strategy's code object
     contains the string ``'datetime'`` (or when the strategy takes
@@ -149,6 +156,9 @@ def run_bar_loop(
         raise ValueError(f"trade_from must be >= 0, got {trade_from}")
     if trade_from > n_bars:
         raise ValueError(f"trade_from {trade_from} exceeds n_bars {n_bars}")
+    max_bars_back = int(max_bars_back or 0)
+    if max_bars_back < 0:
+        raise ValueError(f"max_bars_back must be >= 0, got {max_bars_back}")
 
     # Persist/trace generated strategy() takes the kwargs dict as the 8th
     # positional (`kwargs=None, **_kw`). Passing call_kwargs by reference
@@ -362,7 +372,9 @@ def run_bar_loop(
         o, h, l, c, v = get_ohlcv(i)
         dt = dates[i]
         tm = times[i]
-        barnumber += 1
+        history_only = i < max_bars_back
+        if not history_only:
+            barnumber += 1
 
         o_hist.append(o); h_hist.append(h); l_hist.append(l); c_hist.append(c)
         v_hist.append(v); d_hist.append(dt); t_hist.append(tm)
@@ -371,7 +383,7 @@ def run_bar_loop(
         # Fills (before_bar / SetExitOnClose) start at trade_from. The last warmup
         # bar may still queue after_bar orders so a "Buy next bar" on the bar
         # before the window fills on the first trading bar (full-tape timing).
-        trading = i >= trade_from
+        trading = i >= trade_from and not history_only
         queue_orders = i >= trade_from - 1
 
         # SetExitOnClose: close the position at the previous bar's close when the
@@ -413,6 +425,8 @@ def run_bar_loop(
                 day_low = min(day_low, l)
             day_close = c
         prev_date = cur_date
+        if history_only:
+            continue
 
         # Process fills BEFORE strategy (fills pending orders from previous bar).
         if trading:

@@ -19,6 +19,7 @@ variable, a missing input file, an unknown --config or a malformed --config JSON
 a malformed bars CSV, Python input outside the mirror dialect) print ``<tool>: error: <message>`` to stderr and exit 2
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
+import argparse
 import os
 import sys
 
@@ -63,6 +64,26 @@ def add_date_format_arg(ap):
                     help="field order of slash dates in the bars CSV: dmy "
                          "(D/M/YYYY, the default), mdy (M/D/YYYY) or ymd "
                          "(YYYY/M/D). EL integer dates (1240102) need no option.")
+
+
+def _non_negative_int(text):
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid integer: {text!r}") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return value
+
+
+def add_max_bars_back_arg(ap):
+    """The shared ``--max-bars-back N`` option (MultiCharts MaxBarsBack)."""
+    ap.add_argument("--max-bars-back", dest="max_bars_back", default=0,
+                    type=_non_negative_int, metavar="N",
+                    help="treat the first N bars as history only: no strategy "
+                         "evaluation and no orders, and BarNumber starts at 1 on "
+                         "bar N+1. MultiCharts skips MaxBarsBack bars (default "
+                         "50); pass 50 to reproduce that. Default: 0.")
 
 
 def bars_or_error(load, path, date_format=None):

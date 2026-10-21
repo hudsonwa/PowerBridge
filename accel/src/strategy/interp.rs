@@ -65,6 +65,9 @@ pub(crate) struct Interpreter<'a> {
     data2: Option<Arc<Data2Aligned<'a>>>,
     bar: Bar,
     bar_number: usize,
+    /// MaxBarsBack history-only bars fed before the first evaluated bar; the
+    /// Data2 alignment index is the tape index, `history_bars + bar_number - 1`.
+    history_bars: usize,
     position: PositionView,
     first_bar: bool,
     orders: Vec<Order>,
@@ -129,6 +132,7 @@ impl<'a> Interpreter<'a> {
                 time: 0,
             },
             bar_number: 0,
+            history_bars: 0,
             position: empty_position(),
             first_bar: true,
             orders: Vec::new(),
@@ -158,6 +162,19 @@ impl<'a> Interpreter<'a> {
                 }
             }
         }
+    }
+
+    /// Append a MaxBarsBack bar to the price history without evaluating the
+    /// program: no orders, no variable updates, and `BarNumber` does not advance.
+    pub(crate) fn observe_history(&mut self, bar: Bar) {
+        self.open.push(bar.open);
+        self.high.push(bar.high);
+        self.low.push(bar.low);
+        self.close.push(bar.close);
+        self.volume.push(bar.volume);
+        self.date.push(bar.date);
+        self.time.push(bar.time);
+        self.history_bars += 1;
     }
 
     fn begin_bar(&mut self, bar: Bar, bar_number: usize, position: PositionView) {
@@ -400,7 +417,7 @@ impl<'a> Interpreter<'a> {
                                 "program references Data2 but no data2 series was supplied",
                             )
                         })?;
-                        let idx = self.bar_number.saturating_sub(1);
+                        let idx = self.history_bars + self.bar_number.saturating_sub(1);
                         match aligned.value_at(*series, idx) {
                             Some(value) => Value::Num(value),
                             None => Value::Num(self.raw_series_last(*series)?),

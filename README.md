@@ -534,6 +534,11 @@ want to attach your own.
 - Fail-loud assumes valid EasyLanguage. A residual gap: assigning to a
   read-only report keyword that is not in the bundled catalog can be treated as
   a local. Catalog-known names are still caught.
+- **Matching MultiCharts:** MultiCharts skips the first MaxBarsBack bars
+  (default 50); pass `--max-bars-back 50` to reproduce that. PowerBridge's
+  default is 0: every bar is evaluated, and a `Close[n]` read with too little
+  history returns that bar's Open (one stderr warning per run says so).
+  Only literal lookbacks are checked for that warning; `Close[Length]` is not.
 - This tree is the library, tests, and docs. Internal build tooling is not
   shipped.
 

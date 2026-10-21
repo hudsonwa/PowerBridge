@@ -81,6 +81,7 @@ from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E40
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
 from pl_transpiler.tools import _cli  # noqa: E402
+from pl_transpiler.lookback import check_max_bars_back, warn_short_history  # noqa: E402
 from pl_transpiler.tools.pl_run import (  # noqa: E402
     load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
@@ -267,7 +268,8 @@ def window_bars(bars, from_date=None, to_date=None, extra=None):
 
 
 def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
-                       to_date, from_bar, seed_warmup, digest_version=2):
+                       to_date, from_bar, seed_warmup, digest_version=2,
+                       max_bars_back=0):
     """Attempt the native kernel path for one ``run_oracle`` call.
 
     The native path serves exactly the full-tape, non-windowed shape — the
@@ -291,7 +293,8 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     if digest_version < 2:
         return None, "--digest-v1 is served by the Python path only"
     try:
-        fills = run_native(el_source, bars, config, data2_bars=data2_bars)
+        fills = run_native(el_source, bars, config, data2_bars=data2_bars,
+                           max_bars_back=max_bars_back)
     except (AccelUnavailable, AccelRefused) as exc:
         return None, f"native path refused: {exc}"
     n = ohlcv_columns(bars)["n"]
@@ -319,7 +322,7 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
 
 def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
                from_date=None, to_date=None, from_bar=None, seed_warmup=False,
-               use_native=False, digest_version=2):
+               use_native=False, digest_version=2, max_bars_back=0):
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -355,6 +358,9 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
                     the program or is not built, fall back to the Python path
                     LOUDLY (a stderr note) — never a partial trade list. The
                     digest is identical whichever path runs.
+    max_bars_back : skip the first N bars (after any window) as history only:
+                    no evaluation, no orders, BarNumber starts at 1 on bar N+1
+                    (MultiCharts MaxBarsBack). Default 0 evaluates every bar.
 
     Returns a dict with keys:
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
@@ -370,12 +376,15 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
     ``closed_positions`` is ``None`` (the FFI returns fills, not the
     closed-position ledger — neither is in the digest text).
     """
+    max_bars_back = check_max_bars_back(max_bars_back)
+    warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
     fallback_reason = None
     if use_native:
         native_digest, fallback_reason = _run_oracle_native(
             el_source, bars, config, data2_bars=data2_bars,
             from_date=from_date, to_date=to_date, from_bar=from_bar,
             seed_warmup=seed_warmup, digest_version=digest_version,
+            max_bars_back=max_bars_back,
         )
         if native_digest is not None:
             return native_digest
@@ -453,6 +462,7 @@ def run_oracle(el_source, bars, config, *, data2_closes=None, data2_bars=None,
             strict=True,
             trade_from=trade_from,
             emit_trace=False,
+            max_bars_back=max_bars_back,
         )
     # Reported after the run, so a program that stops on a user error
     # prints only that error.
@@ -515,6 +525,7 @@ def _build_parser():
                          "(Once/lookback/Variables stay primed) instead of "
                          "dropping it. A disagreeing digest fails the check.")
     _cli.add_date_format_arg(ap)
+    _cli.add_max_bars_back_arg(ap)
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
                          "data2_close per bar on the Python path, and the full "
@@ -583,6 +594,7 @@ def _main(ap, args):
         seed_warmup=args.seed_warmup,
         use_native=(accel_available() if args.use_native is None else args.use_native),
         digest_version=1 if args.digest_v1 else 2,
+        max_bars_back=args.max_bars_back,
     )
     if not result.get("native"):
         if args.use_native is False or args.digest_v1:

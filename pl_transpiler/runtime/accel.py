@@ -300,7 +300,7 @@ def marshalled_series(bars, data2_bars=None):
     return series, data2
 
 
-def _config_dict(config):
+def _config_dict(config, max_bars_back=0):
     """InstrumentConfig -> the FFI ``config`` mapping (v2, all fields explicit)."""
     return {
         "name": config.name,
@@ -316,7 +316,7 @@ def _config_dict(config):
         },
         "commission": 0.0,
         "slippage": 0.0,
-        "max_bars_back": 0,
+        "max_bars_back": int(max_bars_back),
         "warmup_seed": 0,
         "symccy": int(config.symccy),
         "symnm": str(config.symnm),
@@ -326,7 +326,7 @@ def _config_dict(config):
     }
 
 
-def run_native(el_source, bars, config, *, data2_bars=None):
+def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0):
     """Execute ``el_source`` over ``bars`` through the native kernel.
 
     Exactly one FFI crossing (``run_program``): serialise the EL to ``program_ir``,
@@ -344,13 +344,22 @@ def run_native(el_source, bars, config, *, data2_bars=None):
     ``AccelRefused`` when the kernel refuses the program (a construct outside
     the implemented surface). Neither is a trade list — the caller must fall
     back to Python loudly.
+
+    ``max_bars_back`` (default 0) skips the first N bars as history only. A
+    kernel built before MaxBarsBack support ignores the config field, so for
+    N > 0 such a kernel is refused (``AccelRefused``) rather than trusted.
     """
     accel = _import_accel()
+    if max_bars_back and not getattr(accel, "MAX_BARS_BACK", False):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build predates max_bars_back; rebuild accel "
+            "(tools/build_accel.sh) to run it natively")
     tokens, positions = tokenise(el_source)
     ast = parse(tokens, positions=positions, source=el_source)
     program_ir = serialise_ir(ast)
     series, data2 = marshalled_series(bars, data2_bars)
-    config_map = _config_dict(config)
+    config_map = _config_dict(config, max_bars_back)
     try:
         return accel.run_program(program_ir, series, data2, config_map)
     except NotImplementedError as exc:

@@ -64,6 +64,7 @@ from pl_transpiler.engine import (  # noqa: E402
 )
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
 from pl_transpiler.tools import _cli  # noqa: E402
+from pl_transpiler.lookback import check_max_bars_back, warn_short_history  # noqa: E402
 
 
 def unimplemented_stop_message(prog, exc, el_file):
@@ -363,7 +364,7 @@ def resolve_trade_from(bars, *, from_date=None, from_bar=None):
 
 def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
            row_sink=None, header_sink=None, retain_rows=None,
-           from_date=None, from_bar=None, seed_warmup=True):
+           from_date=None, from_bar=None, seed_warmup=True, max_bars_back=0):
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -396,6 +397,11 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
                     suppressed so Once / lookback / Variables stay primed
                     (default True). False drops the prefix (tape slice) — only
                     equivalent when the trade-list oracle agrees.
+    max_bars_back : skip the first N bars as history only (MultiCharts
+                    MaxBarsBack): no evaluation, no orders, no rows, and
+                    BarNumber starts at 1 on bar N+1. Default 0 evaluates every
+                    bar. With too little history for a ``Close[n]`` read, one
+                    warning is printed on stderr; values are unchanged.
 
     Returns {'columns': [...], 'rows': [[str, ...], ...], 'trades': [...],
     'n_rows': int, 'n_warmup': int}, where rows are formatted exactly as the GT
@@ -404,6 +410,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     n_rows is still the emit count. n_warmup is the seeded-prefix length (0
     when the tape is sliced or no window is set).
     """
+    max_bars_back = check_max_bars_back(max_bars_back)
     reset_indicator_caches()
     if partial:
         # Surface the manifest loudly before running. Detect the stubs via the
@@ -480,6 +487,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
     else:
         warn_python_path()
     pl_unimplemented_reset()
+    warn_short_history(el_source, max_bars_back, n, 'pl_run')
     with open(os.devnull, 'w', encoding='utf-8') as _devnull, contextlib.redirect_stdout(_devnull):
         run_bar_loop(
             strategy_fn,
@@ -492,6 +500,7 @@ def run_el(el_source, bars, config, *, trace_columns=None, partial=False,
             emit_row=emit_row,
             strict=True,
             trade_from=trade_from,
+            max_bars_back=max_bars_back,
         )
 
     columns = cols_holder['cols']
@@ -548,6 +557,7 @@ def _build_parser():
     ap.add_argument("--slice", dest="slice_tape", action="store_true",
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
+    _cli.add_max_bars_back_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
                          "money to cents and prices to the instrument tick.")
@@ -595,7 +605,8 @@ def _main(ap, args):
                             partial=args.partial, header_sink=header_sink,
                             row_sink=row_sink,
                             from_date=args.from_date, from_bar=args.from_bar,
-                            seed_warmup=not args.slice_tape)
+                            seed_warmup=not args.slice_tape,
+                            max_bars_back=args.max_bars_back)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
@@ -607,7 +618,8 @@ def _main(ap, args):
                         header_sink=header_sink,
                         row_sink=row_sink,
                         from_date=args.from_date, from_bar=args.from_bar,
-                        seed_warmup=not args.slice_tape)
+                        seed_warmup=not args.slice_tape,
+                        max_bars_back=args.max_bars_back)
     if out_path:
         out_f.close()
 
