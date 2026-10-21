@@ -92,9 +92,12 @@ MEMBERS = [
 
 def _run_script(path, extra_args):
     """Run a member script in a fresh subprocess. Returns (ok, tail)."""
+    # Members run as plain scripts; drop pytest's marker variable so one launched
+    # from tests/test_public_tier.py behaves exactly as under this runner.
+    env = {k: v for k, v in os.environ.items() if k != "PYTEST_CURRENT_TEST"}
     proc = subprocess.run(
         [PYTHON, os.path.join(REPO, path)] + extra_args,
-        cwd=REPO, capture_output=True, text=True,
+        cwd=REPO, env=env, capture_output=True, text=True,
         encoding="utf-8", errors="replace",
     )
     out = (proc.stdout or "") + (proc.stderr or "")

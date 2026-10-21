@@ -32,8 +32,8 @@ pip install pytest pytest-timeout ruff
 
 | Check | Command |
 | --- | --- |
-| Public test tier (parser, codegen, runtime, oracle, mutation pre-flight) | `python3 tests/run_public_tier.py` |
-| Full unit and conformance suite | `pytest -q --timeout=60` |
+| Full unit and conformance suite (includes the public tier) | `pytest -q --timeout=60` |
+| Public test tier only (parser, codegen, runtime, oracle, mutation pre-flight) | `pytest -m public_tier`, or without pytest `python3 tests/run_public_tier.py` |
 | Lint | `ruff check .` |
 | Native kernel (only if you built it) | `cd accel && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --release` |
 | Native vs Python digest | see below |

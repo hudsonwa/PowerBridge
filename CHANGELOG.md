@@ -12,6 +12,18 @@
   `transpile(src, dialect="mirror")`; `persist=False` still works. The bar loop
   refuses mirror-dialect strategies with a one-line error naming the fix.
   The `pl_transpile` CLI is unchanged (`--no-persist` still emits the mirror).
+- Tests: the public tier is also a set of pytest tests marked `public_tier`, so
+  `pytest` runs everything and `pytest -m public_tier` runs exactly the tier.
+  `python tests/run_public_tier.py` still works (stdlib only) and shares the
+  same member list.
+- `run_el`, `load_bars_csv` and `get_config` can be imported from
+  `pl_transpiler` directly; the old module paths keep working.
+- The runtime finds its loud stubs from a generated static list
+  (`tools/gen_loud_stubs.py`, checked by a test) instead of parsing its own
+  source at import time, so it works from .pyc-only or zipped installs. The
+  installed stubs are unchanged.
+- README: `tools/build_accel.sh` needs an editable install (`pip install -e .`)
+  for the console commands to see the built module.
 - The public API (`transpile`, `run_el`, `run_oracle`, `load_bars_csv`,
   `load_bars`, `get_config`, `load_config_file` and the `catalog` accessors)
   has type annotations, and the package ships `py.typed`. CI runs mypy on

@@ -255,9 +255,7 @@ is the final check.
 ### As a library
 
 ```python
-from pl_transpiler import transpile
-from pl_transpiler.tools.pl_run import run_el, load_bars_csv
-from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler import transpile, run_el, load_bars_csv, get_config
 
 py = transpile(open("ground_truth/GT2_strategy_orders_position.txt").read())
 out = run_el(
@@ -458,7 +456,19 @@ cd /tmp && python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
 ```
 
 Working inside the repo instead? `./tools/build_accel.sh` builds the same
-library and drops it next to the in-tree package, so tests run against it.
+library and drops it next to the in-tree package (`pl_transpiler/`), so tests
+run against it. The installed console commands (`pl_run`, `pl_oracle`, ...)
+only see it if the package is installed in editable mode; a plain `pip install .`
+copies the package into site-packages and keeps reporting "accel not installed".
+Use:
+
+<!-- readme-test: skip (needs a Rust toolchain) -->
+```bash
+pip install -e .            # editable: console commands use the in-tree package
+./tools/build_accel.sh      # PYTHON=... to build for a specific interpreter
+```
+
+With a non-editable install, use the wheel route above instead.
 
 Indicative speed, not a promise. `python tools/bench_native.py --bars N`
 times the GT2 sample strategy on a synthetic tape on both paths (median of 3
@@ -501,12 +511,14 @@ trust a backtest from partial output.
 
 <!-- readme-test: skip (the full suite; CI runs it as its own job) -->
 ```bash
-python3 tests/run_public_tier.py      # Windows: py tests\run_public_tier.py
+python3 -m pip install pytest pytest-timeout
+python3 -m pytest -q --timeout=60
 ```
 
-That is the portable suite. Capture-backed gates skip cleanly when the large
-MultiCharts CSVs are absent. See [docs/CAPTURES.md](docs/CAPTURES.md) if you
-want to attach your own.
+That is the whole default suite; `pytest -m public_tier` runs only the portable
+public tier, which also runs without pytest as `python3 tests/run_public_tier.py`.
+Capture-backed gates skip cleanly when the large MultiCharts CSVs are absent.
+See [docs/CAPTURES.md](docs/CAPTURES.md) if you want to attach your own.
 
 ## Limitations
 

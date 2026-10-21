@@ -117,8 +117,7 @@ capture gates exercise drives this path, so it is a faithful way to run strategi
 on your own data. As a library:
 
 ```text
-from pl_transpiler.tools.pl_run import run_el, load_bars_csv
-from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler import run_el, load_bars_csv, get_config
 
 el_source = open("strategy.txt").read()
 bars = load_bars_csv("bars.csv")

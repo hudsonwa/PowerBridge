@@ -15,7 +15,7 @@ without an issue.
 1. Fork the repo.
 2. Create a branch.
 3. Keep the change small and readable.
-4. Run the public tests: `python3 tests/run_public_tier.py`
+4. Run the tests: `python3 -m pytest -q --timeout=60`
 5. Open a pull request and say what you changed.
 
 ## Running checks locally
@@ -25,10 +25,13 @@ the library itself still needs nothing beyond the standard library.
 
 ```sh
 python3 -m pip install pytest pytest-timeout ruff
-python3 tests/run_public_tier.py   # public test tier
-python3 -m pytest -q --timeout=60  # full default pytest suite
+python3 -m pytest -q --timeout=60  # everything, including the public tier
 ruff check .                       # lint (rules in pyproject.toml)
 ```
+
+`pytest -m public_tier` runs only the portable public tier. The same tier
+also runs without pytest as `python3 tests/run_public_tier.py` (stdlib only;
+CI uses it on every OS).
 
 Please do not add dependencies. The library is standard-library only.
 

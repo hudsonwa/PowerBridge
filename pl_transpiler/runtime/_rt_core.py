@@ -268,7 +268,8 @@ def pl_pos_trade_field(kwargs, field, pos_ago=0, trade_number=0):
 
 
 # --- Install loud stubs (pl_runtime calls this LAST, after every import) ----
-# The runtime submodules whose sources are scanned for trivial pl_* stubs.
+# The runtime submodules that may hold the trivial pl_* stubs listed in
+# _loud_stub_names (generated from their sources by tools/gen_loud_stubs.py).
 _RUNTIME_SUBMODULES = ('_rt_core', '_rt_indicators', '_rt_drawing',
                        '_rt_arrays_dates', '_rt_builtins_az', '_rt_datetime')
 
@@ -278,61 +279,18 @@ def _install_loud_stubs():
     call (and raises unless PL_STRICT=0) instead of silently returning 0. Real
     implementations (anything that returns an expression) are left untouched.
 
+    The stub names come from a static, generated list (no source reading at
+    import time, so .pyc-only and zipped installs work); a test keeps it in
+    sync with the sources.
+
     The loud wrapper is bound on the pl_runtime facade and on every runtime
     submodule that holds the name, so calls from inside a submodule hit the loud
     version too, exactly as they did when all of this lived in one module."""
-    import ast as _ast
     import sys as _sys
+    from ._loud_stub_names import LOUD_STUB_NAMES as names
     pkg = __name__.rpartition('.')[0]
     facade = _sys.modules[pkg + '.pl_runtime']
     mods = [_sys.modules[pkg + '.' + n] for n in _RUNTIME_SUBMODULES]
-    src_path = None
-    _trees = []
-    try:
-        # Read the runtime sources with an EXPLICIT utf-8 codec, never the locale
-        # default. On a legacy codepage (cp932/936/949) or an ascii/LC_ALL=C
-        # locale the default codec would raise UnicodeDecodeError on any
-        # non-ASCII byte in these files, which would SILENTLY disable every
-        # loud stub (see the except below) -- the worst failure mode there is:
-        # production pl_run would then return plausible-but-wrong 0/'' values.
-        for _m in mods:
-            src_path = _m.__file__
-            with open(src_path, 'r', encoding='utf-8') as _f:
-                _trees.append(_ast.parse(_f.read()))
-    except Exception as _exc:
-        # Fail-loud vs. fail-silent. In strict mode (the default) the whole point
-        # is that unimplemented builtins RAISE; if we cannot even introspect the
-        # source to install those loud stubs we MUST NOT continue as if all were
-        # fine, so we re-raise. With PL_STRICT=0 we keep the historical tolerant
-        # behaviour (leave the trivial stubs returning 0/'') but emit exactly
-        # one loud stderr warning so the degraded state is never invisible.
-        if _PL_STRICT:
-            raise RuntimeError(
-                "pl_runtime could not introspect its own source (%s) to install "
-                "the fail-loud strict-mode stubs; refusing to continue, because "
-                "unimplemented EasyLanguage builtins would then silently return "
-                "plausible-but-wrong 0/'' values instead of raising. "
-                "Original error: %r" % (src_path, _exc))
-        _sys.stderr.write(
-            "WARNING: pl_runtime could not introspect its own source (%r); the "
-            "unimplemented-builtin loud stubs are NOT installed, so out-of-scope "
-            "EasyLanguage builtins will silently return 0/'' instead of failing "
-            "loud. Unset PL_STRICT to make this condition fatal.\n" % (_exc,))
-        return  # tolerant fallback: leave stubs as-is (no worse than before)
-
-    def _is_stub(fn):
-        body = list(fn.body)
-        if body and isinstance(body[0], _ast.Expr) and isinstance(getattr(body[0], 'value', None), _ast.Constant) and isinstance(body[0].value.value, str):
-            body = body[1:]  # drop docstring
-        if len(body) == 1 and isinstance(body[0], _ast.Return):
-            v = body[0].value
-            return v is None or (isinstance(v, _ast.Constant) and v.value in (0, 0.0, None, ''))
-        if len(body) == 1 and isinstance(body[0], _ast.Pass):
-            return True
-        return False
-
-    names = {n.name for _tree in _trees for n in _ast.walk(_tree)
-             if isinstance(n, _ast.FunctionDef) and n.name.startswith('pl_') and _is_stub(n)}
 
     def _make_loud(nm):
         def _loud(*args, **kwargs):

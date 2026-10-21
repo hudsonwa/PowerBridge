@@ -14,33 +14,28 @@
 # limitations under the License.
 
 """
-test_runtime_encoding.py — proves pl_runtime's self-introspection is codec-safe
-and fail-loud (Windows finding B2).
+test_runtime_encoding.py — proves pl_runtime's loud stubs install without reading
+any source file (Windows finding B2; .pyc-only / zipped installs).
 
-pl_runtime installs 341 loud stubs by reading its OWN source (the `_rt_*`
-submodules behind the facade) with `ast` at import time (see `_install_loud_stubs`). The read used to use the locale default codec;
-on a legacy codepage (cp932/936/949) or an ascii/LC_ALL=C locale a non-ASCII byte
-in the file raised UnicodeDecodeError, which the bare `except Exception: return`
-then SWALLOWED — so every loud stub was silently NOT installed and unimplemented
-EasyLanguage builtins would silently return plausible-but-wrong 0/'' values. That
-is the worst failure mode this project has.
+pl_runtime wraps 340 trivial pl_* stubs in loud wrappers at import time (see
+`_install_loud_stubs`). It used to find them by reading its OWN .py sources with
+`ast`; a locale-codec decode error there once silently disabled every loud stub,
+and the read cannot work at all from a .pyc-only or zipped install. The names now
+come from the generated, static `_loud_stub_names` module.
 
-This test falsifies the fix two ways, entirely capture-free and portable:
+This test, entirely capture-free and portable, checks:
 
-  (a) With the utf-8 self-read, the introspection succeeds and ALL 341 loud stubs
-      install (counted at runtime AND cross-checked against an independent AST
-      recount, so a silently-empty install fails here).
+  (a) ALL 340 loud stubs install (counted at runtime AND cross-checked against an
+      independent AST recount of the sources, so a silently-empty install fails).
 
-  (b) When a decode failure IS forced (builtins.open raising UnicodeDecodeError on
-      the self-read) UNDER PL_STRICT, `_install_loud_stubs` RAISES loudly instead
-      of silently returning — fail-loud, never silent-wrong.
+  (b) The static list is in sync with the runtime sources (regenerate with
+      `python tools/gen_loud_stubs.py`).
 
-  (c) The same forced failure WITHOUT PL_STRICT stays tolerant (does not raise) but
-      emits exactly one loud stderr warning — the degraded state is never invisible.
+  (c) Installing never opens a runtime source file: with builtins.open forced to
+      fail on them, the full set still installs and nothing is written to stderr.
 
 Exit 0 iff all three hold.
 """
-import ast as _ast
 import builtins
 import io
 import os
@@ -52,12 +47,18 @@ if REPO not in sys.path:
 
 import pl_transpiler.runtime.pl_runtime as rt
 import pl_transpiler.runtime._rt_core as rt_core
+import importlib.util
 
-# The source files _install_loud_stubs reads (one per runtime submodule).
+_spec = importlib.util.spec_from_file_location(
+    "gen_loud_stubs", os.path.join(REPO, "tools", "gen_loud_stubs.py"))
+gen_loud_stubs = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(gen_loud_stubs)
+
+# The runtime source files the old self-read used to open.
 RUNTIME_FILES = [sys.modules["pl_transpiler.runtime." + n].__file__
                  for n in rt_core._RUNTIME_SUBMODULES]
 
-# The documented number of loud stubs pl_runtime installs from its own source.
+# The documented number of loud stubs pl_runtime installs.
 EXPECTED_LOUD_STUBS = 340
 
 
@@ -67,42 +68,34 @@ def _installed_loud_stub_names():
             if getattr(getattr(rt, n), "_pl_loud_stub", False)}
 
 
-def _ast_recount_stub_names():
-    """Independently recompute the stub name set the way _install_loud_stubs does,
-    so (a) cannot pass on a silently-empty install. Mirrors the module's own
-    _is_stub / name-filter logic against the utf-8 source."""
-    trees = []
-    for path in RUNTIME_FILES:
-        with open(path, "r", encoding="utf-8") as f:
-            trees.append(_ast.parse(f.read()))
-
-    def is_stub(fn):
-        body = list(fn.body)
-        if (body and isinstance(body[0], _ast.Expr)
-                and isinstance(getattr(body[0], "value", None), _ast.Constant)
-                and isinstance(body[0].value.value, str)):
-            body = body[1:]
-        if len(body) == 1 and isinstance(body[0], _ast.Return):
-            v = body[0].value
-            return v is None or (isinstance(v, _ast.Constant)
-                                 and v.value in (0, 0.0, None, ''))
-        if len(body) == 1 and isinstance(body[0], _ast.Pass):
-            return True
-        return False
-
-    names = {n.name for tree in trees for n in _ast.walk(tree)
-             if isinstance(n, _ast.FunctionDef)
-             and n.name.startswith("pl_") and is_stub(n)}
-    return names - rt._UNIMPL_WHITELIST
+def test_all_loud_stubs_install():
+    """(a) All 340 loud stubs install and match an independent AST recount."""
+    installed = _installed_loud_stub_names()
+    recount = gen_loud_stubs.scan() - rt._UNIMPL_WHITELIST
+    assert len(installed) == EXPECTED_LOUD_STUBS, (
+        f"installed {len(installed)} loud stubs, expected {EXPECTED_LOUD_STUBS}")
+    assert installed == recount, (
+        "installed loud-stub set does not match the independent AST recount "
+        f"(installed-only: {sorted(installed - recount)[:5]}, "
+        f"recount-only: {sorted(recount - installed)[:5]})")
+    print(f"  [ok] all {len(installed)} loud stubs install "
+          "(cross-checked against independent AST recount)")
 
 
-def _run_install_with_failing_selfread(strict):
-    """Call _install_loud_stubs with builtins.open forced to raise
-    UnicodeDecodeError on the runtime self-read (simulating a legacy/ascii locale).
-    Sets/restores PL_STRICT and captures stderr. Returns (raised, stderr_text).
-    Always restores real open + _PL_STRICT + a clean stub install afterwards."""
+def test_static_list_in_sync():
+    """(b) The generated _loud_stub_names module matches the runtime sources."""
+    path = os.path.join(REPO, "pl_transpiler", "runtime", "_loud_stub_names.py")
+    with open(path, "r", encoding="utf-8") as f:
+        current = f.read()
+    assert current == gen_loud_stubs.render(gen_loud_stubs.scan()), (
+        "pl_transpiler/runtime/_loud_stub_names.py is out of date; "
+        "run: python tools/gen_loud_stubs.py")
+    print("  [ok] static loud-stub list is in sync with the runtime sources")
+
+
+def test_install_reads_no_source():
+    """(c) _install_loud_stubs never opens a runtime .py file."""
     real_open = builtins.open
-    orig_strict = rt_core._PL_STRICT
 
     def failing_open(file, *args, **kwargs):
         if file in RUNTIME_FILES:
@@ -112,77 +105,23 @@ def _run_install_with_failing_selfread(strict):
 
     captured = io.StringIO()
     real_stderr = sys.stderr
-    raised = False
     try:
-        rt_core._PL_STRICT = strict
         builtins.open = failing_open
         sys.stderr = captured
-        try:
-            rt._install_loud_stubs()
-        except RuntimeError:
-            raised = True
+        rt._install_loud_stubs()
     finally:
         builtins.open = real_open
         sys.stderr = real_stderr
-        rt_core._PL_STRICT = orig_strict
-        # Re-install cleanly so the module is not left degraded for later tests.
-        rt._install_loud_stubs()
-    return raised, captured.getvalue()
-
-
-def test_utf8_selfread_installs_all_loud_stubs():
-    """(a) The utf-8 self-read succeeds and all 341 loud stubs install."""
-    installed = _installed_loud_stub_names()
-    recount = _ast_recount_stub_names()
-    assert len(installed) == EXPECTED_LOUD_STUBS, (
-        f"installed {len(installed)} loud stubs, expected {EXPECTED_LOUD_STUBS} — "
-        "the utf-8 self-read did NOT install the full loud-stub set")
-    assert installed == recount, (
-        "installed loud-stub set does not match the independent AST recount "
-        f"(installed-only: {sorted(installed - recount)[:5]}, "
-        f"recount-only: {sorted(recount - installed)[:5]})")
-    assert len(recount) == EXPECTED_LOUD_STUBS, (
-        f"independent AST recount found {len(recount)} stubs, expected "
-        f"{EXPECTED_LOUD_STUBS}")
-    print(f"  [ok] utf-8 self-read installs all {len(installed)} loud stubs "
-          "(cross-checked against independent AST recount)")
-
-
-def test_strict_decode_failure_raises_loudly():
-    """(b) Under PL_STRICT a forced self-read decode failure RAISES, never silently
-    returns (which would leave unimplemented builtins returning wrong 0/'')."""
-    raised, _ = _run_install_with_failing_selfread(strict=True)
-    assert raised, (
-        "under PL_STRICT a UnicodeDecodeError on the runtime self-read did NOT "
-        "raise — the fail-loud guard is broken; loud stubs would be silently "
-        "skipped and unimplemented builtins would return plausible-but-wrong 0/''")
-    # And the clean re-install restored the full loud-stub set.
-    assert len(_installed_loud_stub_names()) == EXPECTED_LOUD_STUBS, (
-        "loud stubs not restored to full count after the strict-failure test")
-    print("  [ok] PL_STRICT self-read decode failure raises loudly (fail-loud)")
-
-
-def test_nonstrict_decode_failure_warns_but_tolerates():
-    """(c) Without PL_STRICT the same failure stays tolerant (no raise) but emits
-    exactly one loud stderr warning — the degraded state is never invisible."""
-    raised, stderr_text = _run_install_with_failing_selfread(strict=False)
-    assert not raised, (
-        "without PL_STRICT the self-read decode failure raised — the tolerant "
-        "fallback regressed")
-    assert "WARNING" in stderr_text and "loud stubs are NOT installed" in stderr_text, (
-        f"expected one loud stderr warning about skipped loud stubs, got: "
-        f"{stderr_text!r}")
-    assert stderr_text.count("WARNING") == 1, (
-        f"expected exactly one warning line, got {stderr_text.count('WARNING')}: "
-        f"{stderr_text!r}")
-    print("  [ok] non-strict self-read decode failure warns once but tolerates")
+    assert len(_installed_loud_stub_names()) == EXPECTED_LOUD_STUBS
+    assert captured.getvalue() == "", captured.getvalue()
+    print("  [ok] loud stubs install without reading any runtime source")
 
 
 def main():
     tests = [
-        test_utf8_selfread_installs_all_loud_stubs,
-        test_strict_decode_failure_raises_loudly,
-        test_nonstrict_decode_failure_warns_but_tolerates,
+        test_all_loud_stubs_install,
+        test_static_list_in_sync,
+        test_install_reads_no_source,
     ]
     for t in tests:
         print(f"running {t.__name__} ...")

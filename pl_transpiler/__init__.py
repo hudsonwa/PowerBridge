@@ -18,6 +18,7 @@ __version__ = "0.5.0"
 # copy even when this source checkout shadows site-packages on sys.path, e.g.
 # when you run from the repository root after `pip install` of the accel wheel.
 from pkgutil import extend_path as _extend_path
+from typing import TYPE_CHECKING as _TYPE_CHECKING
 from typing import Any as _Any
 __path__ = _extend_path(__path__, __name__)
 
@@ -31,7 +32,15 @@ _LAZY = {
     'UnimplementedKeywordError': 'errors',
     'restore_spelling': 'errors',
     'unimplemented_message': 'errors',
+    'run_el': 'tools.pl_run',
+    'load_bars_csv': 'tools.pl_run',
+    'get_config': 'runtime.instrument_config',
 }
+
+if _TYPE_CHECKING:
+    from .tools.pl_run import load_bars_csv as load_bars_csv
+    from .tools.pl_run import run_el as run_el
+    from .runtime.instrument_config import get_config as get_config
 
 
 def __getattr__(name: str) -> "_Any":
