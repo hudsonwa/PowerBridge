@@ -20,6 +20,7 @@
 //! would have traded.
 
 use super::compile::{CallOp, Cmp, Instr, PositionKw, Program, Series};
+use super::pynum::may_raise;
 use super::value::Value;
 use crate::types::SkipPlan;
 
@@ -53,6 +54,20 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
     }) {
         return SkipPlan::unproven(
             "drawing or colour calls have side effects; cannot skip a prefix",
+        );
+    }
+    // A skipped bar is never evaluated, so an operation the Python path raises
+    // on (a zero divisor, IntPortion of a non-finite value, ...) would go
+    // unreported there. Evaluate every bar unless each one is proven safe.
+    if program
+        .instrs
+        .iter()
+        .enumerate()
+        .any(|(pc, instr)| may_raise(instr, pc.checked_sub(1).map(|p| &program.instrs[p])))
+    {
+        return SkipPlan::unproven(
+            "an operation the Python path can raise on (zero divisor, IntPortion, Square, \
+             MaxList/MinList); cannot skip a prefix",
         );
     }
     if !program.instrs.iter().any(|instr| {
@@ -1163,6 +1178,40 @@ mod tests {
         let plan = plan(&program, tape.dates());
         assert!(plan.proven, "{}", plan.reason);
         assert_eq!(plan.eval_from, 3);
+    }
+
+    fn divide_program(op: &str, divisor: serde_json::Value) -> Program {
+        compile_body(vec![
+            json!({
+                "type": "var_decl",
+                "decls": [{"name": "x", "init": num(0), "data_ref": null}],
+            }),
+            assign(
+                "x",
+                json!({"type": "binop", "op": op, "left": ident("close"), "right": divisor}),
+            ),
+        ])
+    }
+
+    #[test]
+    fn variable_divisor_blocks_the_skip() {
+        // Python raises on a zero divisor, so every bar must be evaluated.
+        let tape = tape_dates(&[1030101, 1030102, 1180212]);
+        for op in ["/", "%"] {
+            let plan = plan(&divide_program(op, ident("x")), tape.dates());
+            assert!(!plan.proven, "{op}: {}", plan.reason);
+            assert_eq!(plan.eval_from, 0);
+        }
+    }
+
+    #[test]
+    fn non_zero_literal_divisor_still_skips() {
+        let tape = tape_dates(&[1030101, 1030102, 1180212]);
+        for op in ["/", "%"] {
+            let plan = plan(&divide_program(op, num(4)), tape.dates());
+            assert!(plan.proven, "{op}: {}", plan.reason);
+            assert_eq!(plan.eval_from, 3);
+        }
     }
 
     #[test]

@@ -29,6 +29,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::compile::{Binop, CallOp, Cmp, Instr, Program, RiskOp, SeriesSrc, Unary};
+use super::pynum::{binop_num, may_raise, py_extreme, py_int, py_sign, py_square};
 use super::value::{num_to_str, Value};
 
 /// Specialised instruction stream for one frozen Input vector.
@@ -193,16 +194,6 @@ fn crosses_target(targets: &HashSet<usize>, start: usize, end: usize) -> bool {
     (start + 1..end).any(|i| targets.contains(&i))
 }
 
-fn eval_binop_num(op: Binop, a: f64, b: f64) -> f64 {
-    match op {
-        Binop::Add => a + b,
-        Binop::Sub => a - b,
-        Binop::Mul => a * b,
-        Binop::Div => a / b,
-        Binop::Mod => a % b,
-    }
-}
-
 fn eval_cmp_num(cmp: Cmp, a: f64, b: f64) -> bool {
     match cmp {
         Cmp::Eq => a == b,
@@ -242,7 +233,8 @@ fn fold_binop(op: Binop, left: &Value, right: &Value) -> Option<Instr> {
     }
     let a = left.as_f64().ok()?;
     let b = right.as_f64().ok()?;
-    Some(Instr::PushNum(eval_binop_num(op, a, b)))
+    // A Python error (zero divisor) is left unfolded so it refuses at run time.
+    Some(Instr::PushNum(binop_num(op, a, b).ok()?))
 }
 
 fn fold_cmp(cmp: Cmp, left: &Value, right: &Value) -> Option<Instr> {
@@ -266,35 +258,25 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
     match op {
         CallOp::AbsValue if args.len() == 1 => Some(Instr::PushNum(args[0].as_f64().ok()?.abs())),
         CallOp::IntPortion if args.len() == 1 => {
-            Some(Instr::PushNum(args[0].as_f64().ok()?.trunc()))
+            Some(Instr::PushNum(py_int(args[0].as_f64().ok()?).ok()?))
         }
-        CallOp::Sign if args.len() == 1 => {
-            let a = args[0].as_f64().ok()?;
-            Some(Instr::PushNum(if a > 0.0 {
-                1.0
-            } else if a < 0.0 {
-                -1.0
-            } else {
-                0.0
-            }))
-        }
+        CallOp::Sign if args.len() == 1 => Some(Instr::PushNum(py_sign(args[0].as_f64().ok()?))),
         CallOp::Square if args.len() == 1 => {
-            let a = args[0].as_f64().ok()?;
-            Some(Instr::PushNum(a * a))
+            Some(Instr::PushNum(py_square(args[0].as_f64().ok()?).ok()?))
         }
-        CallOp::MaxList if !args.is_empty() => {
-            let mut m = f64::NEG_INFINITY;
-            for a in args {
-                m = m.max(a.as_f64().ok()?);
-            }
-            Some(Instr::PushNum(m))
+        CallOp::MaxList => {
+            let nums = args
+                .iter()
+                .map(|a| a.as_f64().ok())
+                .collect::<Option<Vec<_>>>()?;
+            Some(Instr::PushNum(py_extreme(&nums, true).ok()?))
         }
-        CallOp::MinList if !args.is_empty() => {
-            let mut m = f64::INFINITY;
-            for a in args {
-                m = m.min(a.as_f64().ok()?);
-            }
-            Some(Instr::PushNum(m))
+        CallOp::MinList => {
+            let nums = args
+                .iter()
+                .map(|a| a.as_f64().ok())
+                .collect::<Option<Vec<_>>>()?;
+            Some(Instr::PushNum(py_extreme(&nums, false).ok()?))
         }
         CallOp::NumToStr if args.len() >= 2 => {
             let x = args[0].as_f64().ok()?;
@@ -553,7 +535,10 @@ fn producer_start(instrs: &[Instr], drop_idx: usize, targets: &HashSet<usize>) -
         if targets.contains(&i) {
             return None;
         }
-        if !is_pure(&instrs[i]) || matches!(instrs[i], Instr::Nop) {
+        // An operation Python can raise on must still run when its result is
+        // unread (`U = Close / C` with `U` never read).
+        let prev = i.checked_sub(1).map(|p| &instrs[p]);
+        if !is_pure(&instrs[i]) || matches!(instrs[i], Instr::Nop) || may_raise(&instrs[i], prev) {
             return None;
         }
         let (pop, push) = stack_delta(&instrs[i])?;

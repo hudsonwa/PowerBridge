@@ -35,6 +35,7 @@ mod interp;
 mod ir;
 #[cfg(test)]
 mod parity_tests;
+mod pynum;
 mod trace;
 mod trace_types;
 mod value;
