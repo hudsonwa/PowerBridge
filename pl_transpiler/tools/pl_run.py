@@ -49,7 +49,7 @@ import math
 import os
 import re
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.bar_tape import BarTape
@@ -530,7 +530,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         notify()
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
-    drawing_meta = None
+    drawing_meta: Tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     recorder = None
     if drawings:
         from pl_transpiler.runtime._rt_drawing import (

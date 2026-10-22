@@ -67,7 +67,7 @@ import gzip
 import hashlib
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -409,7 +409,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back = check_max_bars_back(max_bars_back)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
-    drawing_meta = None
+    drawing_meta: Tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     if drawings:
         from pl_transpiler.runtime._rt_drawing import (
             DrawingRecorder, make_dump, resolve_drawing_request,
