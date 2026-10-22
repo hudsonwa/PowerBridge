@@ -34,8 +34,9 @@ two passes are MANUAL (no MC compiler here, so the MC editor "Verify" is still t
   (2) 0-ARITY — a real keyword that is a 0-arg PROPERTY must NOT be called with parentheses, else MC:
       "Invalid number of parameters. 0 parameter(s) expected" (e.g. SessionCountMS, MaxShares are
       0-arg; siblings SessionCount(SessionType), MaxContracts(PosBack) take args).  [automated here]
-  (3) SIGNATURES — arg-COUNT of multi-arg fns, arg-TYPES, and return-type-vs-var-type are NOT checked
-      here; verify each against its PL-Ref `Usage` line. Pitfalls that bit GTA6 (see lessons.md):
+  (3) SIGNATURES — arg-COUNT, return-type-vs-var-type and (Pass 4) arg-TYPES where both the
+      catalog type and the argument's type are certain are checked here; the rest is not, so verify
+      each against its PL-Ref `Usage` line. Pitfalls that bit GTA6 (see lessons.md):
       Array_GetBooleanValue→TrueFalse (don't assign to a numeric var; use `If fn() Then v=1`);
       string fns (DateToString, FormatDate, SymbolName, *Name, Array_GetStringValue) → String var +
       bare concat, never NumToStr; Array_Sort's 4th arg is a TrueFalse (true=ascending), not 0/1.
@@ -342,6 +343,91 @@ def arity_signature_violations(code):
     return out
 
 
+def _blank(m):
+    """Replace a match with spaces, keeping its newlines so offsets keep their line numbers."""
+    return re.sub(r'[^\n]', ' ', m.group(0))
+
+
+def _typed_source(raw):
+    """`raw` with comments and declaration statements blanked and every string literal
+    reduced to `""` padded with spaces: string arguments stay visible, nothing inside them
+    can be mistaken for code, and every offset keeps its original line."""
+    src = re.sub(r'\{[^}]*\}', _blank, raw, flags=re.S)
+    src = re.sub(r'//[^\n]*', _blank, src)
+    src = re.sub(r'"[^"\n]*"', lambda m: '""' + _blank(m)[2:], src)
+    return re.sub(_DECL_STMT, _blank, src, flags=re.S)
+
+
+def _split_args(s, open_idx):
+    """Top-level argument texts of the call whose '(' is at open_idx."""
+    depth, start, args = 0, open_idx + 1, []
+    for i in range(open_idx, len(s)):
+        c = s[i]
+        if c in '([':
+            depth += 1
+        elif c in ')]':
+            depth -= 1
+            if depth == 0:
+                args.append(s[start:i])
+                break
+        elif c == ',' and depth == 1:
+            args.append(s[start:i])
+            start = i + 1
+    return [] if len(args) == 1 and not args[0].strip() else args
+
+
+def _var_kinds(raw):
+    """Declared Input/Var name(lower) -> 'string' | 'bool' when its init value is a string
+    literal or true/false. Other declarations are left out: their type is not certain."""
+    kinds = {}
+    for m in re.finditer(r'(?i)\b(inputs?|vars?|variables?)\s*:\s*(.*?);', raw, flags=re.S):
+        for dm in re.finditer(r'([A-Za-z_]\w*)\s*\(\s*([^()]*?)\s*\)', m.group(2)):
+            init = dm.group(2).strip()
+            if init.startswith('"'):
+                kinds[dm.group(1).lower()] = 'string'
+            elif init.lower() in ('true', 'false'):
+                kinds[dm.group(1).lower()] = 'bool'
+    return kinds
+
+
+def _static_type(arg, kinds):
+    """The type of an argument when it is certain: a string literal, true/false, or a lone
+    variable declared with a string or true/false init. Anything else -> None (not checked)."""
+    a = arg.strip()
+    if re.fullmatch(r'""\s*', a):
+        return 'string'
+    if a.lower() in ('true', 'false'):
+        return 'bool'
+    if re.fullmatch(r'[A-Za-z_]\w*', a):
+        return kinds.get(a.lower())
+    return None
+
+
+def argtype_violations(raw, sigs):
+    """PASS 4 (argument types): an argument whose type is statically certain (see
+    _static_type) contradicts the catalog's declared parameter type. Only parameters typed
+    "numeric" are checked ("any" and unknown are skipped), and only for records whose
+    verification is verified:*; documented-unverified records are skipped, never rejected.
+    Returns (keyword, position (1-based), expected, found, line)."""
+    src = _typed_source(raw)
+    kinds = _var_kinds(raw)
+    declared = _declared(_strip(raw))
+    out = []
+    for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', src):
+        kw = m.group(1).lower()
+        sig = sigs.get(kw)
+        if not sig or kw in declared or not str(sig.get('verification', '')).startswith('verified:'):
+            continue
+        types = sig.get('arg_types') or []
+        for pos, (arg, want) in enumerate(zip(_split_args(src, m.end() - 1), types), 1):
+            if want != 'numeric':
+                continue
+            found = _static_type(arg, kinds)
+            if found is not None and found != want:
+                out.append((sig['keyword'], pos, want, found, src.count('\n', 0, m.start()) + 1))
+    return out
+
+
 def check(path):
     raw = open(path, encoding='utf-8', errors='ignore').read()
     code = _strip(raw)
@@ -356,8 +442,11 @@ def check(path):
     arity_bad = arity_3a + [(n, r) for n, r in arity_signature_violations(code) if n not in seen_arity]
     # PASS 2 (return-type vs var-type).
     rettype_bad = returntype_violations(code, raw, sigs)
+    # PASS 4 (argument types where the catalog and the argument are both certain).
+    argtype_bad = argtype_violations(raw, sigs)
     print(f"{path}: {len(cands)} builtins used | {len(cands) - len(not_proven)} PROVEN | "
-          f"{len(not_proven)} NOT-PROVEN | {len(arity_bad)} ARITY-BAD | {len(rettype_bad)} RETURN-TYPE-BAD")
+          f"{len(not_proven)} NOT-PROVEN | {len(arity_bad)} ARITY-BAD | {len(rettype_bad)} RETURN-TYPE-BAD | "
+          f"{len(argtype_bad)} ARG-TYPE-BAD")
     if not_proven:
         print("\nNOT-PROVEN (verify each has a real MC keyword-reference entry, or replace/inline/drop):")
         for i in range(0, len(not_proven), 6):
@@ -372,12 +461,17 @@ def check(path):
               "(e.g. the SymbolCurrencyCode string-into-numeric trap). Use a matching var type:")
         for kw, var, r in rettype_bad:
             print(f"  {kw} -> {var}: {r}")
-    if not_proven or arity_bad or rettype_bad:
+    if argtype_bad:
+        print("\nARG-TYPE (Pass 4) -- an argument's type contradicts the keyword's declared parameter type:")
+        for kw, pos, want, found, line in argtype_bad:
+            print(f"  line {line}: {kw} argument {pos}: expected {want}, found {found}")
+    if not_proven or arity_bad or rettype_bad or argtype_bad:
         print("\nFAIL -- do not paste into MultiCharts until these are resolved.")
         return 1
     print("OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).")
-    print("NOTE: argument types are not checked; compare them with the keyword's reference page. "
-          "Compiling in the MultiCharts editor is the final check.")
+    print("NOTE: argument types are checked only where the catalog declares a verified numeric parameter "
+          "and the argument is a literal or a string/true-false variable; compiling in the MultiCharts "
+          "editor is the final check.")
     return 0
 
 
