@@ -434,11 +434,14 @@ def run_native_trace(el_source, bars, config, *, data2_bars=None):
     pre-formatted 24-column text sink. Returns ``(columns, rows, fills)``:
 
     * ``columns`` — the sorted union of bar metadata, engine position columns
-      and the strategy's variables;
+      and the strategy's variables and inputs (``run_el``'s columns);
     * ``rows`` — one typed list per evaluated bar, aligned to ``columns``;
     * ``fills`` — the ordered ``FillEngine.fills`` list, identical to
       ``run_native``'s (the trade-list digest of a trace run must equal
       ``pl_oracle`` bit-for-bit).
+
+    ``str()`` of every cell equals ``run_el``'s cell. A program whose
+    variable types (int, float, bool or str) depend on the run is refused.
 
     Raises ``AccelUnavailable`` / ``AccelRefused`` — never a partial trace.
     """

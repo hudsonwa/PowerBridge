@@ -30,6 +30,7 @@ use serde_json::Value as Json;
 use crate::types::{Action, KernelError, OrderType, Timing};
 
 use super::ir::node_type;
+use super::trace_types::{self, TraceType};
 use super::value::Value;
 
 /// A primary data-series column (also used by `bar_ref` / `data_of`).
@@ -370,6 +371,8 @@ pub(crate) struct Program {
 
     // Resolved inputs, indexed by input slot (override > projected > default).
     pub(crate) inputs: Vec<Value>,
+    // Input names, indexed by input slot (trace columns).
+    pub(crate) input_names: Vec<String>,
 }
 
 pub(crate) fn compile(
@@ -386,6 +389,46 @@ pub(crate) fn compile(
     Ok(compiler.finish())
 }
 
+/// Python trace types of `program`'s variables and inputs, in slot order.
+/// Only the trace entry point needs them, so a plain compile skips this walk.
+pub(crate) fn trace_types(
+    ast: &Json,
+    program: &Program,
+) -> Result<(Vec<TraceType>, Vec<TraceType>), KernelError> {
+    let body = body_of(ast)?;
+    let double_accum: HashSet<String> = program
+        .var_names
+        .iter()
+        .zip(&program.var_double_accum)
+        .filter(|(_, accum)| **accum)
+        .map(|(name, _)| name.clone())
+        .collect();
+    let mut vars = Vec::new();
+    let mut inputs = Vec::new();
+    for stmt in body {
+        match node_type(stmt) {
+            Some("var_decl") => {
+                for decl in decls_of(stmt)? {
+                    vars.push(trace_types::VarDecl {
+                        name: decl_name(decl)?,
+                        init: decl.get("init").unwrap_or(&Json::Null),
+                    });
+                }
+            }
+            Some("input_decl") => {
+                for decl in decls_of(stmt)? {
+                    inputs.push(trace_types::InputDecl {
+                        name: decl_name(decl)?,
+                        default: decl.get("default").unwrap_or(&Json::Null),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(trace_types::infer(body, &vars, &inputs, &double_accum))
+}
+
 struct Compiler {
     instrs: Vec<Instr>,
     var_slots: HashMap<String, usize>,
@@ -396,6 +439,7 @@ struct Compiler {
     var_names: Vec<String>,
     var_inits: Vec<Value>,
     inputs: Vec<Value>,
+    input_names: Vec<String>,
     needs_value_history: HashSet<String>,
     needs_numeric_history: HashSet<String>,
 }
@@ -412,6 +456,7 @@ impl Compiler {
             var_names: Vec::new(),
             var_inits: Vec::new(),
             inputs: Vec::new(),
+            input_names: Vec::new(),
             needs_value_history: HashSet::new(),
             needs_numeric_history: HashSet::new(),
         }
@@ -449,6 +494,7 @@ impl Compiler {
             var_needs_value_history,
             var_needs_numeric_history,
             inputs: self.inputs,
+            input_names: self.input_names,
         }
     }
 
@@ -470,6 +516,7 @@ impl Compiler {
                             self.numeric_vars.insert(name.clone());
                         }
                         let slot = self.inputs.len();
+                        self.input_names.push(name.clone());
                         self.input_slots.insert(name, slot);
                         self.inputs.push(value);
                     }

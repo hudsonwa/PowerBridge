@@ -36,6 +36,7 @@ mod ir;
 #[cfg(test)]
 mod parity_tests;
 mod trace;
+mod trace_types;
 mod value;
 
 mod compile;
@@ -165,18 +166,20 @@ pub(crate) fn run_program_trace(
     refuse_run_program_options(config, "run_program_trace")?;
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
-    let mut strategy = Interpreter::new(ast, &HashMap::new(), data2_aligned)?;
+    let blanked = HashMap::from([(trace_types::BLANKED_INPUT.to_owned(), Value::str(""))]);
+    let program = compile(&ast, &blanked)?;
+    let (var_types, input_types) = compile::trace_types(&ast, &program)?;
+    let mut collector = trace::TraceCollector::new(&program, var_types, input_types)?;
+    // Every bar is evaluated (no skip plan) and every store is kept, so the
+    // trace sees each variable's end-of-bar value the way Python does.
+    let mut strategy = Interpreter::from_program_with(program, data2_aligned, true)?;
     let instrument: Instrument = config.into();
-    let mut collector = trace::TraceCollector::new();
     let outcome = run_native_from_offset(
         series,
         instrument,
         &mut strategy,
         0,
-        |s, position, bar, index| {
-            collector.observe(s, position, bar, index);
-            Ok(())
-        },
+        |s, position, bar, index| collector.observe(s, position, bar, index),
     )?;
     Ok((collector.into_trace(), outcome.fills))
 }
@@ -660,6 +663,34 @@ mod tests {
         // The date cell is typed Int (not a str) — the sink is typed.
         let date_idx = index_of("_date");
         assert!(matches!(trace.rows[0][date_idx], super::Cell::Int(_)));
+        // Inputs are columns too, with Python's types; OutPath is blanked the
+        // way the Python bar loop blanks it.
+        assert_eq!(trace.rows[0][index_of("fastlen")], super::Cell::Int(10));
+        assert_eq!(
+            trace.rows[0][index_of("outpath")],
+            super::Cell::Str(String::new())
+        );
+    }
+
+    #[test]
+    fn typed_trace_keeps_unread_stores_and_int_accumulators() {
+        // Vars: C(0), H(0); C = C + 1; H = Close / 2;  (nothing reads H)
+        let ir = r#"{"kind":"pl_transpiler.ast","ir_version":1,"ast":{"type":"program","body":[
+            {"type":"var_decl","decls":[
+                {"name":"c","init":{"type":"number","value":"0"},"data_ref":null},
+                {"name":"h","init":{"type":"number","value":"0"},"data_ref":null}]},
+            {"type":"assign","target":{"type":"ident","name":"c"},
+             "value":{"type":"binop","op":"+","left":{"type":"ident","name":"c"},
+                      "right":{"type":"number","value":"1"}}},
+            {"type":"assign","target":{"type":"ident","name":"h"},
+             "value":{"type":"binop","op":"/","left":{"type":"ident","name":"close"},
+                      "right":{"type":"number","value":"2"}}}]}}"#;
+        let tape = load_csv(sample_bars_path().to_str().unwrap());
+        let (trace, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
+        let c = trace.columns.iter().position(|n| n == "c").unwrap();
+        let h = trace.columns.iter().position(|n| n == "h").unwrap();
+        assert_eq!(trace.rows[4][c], super::Cell::Int(5));
+        assert!(matches!(trace.rows[4][h], super::Cell::Num(v) if v > 0.0));
     }
 
     fn nq_slot_var_decls() -> String {

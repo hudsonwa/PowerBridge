@@ -35,7 +35,7 @@ use super::compile::{
     compile, Binop, CallOp, Cmp, Instr, McKw, PositionKw, Program, RiskOp, Series, SeriesSrc, Unary,
 };
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
-use super::specialize::{specialize, Specialized, Stats as SpecializeStats};
+use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
 use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
 
 pub(crate) struct Interpreter<'a> {
@@ -96,8 +96,18 @@ impl<'a> Interpreter<'a> {
         program: Program,
         data2: Option<Arc<Data2Aligned<'a>>>,
     ) -> Result<Self, KernelError> {
+        Self::from_program_with(program, data2, false)
+    }
+
+    /// [`Self::from_program`] for the trace entry point: `keep_stores` keeps
+    /// stores to variables nothing reads, so the trace sees their values.
+    pub(crate) fn from_program_with(
+        program: Program,
+        data2: Option<Arc<Data2Aligned<'a>>>,
+        keep_stores: bool,
+    ) -> Result<Self, KernelError> {
         let n_vars = program.var_names.len();
-        let spec = specialize(&program);
+        let spec = specialize_with(&program, keep_stores);
         let specialize_stats = spec.stats;
         let mut interp = Self {
             var_numeric: program.var_numeric.clone(),
@@ -968,12 +978,6 @@ impl<'a> Interpreter<'a> {
 }
 
 impl<'a> Interpreter<'a> {
-    /// The strategy's declared variable names (lowercased IR names), in slot
-    /// order. The typed trace bridge projects these as its strategy columns.
-    pub(crate) fn var_names(&self) -> &[String] {
-        &self.program.var_names
-    }
-
     pub(crate) fn set_drawing_tick(&mut self, tick: f64) {
         self.drawings.set_tick(tick);
     }
