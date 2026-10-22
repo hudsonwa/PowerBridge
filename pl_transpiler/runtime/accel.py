@@ -102,18 +102,12 @@ Public surface:
         never come from a silent Python fallback — that would be a false green.
 """
 import json
-import os
-import sys
 from collections import OrderedDict
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if REPO not in sys.path:
-    sys.path.insert(0, REPO)
-
-from pl_transpiler.lexer import tokenise  # noqa: E402
-from pl_transpiler.parser import parse  # noqa: E402
-from pl_transpiler.ir import serialise_ir  # noqa: E402
-from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
+from pl_transpiler.lexer import tokenise
+from pl_transpiler.parser import parse
+from pl_transpiler.ir import serialise_ir
+from pl_transpiler.runtime.bar_tape import ohlcv_columns
 
 
 # The FFI config requires a session `end` and the v2-required commission /

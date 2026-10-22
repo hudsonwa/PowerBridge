@@ -73,26 +73,22 @@ if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
     from pl_transpiler.tools.pl_run import Bars
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if REPO not in sys.path:
-    sys.path.insert(0, REPO)
-
-from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
-from pl_transpiler.runtime.accel import accel_available, warn_python_path  # noqa: E402
-from pl_transpiler.runtime.accel import (  # noqa: E402
+from pl_transpiler import transpile
+from pl_transpiler.engine import FillEngine, run_bar_loop
+from pl_transpiler.runtime.accel import accel_available, warn_python_path
+from pl_transpiler.runtime.accel import (
     AccelRefused,
     AccelUnavailable,
     run_native,
     run_native_drawings,
 )
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
-from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
-from pl_transpiler.tools import _cli  # noqa: E402
-from pl_transpiler.lookback import (  # noqa: E402
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.tools import _cli
+from pl_transpiler.lookback import (
     check_max_bars_back, check_max_entries_per_direction, warn_short_history)
-from pl_transpiler.tools.pl_run import (  # noqa: E402
+from pl_transpiler.tools.pl_run import (
     load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
 
@@ -625,10 +621,11 @@ def _build_parser():
     ap.add_argument("--dump", default=None,
                     help="write the hashed payload (version line + canonical fill lines) here. "
                          "Their first field is the buy/sell side, not a position label.")
-    ap.add_argument("-v", "--verbose", action="store_true",
-                    help="print native-kernel diagnostics (skip-region plan) "
-                         "and the 'accel not installed' note to stderr; "
-                         "PB_DEBUG=1 does the same for the diagnostics.")
+    ap.add_argument("-v", "--verbose", action="count", default=0,
+                    help="-v: also print the 'accel not installed' note and how many "
+                         "bars skipped fill processing to stderr. -vv: also print "
+                         "native-kernel internals ([accel] lines, e.g. the skip-region "
+                         "plan); PB_DEBUG=1 does the same for those.")
     ap.add_argument("--drawings-json", default=None,
                     help="write a powerbridge-drawing-dump v1 file. Requires "
                          "--drawing-case. Does not change the digest on stdout.")
@@ -699,7 +696,7 @@ def _main(ap, args):
                     if data2_bars is not None else None)
     config = _cli.config_or_error(args.config)
     output = _cli.output_path(args.output)
-    if args.verbose:
+    if args.verbose >= 2:
         os.environ["PB_ACCEL_VERBOSE"] = "1"
 
     result = run_oracle(

@@ -50,7 +50,9 @@ trust a backtest from partial output.
   10 bars. See "Matching MultiCharts" below for `--max-bars-back`.
 - Per-bar MultiCharts parity captures are not shipped. Those tests skip on a
   fresh clone.
-- The `accel` fast path is optional and builds from source. It does not yet
+- The `accel` fast path is optional: install the prebuilt wheel from a
+  release (macOS, Linux and Windows) or build it from source; see
+  [ACCEL.md](ACCEL.md). It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
   `pl_run` (per-bar trace rows) always uses the Python path.
 - Same-direction entries always add to the position (as with MultiCharts'

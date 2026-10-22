@@ -37,16 +37,11 @@ DEFAULT (strict) mode:
     porting only. No framework.
 """
 import argparse
-import os
 import sys
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if REPO not in sys.path:
-    sys.path.insert(0, REPO)
-
-from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
-from pl_transpiler.tools import _cli  # noqa: E402
+from pl_transpiler import transpile
+from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
+from pl_transpiler.tools import _cli
 
 
 def _print_strict_report(in_path, errors):

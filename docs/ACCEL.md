@@ -260,22 +260,21 @@ rule above is what turns disagreement into an error instead of a silent wrong an
 
 ## How to tell which path ran
 
-No feature is a silent feature. Until the kernel lands there is exactly one path,
-and it is the Python path; the commands say so in their output:
+No feature is a silent feature. `pl_oracle` ends its stderr summary with the
+path that produced the digest, `[native]` or `[python]`:
 
-```bash
-python3 -c "import pl_transpiler._accel" 2>&1 | tail -1
-# ModuleNotFoundError: No module named 'pl_transpiler._accel' -> Python path.
+```text
+[pl_oracle] 140 bars, 3 fills, 1 round-turns [native]
 ```
 
-When the kernel lands, the run entry points (`pl_run`, `pl_oracle`) will print
-a one-line banner on stderr stating the path used — for example
-`[pl_run] path=accel (pl_transpiler._accel <version>)` or
-`[pl_run] path=python (accel extra not installed)` — and the kernel must provide a
-compatibility marker checked at import time so a wheel built for a different dialect
-version raises loudly instead of running stale semantics. A missing or
-broken accel must degrade to the Python path with a clear message — never crash,
-never silently produce a different result.
+`pl_run` always uses the Python path. A kernel that is installed but refuses a
+program falls back to Python with a one-line note on stderr; it never crashes and
+never silently produces a different result. Verbosity is opt-in:
+
+- `-v` adds the "powerbridge-accel not installed" note (when it is not) and how
+  many bars skipped fill processing.
+- `-vv` (`pl_oracle` only) also prints native-kernel internals, the `[accel]`
+  lines such as the skip-region plan. `PB_DEBUG=1` turns those on too.
 
 ## Verification tiers, accel
 

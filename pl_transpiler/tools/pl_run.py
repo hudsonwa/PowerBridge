@@ -55,32 +55,29 @@ if TYPE_CHECKING:
     from pl_transpiler.runtime.bar_tape import BarTape
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
 
-# A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
-# or a column-contiguous BarTape holding the same values.
-Bars = Union[Sequence[Mapping[str, Any]], "BarTape"]
+from pl_transpiler import transpile
+from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.runtime.accel import warn_python_path
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if REPO not in sys.path:
-    sys.path.insert(0, REPO)
-
-from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines  # noqa: E402
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
-from pl_transpiler.runtime.accel import warn_python_path  # noqa: E402
-
-_log = logging.getLogger(__name__)
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
-from pl_transpiler.engine import (  # noqa: E402
+from pl_transpiler.engine import (
     FillEngine, run_bar_loop, _parse_el_date, _parse_el_time,
 )
-from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
-from pl_transpiler.tools import _cli  # noqa: E402
-from pl_transpiler.lookback import (  # noqa: E402
+from pl_transpiler.runtime.bar_tape import ohlcv_columns
+from pl_transpiler.tools import _cli
+from pl_transpiler.lookback import (
     check_max_bars_back, check_max_entries_per_direction, warn_short_history)
+
+# A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
+# or a column-contiguous BarTape holding the same values.
+Bars = Union[Sequence[Mapping[str, Any]], "BarTape"]
+
+_log = logging.getLogger(__name__)
 
 
 def unimplemented_stop_message(prog, exc, el_file):

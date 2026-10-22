@@ -18,6 +18,7 @@ machinery shared by every runtime submodule.
 Re-exported by pl_runtime; see that module."""
 
 import ctypes
+import os as _os
 
 # Module-level alias: dodge ctypes.c_float attribute lookup on the ~25-calls/bar path.
 _CFloat = ctypes.c_float
@@ -82,7 +83,6 @@ def el_round(x, decimals):
 # trades. Cosmetic stubs (drawing, sound, print; see _UNIMPL_COSMETIC below)
 # never raise. PL_STRICT=0 (or `--lenient` on pl_run / pl_oracle) opts out:
 # stubs then return 0/'' and the run ends with one stderr WARNING naming them.
-import os as _os
 
 
 def _strict_from_env(environ=None):
