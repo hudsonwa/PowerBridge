@@ -584,7 +584,7 @@ impl Refusal {
         } else if detail.starts_with("Data2-tied variable ") {
             ("variable", word(2))
         } else if detail == "string arrays" {
-            ("variable", "string array".to_string())
+            ("variable", "string_array".to_string())
         } else {
             ("expression", quoted.unwrap_or_else(|| detail.to_string()))
         }
