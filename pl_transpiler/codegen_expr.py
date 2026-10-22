@@ -420,6 +420,14 @@ class _ExprMixin:
                                         'kind': 'arity', 'detail': problem})
             if self._partial:
                 return f"pl_partial_stub({name!r}, {line!r})()"
+        sites = getattr(self, '_cross_sites', None)
+        if sites and name in ('crossesabove', 'crossesbelow'):
+            old_ctx = self._series_context
+            self._series_context = True
+            args = [f"_state['__pb_x{sites[id(a)][0]}']" if id(a) in sites
+                    else self.gen_expr(a) for a in node['args']]
+            self._series_context = old_ctx
+            return f"{BUILTIN_FUNC_MAP[name]}({', '.join(args)})"
         # Enable series context for functions that accept series args
         old_ctx = self._series_context
         if name in self._SERIES_FUNCS:

@@ -52,6 +52,22 @@
   passed those counts to the strategy. They now update on every bar, at the same
   point as `TotalTrades` and `GrossProfit`. The native kernel still refuses these
   words and falls back to the Python engine with a message.
+- `A crosses above B` and `crosses below` on the Python path silently never fired
+  when an operand was not a series: a function call such as `Average(Close, 10)`, a
+  literal, or an offset such as `Close[3]`. Each such operand now keeps its own
+  hidden history, filled at the start of every bar, so the strategy trades exactly as
+  if the operand were first assigned to a variable. `Value1`..`Value99` used directly
+  as an operand also never fired; they now keep their history like a declared
+  variable starting at 0. An operand that can change within the bar (such as
+  `Value1 + 1` or `MarketPosition`) is refused at transpile time, with its line, and the runtime raises instead of returning false when it
+  is handed a single value. The native kernel still refuses these operands and falls
+  back to the Python path with its usual message.
+- `crosses above` / `crosses below` against a constant level now fire. A literal
+  (`X crosses above 0`) was treated as "no series" and never crossed, and a side that
+  is all zeros (a declared `Z(0)`) was skipped as warm-up padding, so the cross never
+  started. Leading zeros are now skipped only on a side that has a nonzero value; the
+  warm-up skip for indicator pairs is unchanged, and so are all existing digests. The
+  native kernel computes crosses the same way.
 
 ## 0.6.0 — 2026-10-21
 

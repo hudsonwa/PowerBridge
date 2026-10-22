@@ -277,12 +277,27 @@ fn cross_prior_relation(series_a: &SeriesView, series_b: &SeriesView, start: usi
     0
 }
 
+/// First bar of a cross comparison, mirroring Python `_cross_operands`.
+/// Leading zeros (PAD element, indicator warm-up) are skipped only on a side
+/// that has a nonzero value; an all-zero side is a zero level, not a warm-up.
+fn cross_start(series_a: &SeriesView, series_b: &SeriesView) -> usize {
+    let start_a = series_a.first_valid();
+    let start_b = series_b.first_valid();
+    if start_a == series_a.len() {
+        start_b
+    } else if start_b == series_b.len() {
+        start_a
+    } else {
+        start_a.max(start_b)
+    }
+}
+
 pub(crate) fn pl_crosses_above(series_a: &SeriesView, series_b: &SeriesView) -> bool {
     if series_a.len() < 2 || series_b.len() < 2 {
         return false;
     }
-    let start = series_a.first_valid().max(series_b.first_valid());
-    if series_a.len() - start < 2 {
+    let start = cross_start(series_a, series_b);
+    if series_a.len().saturating_sub(start) < 2 {
         return false;
     }
     series_a.at(series_a.len() - 1) > series_b.at(series_b.len() - 1)
@@ -293,10 +308,52 @@ pub(crate) fn pl_crosses_below(series_a: &SeriesView, series_b: &SeriesView) -> 
     if series_a.len() < 2 || series_b.len() < 2 {
         return false;
     }
-    let start = series_a.first_valid().max(series_b.first_valid());
-    if series_a.len() - start < 2 {
+    let start = cross_start(series_a, series_b);
+    if series_a.len().saturating_sub(start) < 2 {
         return false;
     }
     series_a.at(series_a.len() - 1) < series_b.at(series_b.len() - 1)
         && cross_prior_relation(series_a, series_b, start) > 0
+}
+
+#[cfg(test)]
+mod cross_tests {
+    use super::*;
+
+    #[test]
+    fn crosses_an_all_zero_level() {
+        let x = [0.0, 5.0, -1.0, -2.0, 3.0];
+        let zeros = [0.0; 5];
+        assert!(pl_crosses_above(
+            &SeriesView::Slice(&x),
+            &SeriesView::Slice(&zeros)
+        ));
+        assert!(pl_crosses_below(
+            &SeriesView::Slice(&x[..3]),
+            &SeriesView::Slice(&zeros[..3])
+        ));
+        // The leading pad zero on x is still skipped.
+        assert!(!pl_crosses_above(
+            &SeriesView::Slice(&x[..2]),
+            &SeriesView::Slice(&zeros[..2])
+        ));
+        assert!(!pl_crosses_above(
+            &SeriesView::Slice(&zeros),
+            &SeriesView::Slice(&zeros)
+        ));
+    }
+
+    #[test]
+    fn warm_up_side_still_starts_at_first_value() {
+        let fast = [0.0, 10.0, 11.0, 12.0];
+        let slow = [0.0, 0.0, 0.0, 11.5];
+        assert!(!pl_crosses_above(
+            &SeriesView::Slice(&fast),
+            &SeriesView::Slice(&slow)
+        ));
+        assert!(!pl_crosses_below(
+            &SeriesView::Slice(&fast),
+            &SeriesView::Slice(&slow)
+        ));
+    }
 }
