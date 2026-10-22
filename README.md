@@ -124,7 +124,6 @@ pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
 ```
 
 ```
-note: powerbridge-accel not installed; using the pure-Python engine (slower). See README#acceleration
 powerbridge-trade-digest v2
 fills: 3
 round_turns: 1
@@ -146,10 +145,11 @@ MarketPosition,NetProfit,TotalTrades
 ```
 
 `pl_transpile` writes plain Python; `pl_oracle` backtests the strategy on the
-bundled synthetic bars and prints a trade digest; `pl_run` prints one CSV row
-per bar (add `-o file.csv` to write a file). The `note:` line is expected
-without the optional [Rust fast path](#acceleration); results are identical
-either way. `pl_run` executes the generated Python, so only run files you trust.
+bundled synthetic bars and prints a trade digest (its `[pl_oracle] 140 bars, …`
+summary line goes to stderr); `pl_run` prints one CSV row
+per bar (add `-o file.csv` to write a file). Without the optional
+[Rust fast path](#acceleration) the pure-Python engine runs (add `-v` to get a
+`note:` saying so); results are identical either way. `pl_run` executes the generated Python, so only run files you trust.
 The [usage guide](docs/USAGE.md) walks through each step in detail.
 
 ## Acceleration

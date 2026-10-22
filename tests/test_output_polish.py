@@ -13,6 +13,7 @@ from pl_transpiler.tools.pl_run import display_row_sink, tick_decimals  # noqa: 
 
 EL = os.path.join(REPO, "examples", "ma_cross.el")
 BARS = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
+ACCEL_URL = "https://github.com/hudsonwa/PowerBridge/blob/main/docs/ACCEL.md#install"
 
 
 def test_tick_decimals():
@@ -86,7 +87,39 @@ def test_run_el_logs_python_path_note_instead_of_printing(monkeypatch, capsys, c
     assert any("pure-Python engine" in r.getMessage() for r in caplog.records)
 
 
-def test_pl_run_cli_still_prints_python_path_note(monkeypatch, capsys, tmp_path):
+def test_pl_run_cli_prints_not_installed_note_only_with_verbose(monkeypatch, capsys,
+                                                               tmp_path):
+    monkeypatch.setattr("pl_transpiler.runtime.accel.accel_available", lambda: False)
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
-    assert "note: " in capsys.readouterr().err
+    assert "not installed" not in capsys.readouterr().err
+    assert pl_run.main([EL, BARS, "-v", "-o", str(tmp_path / "out.csv")]) == 0
+    err = capsys.readouterr().err
+    assert "note: powerbridge-accel not installed" in err
+    assert ACCEL_URL in err
+
+
+def test_pl_oracle_prints_not_installed_note_only_with_verbose(monkeypatch, capsys):
+    monkeypatch.setattr(pl_oracle, "accel_available", lambda: False)
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    assert pl_oracle.main([EL, BARS]) == 0
+    assert "not installed" not in capsys.readouterr().err
+    assert pl_oracle.main([EL, BARS, "--verbose"]) == 0
+    err = capsys.readouterr().err
+    assert "note: powerbridge-accel not installed" in err
+    assert ACCEL_URL in err
+
+
+def test_not_installed_note_url_anchor_exists():
+    # the note is read in a terminal, so it names a full URL; its anchor must exist
+    accel_md = os.path.join(REPO, "docs", "ACCEL.md")
+    assert ACCEL_URL.endswith("/docs/ACCEL.md#install")
+    assert "\n## Install\n" in open(accel_md, encoding="utf-8").read()
+
+
+def test_pl_run_cli_prints_other_fallback_notes_without_verbose(monkeypatch, capsys,
+                                                                tmp_path):
+    monkeypatch.setattr("pl_transpiler.runtime.accel.accel_available", lambda: True)
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
+    assert "note: using the pure-Python engine" in capsys.readouterr().err

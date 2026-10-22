@@ -188,7 +188,8 @@ def python_path_note(reason=None):
     """
     if reason is None:
         return ("note: powerbridge-accel not installed; using the pure-Python "
-                "engine (slower). See README#acceleration")
+                "engine (slower). See "
+                "https://github.com/hudsonwa/PowerBridge/blob/main/docs/ACCEL.md#install")
     return "note: using the pure-Python engine (slower): %s" % reason
 
 

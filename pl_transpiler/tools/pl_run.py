@@ -624,6 +624,9 @@ def _build_parser():
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
                          "money to cents and prices to the instrument tick.")
+    ap.add_argument("-v", "--verbose", action="store_true",
+                    help="also print the note that the optional native kernel "
+                         "is not installed (other fallback notes always print).")
     _cli.add_version(ap, "pl_run")
     return ap
 
@@ -652,6 +655,12 @@ def _main(ap, args):
     bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
     config = _cli.config_or_error(args.config)
     out_path = _cli.output_path(args.output)
+
+    def notify(reason: Optional[str] = None) -> None:
+        # "Not installed" (reason None) is the default install: -v only.
+        if reason is not None or args.verbose:
+            warn_python_path(reason)
+
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout
     writer = csv.writer(out_f)
     if args.full_precision:
@@ -671,7 +680,7 @@ def _main(ap, args):
                             seed_warmup=not args.slice_tape,
                             max_bars_back=args.max_bars_back,
                             max_entries_per_direction=args.max_entries_per_direction,
-                            _python_path_notify=warn_python_path)
+                            _python_path_notify=notify)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
@@ -686,7 +695,7 @@ def _main(ap, args):
                         seed_warmup=not args.slice_tape,
                         max_bars_back=args.max_bars_back,
                         max_entries_per_direction=args.max_entries_per_direction,
-                        _python_path_notify=warn_python_path)
+                        _python_path_notify=notify)
     if out_path:
         out_f.close()
 

@@ -29,6 +29,9 @@ A plain ``` block directly after a runnable block (blank lines only between)
 is that block's documented output. Documented lines must appear in the actual
 output in order; a `...` line stands for any lines. `note:` lines are about
 whether the optional native module is installed and are ignored.
+
+`out/` is removed at the start of every `## ` section, so each section must
+create the directories it writes to, as a reader who jumps straight to it would.
 """
 import os
 import re
@@ -75,7 +78,9 @@ def parse_readme(text):
             body.append(lines[i])
             i += 1
         i += 1
+        section = next((l for l in reversed(lines[:start]) if l.startswith("## ")), "")
         blocks.append({"lang": f.group(1), "body": body, "line": start + 1,
+                       "section": section,
                        "skip": pending.get("skip"), "file": pending.get("file"),
                        "output": None})
         pending = {}
@@ -171,8 +176,11 @@ def test_readme_parses_runnable_blocks():
 
 
 def test_readme_examples(workdir):
-    failures = []
+    failures, section = [], None
     for doc, b in doc_blocks():
+        if (doc, b["section"]) != section:
+            section = (doc, b["section"])
+            shutil.rmtree(workdir / "out", ignore_errors=True)
         if b["skip"]:
             continue
         where = f"{doc}:{b['line']}"
