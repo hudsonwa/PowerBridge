@@ -569,3 +569,85 @@ fn data2_supplied_without_data2_reference_is_refused() {
         "unexpected refusal message: {error}"
     );
 }
+
+// ---- arrays and for loops ----
+
+const ARRAYS_FIXTURE: &str = include_str!("fixtures/arrays_numeric.txt");
+const LOOPS_FIXTURE: &str = include_str!("fixtures/loops_only.txt");
+const ARRAYS_OOB_FIXTURE: &str = include_str!("fixtures/arrays_oob.txt");
+
+/// Static and dynamic arrays (persisting across bars), negative-index wrap,
+/// truncated fractional indexes, Array_SetMaxIndex growth and the native
+/// Array_* functions, with the values in every fill's label.
+#[test]
+fn arrays_fixture_matches_python_on_full_tape_and_windows() {
+    for (start, end) in [(0, 140), (0, 25), (37, 140)] {
+        assert_python_native_parity(
+            &format!("arrays fixture bars {start}..{end}"),
+            ARRAYS_FIXTURE,
+            start,
+            end,
+        );
+    }
+}
+
+#[test]
+fn for_loops_fixture_matches_python() {
+    assert_python_native_parity("for-loop fixture", LOOPS_FIXTURE, 0, 140);
+}
+
+/// `Buf[n] = Close` with n past the last index raises IndexError in Python
+/// (strict run fails); the native run must fail too, never clamp.
+#[test]
+fn out_of_range_array_index_fails_both_paths() {
+    let script = "import sys\n\
+        from pl_transpiler import tokenise\n\
+        from pl_transpiler.ir import serialise_ir\n\
+        from pl_transpiler.parser import parse\n\
+        from pl_transpiler.runtime.instrument_config import get_config\n\
+        from pl_transpiler.tools.pl_oracle import run_oracle\n\
+        from pl_transpiler.tools.pl_run import load_bars_csv\n\
+        source = sys.stdin.read()\n\
+        tokens, positions = tokenise(source)\n\
+        print(serialise_ir(parse(tokens, positions=positions, source=source)))\n\
+        sys.stdout.flush()\n\
+        run_oracle(source, load_bars_csv(sys.argv[1]), get_config('NQ'))\n";
+    let mut child = Command::new("python3")
+        .arg("-c")
+        .arg(script)
+        .arg(sample_bars_path())
+        .current_dir(repo_root())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn Python reference");
+    child
+        .stdin
+        .take()
+        .expect("Python stdin")
+        .write_all(ARRAYS_OOB_FIXTURE.as_bytes())
+        .expect("write EL source");
+    let output = child.wait_with_output().expect("wait for Python reference");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success() && stderr.contains("IndexError"),
+        "the Python run must fail with IndexError:\n{stderr}"
+    );
+    let ir = String::from_utf8(output.stdout).expect("IR is UTF-8");
+    let tape = load_csv_window(&sample_bars_path(), 0, 140);
+    let error = run_program(
+        ir.trim(),
+        &tape,
+        None,
+        &nq_config(),
+        &HashMap::<String, Value>::new(),
+    )
+    .expect_err("the native run must fail too");
+    assert!(
+        error
+            .to_string()
+            .contains("array index 6 out of range for buf"),
+        "unexpected error: {error}"
+    );
+}
