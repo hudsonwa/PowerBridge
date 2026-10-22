@@ -653,8 +653,19 @@ impl Compiler {
             Some("commentary") => {
                 self.compile_expr(stmt.get("msg").unwrap_or(&Json::Null), false)?;
                 self.instrs.push(Instr::Drop);
+                // The message is not kept, so each extra argument is
+                // evaluated and dropped; it is never joined as text.
+                if let Some(Json::Array(extra)) = stmt.get("extra_args") {
+                    for arg in extra {
+                        self.compile_expr(arg, false)?;
+                        self.instrs.push(Instr::Drop);
+                    }
+                }
                 Ok(())
             }
+            // #BeginCmtry … #End. PowerBridge never turns commentary on, so
+            // the block is not executed. Walking it would draw and trade.
+            Some("commentary_block") => Ok(()),
             Some("expr_stmt") => {
                 self.compile_expr(stmt.get("expr").unwrap_or(&Json::Null), false)?;
                 self.instrs.push(Instr::Drop);
@@ -1384,7 +1395,7 @@ mod tests {
     use serde_json::Value as Json;
 
     use super::super::value::Value;
-    use super::{compile, resolve_inputs, Program};
+    use super::{compile, resolve_inputs, CallOp, Instr, Program};
 
     fn needs(src: &str) -> (Vec<bool>, Vec<bool>) {
         let ast: Json = serde_json::from_str(src).expect("valid program JSON");
@@ -1584,5 +1595,30 @@ mod tests {
         let program = compile(&ast, &HashMap::new()).expect("unary var init");
         assert_eq!(program.var_inits, vec![Value::Num(-1.0)]);
         assert!(program.var_numeric[0]);
+    }
+
+    /// A `#BeginCmtry` body is not compiled. A `TL_New` inside it must not
+    /// become a call, and the block itself must not refuse the program.
+    #[test]
+    fn commentary_block_is_not_compiled() {
+        let ast: Json = serde_json::from_str(
+            r#"{"type":"program","body":[
+                {"type":"commentary_block","body":[
+                    {"type":"assign","target":{"type":"ident","name":"tlid"},
+                     "value":{"type":"call","name":"tl_new","args":[]}}
+                ]},
+                {"type":"commentary","cl":true,"msg":{"type":"string","value":"a"},
+                    "extra_args":[{"type":"number","value":"1"}]}
+            ]}"#,
+        )
+        .expect("valid program JSON");
+        let program = compile(&ast, &HashMap::new()).expect("commentary block");
+        assert!(
+            !program
+                .instrs
+                .iter()
+                .any(|ins| matches!(ins, Instr::Call(CallOp::TlNew, _))),
+            "the skipped block must not record a trendline"
+        );
     }
 }

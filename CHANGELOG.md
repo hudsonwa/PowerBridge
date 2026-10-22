@@ -17,6 +17,13 @@
   forces the Python path. Its dump matches the Python one except for
   `producer.kind`. Drawing calls the kernel does not implement fall back to
   Python. Anchor prices in the dump are now stored as float32 on both paths.
+- `#BeginCmtry … #End` blocks parse. PowerBridge has no commentary-on mode, so
+  the block is kept in the AST (and written back by the EL emitter) but not run,
+  on both the Python and native paths. `Commentary` and `CommentaryCL` accept
+  several arguments, joined into one message.
+- Indexed Data2 spellings (`Close[N] of Data2`, `Close of Data2[N]`,
+  `Close Data2`) are covered by tests that check they fail loudly rather than
+  read Data1.
 - `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
   run with an error when drawings are not being recorded, and `TL_GetValue`
   always stops, since its interpolation is not measured.

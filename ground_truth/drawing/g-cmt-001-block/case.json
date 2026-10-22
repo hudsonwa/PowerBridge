@@ -13,8 +13,5 @@
   ],
   "reason": null,
   "reproducible": "yes",
-  "xfail": {
-    "pb-python": "Commentary with several arguments does not parse yet",
-    "pb-native": "same parse error on the native path"
-  }
+  "xfail": {}
 }
