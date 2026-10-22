@@ -190,6 +190,20 @@ If CurrentBar = 1 Then ID = Text_New(Date, Time, High, "start");
 
 Like `Text_New`, with the time given as HHMMSS.
 
+### TL_GetValue
+
+| Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
+|---|---|---|---|---|---|---|
+| builtin | numeric | 3 | any, any, any | PowerBridge test (`tests/test_drawing_dump.py`) | no | transpiles; the run stops (not implemented in the runtime) |
+
+Price of a trend line at a date and time. That interpolation is not measured against MultiCharts, so a run that reaches it stops with an error instead of returning 0.
+
+```easylanguage
+Vars: id(0);
+id = TL_New(Date, Time, Low, Date, Time, High);
+If Close > TL_GetValue(id, Date, Time) Then Buy next bar at market;
+```
+
 ### TL_New
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
@@ -215,7 +229,7 @@ Like `TL_New`, with times given as HHMMSS.
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
 |---|---|---|---|---|---|---|
-| builtin | numeric | at least 2 | not established | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | accepted; no effect in a backtest |
+| builtin | numeric | 2 | any, any | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
 Sets a trend line's color: line ID, then a color value.
 
@@ -223,7 +237,7 @@ Sets a trend line's color: line ID, then a color value.
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
 |---|---|---|---|---|---|---|
-| builtin | numeric | at least 2 | not established | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | accepted; no effect in a backtest |
+| builtin | numeric | 2 | any, any | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
 Turns extending a trend line to the left on or off: line ID, then true or false.
 
@@ -231,7 +245,7 @@ Turns extending a trend line to the left on or off: line ID, then true or false.
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
 |---|---|---|---|---|---|---|
-| builtin | numeric | at least 2 | not established | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | accepted; no effect in a backtest |
+| builtin | numeric | 2 | any, any | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
 Turns extending a trend line to the right on or off: line ID, then true or false.
 
@@ -239,7 +253,7 @@ Turns extending a trend line to the right on or off: line ID, then true or false
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
 |---|---|---|---|---|---|---|
-| builtin | numeric | at least 2 | not established | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | accepted; no effect in a backtest |
+| builtin | numeric | 2 | any, any | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
 Sets a trend line's line style (solid, dashed and so on): line ID, then a style constant such as `Tool_Solid`.
 
@@ -249,7 +263,7 @@ Sets a trend line's line style (solid, dashed and so on): line ID, then a style 
 |---|---|---|---|---|---|---|
 | builtin | numeric | none (used as a value) | not established | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
-Line-style constant for a solid line (0), used with `TL_SetStyle`.
+Line-style constant for a solid line (1), used with `TL_SetStyle`. Measured on g-tool-001-dashed: Tool_Solid through Tool_Dashed3 are 1 through 5.
 
 ### White
 

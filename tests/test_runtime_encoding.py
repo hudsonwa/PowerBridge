@@ -17,7 +17,7 @@
 test_runtime_encoding.py — proves pl_runtime's loud stubs install without reading
 any source file (Windows finding B2; .pyc-only / zipped installs).
 
-pl_runtime wraps 340 trivial pl_* stubs in loud wrappers at import time (see
+pl_runtime wraps 278 trivial pl_* stubs in loud wrappers at import time (see
 `_install_loud_stubs`). It used to find them by reading its OWN .py sources with
 `ast`; a locale-codec decode error there once silently disabled every loud stub,
 and the read cannot work at all from a .pyc-only or zipped install. The names now
@@ -25,7 +25,7 @@ come from the generated, static `_loud_stub_names` module.
 
 This test, entirely capture-free and portable, checks:
 
-  (a) ALL 340 loud stubs install (counted at runtime AND cross-checked against an
+  (a) ALL 278 loud stubs install (counted at runtime AND cross-checked against an
       independent AST recount of the sources, so a silently-empty install fails).
 
   (b) The static list is in sync with the runtime sources (regenerate with
@@ -59,7 +59,7 @@ RUNTIME_FILES = [sys.modules["pl_transpiler.runtime." + n].__file__
                  for n in rt_core._RUNTIME_SUBMODULES]
 
 # The documented number of loud stubs pl_runtime installs.
-EXPECTED_LOUD_STUBS = 340
+EXPECTED_LOUD_STUBS = 278
 
 
 def _installed_loud_stub_names():
@@ -69,7 +69,7 @@ def _installed_loud_stub_names():
 
 
 def test_all_loud_stubs_install():
-    """(a) All 340 loud stubs install and match an independent AST recount."""
+    """(a) All 278 loud stubs install and match an independent AST recount."""
     installed = _installed_loud_stub_names()
     recount = gen_loud_stubs.scan() - rt._UNIMPL_WHITELIST
     assert len(installed) == EXPECTED_LOUD_STUBS, (

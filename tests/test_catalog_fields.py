@@ -135,9 +135,10 @@ def test_field_accessors():
     # TL_New's runtime function takes six fixed positional arguments of unchecked type.
     assert catalog.max_arity("TL_New") == 6
     assert catalog.arg_types("TL_New") == ["any"] * 6
-    # A runtime *args stub establishes nothing.
-    assert catalog.max_arity("Arw_GetDate") is None
-    assert catalog.arg_types("Arw_GetDate") is None
+    # A runtime *args stub establishes nothing. Arw_GetDate now has a real
+    # one-argument reader; Arw_GetFirst is still a stub.
+    assert catalog.max_arity("Arw_GetFirst") is None
+    assert catalog.arg_types("Arw_GetFirst") is None
     # A codegen lowering that only accepts exact counts defines the arity.
     assert catalog.max_arity("TimeToString") == 1
     # A risk statement is parsed as a statement, so codegen's expression lowering

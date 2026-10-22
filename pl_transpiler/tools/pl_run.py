@@ -388,8 +388,10 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            header_sink: Optional[Callable[[List[str]], Any]] = None,
            retain_rows: Optional[bool] = None,
            from_date: Optional[int] = None, from_bar: Optional[int] = None,
-           seed_warmup: bool = True, max_bars_back: int = 0,
+           seed_warmup: bool = True,            max_bars_back: int = 0,
            max_entries_per_direction: Optional[int] = None,
+           drawings: bool = False, drawing_case_id: Optional[str] = None,
+           drawing_tape: Optional[Dict[str, Any]] = None,
            _python_path_notify: Optional[Callable[..., Any]] = None) -> Dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
@@ -432,6 +434,11 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is
                     MultiCharts' documented default). Reversals always fill.
+    drawings      : False (default). True adds ``drawings``, a
+                    powerbridge-drawing-dump v1 dict of the trendlines, arrows
+                    and text the run created. Requires ``drawing_case_id`` and
+                    ``drawing_tape`` ``{'name', 'sha256'}``. The default return
+                    has no ``drawings`` key.
 
     Returns {'columns': [...], 'rows': [[str, ...], ...], 'trades': [...],
     'n_rows': int, 'n_warmup': int}, where rows are formatted exactly as the GT
@@ -523,7 +530,18 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         notify()
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
-    with open(os.devnull, 'w', encoding='utf-8') as _devnull, contextlib.redirect_stdout(_devnull):
+    drawing_meta = None
+    recorder = None
+    if drawings:
+        from pl_transpiler.runtime._rt_drawing import (
+            DrawingRecorder, make_dump, resolve_drawing_request,
+        )
+        drawing_meta = resolve_drawing_request(
+            drawing_case_id, drawing_tape, config.tick)
+        recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
+    with open(os.devnull, 'w', encoding='utf-8') as _devnull, \
+            contextlib.redirect_stdout(_devnull), \
+            (recorder if recorder is not None else contextlib.nullcontext()):
         run_bar_loop(
             strategy_fn,
             n_bars=n,
@@ -536,6 +554,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
             strict=True,
             trade_from=trade_from,
             max_bars_back=max_bars_back,
+            on_bar=None if recorder is None else recorder.set_bar,
         )
 
     columns = cols_holder['cols']
@@ -543,7 +562,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         columns = list(trace_columns) if trace_columns is not None else []
         if header_sink is not None:
             header_sink(columns)
-    return {
+    out = {
         'columns': columns,
         'rows': rows,
         'trades': fill_engine.get_mc_trades(),
@@ -552,6 +571,14 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         # {keyword: calls} of unimplemented builtins this run used as 0/'' (warned on stderr).
         'unimplemented': pl_unimplemented_warn('pl_run'),
     }
+    if drawings:
+        out['drawings'] = make_dump(
+            recorder, dates, times,
+            case_id=drawing_meta[0], tape_name=drawing_meta[1],
+            tape_sha256=drawing_meta[2], tick=drawing_meta[3],
+            producer_kind='pb-python',
+        )
+    return out
 
 
 def _build_parser():
