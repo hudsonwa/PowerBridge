@@ -44,6 +44,9 @@
 - Docs: CONTRIBUTING.md describes the default skips by category instead of a
   stale count; LIMITATIONS.md and ACCEL.md mention the prebuilt accel wheels and
   how to tell which path ran.
+- Internal refactor with byte-identical output: `parser.py` and `py_front.py`
+  are split into smaller modules (`_parser_stmts.py`, `_parser_expr.py`,
+  `_py_front_common.py`, `_py_front_expr.py`).
 
 ### Fixed
 
