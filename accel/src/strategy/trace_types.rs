@@ -660,6 +660,7 @@ impl Cx<'_, '_> {
         match name {
             // pl_tickid() / pl_execoffset() return the int 0.
             "tickid" | "execoffset" => Ty::of(INT),
+            n if super::compile::bare_session_time(n).is_some() => Ty::of(INT),
             _ => Ty::bad("identifier unknown to the trace typer"),
         }
     }
@@ -750,6 +751,8 @@ impl Cx<'_, '_> {
             }
             // Colour helpers build ints.
             "rgb" | "legacycolortorgb" | "gradientcolor" => with_bad(Ty::of(INT)),
+            // Session-template words return an int literal (_rt_session).
+            n if super::compile::session_time(n).is_some() => with_bad(Ty::of(INT)),
             // Drawing ids come from a process-wide counter in Python.
             _ => Ty::bad("call result type unknown to the trace typer"),
         }

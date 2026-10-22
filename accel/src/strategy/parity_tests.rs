@@ -651,3 +651,26 @@ fn out_of_range_array_index_fails_both_paths() {
         "unexpected error: {error}"
     );
 }
+
+#[test]
+fn session_time_words_match_python() {
+    // `pl_sessionendtime` / `pl_sessionstarttime` ignore their arguments and
+    // return the template constants. The sample tape runs 0930..1149.
+    let source = "Variables: EndT(0), StartT(0);\n\
+                  EndT = SessionEndTime(1, 1);\n\
+                  StartT = SessionStartTime(0, 2) + Sess1EndTime - SessionEndTimeMS(1);\n\
+                  If Time < EndT - 530 and StartT = 1700 Then\n\
+                      Buy (\"SE\") 1 Contracts Next Bar At Market;\n\
+                  If Time >= EndT - 500 Then\n\
+                      Sell (\"SX\") Next Bar At Market;\n";
+    assert_python_native_parity("SessionEndTime/SessionStartTime", source, 0, 140);
+    assert_eq!(super::compile::session_time("sessionendtime"), Some(1600));
+    assert_eq!(super::compile::session_time("sessionstarttime"), Some(1700));
+    assert_eq!(super::compile::session_time("sessionlastbar"), None);
+    // Bare SessionEndTime reads a run kwarg in Python, not the constant.
+    assert_eq!(super::compile::bare_session_time("sessionendtime"), None);
+    assert_eq!(
+        super::compile::bare_session_time("sess1endtime"),
+        Some(1515)
+    );
+}

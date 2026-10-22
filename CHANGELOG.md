@@ -4,6 +4,10 @@
 
 ### Added
 
+- The native kernel runs `SessionEndTime(...)`, `SessionStartTime(...)` and
+  the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
+  `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
+  the Python path's values, so these programs no longer fall back (#1).
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
 - `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section; the README

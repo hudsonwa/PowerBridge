@@ -109,6 +109,14 @@ On Python 3.12 and later `Array_Sum` adds floats the way that Python's `sum()`
 does; when the kernel cannot tell whether an element is an int or a float
 there, it refuses.
 
+The session-time words run natively with the Python path's template
+constants, whatever their arguments: `SessionEndTime(...)` (1600),
+`SessionStartTime(...)` (1700), `SessionEndTimeMS(...)`, `Sess1EndTime` and
+`Sess2EndTime` (1515), `SessionStartTimeMS(...)` and `Sess2StartTime` (830),
+and `Sess1FirstBarTime` / `Sess2FirstBarTime` (831). Bare `SessionEndTime`,
+`SessionStartTime` and `Sess1StartTime` (no parentheses) read run values on
+the Python path instead and are refused.
+
 ## Fallback and platforms
 
 **Absent extra = identical behaviour.** Without the module, the auditable
