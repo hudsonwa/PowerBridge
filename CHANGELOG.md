@@ -8,6 +8,12 @@
   true/false argument where the catalog declares a verified `numeric` parameter
   is reported as ARG-TYPE-BAD with the function, argument position, expected
   and found type, and line. `documented-unverified` records are skipped.
+- The native kernel runs numeric and true/false arrays (static and dynamic,
+  kept across bars) and `for` loops with `break` / `continue`, with the same
+  results as the Python path: reversed-list indexing (truncated, wrapping
+  negative indexes, out-of-range fails the run), `Array_SetMaxIndex` growth and
+  the common `Array_*` functions. String arrays, the remaining array functions,
+  `while` / `repeat` and array trace columns are still refused.
 
 ### Changed
 

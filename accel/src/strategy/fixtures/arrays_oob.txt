@@ -1,0 +1,6 @@
+{ An element index past the end fails the Python run; native must fail too. }
+Arrays: Buf[3](0);
+Vars: n(0);
+n = n + 1;
+if n > 5 then Buf[n] = Close;
+if Close > Open then Buy next bar at market;

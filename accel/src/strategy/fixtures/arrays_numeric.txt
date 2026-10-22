@@ -1,0 +1,77 @@
+{ Synthetic native-array parity fixture: static and dynamic arrays that
+  persist across bars, element read/write, the native Array_* functions and
+  for loops with break/continue. Every entry and exit depends on array values. }
+Inputs: Len(6), Band(0.25);
+Arrays: Buf[20](0), Dyn[](0.5), Flags[3](false), Scratch[7](1.5), Copy2[9](0), Empty[-1](0);
+Vars: i(0), j(0), Cnt(0), Sum(0), Hi(0), Lo(0), Mid(0), Wrap(0), Frac(0),
+      Pos(0), Found(false), Got(0), SetRet(0), Grew(false), MaxIdx(0), Steps(0), Last(0),
+      Tag("");
+
+Cnt = Cnt + 1;
+
+{ rolling buffer, newest close at Buf[0] }
+for i = Len - 1 downto 1 begin
+  Buf[i] = Buf[i - 1];
+end;
+Buf[0] = Close;
+
+{ manual sum with continue / break; i keeps its last value }
+Sum = 0;
+Steps = 0;
+for i = 0 to 19 begin
+  if Buf[i] = 0 then continue;
+  Steps = Steps + 1;
+  Sum = Sum + Buf[i];
+  if Steps >= Len then break;
+end;
+Last = i;
+
+Hi = Array_Highest(Buf, 0, Len - 1);
+Lo = Array_Lowest(Buf, 0, Len - 1);
+Mid = Array_Sum(Buf, 0, Len - 1) / Len;
+
+{ dynamic array grows with int zeros at new high indexes }
+if Cnt = 4 then Grew = Array_SetMaxIndex(Dyn, 5);
+if Cnt = 9 then Array_SetMaxIndex(Dyn, 2);
+MaxIdx = Array_GetMaxIndex(Dyn);
+Dyn[0] = Dyn[0] + 1;
+Wrap = Dyn[-1] + Buf[-20] + Scratch[Band * 11.6] + Scratch[-0.5];
+Frac = Buf[Band + 1.74];
+
+Flags[Mod(Cnt, 3)] = Close > Open;
+Fill_Array(Scratch, Close - Open);
+Array_SetValRange(Scratch, -2, 2, Hi - Lo);
+Array_Copy(Buf, 0, Copy2, 3, 9);
+Array_Copy(Copy2, 3, Copy2, 4, 3);
+Pos = Array_IndexOf(Copy2, Buf[0]);
+Found = Array_Contains(Flags, true);
+SetRet = Array_SetFloatValue(Copy2, 0, Mid) + Array_SetIntegerValue(Copy2, 99, 7);
+Got = Array_GetFloatValue(Copy2, 0) + Array_GetIntegerValue(Copy2, -1) + Array_GetFloatValue(Empty, 0);
+if Array_GetBooleanValue(Flags, 1) then Got = Got + 1;
+Array_SetBooleanValue(Flags, 2, Close > Close[1]);
+
+{ nested loops with an empty inner range }
+for i = 1 to 3 begin
+  for j = 5 to 4 begin
+    Got = Got + 1000;
+  end;
+  Got = Got + i * j;
+end;
+
+{ every array-derived value is part of the fill lines through the labels }
+Tag = NumToStr(Sum, 2) + "/" + NumToStr(Hi, 2) + "/" + NumToStr(Lo, 2) + "/"
+  + NumToStr(Mid, 4) + "/" + NumToStr(Wrap, 4) + "/" + NumToStr(Frac, 2) + "/"
+  + NumToStr(Pos, 0) + "/" + NumToStr(Got, 4) + "/" + NumToStr(SetRet, 4) + "/"
+  + NumToStr(MaxIdx, 0) + "/" + NumToStr(Steps, 0) + "/" + NumToStr(Last, 0) + "/"
+  + NumToStr(Copy2[4] + Copy2[5] * 2 + Copy2[6] * 3 + Copy2[8] * 4, 2) + "/"
+  + NumToStr(Scratch[0] + Scratch[3] * 2 + Scratch[6] * 3, 4) + "/"
+  + NumToStr(Array_GetFloatValue(Dyn, 5) + Array_GetFloatValue(Dyn, 2), 2);
+if Found then Tag = Tag + "/F";
+if Grew then Tag = Tag + "/G";
+if Flags[0] then Tag = Tag + "/0";
+if Flags[2] then Tag = Tag + "/2";
+
+if Cnt > Len and Close > Mid + Band and Pos >= 0 then Buy ("L" + Tag) next bar at market;
+if Cnt > Len and Close < Lo + Band then SellShort ("S" + Tag) next bar at market;
+if MarketPosition = 1 and Close < Mid then Sell ("LX" + Tag) next bar at market;
+if MarketPosition = -1 and Close > Hi - Band then BuyToCover ("SX" + Tag) next bar at market;

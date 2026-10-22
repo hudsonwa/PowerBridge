@@ -153,7 +153,9 @@ fn jump_target(ins: &Instr) -> Option<usize> {
         | Instr::JumpIfFalse(t)
         | Instr::JumpIfTruthyPeek(t)
         | Instr::JumpIfNotTruthyPeek(t)
-        | Instr::JumpIfNotFirstBar(t) => Some(*t),
+        | Instr::JumpIfNotFirstBar(t)
+        | Instr::ForInit { exit: t, .. }
+        | Instr::ForNext { body: t, .. } => Some(*t),
         _ => None,
     }
 }
@@ -168,7 +170,9 @@ fn patch_jump(ins: &mut Instr, map: &[usize]) {
         | Instr::JumpIfFalse(t)
         | Instr::JumpIfTruthyPeek(t)
         | Instr::JumpIfNotTruthyPeek(t)
-        | Instr::JumpIfNotFirstBar(t) => patch(t),
+        | Instr::JumpIfNotFirstBar(t)
+        | Instr::ForInit { exit: t, .. }
+        | Instr::ForNext { body: t, .. } => patch(t),
         _ => {}
     }
 }
@@ -453,6 +457,11 @@ pub(crate) fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
         | Instr::CompareCLhs { .. } => (1, 1),
         Instr::Call(_, n) => (*n as i32, 1),
         Instr::EmitOrder { has_price, .. } => (if *has_price { 3 } else { 2 }, 0),
+        Instr::ArrayGet(_) => (1, 1),
+        Instr::ArraySet { .. } | Instr::ForInit { .. } => (2, 0),
+        Instr::ArrayCall { op, .. } => (i32::from(op.argc()), 1),
+        Instr::ArrayCopy { .. } => (3, 1),
+        Instr::ForNext { .. } => (0, 0),
         Instr::RiskSet(op) => match op {
             RiskOp::PercentTrailing | RiskOp::PercentTrailingPt => (2, 0),
             RiskOp::ExitOnClose | RiskOp::Noop => (0, 0),
@@ -497,7 +506,15 @@ fn is_pure(ins: &Instr) -> bool {
         | Instr::JumpIfFalse(_)
         | Instr::JumpIfTruthyPeek(_)
         | Instr::JumpIfNotTruthyPeek(_)
-        | Instr::JumpIfNotFirstBar(_) => false,
+        | Instr::JumpIfNotFirstBar(_)
+        // An element read can fail the run (index out of range) exactly as
+        // Python does, so it is never dropped even when its value is unused.
+        | Instr::ArrayGet(_)
+        | Instr::ArraySet { .. }
+        | Instr::ArrayCall { .. }
+        | Instr::ArrayCopy { .. }
+        | Instr::ForInit { .. }
+        | Instr::ForNext { .. } => false,
         _ => true,
     }
 }
@@ -842,7 +859,9 @@ fn dce_unreachable(instrs: Vec<Instr>) -> Vec<Instr> {
             Instr::JumpIfFalse(t)
             | Instr::JumpIfTruthyPeek(t)
             | Instr::JumpIfNotTruthyPeek(t)
-            | Instr::JumpIfNotFirstBar(t) => {
+            | Instr::JumpIfNotFirstBar(t)
+            | Instr::ForInit { exit: t, .. }
+            | Instr::ForNext { body: t, .. } => {
                 enqueue(*t, &mut reach, &mut work);
                 enqueue(pc + 1, &mut reach, &mut work);
             }
@@ -1044,5 +1063,101 @@ mod tests {
             spec.stats.specialize_ns
         );
         assert!(spec.stats.instrs_after <= spec.stats.instrs_before);
+    }
+
+    fn num(v: &str) -> serde_json::Value {
+        json!({"type": "number", "value": v})
+    }
+
+    fn ident(name: &str) -> serde_json::Value {
+        json!({"type": "ident", "name": name})
+    }
+
+    fn element(array: &str, index: serde_json::Value) -> serde_json::Value {
+        json!({"type": "bar_ref", "series": ident(array), "index": index})
+    }
+
+    /// `for i = 0 to 3 { if i = 1 continue; A[i] = A[i] + 1; if i = 2 break }`
+    /// plus an unread `X = A[9]` (out of range: it must still run and fail).
+    fn array_loop_program() -> Program {
+        compile_body(json!([
+            {"type": "array_decl", "decls": [{"name": "a", "size": num("3"), "init": num("0")}]},
+            {"type": "var_decl", "decls": [
+                {"name": "i", "init": num("0")}, {"name": "x", "init": num("0")}]},
+            {"type": "for", "var": "i", "start": num("0"), "end": num("3"), "downto": false,
+             "body": [
+                {"type": "if", "cond": {"type": "compare", "op": "=", "left": ident("i"), "right": num("1")},
+                 "body": [{"type": "continue"}], "else_body": null},
+                {"type": "assign", "target": element("a", ident("i")),
+                 "value": {"type": "binop", "op": "+", "left": element("a", ident("i")), "right": num("1")}},
+                {"type": "if", "cond": {"type": "compare", "op": "=", "left": ident("i"), "right": num("2")},
+                 "body": [{"type": "break"}], "else_body": null}
+             ]},
+            {"type": "assign", "target": ident("x"), "value": element("a", num("9"))},
+            {"type": "expr_stmt", "expr": {"type": "call", "name": "array_sum",
+             "args": [ident("a"), num("0"), num("3")]}}
+        ]))
+    }
+
+    fn count(instrs: &[Instr], pred: fn(&Instr) -> bool) -> usize {
+        instrs.iter().filter(|i| pred(i)).count()
+    }
+
+    /// Every pass keeps the array operations (an unread element read can
+    /// still fail the run) and leaves the loop's jumps pointing at the loop.
+    #[test]
+    fn array_ops_and_loop_jumps_survive_every_pass() {
+        let program = array_loop_program();
+        for keep_stores in [false, true] {
+            let spec = specialize_with(&program, keep_stores);
+            let code = &spec.rest;
+            assert_eq!(
+                count(code, |i| matches!(i, Instr::ArrayGet(_))),
+                count(&program.instrs, |i| matches!(i, Instr::ArrayGet(_))),
+                "element reads (including the unread A[9]) are kept"
+            );
+            assert_eq!(count(code, |i| matches!(i, Instr::ArraySet { .. })), 1);
+            assert_eq!(count(code, |i| matches!(i, Instr::ArrayCall { .. })), 1);
+            let init = code
+                .iter()
+                .position(|i| matches!(i, Instr::ForInit { .. }))
+                .expect("ForInit kept");
+            let next = code
+                .iter()
+                .position(|i| matches!(i, Instr::ForNext { .. }))
+                .expect("ForNext kept");
+            assert!(matches!(code[init], Instr::ForInit { exit, .. } if exit == next + 1));
+            assert!(matches!(code[next], Instr::ForNext { body, .. } if body == init + 1));
+            for (at, ins) in code.iter().enumerate() {
+                if let Some(target) = jump_target(ins) {
+                    assert!(target <= code.len(), "jump {at} -> {target} out of range");
+                }
+                if matches!(ins, Instr::Jump(_)) && (init..next).contains(&at) {
+                    let target = jump_target(ins).unwrap();
+                    assert!(
+                        target == next || target == next + 1,
+                        "continue / break jump {at} -> {target} must leave via the loop"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The loop variable is written by the loop opcodes, not a store, so
+    /// dead-store elimination cannot remove it; the array write is kept even
+    /// though nothing reads `a` as a variable.
+    #[test]
+    fn dead_store_elimination_keeps_array_writes_and_loop_var() {
+        let program = array_loop_program();
+        let spec = specialize_with(&program, false);
+        assert!(spec
+            .rest
+            .iter()
+            .any(|i| matches!(i, Instr::ArraySet { .. })));
+        assert!(!spec.rest.iter().any(|i| matches!(i, Instr::StoreVar(_))));
+        assert!(spec
+            .rest
+            .iter()
+            .any(|i| matches!(i, Instr::ForNext { slot: 0, .. })));
     }
 }

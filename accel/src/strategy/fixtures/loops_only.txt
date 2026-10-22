@@ -1,0 +1,27 @@
+{ Synthetic for-loop fixture without arrays: bounds evaluated once, the loop
+  variable keeps its last value, break / continue, downto, nested loops. }
+Inputs: Len(4);
+Vars: k(0), m(0), Acc(0), Hits(0), Peak(0), Back(0);
+Acc = 0.0;
+Hits = 0;
+for k = 1 to Len begin
+  if Close[k] > Close[k - 1] then begin
+    Hits = Hits + 1;
+    continue;
+  end;
+  Acc = Acc + (High - Low) * k - 3;
+end;
+Peak = 0;
+for k = Len downto 0 begin
+  for m = 0 to 3 begin
+    if High[m] > Peak then Peak = High[m];
+    if m >= 2 then break;
+  end;
+end;
+Back = k + m;
+if Hits >= 2 and Close > Peak - 15 then Buy ("LLE") next bar at market;
+if Acc > 40 then SellShort ("LSE") next bar at market;
+if MarketPosition <> 0 and Hits <= 1 then begin
+  Sell ("LLX") next bar at market;
+  BuyToCover ("LSX") next bar at market;
+end;

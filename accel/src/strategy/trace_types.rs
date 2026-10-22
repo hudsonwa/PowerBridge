@@ -37,6 +37,7 @@
 //! (a `Vars: X(-1)` seed, which Python seeds as `''`), gets an error instead of
 //! a type; the trace entry point refuses such a program rather than guess.
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 
 use serde_json::Value as Json;
@@ -156,6 +157,7 @@ pub(crate) fn infer(
         accum: &py_double_accum,
         inputs,
         input_tys: &input_tys,
+        loop_exits: RefCell::new(Vec::new()),
     };
     let mut start = seeds.clone();
     let mut end = start.clone();
@@ -405,6 +407,56 @@ struct Cx<'a, 'b> {
     accum: &'a HashSet<String>,
     inputs: &'a [InputDecl<'b>],
     input_tys: &'a [Ty],
+    /// Variable types at each `break` / `continue` of the enclosing loops.
+    loop_exits: RefCell<Vec<LoopExits>>,
+}
+
+#[derive(Default)]
+struct LoopExits {
+    breaks: Option<Vec<Ty>>,
+    continues: Option<Vec<Ty>>,
+}
+
+fn join_all(into: &mut [Ty], other: &[Ty]) {
+    for (a, b) in into.iter_mut().zip(other) {
+        *a = a.join(*b);
+    }
+}
+
+fn join_into(slot: &mut Option<Vec<Ty>>, env: &[Ty]) {
+    match slot {
+        Some(acc) => join_all(acc, env),
+        None => *slot = Some(env.to_vec()),
+    }
+}
+
+/// A loop bound known before the run: an integer literal, an input (a
+/// trace run uses the defaults), or a sum / difference of those.
+fn int_bound(node: &Json, inputs: &[InputDecl<'_>]) -> Option<i64> {
+    match node_type(node) {
+        Some("number") => node.get("value")?.as_str()?.parse().ok(),
+        Some("unaryop") if node.get("op").and_then(Json::as_str) == Some("-") => {
+            int_bound(node.get("operand")?, inputs)?.checked_neg()
+        }
+        Some("ident") => {
+            let name = node.get("name").and_then(Json::as_str)?;
+            let input = inputs.iter().find(|i| i.name == name)?;
+            if BAR_LOOP_KWARGS.contains(&name) {
+                return None;
+            }
+            int_bound(input.default, inputs)
+        }
+        Some("binop") => {
+            let left = int_bound(node.get("left")?, inputs)?;
+            let right = int_bound(node.get("right")?, inputs)?;
+            match node.get("op").and_then(Json::as_str)? {
+                "+" => left.checked_add(right),
+                "-" => left.checked_sub(right),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 impl Cx<'_, '_> {
@@ -454,6 +506,17 @@ impl Cx<'_, '_> {
                         *a = a.join(b);
                     }
                 }
+                Some("for") => self.for_loop(stmt, start, env),
+                Some(kind @ ("break" | "continue")) => {
+                    if let Some(exits) = self.loop_exits.borrow_mut().last_mut() {
+                        let slot = if kind == "break" {
+                            &mut exits.breaks
+                        } else {
+                            &mut exits.continues
+                        };
+                        join_into(slot, env);
+                    }
+                }
                 Some("once") => {
                     let skipped = env.clone();
                     if let Some(Json::Array(body)) = stmt.get("body") {
@@ -466,6 +529,67 @@ impl Cx<'_, '_> {
                 _ => {}
             }
         }
+    }
+
+    /// `for var in range(int(start), int(end) + 1)`: `var` is an `int` at
+    /// the top of every iteration; the loop leaves the state of the last
+    /// body pass (or a `continue` / `break` in it), or the state before the
+    /// loop when the range can be empty.
+    fn for_loop(&self, stmt: &Json, start: &[Ty], env: &mut Vec<Ty>) {
+        let first = stmt.get("start").unwrap_or(&Json::Null);
+        let last = stmt.get("end").unwrap_or(&Json::Null);
+        let bad = self
+            .expr(first, start, env)
+            .bad
+            .or(self.expr(last, start, env).bad);
+        let slot = stmt
+            .get("var")
+            .and_then(Json::as_str)
+            .and_then(|n| self.var_slot(n));
+        let body: &[Json] = stmt
+            .get("body")
+            .and_then(Json::as_array)
+            .map(|a| a.as_slice())
+            .unwrap_or(&[]);
+        let downto = stmt.get("downto").and_then(Json::as_bool).unwrap_or(false);
+        let always_runs = match (int_bound(first, self.inputs), int_bound(last, self.inputs)) {
+            (Some(a), Some(b)) => (downto && a >= b) || (!downto && a <= b),
+            _ => false,
+        };
+        let set_var = |env: &mut Vec<Ty>| {
+            if let Some(slot) = slot {
+                env[slot] = Ty { bits: INT, bad };
+            }
+        };
+        let before = env.clone();
+        let mut head = before.clone();
+        set_var(&mut head);
+        // Types only grow and each name has four, so this settles.
+        let mut exit;
+        loop {
+            let mut tail = head.clone();
+            self.loop_exits.borrow_mut().push(LoopExits::default());
+            self.stmts(body, start, &mut tail);
+            let exits = self.loop_exits.borrow_mut().pop().unwrap_or_default();
+            if let Some(continues) = &exits.continues {
+                join_all(&mut tail, continues);
+            }
+            exit = tail.clone();
+            if let Some(breaks) = &exits.breaks {
+                join_all(&mut exit, breaks);
+            }
+            let mut next = head.clone();
+            join_all(&mut next, &tail);
+            set_var(&mut next);
+            if next == head {
+                break;
+            }
+            head = next;
+        }
+        if !always_runs {
+            join_all(&mut exit, &before);
+        }
+        *env = exit;
     }
 
     fn expr(&self, node: &Json, start: &[Ty], env: &[Ty]) -> Ty {

@@ -168,6 +168,71 @@ pub(crate) enum CallOp {
     GradientColor,
 }
 
+/// A whole-array function. The array is baked into the instruction; the
+/// remaining EL arguments are on the stack. Each one copies a Python
+/// `pl_*` runtime function (cited at its interpreter arm).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArrayOp {
+    SetMaxIndex,
+    GetMaxIndex,
+    Sum,
+    Highest,
+    Lowest,
+    Fill,
+    SetValRange,
+    IndexOf,
+    Contains,
+    /// Array_Get{Boolean,Float,Integer}Value. `bool_default`: a failed read
+    /// returns `False` (Boolean) instead of `0` / `0.0`.
+    GetValue {
+        bool_default: bool,
+    },
+    /// Array_Set{Boolean,Float,Integer}Value; `bool_default` as for GetValue.
+    SetValue {
+        bool_default: bool,
+    },
+}
+
+impl ArrayOp {
+    /// EL arguments after the array itself.
+    pub(crate) fn argc(self) -> u8 {
+        match self {
+            ArrayOp::GetMaxIndex => 0,
+            ArrayOp::SetMaxIndex
+            | ArrayOp::Fill
+            | ArrayOp::IndexOf
+            | ArrayOp::Contains
+            | ArrayOp::GetValue { .. } => 1,
+            ArrayOp::Sum | ArrayOp::Highest | ArrayOp::Lowest | ArrayOp::SetValue { .. } => 2,
+            ArrayOp::SetValRange => 3,
+        }
+    }
+}
+
+/// The Python type of a value written into an array element, as far as the
+/// compiler can tell. Python 3.12+ `sum()` adds floats with compensation and
+/// ints without, so `Array_Sum` needs it; every other operation ignores it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ElemKind {
+    /// `int` or `bool`.
+    Int,
+    Float,
+    Unknown,
+    /// Write sites only: the value is a bare element read `B[j]`, so it has
+    /// that element's type (resolved by the interpreter, never stored).
+    Read,
+}
+
+/// One `Arrays:` declaration. Elements are kept in EL index order (`A[0]`
+/// first); the Python list is the reverse.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ArrayDecl {
+    pub(crate) name: String,
+    pub(crate) init: Value,
+    pub(crate) init_kind: ElemKind,
+    pub(crate) len: usize,
+}
+
 /// A supported `Set*` money-management risk verb.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RiskOp {
@@ -245,6 +310,42 @@ pub(crate) enum Instr {
         has_price: bool,
     },
     RiskSet(RiskOp),
+
+    /// `A[i]`: pops the index, pushes the element (`A[-(int(i) + 1)]`).
+    ArrayGet(usize),
+    /// `A[i] = v`: pops the index, then the value.
+    ArraySet {
+        slot: usize,
+        kind: ElemKind,
+    },
+    /// A whole-array function: pops `op.argc()` arguments, pushes the result.
+    /// `kind` is the type of a value argument it writes.
+    ArrayCall {
+        op: ArrayOp,
+        slot: usize,
+        kind: ElemKind,
+    },
+    /// `Array_Copy(src, si, dst, di, n)`: pops n, di, si; pushes 0.
+    ArrayCopy {
+        src: usize,
+        dst: usize,
+    },
+    /// `for var = start to/downto end`: pops end, then start. Jumps to
+    /// `exit` when the range is empty, else sets the loop counter and `var`.
+    ForInit {
+        slot: usize,
+        lp: usize,
+        downto: bool,
+        exit: usize,
+    },
+    /// Steps loop `lp`; jumps back to `body` with the next value, or falls
+    /// through when the range is done (`var` keeps the last value).
+    ForNext {
+        slot: usize,
+        lp: usize,
+        downto: bool,
+        body: usize,
+    },
 
     /// Tombstone used only inside the specialiser; stripped before the bar loop.
     Nop,
@@ -375,7 +476,16 @@ pub(crate) struct Program {
     pub(crate) inputs: Vec<Value>,
     // Input names, indexed by input slot (trace columns).
     pub(crate) input_names: Vec<String>,
+
+    // Declared arrays, indexed by array slot.
+    pub(crate) arrays: Vec<ArrayDecl>,
+    // Number of `for` loops (each owns one loop-counter slot).
+    pub(crate) n_loops: usize,
 }
+
+/// Largest array index the kernel allocates (declared size or
+/// `Array_SetMaxIndex`); a larger one is refused rather than allocated.
+pub(crate) const MAX_ARRAY_INDEX: i64 = 10_000_000;
 
 pub(crate) fn compile(
     ast: &Json,
@@ -385,6 +495,7 @@ pub(crate) fn compile(
     let mut compiler = Compiler::new();
     compiler.collect_decls(&body, input_overrides)?;
     compiler.collect_double_accums(&body);
+    compiler.collect_var_kinds(&body, decl_inits(&body)?);
     for stmt in &body {
         compiler.compile_stmt(stmt)?;
     }
@@ -444,6 +555,31 @@ struct Compiler {
     input_names: Vec<String>,
     needs_value_history: HashSet<String>,
     needs_numeric_history: HashSet<String>,
+    array_slots: HashMap<String, usize>,
+    arrays: Vec<ArrayDecl>,
+    n_loops: usize,
+    /// Pending `break` / `continue` jumps of the enclosing `for` loops.
+    loops: Vec<LoopJumps>,
+    /// Variables assigned by any `for` statement (their Python type is `int`
+    /// after the loop, so they are not plain `float` variables).
+    for_vars: HashSet<String>,
+    /// Loop variables of the enclosing `for` loops whose body does not assign
+    /// them: an `int` from `range()` everywhere inside the body.
+    int_loop_vars: Vec<String>,
+    /// Inputs whose default is an integer literal (Python binds an `int`).
+    int_inputs: HashSet<String>,
+    /// Variables that always hold a Python `int` or `bool` (see
+    /// [`Compiler::collect_var_kinds`]).
+    int_vars: HashSet<String>,
+    /// Variables Python seeds and assigns through `f32()`, so always a
+    /// `float`: a plain number init, not an accumulator, not a loop variable.
+    float_vars: HashSet<String>,
+}
+
+#[derive(Default)]
+struct LoopJumps {
+    breaks: Vec<usize>,
+    continues: Vec<usize>,
 }
 
 impl Compiler {
@@ -461,6 +597,15 @@ impl Compiler {
             input_names: Vec::new(),
             needs_value_history: HashSet::new(),
             needs_numeric_history: HashSet::new(),
+            array_slots: HashMap::new(),
+            arrays: Vec::new(),
+            n_loops: 0,
+            loops: Vec::new(),
+            for_vars: HashSet::new(),
+            int_loop_vars: Vec::new(),
+            int_inputs: HashSet::new(),
+            int_vars: HashSet::new(),
+            float_vars: HashSet::new(),
         }
     }
 
@@ -497,6 +642,8 @@ impl Compiler {
             var_needs_numeric_history,
             inputs: self.inputs,
             input_names: self.input_names,
+            arrays: self.arrays,
+            n_loops: self.n_loops,
         }
     }
 
@@ -516,6 +663,15 @@ impl Compiler {
                         let value = resolve_input_value(&name, default, overrides)?;
                         if matches!(default.get("type").and_then(Json::as_str), Some("number")) {
                             self.numeric_vars.insert(name.clone());
+                        }
+                        let unsigned = match node_type(default) {
+                            Some("unaryop") => default.get("operand").unwrap_or(&Json::Null),
+                            _ => default,
+                        };
+                        if node_type(unsigned) == Some("number")
+                            && literal_kind(unsigned) == ElemKind::Int
+                        {
+                            self.int_inputs.insert(name.clone());
                         }
                         let slot = self.inputs.len();
                         self.input_names.push(name.clone());
@@ -565,11 +721,77 @@ impl Compiler {
                     }
                 }
                 Some("array_decl") => {
-                    return Err(KernelError::unsupported("array declarations"));
+                    for decl in decls_of(stmt)? {
+                        self.declare_array(decl)?;
+                    }
                 }
                 _ => {}
             }
         }
+        collect_for_vars(body, &mut self.for_vars);
+        for name in self.array_slots.keys() {
+            if self.var_slots.contains_key(name)
+                || self.input_slots.contains_key(name)
+                || Series::from_name(name).is_some()
+            {
+                return Err(KernelError::unsupported(format!(
+                    "array {name} shares its name with a variable, input or price series"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// `codegen_stmt.gen_array_decl`: a static `A[N](init)` is
+    /// `[init] * (N + 1)`, a dynamic `A[](init)` is `[init]`. Only literal
+    /// sizes and numeric / true-false literal inits are native.
+    fn declare_array(&mut self, decl: &Json) -> Result<(), KernelError> {
+        let name = decl_name(decl)?.to_string();
+        let init = decl
+            .get("init")
+            .ok_or_else(|| KernelError::input(format!("array {name} has no init")))?;
+        let (init_value, init_kind) = match node_type(init) {
+            Some("string") => return Err(KernelError::unsupported("string arrays")),
+            Some("number") => (Value::Num(number_literal(init)?), literal_kind(init)),
+            Some("boolean") => (eval_literal(init)?, ElemKind::Int),
+            Some("unaryop")
+                if node_type(init.get("operand").unwrap_or(&Json::Null)) == Some("number") =>
+            {
+                (eval_input_default(init)?, literal_kind(&init["operand"]))
+            }
+            _ => {
+                return Err(KernelError::unsupported(format!(
+                    "array {name} init is not a number or true/false literal"
+                )))
+            }
+        };
+        let len = match decl.get("size") {
+            None | Some(Json::Null) => 1,
+            Some(size) => {
+                let n = int_literal(size).ok_or_else(|| {
+                    KernelError::unsupported(format!("array {name} size is not an integer literal"))
+                })?;
+                if n > MAX_ARRAY_INDEX {
+                    return Err(KernelError::unsupported(format!(
+                        "array {name} size {n} is above the native limit {MAX_ARRAY_INDEX}"
+                    )));
+                }
+                // `[init] * (N + 1)` is empty for N < 0.
+                usize::try_from(n.saturating_add(1)).unwrap_or(0)
+            }
+        };
+        if self.array_slots.contains_key(&name) {
+            return Err(KernelError::unsupported(format!(
+                "array {name} is declared twice"
+            )));
+        }
+        self.array_slots.insert(name.clone(), self.arrays.len());
+        self.arrays.push(ArrayDecl {
+            name,
+            init: init_value,
+            init_kind,
+            len,
+        });
         Ok(())
     }
 
@@ -610,6 +832,54 @@ impl Compiler {
         }
     }
 
+    /// The variables with a known Python type. `float_vars` go through
+    /// `f32()`. Python never passes a `true`/`false` variable (seeded `1`/`0`)
+    /// or a self-referential accumulator with an integer literal seed through
+    /// `f32()`: each keeps the type of what is assigned, so it is an `int` (or
+    /// `bool`) when every assignment is, assuming the same of the others;
+    /// candidates that fail are dropped until the set is stable.
+    fn collect_var_kinds(&mut self, body: &[Json], inits: Vec<(String, Json)>) {
+        self.float_vars = inits
+            .iter()
+            .filter(|(name, init)| {
+                node_type(init) == Some("number")
+                    && !self.double_accum.contains(name)
+                    && !self.for_vars.contains(name)
+            })
+            .map(|(name, _)| name.clone())
+            .collect();
+        self.int_vars = inits
+            .into_iter()
+            .filter(|(name, init)| match node_type(init) {
+                Some("boolean") => true,
+                Some("number") => {
+                    literal_kind(init) == ElemKind::Int && self.double_accum.contains(name)
+                }
+                _ => false,
+            })
+            .map(|(name, _)| name)
+            .collect();
+        loop {
+            let mut assigned = Vec::new();
+            collect_assignments(body, &mut assigned);
+            let failing: Vec<String> = assigned
+                .into_iter()
+                .filter(|(name, value)| {
+                    // Inputs stay out: an override may bind a float.
+                    self.int_vars.contains(*name)
+                        && !value.is_some_and(|v| self.elem_kind(v) == ElemKind::Int)
+                })
+                .map(|(name, _)| name.to_string())
+                .collect();
+            if failing.is_empty() {
+                return;
+            }
+            for name in failing {
+                self.int_vars.remove(&name);
+            }
+        }
+    }
+
     // ---- statement compilation ----
 
     fn compile_stmt(&mut self, stmt: &Json) -> Result<(), KernelError> {
@@ -627,6 +897,21 @@ impl Compiler {
                 let target = stmt
                     .get("target")
                     .ok_or_else(|| KernelError::unsupported("assign missing target"))?;
+                if let Some(slot) = self.array_target(target)? {
+                    // Python evaluates the value, then the subscript.
+                    let value = stmt.get("value").unwrap_or(&Json::Null);
+                    let index = target.get("index").unwrap_or(&Json::Null);
+                    let mut kind = self.elem_kind(value);
+                    if kind == ElemKind::Read && self.reads_array(index) {
+                        // The index is evaluated after the value and its
+                        // read would be the last one.
+                        kind = ElemKind::Unknown;
+                    }
+                    self.compile_expr(value, false)?;
+                    self.compile_array_index(index)?;
+                    self.instrs.push(Instr::ArraySet { slot, kind });
+                    return Ok(());
+                }
                 if node_type(target) != Some("ident") {
                     return Err(KernelError::unsupported(
                         "assignment target is not an ident",
@@ -720,18 +1005,238 @@ impl Compiler {
                 self.instrs.push(Instr::Drop);
                 Ok(())
             }
-            Some("array_decl") => Err(KernelError::unsupported("array declarations")),
-            Some("for") => Err(KernelError::unsupported("for loops")),
+            // Arrays are allocated once, before the first bar (persist).
+            Some("array_decl") => Ok(()),
+            Some("for") => self.compile_for(stmt),
             Some("while") => Err(KernelError::unsupported("while loops")),
             Some("repeat_until") => Err(KernelError::unsupported("repeat-until loops")),
             Some("switch") => Err(KernelError::unsupported("switch")),
-            Some("break") => Err(KernelError::unsupported("break")),
-            Some("continue") => Err(KernelError::unsupported("continue")),
+            Some("break") => {
+                let at = self.instrs.len();
+                self.loops
+                    .last_mut()
+                    .ok_or_else(|| KernelError::unsupported("break outside a for loop"))?
+                    .breaks
+                    .push(at);
+                self.instrs.push(Instr::Jump(0)); // patched by compile_for
+                Ok(())
+            }
+            Some("continue") => {
+                let at = self.instrs.len();
+                self.loops
+                    .last_mut()
+                    .ok_or_else(|| KernelError::unsupported("continue outside a for loop"))?
+                    .continues
+                    .push(at);
+                self.instrs.push(Instr::Jump(0)); // patched by compile_for
+                Ok(())
+            }
             Some("abort") => Err(KernelError::unsupported("abort")),
             Some(other) => Err(KernelError::unsupported(format!(
                 "statement type {other:?}"
             ))),
             None => Err(KernelError::unsupported("statement missing type")),
+        }
+    }
+
+    /// `codegen_stmt.gen_for`: `for var in range(int(start), int(end) + 1)`
+    /// (`int(end) - 1, -1` for downto). Both bounds are evaluated once, the
+    /// body cannot change the iteration, and `var` keeps the last value it
+    /// was given (unchanged when the range is empty).
+    fn compile_for(&mut self, stmt: &Json) -> Result<(), KernelError> {
+        let var = stmt
+            .get("var")
+            .and_then(Json::as_str)
+            .ok_or_else(|| KernelError::unsupported("for loop missing var"))?;
+        let slot = *self.var_slots.get(var).ok_or_else(|| {
+            KernelError::unsupported(format!("for loop over undeclared variable {var:?}"))
+        })?;
+        let downto = stmt.get("downto").and_then(Json::as_bool).unwrap_or(false);
+        let body: &[Json] = stmt
+            .get("body")
+            .and_then(Json::as_array)
+            .map(|a| a.as_slice())
+            .unwrap_or(&[]);
+        self.compile_expr(stmt.get("start").unwrap_or(&Json::Null), false)?;
+        self.compile_expr(stmt.get("end").unwrap_or(&Json::Null), false)?;
+        let lp = self.n_loops;
+        self.n_loops += 1;
+        let init = self.instrs.len();
+        self.instrs.push(Instr::ForInit {
+            slot,
+            lp,
+            downto,
+            exit: 0, // patched below
+        });
+        let body_start = self.instrs.len();
+        let int_var = !assigns_var(body, var);
+        if int_var {
+            self.int_loop_vars.push(var.to_string());
+        }
+        self.loops.push(LoopJumps::default());
+        let compiled = body.iter().try_for_each(|s| self.compile_stmt(s));
+        let jumps = self.loops.pop().unwrap_or_default();
+        if int_var {
+            self.int_loop_vars.pop();
+        }
+        compiled?;
+        let next = self.instrs.len();
+        self.instrs.push(Instr::ForNext {
+            slot,
+            lp,
+            downto,
+            body: body_start,
+        });
+        let end = self.instrs.len();
+        self.instrs[init] = Instr::ForInit {
+            slot,
+            lp,
+            downto,
+            exit: end,
+        };
+        for at in jumps.breaks {
+            self.instrs[at] = Instr::Jump(end);
+        }
+        for at in jumps.continues {
+            self.instrs[at] = Instr::Jump(next);
+        }
+        Ok(())
+    }
+
+    /// The array slot when `target` is an element `A[i]` of a declared array.
+    fn array_target(&self, target: &Json) -> Result<Option<usize>, KernelError> {
+        if node_type(target) != Some("bar_ref") {
+            return Ok(None);
+        }
+        let series = target.get("series").unwrap_or(&Json::Null);
+        let name = series.get("name").and_then(Json::as_str).unwrap_or("");
+        if node_type(series) == Some("ident") {
+            if let Some(slot) = self.array_slots.get(name) {
+                return Ok(Some(*slot));
+            }
+        }
+        Err(KernelError::unsupported(
+            "assignment target is not a variable or an array element",
+        ))
+    }
+
+    /// The subscript of `A[i]`. A literal index is emitted as written
+    /// (`A[-(N + 1)]`), so it must be an integer Python can parse; any other
+    /// index is `int(i)` at run time.
+    fn compile_array_index(&mut self, index: &Json) -> Result<(), KernelError> {
+        if node_type(index) == Some("number") {
+            let n = int_literal(index)
+                .ok_or_else(|| KernelError::unsupported("array index literal is not an integer"))?;
+            self.instrs.push(Instr::PushNum(n as f64));
+            return Ok(());
+        }
+        self.compile_expr(index, false)
+    }
+
+    /// The compile-time Python type of `node` when written into an array
+    /// (see [`ElemKind`]). `Unknown` whenever it depends on the run.
+    fn elem_kind(&self, node: &Json) -> ElemKind {
+        use ElemKind::{Float, Int, Unknown};
+        let numeric = |a: ElemKind, b: ElemKind| match (a, b) {
+            (Int, Int) => Int,
+            (Unknown | ElemKind::Read, _) | (_, Unknown | ElemKind::Read) => Unknown,
+            _ => Float,
+        };
+        match node_type(node) {
+            Some("number") => literal_kind(node),
+            Some("boolean") | Some("compare") => Int,
+            Some("ident") => {
+                let name = node.get("name").and_then(Json::as_str).unwrap_or("");
+                match name {
+                    // `_close` etc. are `f32(close[-1])`.
+                    "open" | "high" | "low" | "close" | "volume" => Float,
+                    "date" | "time" => Int,
+                    _ if self.int_loop_vars.iter().any(|v| v == name) => Int,
+                    _ if self.int_vars.contains(name) => Int,
+                    _ if self.float_vars.contains(name) => Float,
+                    _ => Unknown,
+                }
+            }
+            Some("binop") => {
+                let left = self.elem_kind(node.get("left").unwrap_or(&Json::Null));
+                let right = self.elem_kind(node.get("right").unwrap_or(&Json::Null));
+                match node.get("op").and_then(Json::as_str).unwrap_or("") {
+                    "+" | "-" | "*" | "%" => numeric(left, right),
+                    "/" => match numeric(left, right) {
+                        Unknown => Unknown,
+                        _ => Float,
+                    },
+                    _ => Unknown,
+                }
+            }
+            Some("unaryop") => match node.get("op").and_then(Json::as_str).unwrap_or("") {
+                "not" => Int,
+                _ => match self.elem_kind(node.get("operand").unwrap_or(&Json::Null)) {
+                    ElemKind::Read => Unknown,
+                    kind => kind,
+                },
+            },
+            Some("call") => match node.get("name").and_then(Json::as_str).unwrap_or("") {
+                // pl_array_getmaxindex: len - 1; pl_array_indexof: an index.
+                "intportion" | "sign" | "array_getmaxindex" | "array_indexof" => Int,
+                "average" | "averagefc" | "averagetfc" => Float,
+                _ => Unknown,
+            },
+            Some("bar_ref") => {
+                let series = node.get("series").unwrap_or(&Json::Null);
+                match series.get("name").and_then(Json::as_str) {
+                    _ if node_type(series) != Some("ident") => Unknown,
+                    Some(name) if self.array_slots.contains_key(name) => ElemKind::Read,
+                    Some("open" | "high" | "low" | "close" | "volume") => Float,
+                    Some("date" | "time") => Int,
+                    _ => Unknown,
+                }
+            }
+            _ => Unknown,
+        }
+    }
+
+    /// Whether evaluating `node` reads an array element.
+    fn reads_array(&self, node: &Json) -> bool {
+        match node {
+            Json::Object(map) => {
+                let is_read = map.get("type").and_then(Json::as_str) == Some("bar_ref")
+                    && map
+                        .get("series")
+                        .and_then(|s| s.get("name"))
+                        .and_then(Json::as_str)
+                        .is_some_and(|name| self.array_slots.contains_key(name));
+                is_read || map.values().any(|child| self.reads_array(child))
+            }
+            Json::Array(items) => items.iter().any(|child| self.reads_array(child)),
+            _ => false,
+        }
+    }
+
+    /// Whether Python sees `node` as an `int`: slices (`items[start:end + 1]`)
+    /// and list repetition (`[0] * n`) raise `TypeError` on a float. An
+    /// input counts when its default is an integer literal; the interpreter
+    /// still rejects a non-integral value at run time.
+    fn is_int_arg(&self, node: &Json) -> bool {
+        if node_type(node) == Some("ident") {
+            let name = node.get("name").and_then(Json::as_str).unwrap_or("");
+            if self.input_slots.contains_key(name) {
+                return self.int_inputs.contains(name);
+            }
+        }
+        match node_type(node) {
+            Some("binop") => {
+                matches!(
+                    node.get("op").and_then(Json::as_str),
+                    Some("+" | "-" | "*" | "%")
+                ) && self.is_int_arg(node.get("left").unwrap_or(&Json::Null))
+                    && self.is_int_arg(node.get("right").unwrap_or(&Json::Null))
+            }
+            Some("unaryop") => {
+                matches!(node.get("op").and_then(Json::as_str), Some("-" | "+"))
+                    && self.is_int_arg(node.get("operand").unwrap_or(&Json::Null))
+            }
+            _ => self.elem_kind(node) == ElemKind::Int,
         }
     }
 
@@ -955,6 +1460,11 @@ impl Compiler {
             self.instrs.push(Instr::PushMarketPosition);
             return Ok(());
         }
+        if self.array_slots.contains_key(name) {
+            return Err(KernelError::unsupported(format!(
+                "array {name} used as a whole outside a native Array_* function"
+            )));
+        }
         if let Some(series) = Series::from_name(name) {
             if series_ctx {
                 self.instrs.push(Instr::PushSeriesParamSeries(series));
@@ -1114,6 +1624,14 @@ impl Compiler {
         let series = node
             .get("series")
             .ok_or_else(|| KernelError::unsupported("bar_ref missing series"))?;
+        if node_type(series) == Some("ident") {
+            let name = series.get("name").and_then(Json::as_str).unwrap_or("");
+            if let Some(slot) = self.array_slots.get(name).copied() {
+                self.compile_array_index(node.get("index").unwrap_or(&Json::Null))?;
+                self.instrs.push(Instr::ArrayGet(slot));
+                return Ok(());
+            }
+        }
         self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
         if node_type(series) == Some("position_kw") {
             let kw = series
@@ -1206,6 +1724,17 @@ impl Compiler {
             }
             _ => {}
         }
+        if let Some(op) = array_op(name) {
+            return self.compile_array_call(name, op, args);
+        }
+        if name == "array_copy" {
+            return self.compile_array_copy(args);
+        }
+        if NOT_NATIVE_ARRAY_FUNCTIONS.contains(&name) {
+            return Err(KernelError::unsupported(format!(
+                "array function {name} is not native yet"
+            )));
+        }
         let (op, _series_fn) = match name {
             "numtostr" => (CallOp::NumToStr, false),
             "file" => (CallOp::File, false),
@@ -1237,6 +1766,79 @@ impl Compiler {
         Ok(())
     }
 
+    /// The declared array an Array_* function names as its argument `index`.
+    fn array_arg(&self, name: &str, args: &[Json], index: usize) -> Result<usize, KernelError> {
+        let arg = args.get(index).unwrap_or(&Json::Null);
+        let ident = arg.get("name").and_then(Json::as_str).unwrap_or("");
+        match self.array_slots.get(ident) {
+            Some(slot) if node_type(arg) == Some("ident") => Ok(*slot),
+            _ => Err(KernelError::unsupported(format!(
+                "{name} argument {} is not a declared array",
+                index + 1
+            ))),
+        }
+    }
+
+    fn compile_array_call(
+        &mut self,
+        name: &str,
+        op: ArrayOp,
+        args: &[Json],
+    ) -> Result<(), KernelError> {
+        let argc = usize::from(op.argc());
+        if args.len() != argc + 1 {
+            return Err(KernelError::unsupported(format!(
+                "{name} takes {} arguments, got {}",
+                argc + 1,
+                args.len()
+            )));
+        }
+        let slot = self.array_arg(name, args, 0)?;
+        let rest = &args[1..];
+        // Python slices `items[start:end + 1]` and repeats `[0] * n`: both
+        // raise TypeError on a float, so these arguments must be ints.
+        let int_args: &[usize] = match op {
+            ArrayOp::SetMaxIndex => &[0],
+            ArrayOp::Sum | ArrayOp::Highest | ArrayOp::Lowest => &[0, 1],
+            _ => &[],
+        };
+        for &i in int_args {
+            if !self.is_int_arg(&rest[i]) {
+                return Err(KernelError::unsupported(format!(
+                    "{name} argument {} is not an int in Python",
+                    i + 2
+                )));
+            }
+        }
+        let kind = match op {
+            ArrayOp::Fill => self.elem_kind(&rest[0]),
+            ArrayOp::SetValRange => self.elem_kind(&rest[2]),
+            ArrayOp::SetValue { .. } => self.elem_kind(&rest[1]),
+            _ => ElemKind::Unknown,
+        };
+        for arg in rest {
+            self.compile_expr(arg, false)?;
+        }
+        self.instrs.push(Instr::ArrayCall { op, slot, kind });
+        Ok(())
+    }
+
+    fn compile_array_copy(&mut self, args: &[Json]) -> Result<(), KernelError> {
+        if args.len() != 5 {
+            return Err(KernelError::unsupported(format!(
+                "array_copy takes 5 arguments, got {}",
+                args.len()
+            )));
+        }
+        let src = self.array_arg("array_copy", args, 0)?;
+        let dst = self.array_arg("array_copy", args, 2)?;
+        for arg in [&args[1], &args[3], &args[4]] {
+            self.compile_expr(arg, false)?;
+        }
+        self.instrs.push(Instr::ArrayCopy { src, dst });
+        Ok(())
+    }
+
     /// Resolve a series-function argument (must be a bare ident naming a data
     /// column or a variable), producing a zero-copy [`SeriesSrc`].
     fn series_src(&mut self, node: &Json) -> Result<SeriesSrc, KernelError> {
@@ -1250,6 +1852,11 @@ impl Compiler {
         if let Some(series) = Series::from_name(name) {
             return Ok(SeriesSrc::Column(series));
         }
+        if self.array_slots.contains_key(name) {
+            return Err(KernelError::unsupported(format!(
+                "array {name} used as a series argument"
+            )));
+        }
         if let Some(slot) = self.var_slots.get(name) {
             if self.numeric_vars.contains(name) {
                 self.needs_numeric_history.insert(name.to_string());
@@ -1262,6 +1869,155 @@ impl Compiler {
             "unresolved identifier {name:?}"
         )))
     }
+}
+
+/// Array functions the Python runtime has but the kernel does not run yet.
+const NOT_NATIVE_ARRAY_FUNCTIONS: [&str; 13] = [
+    "array_gettype",
+    "array_sort",
+    "sortarray",
+    "variancearray",
+    "array_compare",
+    "array_getstringvalue",
+    "array_setstringvalue",
+    "arraysize",
+    "arraystartaddr",
+    "sumlist",
+    "avglist",
+    "maxlist2",
+    "minlist2",
+];
+
+fn array_op(name: &str) -> Option<ArrayOp> {
+    Some(match name {
+        "array_setmaxindex" => ArrayOp::SetMaxIndex,
+        "array_getmaxindex" => ArrayOp::GetMaxIndex,
+        "array_sum" => ArrayOp::Sum,
+        "array_highest" => ArrayOp::Highest,
+        "array_lowest" => ArrayOp::Lowest,
+        "fill_array" => ArrayOp::Fill,
+        "array_setvalrange" => ArrayOp::SetValRange,
+        "array_indexof" => ArrayOp::IndexOf,
+        "array_contains" => ArrayOp::Contains,
+        "array_getbooleanvalue" => ArrayOp::GetValue { bool_default: true },
+        "array_getfloatvalue" | "array_getintegervalue" => ArrayOp::GetValue {
+            bool_default: false,
+        },
+        "array_setbooleanvalue" => ArrayOp::SetValue { bool_default: true },
+        "array_setfloatvalue" | "array_setintegervalue" => ArrayOp::SetValue {
+            bool_default: false,
+        },
+        _ => return None,
+    })
+}
+
+/// Python type of a number literal: the codegen emits its text, so a `.` or
+/// an exponent makes a `float`.
+fn literal_kind(node: &Json) -> ElemKind {
+    let raw = node.get("value").and_then(Json::as_str).unwrap_or("");
+    if raw.contains(['.', 'e', 'E']) {
+        ElemKind::Float
+    } else {
+        ElemKind::Int
+    }
+}
+
+/// An integer literal (optionally signed) as Python reads the emitted text.
+/// `07` is a Python syntax error and `2.0` is not an int, so both are `None`.
+fn int_literal(node: &Json) -> Option<i64> {
+    match node_type(node) {
+        Some("number") => {
+            let raw = node.get("value").and_then(Json::as_str)?;
+            if raw.is_empty()
+                || !raw.bytes().all(|b| b.is_ascii_digit())
+                || (raw.len() > 1 && raw.starts_with('0'))
+            {
+                return None;
+            }
+            raw.parse().ok()
+        }
+        Some("unaryop") => {
+            let n = int_literal(node.get("operand")?)?;
+            match node.get("op").and_then(Json::as_str)? {
+                "-" => n.checked_neg(),
+                "+" => Some(n),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// `(name, init)` of every declared variable.
+fn decl_inits(body: &[Json]) -> Result<Vec<(String, Json)>, KernelError> {
+    let mut out = Vec::new();
+    for stmt in body {
+        if node_type(stmt) == Some("var_decl") {
+            for decl in decls_of(stmt)? {
+                let init = decl.get("init").cloned().unwrap_or(Json::Null);
+                out.push((decl_name(decl)?.to_string(), init));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Every assignment to a plain variable, at any depth, as `(name, value)`.
+/// (A `for` loop also writes its variable, always an `int`.)
+fn collect_assignments<'a>(stmts: &'a [Json], out: &mut Vec<(&'a str, Option<&'a Json>)>) {
+    for stmt in stmts {
+        if node_type(stmt) == Some("assign") {
+            let target = stmt.get("target").unwrap_or(&Json::Null);
+            if node_type(target) == Some("ident") {
+                if let Some(name) = target.get("name").and_then(Json::as_str) {
+                    out.push((name, stmt.get("value")));
+                }
+            }
+        }
+        for key in ["body", "else_body"] {
+            if let Some(Json::Array(body)) = stmt.get(key) {
+                collect_assignments(body, out);
+            }
+        }
+    }
+}
+
+/// Names of every `for` loop variable in `stmts` (any depth).
+fn collect_for_vars(stmts: &[Json], out: &mut HashSet<String>) {
+    for stmt in stmts {
+        if node_type(stmt) == Some("for") {
+            if let Some(var) = stmt.get("var").and_then(Json::as_str) {
+                out.insert(var.to_string());
+            }
+        }
+        for key in ["body", "else_body"] {
+            if let Some(Json::Array(body)) = stmt.get(key) {
+                collect_for_vars(body, out);
+            }
+        }
+    }
+}
+
+/// Whether `stmts` assign `name` (a plain assignment or a nested `for`).
+fn assigns_var(stmts: &[Json], name: &str) -> bool {
+    stmts.iter().any(|stmt| {
+        let assigned = match node_type(stmt) {
+            Some("assign") => {
+                let target = stmt.get("target").unwrap_or(&Json::Null);
+                node_type(target) == Some("ident")
+                    && target.get("name").and_then(Json::as_str) == Some(name)
+            }
+            Some("for") => stmt.get("var").and_then(Json::as_str) == Some(name),
+            _ => false,
+        };
+        assigned
+            || ["body", "else_body"]
+                .iter()
+                .any(|key| match stmt.get(*key) {
+                    Some(Json::Array(body)) => assigns_var(body, name),
+                    _ => false,
+                })
+    })
 }
 
 fn position_kw_kind(kw: &str) -> Option<PositionKw> {
