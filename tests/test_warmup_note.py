@@ -42,6 +42,18 @@ NO_LOOKBACK = 'If MarketPosition = 0 Then Buy ("LE") next bar at market;\n'
     ("Vars: n(3); Value1 = Close[n];", True),
     ("Value1 = Close[0] + Close;", False),
     (NO_LOOKBACK, False),
+    ("Value1 = TrueRange;", True),
+    ("Value1 = AverageFC(Close, 5);", True),
+    ("Value1 = LinearRegValueFC(Close, 5, 0);", True),
+    ("Value1 = Median(Close, 5);", True),
+    ("Value1 = AvgTrueRange(14);", True),
+    ("Value1 = Close of 1 bar ago;", True),
+    ("Value1 = Close of 2 bars ago;", True),
+    ("Value1 = Close of 0 bars ago;", False),
+    ("Value1 = MyIndexingFunc(Close);", True),
+    ("Value1 = Average(Close, 1);", False),
+    ("Value1 = Momentum(Close, 1);", True),
+    ("Value1 = AbsValue(Close - Open);", False),
 ])
 def test_uses_lookback(src, expected):
     assert uses_lookback(src) is expected
@@ -64,6 +76,15 @@ def test_note_printed_once_and_stdout_unchanged(tool, extra, capsys):
 
     assert tool.main([MA_CROSS, SAMPLE, "--max-bars-back", "1"] + extra) == 0
     assert NOTE not in capsys.readouterr().err
+
+
+def test_one_warning_when_short_history_also_fires(tmp_path, capsys):
+    el = tmp_path / "dip.el"
+    el.write_text("If Close < Close[3] Then Buy next bar at market;\n")
+    assert pl_oracle.main([str(el), SAMPLE, "--python"]) == 0
+    err = capsys.readouterr().err
+    assert "lookback past available history" in err
+    assert NOTE not in err
 
 
 def test_no_note_without_lookback(tmp_path, capsys):

@@ -603,7 +603,8 @@ def _build_parser():
     _cli.add_max_bars_back_arg(ap)
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="hide the warm-up note printed when a strategy reads "
-                         "past bars and --max-bars-back is not set.")
+                         "past bars and --max-bars-back is not set (other "
+                         "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
@@ -698,7 +699,6 @@ def _main(ap, args):
     data2_closes = ([float(b["close"]) for b in data2_bars]
                     if data2_bars is not None else None)
     config = _cli.config_or_error(args.config)
-    note_warmup(el_source, args.max_bars_back, "pl_oracle", quiet=args.quiet)
     output = _cli.output_path(args.output)
     if args.verbose >= 2:
         os.environ["PB_ACCEL_VERBOSE"] = "1"
@@ -747,6 +747,9 @@ def _main(ap, args):
     if args.fills_csv:
         write_fills_csv(args.fills_csv, result["records"], tick=config.tick)
 
+    # After the run, so a failing run still prints a single error line.
+    note_warmup(el_source, args.max_bars_back, "pl_oracle", quiet=args.quiet,
+                n_bars=ohlcv_columns(bars)["n"])
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")
     print(f"[pl_oracle] {result['n_bars']} bars{warmup_note}, {result['fills']} fills, "

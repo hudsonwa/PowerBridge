@@ -48,10 +48,12 @@ trust a backtest from partial output.
 - **MaxBarsBack is opt-in, so warm-up fills can differ from MultiCharts.**
   By default strategies are evaluated from bar 1, and a windowed function such
   as `Average(Close, 10)` returns 0 until it has 10 bars; MultiCharts does not
-  evaluate its first MaxBarsBack bars at all. When a strategy reads past bars
-  (`Close[n]` or a windowed function) and `--max-bars-back` is not set,
-  `pl_run` and `pl_oracle` print one `note:` line on stderr saying so (`-q`
-  hides it; the library API never prints it). See "Matching MultiCharts" below.
+  evaluate its first MaxBarsBack bars at all. When a strategy may read past bars
+  (`Close[n]`, `Close of n bars ago`, `TrueRange`, a windowed builtin such
+  as `Average` or an `*FC` variant, or a user function) and `--max-bars-back`
+  is not set, `pl_run` and `pl_oracle` print one `note:` line on stderr
+  saying so, unless they already print the `lookback past available history`
+  warning (`-q` hides only the note; the library API never prints it). See "Matching MultiCharts" below.
 - Per-bar MultiCharts parity captures are not shipped. Those tests skip on a
   fresh clone.
 - The `accel` fast path is optional: install the prebuilt wheel from a

@@ -120,7 +120,7 @@ OK -- every builtin used is known to compile in MultiCharts (names, argument cou
 ```
 
 ```bash
-pl_oracle hand_written.el examples/NQ_sample_bars.csv -q
+pl_oracle hand_written.el examples/NQ_sample_bars.csv
 ```
 
 ```
@@ -130,9 +130,12 @@ round_turns: 3
 sha256: 9f11e024f4832be65e4c22641085e47c7ec731357162a801a885de95663f61aa
 ```
 
-The digest is the same on the Rust and Python paths, and the emitted
-EasyLanguage survives a round trip: `pl_transpile --no-persist` on it and
-`el_emit` again gives the same code.
+This strategy reads `Close[n]` before bar n exists, so stderr also shows one
+`warning: lookback past available history` line; `--max-bars-back` removes
+it (and changes the digest). The digest is the same on the Rust and Python
+paths, and the emitted EasyLanguage survives a round trip:
+`pl_transpile --no-persist` on it and `el_emit` again gives the same
+statements (blank lines are not kept).
 
 ## What el_emit rejects
 

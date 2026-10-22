@@ -167,7 +167,8 @@ bar from bar 1, so `Average(Close, 21)` returns 0 for the first 20 bars;
 MultiCharts skips its MaxBarsBack bars (default 50) instead. Pass
 `--max-bars-back 50` (or your chart's value) to `pl_oracle` / `pl_run` to
 match. Without it, both print the `note:` above on stderr when a strategy reads
-past bars; `-q` hides it. The note never changes the output on stdout.
+past bars (or the `lookback past available history` warning instead, when
+that applies); `-q` hides only the note. The note never changes the output on stdout.
 The [usage guide](docs/USAGE.md) walks through each step in detail.
 
 ## Acceleration

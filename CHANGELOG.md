@@ -9,8 +9,9 @@
   tested through `el_emit`, `pl_oracle` and an EL round trip.
 - `pl_run` and `pl_oracle` print one `note:` on stderr when a strategy reads past
   bars and `--max-bars-back` is not set: warm-up fills may differ from
-  MultiCharts. New `-q` / `--quiet` hides it. Defaults and digests are unchanged;
-  the library API stays silent.
+  MultiCharts. It is skipped when the existing short-history warning already
+  fires. New `-q` / `--quiet` hides only this note. Defaults and digests are
+  unchanged; the library API stays silent.
 - `el_emit` / `mc_ground_check` check argument types (#7): a string or
   true/false argument where the catalog declares a verified `numeric` parameter
   is reported as ARG-TYPE-BAD with the function, argument position, expected
@@ -34,6 +35,8 @@
 
 ### Fixed
 
+- Without `-o`, `el_emit`'s check report names the input file instead of a
+  temporary file.
 - The native typed trace (`run_native_trace`) now prints exactly what the
   Python trace prints for every program the kernel runs: inputs are columns,
   variables nothing reads keep their values, and ints print as ints. A program
