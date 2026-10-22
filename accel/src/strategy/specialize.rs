@@ -52,9 +52,19 @@ pub(crate) struct Stats {
     pub(crate) specialize_ns: u128,
 }
 
+/// [`specialize_with`] as the fills path uses it.
+#[cfg(test)]
+pub(crate) fn specialize(program: &Program) -> Specialized {
+    specialize_with(program, false)
+}
+
 /// Fold `program.inputs` into a specialised stream. Cheap relative to a
 /// 101k-bar loop: the AST is not re-walked.
-pub(crate) fn specialize(program: &Program) -> Specialized {
+///
+/// The trace entry point reports every variable's value at the end of each bar,
+/// so a store nothing reads is still observable there: `keep_stores` turns
+/// off dead-store elimination and changes nothing else.
+pub(crate) fn specialize_with(program: &Program, keep_stores: bool) -> Specialized {
     let started = Instant::now();
     let before = program.instrs.len();
     let mut instrs = program.instrs.clone();
@@ -64,7 +74,9 @@ pub(crate) fn specialize(program: &Program) -> Specialized {
         instrs = peephole(instrs);
         instrs = dce_unreachable(instrs);
         instrs = dce_pure_drops(instrs);
-        instrs = dce_dead_stores(instrs);
+        if !keep_stores {
+            instrs = dce_dead_stores(instrs);
+        }
         instrs = fuse(instrs);
         if instrs.len() == n {
             break;

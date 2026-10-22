@@ -444,8 +444,10 @@ fn cell_to_python(py: Python<'_>, cell: strategy::Cell) -> PyResult<Py<PyAny>> {
 /// owns text rendering. It reproduces the `run_el` full-trace shape but typed,
 /// and is independent of the `audit-event-v1` packet (the measured sub-second
 /// path). `columns` is the sorted union of bar metadata, engine position
-/// columns and the strategy's variables; `rows` is one typed row per evaluated
-/// bar aligned to `columns`.
+/// columns and the strategy's variables and inputs; `rows` is one typed row
+/// per bar aligned to `columns`. `str()` of every cell is the Python trace's
+/// cell: each name's int/float/bool/str type is fixed at compile time, and a
+/// program whose types depend on the run is refused.
 ///
 /// Returns ``(columns, rows, fills)``. ``fills`` is the same ordered
 /// ``FillEngine.fills`` list [`run_program`] returns, so the trade-list digest
