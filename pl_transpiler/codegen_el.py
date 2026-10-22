@@ -970,7 +970,9 @@ def _emit_stmt_core(node, level):
 
     if t == 'commentary':
         word = "CommentaryCL" if node.get("cl") else "Commentary"
-        return f"{pad}{word}( {emit_expr(node['msg'])} ) ;"
+        args = [node['msg'], *(node.get('extra_args') or [])]
+        inner = ", ".join(emit_expr(a) for a in args)
+        return f"{pad}{word}( {inner} ) ;"
 
     if t == 'commentary_block':
         lines = [f"{pad}#BeginCmtry"]

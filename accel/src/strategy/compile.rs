@@ -653,6 +653,14 @@ impl Compiler {
             Some("commentary") => {
                 self.compile_expr(stmt.get("msg").unwrap_or(&Json::Null), false)?;
                 self.instrs.push(Instr::Drop);
+                // The message is not kept, so each extra argument is
+                // evaluated and dropped; it is never joined as text.
+                if let Some(Json::Array(extra)) = stmt.get("extra_args") {
+                    for arg in extra {
+                        self.compile_expr(arg, false)?;
+                        self.instrs.push(Instr::Drop);
+                    }
+                }
                 Ok(())
             }
             // #BeginCmtry … #End. PowerBridge never turns commentary on, so
@@ -1599,9 +1607,8 @@ mod tests {
                     {"type":"assign","target":{"type":"ident","name":"tlid"},
                      "value":{"type":"call","name":"tl_new","args":[]}}
                 ]},
-                {"type":"commentary","cl":true,"msg":{"type":"binop","op":"+",
-                    "left":{"type":"string","value":"a"},
-                    "right":{"type":"string","value":"b"}}}
+                {"type":"commentary","cl":true,"msg":{"type":"string","value":"a"},
+                    "extra_args":[{"type":"number","value":"1"}]}
             ]}"#,
         )
         .expect("valid program JSON");

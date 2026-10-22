@@ -313,8 +313,7 @@ class Parser:
         if tt == TT_IDENT and val == 'alert':
             return self.parse_alert()
 
-        # Commentary / CommentaryCL. Several arguments are one message
-        # joined with +, the shape the single-msg IR node already has.
+        # Commentary / CommentaryCL. Extra arguments go in extra_args.
         if tt == TT_IDENT and val in ('commentary', 'commentarycl'):
             return self.parse_commentary()
 
@@ -643,12 +642,16 @@ class Parser:
         word = self.advance()[1]  # 'commentary' or 'commentarycl'
         self.expect(TT_LPAREN)
         msg = self.parse_expression()
+        extra = []
         while self.match(TT_COMMA):
-            msg = {'type': 'binop', 'op': '+', 'left': msg,
-                   'right': self.parse_expression()}
+            extra.append(self.parse_expression())
         self.expect(TT_RPAREN)
         self.match(TT_SEMICOLON)
         node = {'type': 'commentary', 'msg': msg}
+        if extra:
+            # Kept as separate arguments, not a `+` chain: MultiCharts
+            # accepts numbers here, and "x=" + Close is not valid.
+            node['extra_args'] = extra
         if word == 'commentarycl':
             node['cl'] = True
         return node

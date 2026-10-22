@@ -1083,12 +1083,12 @@
   },
   "Commentary": {
    "topic": "drawing",
-   "desc": "Writes text to the per-bar commentary window. Several arguments are joined with +. A #BeginCmtry block is not executed: PowerBridge has no commentary-on mode. The text does not change trades.",
+   "desc": "Writes text to the per-bar commentary window. Each argument is turned into text and the pieces are joined. A #BeginCmtry block is not executed: PowerBridge has no commentary-on mode. The text does not change trades.",
    "example": "Commentary(\"bar \" + NumToStr(CurrentBar, 0));"
   },
   "CommentaryCL": {
    "topic": "drawing",
-   "desc": "Like Commentary, for the closing window. Several arguments are joined with + and the text does not change trades.",
+   "desc": "Like Commentary, but the text starts on a new line. Each argument is turned into text and the pieces are joined. The text does not change trades.",
    "example": "CommentaryCL(\"a\", \"b\");"
   },
   "alertenabled": {

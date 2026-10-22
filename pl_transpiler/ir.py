@@ -101,7 +101,7 @@ _NODE_SCHEMA = {
     'switch': {'expr': 'node', 'cases': 'list[rec:switch_case]',
                'default': 'list[node]?'},
     'attribute': {'name': 'str', 'value': 'node?', 'raw_args': 'str'},
-    'commentary': {'msg': 'node', 'cl': 'bool'},
+    'commentary': {'msg': 'node', 'cl': 'bool', 'extra_args': 'list[node]'},
     'commentary_block': {'body': 'list[node]'},
     'order': {'action': 'str', 'label': 'mixed', 'quantity': 'node?',
               'entry_label': 'node?', 'bar_timing': 'str', 'order_type': 'str',

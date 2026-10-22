@@ -16,7 +16,8 @@
 
 PowerBridge has no commentary-on mode, so a #BeginCmtry … #End block is
 parsed, kept in the AST for round-tripping, and not executed.
-Commentary("a", "b") is one message joined with +; CommentaryCL is the same.
+Commentary("a", "b") keeps its arguments; the Python path turns each into
+text and joins them. CommentaryCL is the same.
 """
 import pytest
 
@@ -24,6 +25,7 @@ from pl_transpiler import transpile
 from pl_transpiler.codegen_el import emit_el
 from pl_transpiler.lexer import PLSyntaxError, tokenise
 from pl_transpiler.parser import parse
+from pl_transpiler.runtime.accel import accel_available
 from pl_transpiler.runtime.instrument_config import get_config
 from pl_transpiler.tools.pl_oracle import run_oracle
 
@@ -63,13 +65,29 @@ def test_commentary_block_round_trips_through_el():
     assert len(blocks) == 1
     msg = blocks[0]["body"][0]
     assert msg["type"] == "commentary"
-    assert msg["msg"]["type"] == "binop" and msg["msg"]["op"] == "+"
+    assert msg["msg"]["value"] == "c001 TLs "
+    assert len(msg["extra_args"]) == 1
+    assert 'Commentary( "c001 TLs ", numtostr(N, 0) )' in emitted
 
 
 def test_commentarycl_joins_arguments():
     node = _ast('CommentaryCL("a", "b");\n')["body"][0]
-    assert node["cl"] is True and node["msg"]["op"] == "+"
+    assert node["cl"] is True and len(node["extra_args"]) == 1
     assert "_commentary" in transpile('CommentaryCL("a", "b");\n')
+
+
+_NUMBER_ARG = 'Commentary("x=", Close, " ", 2);\n' + _BARE
+
+
+def test_number_argument_runs_on_python_path():
+    assert (run_oracle(_NUMBER_ARG, _BARS, ES)["sha256"]
+            == run_oracle(_BARE, _BARS, ES)["sha256"])
+
+
+@pytest.mark.skipif(not accel_available(), reason="native kernel not built")
+def test_number_argument_runs_on_native_path():
+    assert (run_oracle(_NUMBER_ARG, _BARS, ES, use_native=True)["sha256"]
+            == run_oracle(_NUMBER_ARG, _BARS, ES)["sha256"])
 
 
 def test_unclosed_block_is_a_syntax_error():

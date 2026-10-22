@@ -250,7 +250,15 @@ class _StmtMixin:
 
     # ---- Commentary ----
     def gen_commentary(self, node):
-        self.emit(f"_commentary = {self.gen_expr(node['msg'])}")
+        extra = node.get('extra_args') or []
+        if not extra:
+            self.emit(f"_commentary = {self.gen_expr(node['msg'])}")
+            return
+        # Each argument becomes text with str() before joining. No
+        # PowerBridge test checks this against MultiCharts' own number
+        # formatting; the native kernel evaluates and drops the message.
+        parts = ', '.join(self.gen_expr(a) for a in [node['msg'], *extra])
+        self.emit(f"_commentary = ''.join(str(_a) for _a in ({parts},))")
 
     def gen_commentary_block(self, node):
         # #BeginCmtry … #End is not executed. PowerBridge has no

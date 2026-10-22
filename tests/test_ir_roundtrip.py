@@ -123,9 +123,8 @@ def _synthetic_programs():
         _node('commentary', _line=14, msg=_node('string', value='hi')),
         _node('commentary', _line=14, msg=_node('string', value='cl'), cl=True),
         _node('commentary_block', _line=14, body=[
-            _node('commentary', msg=_node('binop', op='+',
-                                          left=_node('string', value='a'),
-                                          right=_node('string', value='b'))),
+            _node('commentary', msg=_node('string', value='a'),
+                  extra_args=[_node('string', value='b')]),
         ]),
         _node('order', _line=15, action='sell', label=_node('string',
                                                             value='LX'),
