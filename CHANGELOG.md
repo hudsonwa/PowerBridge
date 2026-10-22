@@ -15,6 +15,14 @@
   Python trace prints for every program the kernel runs: inputs are columns,
   variables nothing reads keep their values, and ints print as ints. A program
   whose int/float/bool types depend on the run is refused instead.
+- The native kernel's `Mod` now matches the Python path for negative operands
+  (`Mod(-3, 4)` is 1, not -3; the result takes the divisor's sign). A zero
+  divisor in `/` or `Mod`, `IntPortion` of a non-finite value, a `Square`
+  overflow and a one-value `MaxList`/`MinList` now make the kernel refuse, so
+  the Python path runs and reports the error, instead of the kernel trading on
+  `inf`/`NaN`. Such an operation is no longer skipped as dead code or by the
+  date-prefix skip. `MaxList`/`MinList` follow Python `max`/`min` for NaN and
+  signed zeros.
 
 ## 0.7.0 — 2026-10-22
 
