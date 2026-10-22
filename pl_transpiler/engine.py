@@ -28,6 +28,7 @@ definition of them.
 """
 from pl_transpiler.runtime.pl_runtime import f32
 from pl_transpiler.runtime.instrument_config import NQ
+from pl_transpiler.runtime import _rt_core
 
 from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
     _parse_el_date,
@@ -331,6 +332,24 @@ class FillEngine:
                     or (action == 'sellshort' and self.market_position < 0))
         return same_dir and self.open_entries_count >= cap
 
+    def _check_named_exit(self, order, action):
+        """Fail loud on `Sell` / `BuyToCover ... from entry("X")` while more than
+        one entry is open in the exit's direction (#24): the engine would close
+        the whole position, and the per-entry MultiCharts fills are unverified.
+        One open entry (or none) keeps today's behaviour."""
+        if action not in ('sell', 'buytocover') or len(order) < 6:
+            return
+        extras = list(order[5:])
+        if extras and extras[-1] == 'total':
+            extras.pop()
+        entry = next((x for x in extras if isinstance(x, str)), None)
+        if entry is None:
+            return
+        side = 1 if action == 'sell' else -1
+        if self.market_position == side and self.open_entries_count > 1:
+            _rt_core.pl_named_exit_unverified(
+                'Sell' if action == 'sell' else 'BuyToCover', entry)
+
     def _fill_close_order(self, order, close_price, barnumber, date_str=0, time_str=0):
         """Fill a 'this bar on close' order at the stored (signal-bar) close price."""
         action = order[0].lower()
@@ -340,6 +359,7 @@ class FillEngine:
         label = order[4] if len(order) > 4 else ''
         prev_contracts = self.contracts
         prev_signed = self._signed_position()
+        self._check_named_exit(order, action)
         self._fill(action, qty, close_price, barnumber,
                    date=date_str, time=time_str, label=label, cat=3)
         self._record_fills(action in ('buy', 'buytocover'), label, date_str, time_str,
@@ -438,6 +458,7 @@ class FillEngine:
         label = order[4] if len(order) > 4 else ''
         prev_contracts = self.contracts
         prev_signed = self._signed_position()
+        self._check_named_exit(order, action)
         self._fill(action, qty, fill_price, barnumber,
                    date=date_str, time=time_str, label=label, cat=3)
         self._record_fills(action in ('buy', 'buytocover'), label, date_str, time_str,

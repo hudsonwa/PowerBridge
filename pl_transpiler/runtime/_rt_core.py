@@ -136,6 +136,32 @@ class MissingBarColumnError(UnimplementedBuiltinError):
             % (word, column))
 
 
+class NamedExitUnverifiedError(UnimplementedBuiltinError):
+    """A `from entry("X")` exit would fill while several entries are open.
+
+    EasyLanguage documents it as closing only entry X, but no MultiCharts
+    capture confirms the fills, so the run stops instead of guessing (#24)."""
+
+    def __init__(self, verb, entry):
+        self.builtin = 'from entry'
+        self.entry = entry
+        NotImplementedError.__init__(
+            self,
+            "EasyLanguage '%s ... from entry (\"%s\")' would fill while more than one "
+            "entry is open in that direction; closing only one entry is not verified "
+            "against MultiCharts (issue #24), so the run stopped instead of guessing; "
+            "rerun with PL_STRICT=0 (or --lenient) to close the whole position and "
+            "get a warning instead" % (verb, entry))
+
+
+def pl_named_exit_unverified(verb, entry):
+    """Stop (strict) or record a warning (lenient) for a multi-entry named exit."""
+    name = 'pl_from entry'
+    _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
+    if _PL_STRICT:
+        raise NamedExitUnverifiedError(verb, entry)
+
+
 def pl_bar_column(kwargs, column, word):
     """Value of per-bar data column ``column`` (EL reserved word ``word``).
 
