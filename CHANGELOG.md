@@ -84,6 +84,10 @@
   line styles now use the values measured in MultiCharts (for example Blue is
   16711680 and Tool_Solid is 1). Colours and calls without a measurement stop
   with an error instead of returning a guess.
+- `Sell` / `BuyToCover ... from entry("X")` that would fill while more than one
+  entry is open in that direction now stops the run instead of closing the whole
+  position, since the per-entry MultiCharts fills are unverified (#24).
+  `--lenient` keeps the old behaviour with a warning; one open entry is unchanged.
 
 ### Fixes
 
