@@ -31,7 +31,9 @@ ruff check .                       # lint (rules in pyproject.toml)
 
 `pytest -m public_tier` runs only the portable public tier. The same tier
 also runs without pytest as `python3 tests/run_public_tier.py` (stdlib only;
-CI uses it on every OS).
+CI uses it on every OS). Capture-backed gates skip cleanly when the large
+MultiCharts CSVs are absent; see [docs/CAPTURES.md](docs/CAPTURES.md) if you
+want to attach your own.
 
 ## Keyword reference and catalog: where facts come from
 

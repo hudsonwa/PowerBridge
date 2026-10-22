@@ -16,7 +16,7 @@
 
 - It must equal what scripts/gen_mc_proven.py produces from ground_truth/, byte for byte.
 - If it is missing, el_emit fails closed (one error line, exit 2), never skips the check.
-- From an installed wheel, run outside the repo, el_emit gives the README's GT2 result,
+- From an installed wheel, run outside the repo, el_emit gives the usage guide's GT2 result,
   passes the GT1 mirror and flags an unproven name (skipped when the wheel cannot be
   built offline).
 """

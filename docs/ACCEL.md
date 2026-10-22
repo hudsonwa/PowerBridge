@@ -15,12 +15,110 @@
 -->
 
 
-# The optional `accel` fast path (decision record)
+# The optional `accel` fast path
 
-> **Status note:** this file is the original design record for the fast path.
+The core is **standard library only** in every install. The optional native
+fast path is a Rust crate in `accel/` that builds the module
+`pl_transpiler._accel`. It runs the whole bar loop and fill engine natively in
+one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
+sweeps (`run_native_sweep`) that compile and marshal the tape once.
+
+`powerbridge-accel` is not on PyPI yet (coming); install it from a release
+wheel or from source as below.
+
+## Install
+
+**Prebuilt wheel (no Rust needed).** Each GitHub Release from v0.3.0 on
+carries one `powerbridge-accel` wheel per platform, built for CPython 3.9 and
+newer (abi3). The asset URL follows this pattern:
+
+```
+https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/powerbridge_accel-X.Y.Z-cp39-abi3-PLATFORM.whl
+```
+
+Pick the file on the release page whose name ends with your platform:
+
+| Platform | File name ends with |
+|---|---|
+| macOS Apple Silicon | `macosx_*_arm64.whl` |
+| macOS Intel | `macosx_*_x86_64.whl` |
+| Windows x64 | `win_amd64.whl` |
+| Linux x86_64 | `manylinux*_x86_64.whl` |
+| Linux aarch64 | `manylinux*_aarch64.whl` |
+
+Then install core and the wheel, using the exact file URL:
+
+<!-- readme-test: skip (template URL; installs over the network) -->
+```bash
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@vX.Y.Z"
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<file>.whl
+```
+
+**From source.** Build it from a checkout (needs a Rust toolchain):
+
+<!-- readme-test: skip (needs a Rust toolchain) -->
+```bash
+pip install .                                    # core (pure stdlib)
+pip install maturin
+(cd accel && maturin build --release)            # accel wheel
+pip install accel/target/wheels/powerbridge_accel-*.whl      # the native module
+python -I -c "import pl_transpiler._accel as a; print(a.ping())"  # 42; -I keeps the checkout's pl_transpiler/ off sys.path
+```
+
+Working inside the repo instead? `./tools/build_accel.sh` builds the same
+library and drops it next to the in-tree package (`pl_transpiler/`), so tests
+run against it. The installed console commands (`pl_run`, `pl_oracle`, ...)
+only see it if the package is installed in editable mode; a plain `pip install .`
+copies the package into site-packages and keeps reporting "accel not installed".
+Use:
+
+<!-- readme-test: skip (needs a Rust toolchain) -->
+```bash
+pip install -e .            # editable: console commands use the in-tree package
+./tools/build_accel.sh      # PYTHON=... to build for a specific interpreter
+```
+
+With a non-editable install, use the wheel route above instead.
+
+## Speed
+
+Indicative speed, not a promise. `python tools/bench_native.py --bars N`
+times the GT2 sample strategy on a synthetic tape on both paths (median of 3
+runs, whole `run_el` vs `run_native` call) and checks the fills are identical.
+Measured on an Apple M4 laptop, CPython 3.14, release-lto build from
+`./tools/build_accel.sh`:
+
+| Bars | Fills | Python | Rust | Speedup |
+|---:|---:|---:|---:|---:|
+| 20,000 | 1,473 | 0.47 s | 0.087 s | 5.3x |
+| 100,000 | 7,671 | 2.34 s | 0.42 s | 5.5x |
+
+Both paths scale linearly with the bar count (the earlier super-linear
+slowdowns of the Python path, issue #4 and a lagged function call such as
+`Highest(High, Len)[1]`, are fixed). The native kernel does not run a lagged
+function call yet; such a strategy runs on the Python path. Measure your own
+strategy before relying on a ratio.
+
+## Fallback and platforms
+
+**Absent extra = identical behaviour.** Without the module, the auditable
+Python path runs and produces the same trades. Programs the native kernel
+cannot execute faithfully raise `AccelRefused` (`AccelUnavailable` when the
+module is missing) so the caller runs the Python path instead; they
+never return a different result. CI builds and runs macOS arm64; the release
+workflow builds and smoke-tests every platform in the table above. Windows 11 x64 was
+checked by hand (rustup `x86_64-pc-windows-gnu` toolchain, no Visual Studio
+needed); building from source on Linux is not CI-verified.
+
+An installed module is found even when you run from inside the repository
+folder. `./tools/build_accel.sh` builds it straight into the checkout instead.
+
+## Decision record
+
+> **Status note:** the rest of this page is the original design record for the fast path.
 > The native kernel now executes strategies through `run_program` (Data2,
 > sweeps, trace); the bars-only `run()` described below remains and always
-> refuses. For current behaviour, read `README.md` and `AGENTS.md`
+> refuses. For current behaviour, read the sections above and `AGENTS.md`
 > (`pl_transpiler.runtime.accel`).
 
 This is the recorded decision on
@@ -36,7 +134,7 @@ them anywhere:
 
 | Fact | Value |
 |---|---|
-| Extra name | `accel` — resolves once `powerbridge-accel` is on PyPI; until then install the wheel from the GitHub Release or build `accel/` (README "Acceleration") |
+| Extra name | `accel` — resolves once `powerbridge-accel` is on PyPI; until then install the wheel from the GitHub Release or build `accel/` (see [Install](#install)) |
 | Native extension import path | `pl_transpiler._accel` |
 | Extra absent | `import pl_transpiler._accel` raises `ImportError`; callers **fall back to the Python path loudly** and produce identical results |
 
@@ -126,7 +224,7 @@ separately, whose wheel provides `pl_transpiler._accel`.** That distribution is
 (`accel = ["powerbridge-accel==<version>"]`), so `pip install powerbridge[accel]`
 installs the matching kernel wheel where one is published for the platform.
 `powerbridge-accel` is not on PyPI yet, so today the extra does not resolve:
-install the release wheel by URL or build from source (README "Acceleration"). The
+install the release wheel by URL or build from source (see [Install](#install)). The
 extra name `accel` stays stable so the kernel, CI/wheel build, conformance work
 and tests share one name.
 

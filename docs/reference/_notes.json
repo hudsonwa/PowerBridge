@@ -4,7 +4,7 @@
   {
    "slug": "orders",
    "title": "Orders and exits",
-   "intro": "Words that place entries and exits. Order words are statements, so they have no return value. PowerBridge fills them in its own fill engine; see README for the fill model."
+   "intro": "Words that place entries and exits. Order words are statements, so they have no return value. PowerBridge fills them in its own fill engine; see the usage guide (docs/USAGE.md) for the fill model."
   },
   {
    "slug": "position",

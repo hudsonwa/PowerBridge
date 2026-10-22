@@ -1,7 +1,7 @@
 """Default (persist) ``pl_transpile`` output runs in time linear in bar count.
 
 Lookback vars passed to series functions are emitted as ``(_state['x'] + [x])``.
-On plain lists that copies the whole history every bar, so the README's
+On plain lists that copies the whole history every bar, so the usage guide's
 ``run.py`` loop was O(bars^2). The runnable output now seeds ``_state`` as a
 ``SeriesState`` (as ``pl_run``'s bar loop does), which makes that an O(1) view.
 A caller-supplied plain-dict ``_state`` still works and serves as the reference.
@@ -62,7 +62,7 @@ def _bars(n, seed=7):
 
 
 def _run(strategy, n, kwargs=None):
-    """Drive ``strategy`` the way the README's run.py does; per-bar outputs."""
+    """Drive ``strategy`` the way the usage guide's run.py does; per-bar outputs."""
     cols = [[] for _ in range(7)]
     kwargs = {} if kwargs is None else kwargs
     out = []
