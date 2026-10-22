@@ -35,6 +35,7 @@ use super::compile::{
     compile, Binop, CallOp, Cmp, Instr, McKw, PositionKw, Program, RiskOp, Series, SeriesSrc, Unary,
 };
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
+use super::pynum::{binop_num, py_extreme, py_int, py_sign, py_square};
 use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
 use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
 
@@ -519,12 +520,11 @@ impl<'a> Interpreter<'a> {
                 Instr::Nop => {}
                 Instr::BinopC { op, rhs } => {
                     let left = pop_num(&mut self.stack);
-                    self.stack.push(Value::Num(eval_binop_num(*op, left, *rhs)));
+                    self.stack.push(Value::Num(binop_num(*op, left, *rhs)?));
                 }
                 Instr::BinopCLhs { op, lhs } => {
                     let right = pop_num(&mut self.stack);
-                    self.stack
-                        .push(Value::Num(eval_binop_num(*op, *lhs, right)));
+                    self.stack.push(Value::Num(binop_num(*op, *lhs, right)?));
                 }
                 Instr::CompareC { cmp, rhs } => {
                     let left = pop_num(&mut self.stack);
@@ -589,21 +589,19 @@ impl<'a> Interpreter<'a> {
                 }
                 Instr::SeriesBinopC { series, op, rhs } => {
                     let left = self.series_scalar(*series);
-                    self.stack.push(Value::Num(eval_binop_num(*op, left, *rhs)));
+                    self.stack.push(Value::Num(binop_num(*op, left, *rhs)?));
                 }
                 Instr::SeriesBinopCLhs { series, op, lhs } => {
                     let right = self.series_scalar(*series);
-                    self.stack
-                        .push(Value::Num(eval_binop_num(*op, *lhs, right)));
+                    self.stack.push(Value::Num(binop_num(*op, *lhs, right)?));
                 }
                 Instr::VarBinopC { slot, op, rhs } => {
                     let left = var_num(&self.vars, *slot, &self.program.var_names)?;
-                    self.stack.push(Value::Num(eval_binop_num(*op, left, *rhs)));
+                    self.stack.push(Value::Num(binop_num(*op, left, *rhs)?));
                 }
                 Instr::VarBinopCLhs { slot, op, lhs } => {
                     let right = var_num(&self.vars, *slot, &self.program.var_names)?;
-                    self.stack
-                        .push(Value::Num(eval_binop_num(*op, *lhs, right)));
+                    self.stack.push(Value::Num(binop_num(*op, *lhs, right)?));
                 }
                 Instr::VarCompareC { slot, cmp, rhs } => {
                     let left = var_num(&self.vars, *slot, &self.program.var_names)?;
@@ -668,14 +666,7 @@ impl<'a> Interpreter<'a> {
         }
         let a = left.as_f64()?;
         let b = right.as_f64()?;
-        let n = match op {
-            Binop::Add => a + b,
-            Binop::Sub => a - b,
-            Binop::Mul => a * b,
-            Binop::Div => a / b,
-            Binop::Mod => a % b,
-        };
-        Ok(Value::Num(n))
+        Ok(Value::Num(binop_num(op, a, b)?))
     }
 
     fn compare(&self, cmp: Cmp, left: Value, right: Value) -> Result<Value, KernelError> {
@@ -734,41 +725,26 @@ impl<'a> Interpreter<'a> {
                 if args.len() != 1 {
                     return Err(KernelError::unsupported("IntPortion requires 1 arg"));
                 }
-                Ok(Value::Num(args[0].as_f64()?.trunc()))
+                Ok(Value::Num(py_int(args[0].as_f64()?)?))
             }
             CallOp::Sign => {
                 if args.len() != 1 {
                     return Err(KernelError::unsupported("Sign requires 1 arg"));
                 }
-                let a = args[0].as_f64()?;
-                Ok(Value::Num(if a > 0.0 {
-                    1.0
-                } else if a < 0.0 {
-                    -1.0
-                } else {
-                    0.0
-                }))
+                Ok(Value::Num(py_sign(args[0].as_f64()?)))
             }
             CallOp::Square => {
                 if args.len() != 1 {
                     return Err(KernelError::unsupported("Square requires 1 arg"));
                 }
-                let a = args[0].as_f64()?;
-                Ok(Value::Num(a * a))
+                Ok(Value::Num(py_square(args[0].as_f64()?)?))
             }
-            CallOp::MaxList => {
-                let mut m = f64::NEG_INFINITY;
-                for a in &args {
-                    m = m.max(a.as_f64()?);
-                }
-                Ok(Value::Num(m))
-            }
-            CallOp::MinList => {
-                let mut m = f64::INFINITY;
-                for a in &args {
-                    m = m.min(a.as_f64()?);
-                }
-                Ok(Value::Num(m))
+            CallOp::MaxList | CallOp::MinList => {
+                let nums = args
+                    .iter()
+                    .map(Value::as_f64)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Value::Num(py_extreme(&nums, op == CallOp::MaxList)?))
             }
             CallOp::TlNew => self.draw_tl_new(&args),
             CallOp::TlSetColor => {
@@ -1064,17 +1040,6 @@ fn pop_num(stack: &mut Vec<Value>) -> f64 {
         Some(Value::Bool(false)) => 0.0,
         Some(other) => other.as_f64().unwrap_or(0.0),
         None => 0.0,
-    }
-}
-
-#[inline(always)]
-fn eval_binop_num(op: Binop, a: f64, b: f64) -> f64 {
-    match op {
-        Binop::Add => a + b,
-        Binop::Sub => a - b,
-        Binop::Mul => a * b,
-        Binop::Div => a / b,
-        Binop::Mod => a % b,
     }
 }
 

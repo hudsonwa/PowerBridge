@@ -249,12 +249,14 @@ pub(crate) enum Instr {
     /// Tombstone used only inside the specialiser; stripped before the bar loop.
     Nop,
 
-    /// Numeric binop with baked RHS (TOS is the left operand). Infallible.
+    /// Numeric binop with baked RHS (TOS is the left operand). Refuses a zero
+    /// divisor (see `pynum`).
     BinopC {
         op: Binop,
         rhs: f64,
     },
-    /// Numeric binop with baked LHS (TOS is the right operand). Infallible.
+    /// Numeric binop with baked LHS (TOS is the right operand). Refuses a zero
+    /// divisor (see `pynum`).
     #[allow(dead_code)]
     BinopCLhs {
         op: Binop,
