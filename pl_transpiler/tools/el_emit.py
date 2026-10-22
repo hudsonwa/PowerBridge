@@ -67,7 +67,8 @@ def _main(args):
         emitted_path = tf.name
 
     try:
-        return mc_ground_check.check(emitted_path)
+        # Without -o, name the input rather than the temp copy.
+        return mc_ground_check.check(emitted_path, label=output or args.input)
     except mc_ground_check.ProvenDataError as exc:
         # Fail closed: without the proven-token data the name check cannot run.
         raise _cli.CliError(str(exc)) from exc

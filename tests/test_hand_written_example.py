@@ -60,6 +60,13 @@ def test_el_emit_accepts_it_and_every_builtin_is_proven(tmp_path, capsys):
     assert "next bar at exitlevel limit" in el
 
 
+def test_el_emit_to_stdout_names_the_input(capsys):
+    assert el_emit.main([EXAMPLE]) == 0
+    out = capsys.readouterr().out
+    assert f"{EXAMPLE}: 5 builtins used" in out
+    assert ".txt:" not in out
+
+
 def test_python_runner_backtests_the_emitted_el():
     el, bars = _el(), load_bars(SAMPLE)
     assert run_oracle(el, bars, NQ, use_native=False)["sha256"] == SHA
