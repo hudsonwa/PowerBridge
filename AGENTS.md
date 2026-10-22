@@ -92,7 +92,9 @@ Capture-gated tests skip (never fail) when the MultiCharts captures are absent; 
    without `--python` on `examples/` and `ground_truth/GT2*`.
 3. `accel/` changes: the cargo checks above pass.
 4. A nonzero exit from `el_emit` means the emitted EL failed `mc_ground_check`; do not
-   treat it as compile-safe.
+   treat it as compile-safe. Argument types are checked only for verified
+   `numeric` parameters given a literal or a string/true-false variable; the
+   MultiCharts editor is the final check.
 5. Only synthetic market data in the repository; no licensed data or private paths.
    Security reports: [SECURITY.md](SECURITY.md).
 
