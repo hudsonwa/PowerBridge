@@ -42,13 +42,18 @@ three groups, each skipped with a one-line reason:
   optional Rust module (`pl_transpiler._accel`). Build it with
   `tools/build_accel.sh` (needs a Rust toolchain; see [docs/ACCEL.md](docs/ACCEL.md))
   and they run, except a handful kept for programs the kernel refuses (arrays,
-  some functions), which fall back to Python.
+  some functions), which fall back to Python. CI runs them in the
+  `accel (macOS arm64)` job of `.github/workflows/accel.yml`, which builds the
+  wheel and runs the full pytest suite with the kernel loaded.
 - **Licensed data**: drawing-corpus, capture and audit-tape tests need
   MultiCharts data, which is not redistributed (see [docs/CAPTURES.md](docs/CAPTURES.md)).
+  No CI job runs them; they run only where that data is attached locally.
 - **Opt-in checks**: a wall-clock check (`PB_PERF=1`), the wheel-build test
-  (needs `build` and setuptools>=77) and a few known round-trip gaps.
+  (needs `build` and setuptools>=77) and a few known round-trip gaps. CI does
+  not set `PB_PERF`.
 
-`python3 -m pytest -q -rs --timeout=60` lists each skip with its reason.
+Every pytest run ends with a skip summary that groups skips by reason with
+counts; `python3 -m pytest -q -rs --timeout=60` lists each skipped test.
 
 ## Keyword reference and catalog: where facts come from
 
