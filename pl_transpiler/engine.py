@@ -970,6 +970,27 @@ class FillEngine:
         d['maxiddrawdown'] = self.max_id_drawdown
         d['maxshares'] = self.max_shares
         d['openentriescount'] = self.open_entries_count
+        for k, a in _PERF_KWARGS:
+            d[k] = getattr(self, a)
+
+    # Closed-trade performance words, read from the running aggregates kept at
+    # trade close (_record_closed_trade); same values as _inject_gta6_stats.
+    @property
+    def pct_profit(self):
+        tt = self._st_nwin + self._st_nlos + self._st_neven
+        return (self._st_nwin / tt * 100.0) if tt else 0.0
+
+    @property
+    def avg_bars_win(self):
+        return (self._st_totbwin / self._st_nwin) if self._st_nwin else 0.0
+
+    @property
+    def avg_bars_los(self):
+        return (self._st_totblos / self._st_nlos) if self._st_nlos else 0.0
+
+    @property
+    def avg_bars_even(self):
+        return (self._st_totbeven / self._st_neven) if self._st_neven else 0.0
 
     @property
     def max_shares(self):
@@ -1165,6 +1186,7 @@ class FillEngine:
 
 from pl_transpiler.bar_loop import (  # noqa: E402,F401  (re-export)
     _POS_KWARGS,
+    _PERF_KWARGS,
     _DAILY_OHLC_KEYS,
     _code_has_const,
     run_bar_loop,
