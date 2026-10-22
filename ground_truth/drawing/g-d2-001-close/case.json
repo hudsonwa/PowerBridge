@@ -1,0 +1,17 @@
+{
+  "behaviour": "the on-the-hour TLs anchored at Data2 closes: TL_New(Date[29], Time[29], C2[29], Date, Time, C2) with C2 = Close of Data2; orders on Data1",
+  "case_id": "g-d2-001-close",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "d2",
+  "keywords": [
+    "Close of Data2",
+    "TL_New"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {},
+  "data2": true
+}

@@ -93,8 +93,8 @@ extra = plot.get('extra_args')
 check(isinstance(extra, list) and len(extra) == 3, "plot has extra_args of length 3")
 check(extra[0].get('_symbol') == 'red',
       "1st extra arg (Red) keeps _symbol='red' (value still folded)")
-check(extra[0].get('value') == str(0xFF0000),
-      "Red still folds to its numeric value for codegen")
+check(extra[0].get('value') == "255",
+      "Red folds to 255 (MC order, g-colour-001-hours / g-tool-001-dashed)")
 check(extra[1].get('_symbol') == 'tool_solid',
       "2nd extra arg (Tool_Solid) keeps _symbol='tool_solid'")
 check(extra[2].get('type') == 'number' and extra[2].get('value') == '2'

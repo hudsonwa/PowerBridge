@@ -6,7 +6,17 @@
 
 - `docs/DESIGN.md`: design notes on the architecture, the main decisions and their
   trade-offs, how verification works (public and private), and known limitations.
-- `docs/reference/`: a keyword reference for the 256 EasyLanguage builtins PowerBridge
+- Drawing dump: `run_oracle(..., drawings=True)` and `pl_run` / `pl_oracle
+  --drawings` record trend lines, arrows and text objects as a versioned JSON
+  dump (`docs/DRAWING_DUMP.md`, schema in `ground_truth/drawing/schema/`).
+  It is off by default, and with it off the trade digest is unchanged.
+  `ground_truth/drawing/` holds seven drawing cases; the tests run each one on
+  synthetic bars, and compare against MultiCharts readbacks only when you
+  supply your own copy (it is licensed and not in the repository).
+- `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
+  run with an error when drawings are not being recorded, and `TL_GetValue`
+  always stops, since its interpolation is not measured.
+- `docs/reference/`: a keyword reference for the 257 EasyLanguage builtins PowerBridge
   supports or has evidence for, grouped by topic. Each entry shows the catalog's kind,
   return type, arity and verification level, the run status observed when PowerBridge
   runs it, a short description and, for many, an example. `tools/gen_reference.py`
@@ -50,6 +60,13 @@
   (N * MinMove / PriceScale from the instrument config; NQ: 0.25), so
   `Buy next bar at Highest(High, 5) + 1 Point Stop;` now runs on the Python path. The
   native kernel has no MinMove/PriceScale value and refuses such programs loudly.
+
+### Changed
+
+- Colour words, `RGB`, `LegacyColorToRGB`, `GradientColor` and the `Tool_*`
+  line styles now use the values measured in MultiCharts (for example Blue is
+  16711680 and Tool_Solid is 1). Colours and calls without a measurement stop
+  with an error instead of returning a guess.
 
 ### Fixes
 

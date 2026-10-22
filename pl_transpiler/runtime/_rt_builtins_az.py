@@ -186,14 +186,6 @@ def pl_arw_getactive(*args, **kwargs):
 def pl_arw_getbarnumber(*args, **kwargs):
     return 0
 
-def pl_arw_getcolor(*args, **kwargs):
-    return 0
-
-def pl_arw_getdate(*args, **kwargs):
-    return 0
-
-def pl_arw_getdirection(*args, **kwargs):
-    return 0
 
 def pl_arw_getfirst(*args, **kwargs):
     return 0
@@ -204,14 +196,6 @@ def pl_arw_getlock(*args, **kwargs):
 def pl_arw_getnext(*args, **kwargs):
     return 0
 
-def pl_arw_getsize(*args, **kwargs):
-    return 0
-
-def pl_arw_getstyle(*args, **kwargs):
-    return 0
-
-def pl_arw_gettext(*args, **kwargs):
-    return 0
 
 def pl_arw_gettextattribute(*args, **kwargs):
     return 0
@@ -228,17 +212,10 @@ def pl_arw_gettextfontname(*args, **kwargs):
 def pl_arw_gettextsize(*args, **kwargs):
     return 0
 
-def pl_arw_gettime(*args, **kwargs):
-    return 0
 
 def pl_arw_gettime_dt(*args, **kwargs):
     return 0
 
-def pl_arw_gettime_s(*args, **kwargs):
-    return 0
-
-def pl_arw_getval(*args, **kwargs):
-    return 0
 
 def pl_arw_lock(*args, **kwargs):
     return 0

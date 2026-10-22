@@ -1,0 +1,403 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "drawing-dump.v1.json",
+ "title": "powerbridge-drawing-dump v1",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "version",
+  "producer",
+  "case_id",
+  "tape",
+  "objects",
+  "final_count",
+  "values",
+  "unimplemented"
+ ],
+ "properties": {
+  "schema": {
+   "const": "powerbridge-drawing-dump"
+  },
+  "version": {
+   "const": 1
+  },
+  "producer": {
+   "type": "object",
+   "required": [
+    "kind"
+   ],
+   "properties": {
+    "kind": {
+     "enum": [
+      "mc-selfreport",
+      "mc-probe",
+      "mc",
+      "pb-python",
+      "pb-native",
+      "expect"
+     ]
+    },
+    "mc_build": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "pb_commit": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "run_id": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   }
+  },
+  "case_id": {
+   "type": "string",
+   "pattern": "^g-(tl|arw|text|tool|cmt|mouse|colour|d2|x)-\\d{3}-[a-z0-9-]+$"
+  },
+  "tape": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "name",
+    "sha256",
+    "bars",
+    "first",
+    "last",
+    "tick"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "bars": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "first": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     },
+     "minItems": 2,
+     "maxItems": 2
+    },
+    "last": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     },
+     "minItems": 2,
+     "maxItems": 2
+    },
+    "tick": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    }
+   }
+  },
+  "objects": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/object"
+   }
+  },
+  "final_count": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "tl",
+    "arw",
+    "text"
+   ],
+   "properties": {
+    "tl": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "arw": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "text": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "values": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "bn",
+     "expr",
+     "seq",
+     "value"
+    ],
+    "properties": {
+     "bn": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "expr": {
+      "type": "string"
+     },
+     "seq": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "value": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "unimplemented": {
+   "type": "object"
+  }
+ },
+ "$defs": {
+  "barkey": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "bn",
+    "date",
+    "time",
+    "time_s"
+   ],
+   "properties": {
+    "bn": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "date": {
+     "type": "integer",
+     "minimum": 1000101,
+     "maximum": 1991231
+    },
+    "time": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 2359
+    },
+    "time_s": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 235959
+    }
+   }
+  },
+  "anchor": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "bn",
+    "date",
+    "time",
+    "time_s",
+    "price",
+    "price_ticks"
+   ],
+   "properties": {
+    "bn": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "date": {
+     "type": "integer",
+     "minimum": 1000101,
+     "maximum": 1991231
+    },
+    "time": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 2359
+    },
+    "time_s": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 235959
+    },
+    "price": {
+     "type": "number"
+    },
+    "price_ticks": {
+     "type": "integer"
+    }
+   }
+  },
+  "object": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "type",
+    "seq",
+    "id",
+    "created",
+    "anchors",
+    "color",
+    "argb",
+    "style",
+    "size",
+    "ext_left",
+    "ext_right",
+    "text",
+    "hstyle",
+    "vstyle",
+    "font",
+    "font_size",
+    "bgcolor",
+    "border",
+    "direction",
+    "deleted"
+   ],
+   "properties": {
+    "type": {
+     "enum": [
+      "tl",
+      "arw",
+      "text"
+     ]
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "id": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "created": {
+     "oneOf": [
+      {
+       "$ref": "#/$defs/barkey"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "anchors": {
+     "type": "array",
+     "minItems": 1,
+     "maxItems": 2,
+     "items": {
+      "$ref": "#/$defs/anchor"
+     }
+    },
+    "color": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 4294967295
+    },
+    "argb": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^#[0-9A-F]{8}$"
+    },
+    "style": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "size": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "ext_left": {
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "ext_right": {
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "text": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "hstyle": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "vstyle": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "font": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "font_size": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "bgcolor": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "border": {
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "direction": {
+     "enum": [
+      "up",
+      "down",
+      null
+     ]
+    },
+    "deleted": {
+     "oneOf": [
+      {
+       "$ref": "#/$defs/barkey"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "$comment": "Cross-field rules (seq = 1..n, anchors per type, price_ticks = round(price/tick), time_s//100 = time, argb from color, final_count = live objects) are enforced by pl_transpiler/runtime/drawing_dump.py."
+}

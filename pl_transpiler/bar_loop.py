@@ -126,6 +126,7 @@ def run_bar_loop(
     trade_from=0,
     emit_trace=True,
     max_bars_back=0,
+    on_bar=None,
 ):
     """Shared per-bar execution core used by BOTH run_gt (the GT capture harness)
     and the general entrypoint (tools/pl_run.run_el).
@@ -164,6 +165,11 @@ def run_bar_loop(
     does not run, no order is placed or filled, no row is emitted, and
     BarNumber starts at 1 on bar N+1. Daily OHLC tracking still sees them.
     Default 0 evaluates every bar (the previous loop).
+
+    on_bar: optional callable(i) invoked with the 0-based tape index immediately
+    before the strategy runs on that bar (not on MaxBarsBack history-only
+    bars). ``None`` (default) changes nothing. Drawing capture uses it to
+    stamp the bar an object was created on.
 
     Unused persist-path kwargs: generated persist/trace never pops keys.
     DateTime arithmetic runs only when the 8-arg strategy's code object
@@ -564,6 +570,8 @@ def run_bar_loop(
 
         trace = {}
         _total_strategy_calls += 1
+        if on_bar is not None:
+            on_bar(i)
         try:
             if _pass_kw_dict:
                 result = strategy_fn(

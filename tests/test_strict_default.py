@@ -57,6 +57,9 @@ def test_unimplemented_builtin_stops_run(strict):
 def test_cosmetic_builtins_stay_allowed(strict):
     assert _rt_core._unimplemented("pl_playsound") == 0
     assert _rt_core._unimplemented("pl_text_new") == 0
+    # A drawing getter must not be cosmetic: returning 0 can change a trade.
+    with pytest.raises(UnimplementedBuiltinError):
+        _rt_core._unimplemented("pl_tl_getvalue")
 
 
 def _write(tmp_path, src):

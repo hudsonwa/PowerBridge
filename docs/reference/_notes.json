@@ -1038,6 +1038,11 @@
    "topic": "drawing",
    "desc": "Like `TL_New`, with times given as HHMMSS."
   },
+  "TL_GetValue": {
+   "topic": "drawing",
+   "desc": "Price of a trend line at a date and time. That interpolation is not measured against MultiCharts, so a run that reaches it stops with an error instead of returning 0.",
+   "example": "Vars: id(0);\nid = TL_New(Date, Time, Low, Date, Time, High);\nIf Close > TL_GetValue(id, Date, Time) Then Buy next bar at market;"
+  },
   "TL_SetColor": {
    "topic": "drawing",
    "desc": "Sets a trend line's color: line ID, then a color value."
@@ -1056,7 +1061,7 @@
   },
   "Tool_Solid": {
    "topic": "drawing",
-   "desc": "Line-style constant for a solid line (0), used with `TL_SetStyle`."
+   "desc": "Line-style constant for a solid line (1), used with `TL_SetStyle`. Measured on g-tool-001-dashed: Tool_Solid through Tool_Dashed3 are 1 through 5."
   },
   "Arw_New": {
    "topic": "drawing",

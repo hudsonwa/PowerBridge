@@ -25,18 +25,28 @@ DATA_SERIES = {'close', 'open', 'high', 'low', 'volume', 'date', 'time', 'time_s
                'lastbaronchart', 'barstatus', 'bartype', 'barinterval',
                'sessionnumber', 'dayofweek', 'dayofmonth', 'month', 'year'}
 
-# Color constants → integer values
+# Colour constants as MultiCharts integers: R + 256·G + 65536·B.
+# Measured on the golden corpus: Red 255 and Blue 16711680 (g-tool-001-dashed,
+# g-colour-001-hours), DarkYellow 32896 and DarkGray 8421504,
+# DarkBrown 2179941 (g-colour-001-hours). The others are the same named
+# colours with red and blue swapped into that order. DarkGray is the measured
+# RGB(128,128,128), the same integer as Gray. Names without a measurement
+# (Transparent, and anything not listed here) stay unknown and fail at parse.
 COLOR_CONSTANTS = {
-    'black': 0x000000, 'white': 0xFFFFFF, 'red': 0xFF0000, 'green': 0x00FF00,
-    'blue': 0x0000FF, 'yellow': 0xFFFF00, 'cyan': 0x00FFFF, 'magenta': 0xFF00FF,
-    'darkred': 0x800000, 'darkgreen': 0x008000, 'darkblue': 0x000080,
-    'darkcyan': 0x008080, 'darkmagenta': 0x800080, 'darkyellow': 0x808000,
-    'gray': 0x808080, 'darkgray': 0x404040, 'lightgray': 0xC0C0C0,
+    'black': 0, 'white': 16777215, 'red': 255, 'green': 65280,
+    'blue': 16711680, 'yellow': 65535, 'cyan': 16776960, 'magenta': 16711935,
+    'darkred': 128, 'darkgreen': 32768, 'darkblue': 8388608,
+    'darkcyan': 8421376, 'darkmagenta': 8388736, 'darkyellow': 32896,
+    'gray': 8421504, 'darkgray': 8421504, 'lightgray': 12632256,
+    'darkbrown': 2179941,
 }
 
-# Style constants
+# Line styles. Tool_Solid..Tool_Dashed3 = 1..5 (measured on g-tool-001-dashed).
+# tool_dashdot was an unmeasured name at 3; it is omitted so it fails loud
+# instead of colliding with Tool_Dotted.
 STYLE_CONSTANTS = {
-    'tool_solid': 0, 'tool_dashed': 1, 'tool_dotted': 2, 'tool_dashdot': 3,
+    'tool_solid': 1, 'tool_dashed': 2, 'tool_dotted': 3,
+    'tool_dashed2': 4, 'tool_dashed3': 5,
 }
 
 # Functions that take periods-ago arg: FuncD(0), FuncW(0), FuncM(0)

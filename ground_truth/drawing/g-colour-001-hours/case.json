@@ -1,0 +1,19 @@
+{
+  "behaviour": "the on-the-hour TLs coloured by hour: 11:00 DarkBrown, 12:00 LegacyColorToRGB(14), 13:00 RGB(10,20,30), 14:00 GradientColor(5,0,10,Red,Blue), else default",
+  "case_id": "g-colour-001-hours",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "colour",
+  "keywords": [
+    "TL_SetColor",
+    "RGB",
+    "DarkBrown",
+    "LegacyColorToRGB",
+    "GradientColor"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {}
+}

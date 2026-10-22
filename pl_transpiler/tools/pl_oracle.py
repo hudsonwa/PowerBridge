@@ -63,10 +63,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import gzip
 import hashlib
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -336,7 +337,9 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                from_bar: Optional[int] = None, seed_warmup: bool = False,
                use_native: bool = False, digest_version: int = 2,
                max_bars_back: int = 0,
-               max_entries_per_direction: Optional[int] = None) -> Dict[str, Any]:
+               max_entries_per_direction: Optional[int] = None,
+               drawings: bool = False, drawing_case_id: Optional[str] = None,
+               drawing_tape: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -379,10 +382,19 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is
                     MultiCharts' documented default). Reversals always fill.
+    drawings      : False (default). True records trendline, arrow and text
+                    objects and adds ``drawings``, a powerbridge-drawing-dump
+                    v1 dict. Requires ``drawing_case_id`` and ``drawing_tape``
+                    with ``name`` and ``sha256`` (optional ``tick``). The sha
+                    is the caller's tape identity (the golden corpus uses the
+                    MultiCharts ASCII tape, not the PowerBridge CSV). Omit
+                    both and the digest text is unchanged.
+    drawing_case_id, drawing_tape : stored in that dump.
 
     Returns a dict with keys:
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
       records, native, native_fallback_reason
+      and, when ``drawings`` is true, ``drawings``.
     ``records`` is the get_mc_trades() list (ordered). ``round_turns`` is
     ``count_round_turns(records)`` (v1: ``len(records) // 2``).
     ``digest_version=1`` reproduces pre-v2 digests on the Python path.
@@ -397,6 +409,13 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back = check_max_bars_back(max_bars_back)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
+    drawing_meta: Tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
+    if drawings:
+        from pl_transpiler.runtime._rt_drawing import (
+            DrawingRecorder, make_dump, resolve_drawing_request,
+        )
+        drawing_meta = resolve_drawing_request(
+            drawing_case_id, drawing_tape, config.tick)
     fallback_reason = None
     if use_native:
         native_digest, fallback_reason = _run_oracle_native(
@@ -407,6 +426,17 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
             max_entries_per_direction=max_entries_per_direction,
         )
         if native_digest is not None:
+            # The native kernel refuses any program that calls a drawing function.
+            # Reaching here means the program created no objects.
+            if drawings:
+                cols = ohlcv_columns(bars)
+                native_digest["drawings"] = make_dump(
+                    DrawingRecorder(cols["date"], cols["time"], tick=drawing_meta[3]),
+                    cols["date"], cols["time"],
+                    case_id=drawing_meta[0], tape_name=drawing_meta[1],
+                    tape_sha256=drawing_meta[2], tick=drawing_meta[3],
+                    producer_kind="pb-native",
+                )
             return native_digest
 
     if from_date is not None and from_bar is not None:
@@ -468,8 +498,12 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
     # digest. Same discard as run_el.
+    recorder = None
+    if drawings:
+        recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
     with open(os.devnull, "w", encoding="utf-8") as _devnull, \
-            contextlib.redirect_stdout(_devnull):
+            contextlib.redirect_stdout(_devnull), \
+            (recorder if recorder is not None else contextlib.nullcontext()):
         run_bar_loop(
             strategy_fn,
             n_bars=n,
@@ -484,6 +518,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
             trade_from=trade_from,
             emit_trace=False,
             max_bars_back=max_bars_back,
+            on_bar=None if recorder is None else recorder.set_bar,
         )
     # Reported after the run, so a program that stops on a user error
     # prints only that error.
@@ -516,6 +551,13 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         sha256=digest["sha256"],
         version=digest_version,
     )
+    if drawings:
+        digest["drawings"] = make_dump(
+            recorder, dates, times,
+            case_id=drawing_meta[0], tape_name=drawing_meta[1],
+            tape_sha256=drawing_meta[2], tick=drawing_meta[3],
+            producer_kind="pb-python",
+        )
     return digest
 
 
@@ -570,6 +612,19 @@ def _build_parser():
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="print native-kernel diagnostics (skip-region plan) "
                          "to stderr; PB_DEBUG=1 does the same.")
+    ap.add_argument("--drawings-json", default=None,
+                    help="write a powerbridge-drawing-dump v1 file. Requires "
+                         "--drawing-case. Does not change the digest on stdout.")
+    ap.add_argument("--drawing-case", default=None,
+                    help="case id stored in --drawings-json "
+                         "(g-<family>-<NNN>-<slug>).")
+    ap.add_argument("--tape-name", default=None,
+                    help="tape name stored in the drawing dump "
+                         "(default: the bars file stem).")
+    ap.add_argument("--tape-sha", default=None,
+                    help="64-hex sha256 of the tape the dump is compared "
+                         "against (default: sha256 of the bars file bytes, "
+                         "decompressed when the path ends in .gz).")
     ap.add_argument("--fills-csv", dest="fills_csv", default=None,
                     help="write a readable fill log CSV with a position-aware "
                          "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
@@ -592,9 +647,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 2
 
 
+def _file_sha256(path):
+    """sha256 of a bars file. ``.gz`` is hashed after decompression."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    if str(path).endswith(".gz"):
+        raw = gzip.decompress(raw)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _drawing_tape_arg(args):
+    name = args.tape_name
+    if not name:
+        stem = os.path.basename(args.bars_csv)
+        for suffix in (".csv.gz", ".txt.gz", ".gz", ".csv", ".txt", ".pbar"):
+            if stem.endswith(suffix):
+                stem = stem[:-len(suffix)]
+                break
+        name = stem
+    sha = args.tape_sha or _file_sha256(args.bars_csv)
+    return {"name": name, "sha256": sha}
+
+
 def _main(ap, args):
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_oracle <el_file> <bars_csv> ...")
+    if args.drawings_json and not args.drawing_case:
+        ap.error("--drawing-case is required with --drawings-json")
 
     el_source = open(args.el_file, encoding="utf-8").read()
     bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
@@ -618,6 +697,9 @@ def _main(ap, args):
         digest_version=1 if args.digest_v1 else 2,
         max_bars_back=args.max_bars_back,
         max_entries_per_direction=args.max_entries_per_direction,
+        drawings=args.drawings_json is not None,
+        drawing_case_id=args.drawing_case,
+        drawing_tape=_drawing_tape_arg(args) if args.drawings_json else None,
     )
     if not result.get("native"):
         if args.use_native is False or args.digest_v1:
@@ -635,6 +717,10 @@ def _main(ap, args):
         with open(output, "w", encoding="utf-8") as f:
             f.write(text)
 
+    if args.drawings_json:
+        from pl_transpiler.runtime.drawing_dump import canonical
+        with open(args.drawings_json, "wb") as fh:
+            fh.write(canonical(result["drawings"]))
     if args.dump:
         with open(args.dump, "w", encoding="utf-8") as f:
             f.write(hashed_payload(result["records"], 1 if args.digest_v1 else 2))

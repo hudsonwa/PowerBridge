@@ -183,12 +183,22 @@ _UNIMPL_COSMETIC = frozenset((
     'pl_messagelog', 'pl_playsound', 'pl_printer', 'pl_plotpaintbar', 'pl_scrolltobar',
     'pl_processmouseevents', 'pl_setfpcompareaccuracy', 'pl_setmaxbarsback',
     'pl_setcustomfitnessvalue', 'pl_recalclastbarafter', 'pl_recalcpersist',
-    'pl_fileappend', 'pl_filedelete', 'pl_gradientcolor', 'pl_rgb', 'pl_legacycolortorgb',
+    'pl_fileappend', 'pl_filedelete',
     'pl_legacycolorvalue', 'pl_rgbtolegacycolor', 'pl_getbackgroundcolor',
 ))
 
 
+# Object getters can change a trade (a strategy can buy off TL_GetValue). They
+# are never cosmetic: a stub raises in strict mode instead of returning 0.
+_DRAWING_GETTER_PREFIXES = (
+    'pl_tl_get', 'pl_arw_get', 'pl_text_get',
+    'pl_mc_tl_get', 'pl_mc_arw_get', 'pl_mc_text_get',
+)
+
+
 def _is_cosmetic(name):
+    if name.startswith(_DRAWING_GETTER_PREFIXES):
+        return False
     return name in _UNIMPL_COSMETIC or name.startswith(_UNIMPL_COSMETIC_PREFIXES)
 
 

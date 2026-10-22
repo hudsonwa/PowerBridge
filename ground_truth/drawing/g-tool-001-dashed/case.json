@@ -1,0 +1,18 @@
+{
+  "behaviour": "the on-the-hour TLs, each set to Tool_Dashed and Blue",
+  "case_id": "g-tool-001-dashed",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "tool",
+  "keywords": [
+    "TL_New",
+    "TL_SetStyle",
+    "Tool_Dashed",
+    "TL_SetColor"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {}
+}
