@@ -12,20 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""PowerLanguage runtime: DateTime conversion helpers and the remaining PowerLanguage builtins.
+"""PowerLanguage runtime: DateTime conversion and computer-clock builtins (plus a few
+math/string leftovers).
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import UnimplementedBuiltinError, f32
+from ._rt_core import f32
 from ._rt_indicators import pl_roc
-
-
-class UnmeasuredColorError(UnimplementedBuiltinError):
-    """A colour call the golden corpus did not measure. Always stops the run."""
-
-    def __init__(self, detail):
-        self.builtin = "color"
-        NotImplementedError.__init__(self, detail)
+from ._rt_color import UnmeasuredColorError  # noqa: F401  (re-export)
 
 
 # --- DateTime helpers (GTA6 date/time conversion family) --------------------
@@ -231,27 +225,6 @@ def pl_dayofweekfromdatetime(*args, **kwargs):
     y, mo, d, _h, _mi, _s = _decode_dt_yyyymmdd(args[0])
     return (_cal.weekday(y, mo, d) + 1) % 7
 
-def pl_dom_askprice(*args, **kwargs):
-    return 0
-
-def pl_dom_askscount(*args, **kwargs):
-    return 0
-
-def pl_dom_asksize(*args, **kwargs):
-    return 0
-
-def pl_dom_bidprice(*args, **kwargs):
-    return 0
-
-def pl_dom_bidscount(*args, **kwargs):
-    return 0
-
-def pl_dom_bidsize(*args, **kwargs):
-    return 0
-
-def pl_dom_isconnected(*args, **kwargs):
-    return 0
-
 def pl_encodedate(*args, **kwargs):
     # EncodeDate(yy,MM,dd) -> DateTime serial, days since 1899-12-30 (pdf:4558
     # EncodeDate(08,01,01)=39448, Jan 1 2008; two-digit year).
@@ -268,24 +241,6 @@ def pl_encodetime(*args, **kwargs):
     a = list(args) + [0, 0, 0, 0]
     hh, mm, ss, ms = int(a[0]), int(a[1]), int(a[2]), int(a[3])
     return (hh * 3600 + mm * 60 + ss + ms / 1000.0) / 86400.0
-
-def pl_exchlisted(*args, **kwargs):
-    return 0
-
-def pl_execoffset(*args, **kwargs):
-    # ExecOffset matches MultiCharts backtests: 0 on every historical bar
-    # (checked against a MultiCharts capture). Whitelisted in _rt_core so it
-    # is a real builtin, not a loud stub.
-    return 0
-
-def pl_expirationdatefromvendor(*args, **kwargs):
-    return 0
-
-def pl_fileappend(*args, **kwargs):
-    return 0
-
-def pl_filedelete(*args, **kwargs):
-    return 0
 
 def pl_fill_array(*args, **kwargs):
     # Fill_Array(ArrayName, Value): set every element of the array to Value,
@@ -317,155 +272,6 @@ def pl_formattime(*args, **kwargs):
     y, mo, d, h, mi, s = _decode_dt_yyyymmdd(args[1])
     return _fmt_dt(str(args[0]), y, mo, d, h, mi, s, 0)
 
-def pl_getaccount(*args, **kwargs):
-    return 0
-
-def pl_getaccountid(*args, **kwargs):
-    return 0
-
-def pl_getappinfo(*args, **kwargs):
-    return 0
-
-def pl_getbackgroundcolor(*args, **kwargs):
-    return 0
-
-def pl_getbvalue(*args, **kwargs):
-    return 0
-
-def pl_getcdromdrive(*args, **kwargs):
-    return 0
-
-def pl_getcountry(*args, **kwargs):
-    return 0
-
-def pl_getcurrency(*args, **kwargs):
-    return 0
-
-def pl_getexchangename(*args, **kwargs):
-    return 0
-
-def pl_getgvalue(*args, **kwargs):
-    return 0
-
-def pl_getnumaccounts(*args, **kwargs):
-    return 0
-
-def pl_getnumpositions(*args, **kwargs):
-    return 0
-
-def pl_getplotbgcolor(*args, **kwargs):
-    return 0
-
-def pl_getplotcolor(*args, **kwargs):
-    return 0
-
-def pl_getplotwidth(*args, **kwargs):
-    return 0
-
-def pl_getpositionaverageprice(*args, **kwargs):
-    return 0
-
-def pl_getpositionopenpl(*args, **kwargs):
-    return 0
-
-def pl_getpositionquantity(*args, **kwargs):
-    return 0
-
-def pl_getpositionsymbol(*args, **kwargs):
-    return 0
-
-def pl_getpositiontotalcost(*args, **kwargs):
-    return 0
-
-def pl_getrtaccountequity(*args, **kwargs):
-    return 0
-
-def pl_getrtaccountnetworth(*args, **kwargs):
-    return 0
-
-def pl_getrtsymbolname(*args, **kwargs):
-    return 0
-
-def pl_getrtunrealizedpl(*args, **kwargs):
-    return 0
-
-def pl_getrvalue(*args, **kwargs):
-    return 0
-
-def pl_getstrategyname(*args, **kwargs):
-    return 0
-
-def pl_getsymbolname(*args, **kwargs):
-    return 0
-
-def pl_getuserid(*args, **kwargs):
-    return 0
-
-def pl_getusername(*args, **kwargs):
-    return 0
-
-def _mc_channel(value, where):
-    """One RGB channel. Truncates toward 0. Outside 0..255 is unmeasured."""
-    try:
-        channel = int(value)
-    except (TypeError, ValueError):
-        raise UnmeasuredColorError(
-            f"{where} channel {value!r} is not a number") from None
-    if isinstance(value, float) and value != channel and abs(value - channel) > 1e-6:
-        raise UnmeasuredColorError(
-            f"{where} channel {value!r} is not an integer; "
-            "fractional channels are not measured")
-    if not 0 <= channel <= 255:
-        raise UnmeasuredColorError(
-            f"{where} channel {channel} is outside 0..255; "
-            "MultiCharts behaviour there is not measured")
-    return channel
-
-
-def _split_mc_color(color):
-    """R, G, B from an MC colour int. Values outside 24 bits are unmeasured."""
-    try:
-        packed = int(color)
-    except (TypeError, ValueError):
-        raise UnmeasuredColorError(f"colour {color!r} is not an integer") from None
-    if not 0 <= packed <= 0xFFFFFF:
-        raise UnmeasuredColorError(
-            f"colour {packed} is outside the measured 24-bit range")
-    return packed & 0xFF, (packed >> 8) & 0xFF, (packed >> 16) & 0xFF
-
-
-def pl_rgb(red, green, blue):
-    """RGB(r, g, b) = r + 256·g + 65536·b. RGB(10,20,30) = 1971210 (g-colour-001-hours)."""
-    r = _mc_channel(red, "RGB")
-    g = _mc_channel(green, "RGB")
-    b = _mc_channel(blue, "RGB")
-    return r + 256 * g + 65536 * b
-
-
-def pl_gradientcolor(value, min_value, max_value, start, end):
-    """GradientColor. Channel = start + trunc((end-start)·f), f=(Value-Min)/(Max-Min).
-
-    GradientColor(5,0,10,Red,Blue) = 8323200 (g-colour-001-hours). Min = Max
-    is unmeasured and raises.
-    """
-    try:
-        span = float(max_value) - float(min_value)
-        frac = (float(value) - float(min_value)) / span
-    except (TypeError, ValueError, ZeroDivisionError):
-        raise UnmeasuredColorError(
-            "GradientColor with Min = Max is not measured; refusing to guess"
-        ) from None
-    if span == 0.0:
-        raise UnmeasuredColorError(
-            "GradientColor with Min = Max is not measured; refusing to guess")
-    sr, sg, sb = _split_mc_color(start)
-    er, eg, eb = _split_mc_color(end)
-
-    def _chan(start_c, end_c):
-        return start_c + int((end_c - start_c) * frac)
-
-    return pl_rgb(_chan(sr, er), _chan(sg, eg), _chan(sb, eb))
-
 def pl_hoursfromdatetime(*args, **kwargs):
     if not args:
         return 0
@@ -474,24 +280,6 @@ def pl_hoursfromdatetime(*args, **kwargs):
     total_seconds = int(round(frac * 86400))
     hours = total_seconds // 3600
     return hours
-
-def pl_i_closedequity(*args, **kwargs):
-    return 0
-
-def pl_i_currentcontracts(*args, **kwargs):
-    return 0
-
-def pl_i_currentshares(*args, **kwargs):
-    return 0
-
-def pl_i_getplotvalue(*args, **kwargs):
-    return 0
-
-def pl_i_openequity(*args, **kwargs):
-    return 0
-
-def pl_i_setplotvalue(*args, **kwargs):
-    return 0
 
 def pl_incmonth(*args, **kwargs):
     # IncMonth(JulianDate, M): add M calendar months to a DateTime serial
@@ -514,15 +302,6 @@ def pl_incmonth(*args, **kwargs):
     overflow = d - month_len if d > month_len else 0
     return (base + _dt.timedelta(days=overflow) - _dt.date(1899, 12, 30)).days
 
-def pl_initialcapital(*args, **kwargs):
-    return 0
-
-def pl_insideask(*args, **kwargs):
-    return 0
-
-def pl_insidebid(*args, **kwargs):
-    return 0
-
 def pl_instr(*args, **kwargs):
     if len(args) >= 2:
         try:
@@ -530,12 +309,6 @@ def pl_instr(*args, **kwargs):
             return args[0].find(args[1]) + 1
         except (ValueError, AttributeError):
             return 0
-    return 0
-
-def pl_intrabarordergeneration(*args, **kwargs):
-    return 0
-
-def pl_jpy(*args, **kwargs):
     return 0
 
 def pl_juliantodate(*args, **kwargs):
@@ -552,9 +325,6 @@ def pl_juliantodate(*args, **kwargs):
     yy = e // 1461 - 4716 + (14 - mm) // 12
     el_date = ((yy - 1900) * 10000) + (mm * 100) + dd
     return el_date
-
-def pl_last(*args, **kwargs):
-    return 0
 
 # Computer-clock builtins. They read the local computer clock, never the bars,
 # so a backtest result cannot depend on them unless the strategy uses them on
@@ -622,100 +392,7 @@ def pl_lastcalcmstime(*args, **kwargs):
 def pl_lastcalcsstime(*args, **kwargs):
     return _clock_secs()
 
-# The only measured palette point. Other indexes stay an error (g-colour-001-hours).
-_LEGACY_COLOR_TO_RGB = {14: 32896}
-
-
-def pl_legacycolortorgb(index):
-    """LegacyColorToRGB. Only index 14 is measured: 32896."""
-    try:
-        key = int(index)
-    except (TypeError, ValueError):
-        key = None
-    if key is None or key not in _LEGACY_COLOR_TO_RGB or float(index) != key:
-        raise UnmeasuredColorError(
-            "LegacyColorToRGB(%r) is not measured; only LegacyColorToRGB(14) "
-            "= 32896 (g-colour-001-hours). Refusing to guess a palette."
-            % (index,))
-    return _LEGACY_COLOR_TO_RGB[key]
-
-def pl_legacycolorvalue(*args, **kwargs):
-    return 0
-
 def pl_lower(*args, **kwargs):
-    return 0
-
-def pl_lpbool(*args, **kwargs):
-    return 0
-
-def pl_lpbyte(*args, **kwargs):
-    return 0
-
-def pl_lpdouble(*args, **kwargs):
-    return 0
-
-def pl_lpdword(*args, **kwargs):
-    return 0
-
-def pl_lpfloat(*args, **kwargs):
-    return 0
-
-def pl_lpint(*args, **kwargs):
-    return 0
-
-def pl_lplong(*args, **kwargs):
-    return 0
-
-def pl_lpstr(*args, **kwargs):
-    return 0
-
-def pl_lpword(*args, **kwargs):
-    return 0
-
-def pl_margin(*args, **kwargs):
-    return 0
-
-def pl_maxbarsback(*args, **kwargs):
-    # MaxBarsBack: the study's "Maximum Bars Back" setting (pdf:6483). Fixed chart/
-    # study config for the GTA6 capture = 50 (cf. session-config constants).
-    return 50
-
-def pl_maxbarsforward(*args, **kwargs):
-    # MaxBarsForward: chart right-margin size in bars (pdf:6496). Fixed chart config
-    # for the GTA6 capture = 16.
-    return 16
-
-def pl_maxcontractsheld(*args, **kwargs):
-    return 0
-
-def pl_maxiddrawdown(*args, **kwargs):
-    return 0
-
-def pl_mc_arw_getactive(*args, **kwargs):
-    return 0
-
-def pl_mc_text_getactive(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_getactive(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_new(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_new_bn(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_new_dt(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_new_self(*args, **kwargs):
-    return 0
-
-def pl_mc_tl_new_self_bn(*args, **kwargs):
-    return 0
-
-def pl_messagelog(*args, **kwargs):
     return 0
 
 def pl_millisecondsfromdatetime(*args, **kwargs):
@@ -727,9 +404,6 @@ def pl_millisecondsfromdatetime(*args, **kwargs):
     dt = float(args[0])
     frac = dt - int(dt)
     return int(round(frac * 86400000)) % 1000
-
-def pl_minmove(*args, **kwargs):
-    return 0
 
 def pl_minutesfromdatetime(*args, **kwargs):
     if not args:
@@ -747,24 +421,6 @@ def pl_monthfromdatetime(*args, **kwargs):
     dt = float(args[0])
     date_part = int(dt)  # YYYYMMDD
     return (date_part // 100) % 100  # MM
-
-def pl_mouseclickbarnumber(*args, **kwargs):
-    return 0
-
-def pl_mouseclickctrlpressed(*args, **kwargs):
-    return 0
-
-def pl_mouseclickdatanumber(*args, **kwargs):
-    return 0
-
-def pl_mouseclickdatetime(*args, **kwargs):
-    return 0
-
-def pl_mouseclickprice(*args, **kwargs):
-    return 0
-
-def pl_mouseclickshiftpressed(*args, **kwargs):
-    return 0
 
 def pl_nthmaxlist(*args, **kwargs):
     if len(args) < 2:
@@ -786,226 +442,7 @@ def pl_nthminlist(*args, **kwargs):
     sorted_vals = sorted(values)
     return sorted_vals[n - 1]
 
-def pl_optiontype(*args, **kwargs):
-    return 0
-
-def pl_placemarketorder(*args, **kwargs):
-    return 0
-
-def pl_playsound(*args, **kwargs):
-    return 0
-
-def pl_plotpaintbar(*args, **kwargs):
-    return 0
-
-def pl_pmm_get_global_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmm_get_global_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmm_get_my_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmm_get_my_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmm_set_global_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmm_set_global_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmm_set_my_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmm_set_my_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmm_set_my_status(*args, **kwargs):
-    return 0
-
-def pl_pmms_get_strategy_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmms_get_strategy_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmms_set_strategy_named_num(*args, **kwargs):
-    return 0
-
-def pl_pmms_set_strategy_named_str(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_allow_entries_all(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_count(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_deny_entries_all(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_get_by_symbol_name(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_in_long_count(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_in_short_count(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_pause_all(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_resume_all(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategies_set_status_for_all(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_allow_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_allow_long_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_allow_short_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_currentcontracts(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_deny_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_deny_long_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_deny_short_entries(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_is_paused(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_pause(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_resume(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_set_status(*args, **kwargs):
-    return 0
-
-def pl_pmms_strategy_symbol(*args, **kwargs):
-    return 0
-
-def pl_pointvalue(*args, **kwargs):
-    return 0
-
-def pl_portfolio_currencycode(*args, **kwargs):
-    return 0
-
-def pl_portfolio_currententries(*args, **kwargs):
-    return 0
-
-def pl_portfolio_getmarginpercontract(*args, **kwargs):
-    return 0
-
-def pl_portfolio_investedcapital(*args, **kwargs):
-    return 0
-
-def pl_portfolio_maxiddrawdown(*args, **kwargs):
-    return 0
-
-def pl_portfolio_maxriskequityperpospercent(*args, **kwargs):
-    return 0
-
-def pl_portfolio_strategydrawdown(*args, **kwargs):
-    return 0
-
-def pl_portfolioentriespriority(*args, **kwargs):
-    return 0
-
-def pl_prevclose(*args, **kwargs):
-    return 0
-
-def pl_pricescale(*args, **kwargs):
-    return 0
-
-def pl_printer(*args, **kwargs):
-    return 0
-
-def pl_processmouseevents(*args, **kwargs):
-    return 0
-
-def pl_q_ask(*args, **kwargs):
-    return 0
-
-def pl_q_asksize(*args, **kwargs):
-    return 0
-
-def pl_q_bid(*args, **kwargs):
-    return 0
-
-def pl_q_bidsize(*args, **kwargs):
-    return 0
-
-def pl_q_bigpointvalue(*args, **kwargs):
-    return 0
-
-def pl_q_date(*args, **kwargs):
-    return 0
-
-def pl_q_exchangelisted(*args, **kwargs):
-    return 0
-
-def pl_q_last(*args, **kwargs):
-    return 0
-
-def pl_q_openinterest(*args, **kwargs):
-    return 0
-
-def pl_q_previousclose(*args, **kwargs):
-    return 0
-
-def pl_q_time(*args, **kwargs):
-    return 0
-
-def pl_q_time_dt(*args, **kwargs):
-    return 0
-
-def pl_q_time_s(*args, **kwargs):
-    return 0
-
-def pl_q_totalvolume(*args, **kwargs):
-    return 0
-
-def pl_raiseruntimeerror(*args, **kwargs):
-    return 0
-
 def pl_random(*args, **kwargs):
-    return 0
-
-def pl_recalclastbarafter(*args, **kwargs):
-    return 0
-
-def pl_recalcpersist(*args, **kwargs):
-    return 0
-
-def pl_regularsession(*args, **kwargs):
-    return 0
-
-def pl_revsize(*args, **kwargs):
-    return 0
-
-def pl_rgbtolegacycolor(*args, **kwargs):
-    return 0
-
-def pl_sameexitfromoneentryonce(*args, **kwargs):
-    return 0
-
-def pl_scrolltobar(*args, **kwargs):
     return 0
 
 def pl_secondsfromdatetime(*args, **kwargs):
@@ -1018,100 +455,6 @@ def pl_secondsfromdatetime(*args, **kwargs):
     minutes = (total_seconds - hours * 3600) // 60
     seconds = total_seconds - hours * 3600 - minutes * 60
     return seconds
-
-def pl_sess1endtime(*args, **kwargs):
-    # Sess1EndTime (backward-compat word, pdf:9083) — regular-session end time.
-    # GT instrument session template (NQ 1-min capture): the traded session runs
-    # 0830→1515 ET; the last bar of each day closes at 1515. Constant chart config.
-    return 1515
-
-def pl_sess1firstbartime(*args, **kwargs):
-    # Sess1FirstBarTime (pdf:9087, example "returns 0945") — time of the first bar
-    # of session 1. For this chart's 0830-open 1-min session the first bar closes at
-    # 0831. Constant chart config.
-    return 831
-
-def pl_sess1starttime(*args, **kwargs):
-    """Sess1StartTime: start time of the regular trading session (ET).
-    For NQ / CME equities, the regular session starts at 08:30 ET (830 in EL HHmm format)."""
-    return 830
-
-def pl_sess2endtime(*args, **kwargs):
-    # Sess2EndTime (backward-compat, pdf:9101). Single-session template → same end
-    # time as session 1 (0830-1515 → 1515). Constant chart config.
-    return 1515
-
-def pl_sess2firstbartime(*args, **kwargs):
-    # Sess2FirstBarTime (pdf:9105, example "returns 1725"). Single-session template →
-    # same first-bar time as session 1 (0831). Constant chart config.
-    return 831
-
-def pl_sess2starttime(*args, **kwargs):
-    # Sess2StartTime (backward-compat, pdf:9113). Session opens 0830 (first 1-min bar
-    # closes at 0831). Constant chart config.
-    return 830
-
-def pl_sessioncount(*args, **kwargs):
-    # SessionCount(SessionType) (pdf:9120) — number of sessions per week in the
-    # template. This NQ chart uses the standard 5-day (Mon-Fri) week → 5 sessions.
-    return 5
-
-def pl_sessioncountms(*args, **kwargs):
-    # SessionCountMS (pdf:9133) — money-management session count; same 5-day week.
-    return 5
-
-def pl_sessionendday(*args, **kwargs):
-    # SessionEndDay(SessionType,SessionNum) (pdf:9147) — day-of-week the session ends.
-    # The aligned ETH template's session 1 ends on day 1 (Monday).
-    return 1
-
-def pl_sessionenddayms(*args, **kwargs):
-    # SessionEndDayMS(SessionNum) (pdf:9164) — same end day (1) for the MM session.
-    return 1
-
-def pl_sessionendtime(*args, **kwargs):
-    """SessionEndTime: end time of the specified trading session and day.
-    For NQ on a CME equity-index template (ETH+regular), session 1 (ETH) ends at 16:00 ET (1600)."""
-    return 1600
-
-def pl_sessionendtimems(*args, **kwargs):
-    # SessionEndTimeMS(SessionNum) (pdf:9194) — MM/regular session end time. The
-    # traded session ends 1515 (last bar of day). Constant chart config.
-    return 1515
-
-def pl_sessionlastbar(*args, **kwargs):
-    # SessionLastBar (pdf:3775) → logical: True on the last bar of the trading
-    # session. The runner derives this from the bar date series (next bar is a new
-    # day) and passes it via the 'session_last_bar' kwarg, mirroring CurrentSession.
-    # Fallback 0 when no runner override (e.g. live last-bar context).
-    return kwargs.get('session_last_bar', 0)
-
-def pl_sessionstartday(*args, **kwargs):
-    # SessionStartDay(SessionType,SessionNum) (pdf:9206) — day-of-week the session
-    # starts, 0 = Sunday. The aligned ETH template (SessionCount = 5) runs one
-    # session per trading day, each opening the evening before: session 1 opens
-    # Sunday (0) and ends Monday (SessionEndDay = 1), ..., session 5 opens Thursday.
-    # A session number outside 1..SessionCount has no start day here: return 0.
-    num = int(args[1]) if len(args) >= 2 else 1
-    if 1 <= num <= pl_sessioncount():
-        return num - 1
-    return 0
-
-def pl_sessionstartdayms(*args, **kwargs):
-    # SessionStartDayMS(SessionNum) (pdf:9223) — MM session start day = 1 (Monday).
-    return 1
-
-def pl_sessionstarttime(*args, **kwargs):
-    """SessionStartTime(SessionNumber, DayNumber): start time of the specified session and day.
-    Returns time in HHmm format. For NQ on a CME aligned session template:
-    session 1 (ETH) starts at 17:00 ET (1700)."""
-    return 1700
-
-def pl_currentsession(*args, **kwargs):
-    """Return current trading session index.
-    Default: 2 (the most common value for NQ aligned-session charts).
-    Overridden by 'currentsession' kwarg from the runner."""
-    return kwargs.get('currentsession', 2)
 
 def eldatetodatetime(el_date):
     """Convert EL date (YYYYMMDD int) to datetime (stub).
@@ -1127,43 +470,17 @@ def eldatetodatetime(el_date):
             return datetime.datetime(2020, 1, 1)
     return datetime.datetime(2020, 1, 1)
 
-def pl_sessionstarttimems(*args, **kwargs):
-    # SessionStartTimeMS(SessionNum) (pdf:9253) — MM/regular session start time.
-    # Session opens 0830. Constant chart config.
-    return 830
-
-def pl_setcustomfitnessvalue(*args, **kwargs):
-    return 0
-
-def pl_setfpcompareaccuracy(*args, **kwargs):
-    return 0
-
-def pl_setmaxbarsback(*args, **kwargs):
-    return 0
-
-def pl_setstopcontract(*args, **kwargs):
-    return 0
-
-def pl_setstopshare(*args, **kwargs):
-    return 0
-
 def pl_sine(*args, **kwargs):
     import math
     if args:
         return f32(math.sin(math.radians(float(args[0]))))
     return 0.0
 
-def pl_slippage(*args, **kwargs):
-    return 0
-
 def pl_squareroot(*args, **kwargs):
     import math
     if args:
         return f32(math.sqrt(float(args[0])))
     return 0.0
-
-def pl_strike(*args, **kwargs):
-    return 0
 
 def pl_stringtodate(*args, **kwargs):
     # StringToDate("MM/dd/yyyy") -> DateTime serial integer (pdf:4873/4881
@@ -1197,123 +514,11 @@ def pl_stringtotime(*args, **kwargs):
         return 0.0
     return _parse_time_frac(str(args[0]))
 
-def pl_symbol_close(*args, **kwargs):
-    return 0
-
-def pl_symbol_date(*args, **kwargs):
-    return 0
-
-def pl_symbol_downticks(*args, **kwargs):
-    return 0
-
-def pl_symbol_high(*args, **kwargs):
-    return 0
-
-def pl_symbol_low(*args, **kwargs):
-    return 0
-
-def pl_symbol_open(*args, **kwargs):
-    return 0
-
-def pl_symbol_openint(*args, **kwargs):
-    return 0
-
-def pl_symbol_tickid(*args, **kwargs):
-    return 0
-
-def pl_symbol_ticks(*args, **kwargs):
-    return 0
-
-def pl_symbol_time(*args, **kwargs):
-    return 0
-
-def pl_symbol_time_s(*args, **kwargs):
-    return 0
-
-def pl_symbol_upticks(*args, **kwargs):
-    return 0
-
-def pl_symbol_volume(*args, **kwargs):
-    return 0
-
 def pl_tangent(*args, **kwargs):
     import math
     if args:
         return f32(math.tan(math.radians(float(args[0]))))
     return 0.0
-
-def pl_text_anchor_to_bars(*args, **kwargs):
-    return 0
-
-def pl_text_get_anchor_to_bars(*args, **kwargs):
-    return 0
-
-def pl_text_getactive(*args, **kwargs):
-    return 0
-
-def pl_text_getattribute(*args, **kwargs):
-    return 0
-
-def pl_text_getbarnumber(*args, **kwargs):
-    return 0
-
-
-def pl_text_getfirst(*args, **kwargs):
-    return 0
-
-
-def pl_text_getlock(*args, **kwargs):
-    return 0
-
-def pl_text_getnext(*args, **kwargs):
-    return 0
-
-def pl_text_getsize(*args, **kwargs):
-    return 0
-
-
-def pl_text_gettime_dt(*args, **kwargs):
-    return 0
-
-
-def pl_text_lock(*args, **kwargs):
-    return 0
-
-def pl_text_new_bn(*args, **kwargs):
-    return 0
-
-def pl_text_new_dt(*args, **kwargs):
-    return 0
-
-def pl_text_setattribute(*args, **kwargs):
-    return 0
-
-def pl_text_setbarnumber(*args, **kwargs):
-    return 0
-
-def pl_text_setbgcolor(*args, **kwargs):
-    return 0
-
-def pl_text_setborder(*args, **kwargs):
-    return 0
-
-def pl_text_setlocation_bn(*args, **kwargs):
-    return 0
-
-def pl_text_setlocation_dt(*args, **kwargs):
-    return 0
-
-def pl_text_setlocation_s(*args, **kwargs):
-    return 0
-
-def pl_text_setsize(*args, **kwargs):
-    return 0
-
-def pl_tickid(*args, **kwargs):
-    # TickID matches MultiCharts backtests: 0 on every historical bar
-    # (checked against a MultiCharts capture). Whitelisted in _rt_core so it
-    # is a real builtin, not a loud stub.
-    return 0
 
 def pl_time2time_s(*args, **kwargs):
     # Time2Time_s(HHmm) -> HHmmss (pdf:5045 1015 -> 101500).
@@ -1335,76 +540,6 @@ def pl_eltimetodatetime_s(*args, **kwargs):
     t = int(args[0])
     hh, mm, ss = t // 10000, (t // 100) % 100, t % 100
     return (hh * 3600 + mm * 60 + ss) / 86400.0
-
-def pl_barstatus(*args, **kwargs):
-    """BarStatus(DataN): bar-completeness status. On closed historical bars the
-    last tick is always present, so EL returns 2 (closing tick of the bar)."""
-    return 2
-
-def pl_tl_anchor_to_bars(*args, **kwargs):
-    return 0
-
-def pl_tl_get_anchor_to_bars(*args, **kwargs):
-    return 0
-
-def pl_tl_getactive(*args, **kwargs):
-    return 0
-
-def pl_tl_getalert(*args, **kwargs):
-    return 0
-
-
-def pl_tl_getfirst(*args, **kwargs):
-    return 0
-
-def pl_tl_getlock(*args, **kwargs):
-    return 0
-
-def pl_tl_getnext(*args, **kwargs):
-    return 0
-
-
-def pl_tl_lock(*args, **kwargs):
-    return 0
-
-def pl_tl_new_bn(*args, **kwargs):
-    return 0
-
-def pl_tl_new_dt(*args, **kwargs):
-    return 0
-
-def pl_tl_setalert(*args, **kwargs):
-    return 0
-
-def pl_tl_setbegin_bn(*args, **kwargs):
-    return 0
-
-def pl_tl_setbegin_dt(*args, **kwargs):
-    return 0
-
-def pl_tl_setbegin_s(*args, **kwargs):
-    return 0
-
-def pl_tl_setend_bn(*args, **kwargs):
-    return 0
-
-def pl_tl_setend_dt(*args, **kwargs):
-    return 0
-
-def pl_tl_setend_s(*args, **kwargs):
-    return 0
-
-def pl_tool_dashed2(*args, **kwargs):
-    return 0
-
-def pl_tool_dashed3(*args, **kwargs):
-    return 0
-
-def pl_varsize(*args, **kwargs):
-    return 0
-
-def pl_varstartaddr(*args, **kwargs):
-    return 0
 
 def pl_yearfromdatetime(*args, **kwargs):
     if not args:
