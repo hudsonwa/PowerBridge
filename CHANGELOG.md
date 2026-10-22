@@ -41,6 +41,19 @@
   own code marks as unsettled, so they stay `unknown`. Three verified tokens still have no
   record, by design: `Abort` (a statement), and `CommandLine` and `EntryName` (not
   implemented). The test pins these counts.
+- `A crosses over B` and `A crosses under B` are accepted as synonyms for
+  `crosses above` and `crosses below`, and produce the same code. They used to fail
+  with a misleading "expected 'then'" error.
+- `N Point` / `N Points` in an expression means N minimum price moves
+  (N * MinMove / PriceScale from the instrument config; NQ: 0.25), so
+  `Buy next bar at Highest(High, 5) + 1 Point Stop;` now runs on the Python path. The
+  native kernel has no MinMove/PriceScale value and refuses such programs loudly.
+
+### Fixes
+
+- A stray word after an order price (for example the unsupported `+ 2 Ticks Stop`) is
+  now a syntax error that names that word, instead of an "unimplemented keywords"
+  report that listed the valid `stop` as well.
 
 ### Fixed
 
