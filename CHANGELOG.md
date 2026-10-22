@@ -13,7 +13,7 @@
 
 - README quickstart now shows the Python to EasyLanguage direction (`el_emit`);
   dropped the licence comment from README.md; CONTRIBUTING.md explains default skips.
-- Repository recreated on 2026-10-22; issues transferred; earlier PR pages unavailable.
+- Repository recreated on 2026-10-22; pull-request pages from before then are not available.
 - `pl_oracle -v` stays user-facing; the kernel's `[accel]` internals (such as
   the skip-region plan) now need `-vv` (or `PB_DEBUG=1`).
 - The installed package no longer adds the checkout root to `sys.path` on
