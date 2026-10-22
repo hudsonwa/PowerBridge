@@ -50,6 +50,52 @@ def max_price_lookback(ast):
     return best
 
 
+# Builtins that read a window of past bars and return 0 (or a partial value)
+# until the window is full. Names are the parser's lower-cased call names.
+_WINDOWED_CALLS = frozenset((
+    'adx', 'adxr', 'average', 'avgtruerange', 'bollingerband', 'cci',
+    'correlation', 'countif', 'dmiminus', 'dmiplus', 'fastd', 'fastk',
+    'highest', 'highestbar', 'linearregangle', 'linearregslope',
+    'linearregvalue', 'lowest', 'lowestbar', 'macd', 'momentum', 'rateofchange',
+    'rsi', 'slowd', 'slowk', 'standarddev', 'stddev', 'stochastic', 'summation',
+    'variance', 'waverage', 'xaverage'))
+
+WARMUP_NOTE = ("note: {tool}: strategy reads past bars and --max-bars-back is 0; "
+               "fills may differ from MultiCharts during warm-up "
+               "(set --max-bars-back N, or -q to hide this)")
+
+
+def uses_lookback(el_source):
+    """True if the strategy indexes a series (``x[n]``, n not literal 0) or
+    calls a windowed builtin such as Average or Highest."""
+    tokens, positions = tokenise(el_source)
+    stack = [parse(tokens, positions=positions, source=el_source)]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            kind = node.get('type')
+            if kind == 'call' and str(node.get('name', '')).lower() in _WINDOWED_CALLS:
+                return True
+            if kind == 'bar_ref':
+                index = node.get('index')
+                if not (isinstance(index, dict) and index.get('type') == 'number'
+                        and float(index.get('value') or 0) == 0):
+                    return True
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return False
+
+
+def note_warmup(el_source, max_bars_back, tool, quiet=False):
+    """CLI only: print the once-per-run warm-up note on stderr when the
+    strategy uses lookbacks and MaxBarsBack is 0. Returns True if printed."""
+    if quiet or max_bars_back or not uses_lookback(el_source):
+        return False
+    print(WARMUP_NOTE.format(tool=tool), file=sys.stderr)
+    return True
+
+
 def short_history_bar(el_source, max_bars_back):
     """BarNumber of the first evaluated bar whose price lookback runs past the
     available history (and silently reads Open), or None if none does."""

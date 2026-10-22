@@ -71,7 +71,7 @@ from pl_transpiler.engine import (
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
 from pl_transpiler.tools import _cli
 from pl_transpiler.lookback import (
-    check_max_bars_back, check_max_entries_per_direction, warn_short_history)
+    check_max_bars_back, check_max_entries_per_direction, note_warmup, warn_short_history)
 
 # A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
 # or a column-contiguous BarTape holding the same values.
@@ -617,6 +617,9 @@ def _build_parser():
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
     _cli.add_max_bars_back_arg(ap)
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="hide the warm-up note printed when a strategy reads "
+                         "past bars and --max-bars-back is not set.")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
@@ -651,6 +654,7 @@ def _main(ap, args):
     el_source = open(args.el_file, encoding="utf-8").read()
     bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
     config = _cli.config_or_error(args.config)
+    note_warmup(el_source, args.max_bars_back, "pl_run", quiet=args.quiet)
     out_path = _cli.output_path(args.output)
 
     def notify(reason: Optional[str] = None) -> None:

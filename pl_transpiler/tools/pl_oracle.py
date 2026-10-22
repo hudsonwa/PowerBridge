@@ -87,7 +87,7 @@ from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
 from pl_transpiler.tools import _cli
 from pl_transpiler.lookback import (
-    check_max_bars_back, check_max_entries_per_direction, warn_short_history)
+    check_max_bars_back, check_max_entries_per_direction, note_warmup, warn_short_history)
 from pl_transpiler.tools.pl_run import (
     load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
@@ -601,6 +601,9 @@ def _build_parser():
                          "dropping it. A disagreeing digest fails the check.")
     _cli.add_date_format_arg(ap)
     _cli.add_max_bars_back_arg(ap)
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="hide the warm-up note printed when a strategy reads "
+                         "past bars and --max-bars-back is not set.")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--data2", default=None,
                     help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
@@ -695,6 +698,7 @@ def _main(ap, args):
     data2_closes = ([float(b["close"]) for b in data2_bars]
                     if data2_bars is not None else None)
     config = _cli.config_or_error(args.config)
+    note_warmup(el_source, args.max_bars_back, "pl_oracle", quiet=args.quiet)
     output = _cli.output_path(args.output)
     if args.verbose >= 2:
         os.environ["PB_ACCEL_VERBOSE"] = "1"
