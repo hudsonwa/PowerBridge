@@ -587,3 +587,159 @@ def resolve_drawing_request(case_id, tape, default_tick):
             "(the tape identity the dump is compared against)")
     tick = float(tape.get("tick", default_tick))
     return case_id, str(tape["name"]), str(tape["sha256"]), tick
+
+def pl_mc_arw_getactive(*args, **kwargs):
+    return 0
+
+def pl_mc_text_getactive(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_getactive(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_new(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_new_bn(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_new_dt(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_new_self(*args, **kwargs):
+    return 0
+
+def pl_mc_tl_new_self_bn(*args, **kwargs):
+    return 0
+
+def pl_plotpaintbar(*args, **kwargs):
+    return 0
+
+def pl_scrolltobar(*args, **kwargs):
+    return 0
+
+def pl_text_anchor_to_bars(*args, **kwargs):
+    return 0
+
+def pl_text_get_anchor_to_bars(*args, **kwargs):
+    return 0
+
+def pl_text_getactive(*args, **kwargs):
+    return 0
+
+def pl_text_getattribute(*args, **kwargs):
+    return 0
+
+def pl_text_getbarnumber(*args, **kwargs):
+    return 0
+
+
+def pl_text_getfirst(*args, **kwargs):
+    return 0
+
+
+def pl_text_getlock(*args, **kwargs):
+    return 0
+
+def pl_text_getnext(*args, **kwargs):
+    return 0
+
+def pl_text_getsize(*args, **kwargs):
+    return 0
+
+
+def pl_text_gettime_dt(*args, **kwargs):
+    return 0
+
+
+def pl_text_lock(*args, **kwargs):
+    return 0
+
+def pl_text_new_bn(*args, **kwargs):
+    return 0
+
+def pl_text_new_dt(*args, **kwargs):
+    return 0
+
+def pl_text_setattribute(*args, **kwargs):
+    return 0
+
+def pl_text_setbarnumber(*args, **kwargs):
+    return 0
+
+def pl_text_setbgcolor(*args, **kwargs):
+    return 0
+
+def pl_text_setborder(*args, **kwargs):
+    return 0
+
+def pl_text_setlocation_bn(*args, **kwargs):
+    return 0
+
+def pl_text_setlocation_dt(*args, **kwargs):
+    return 0
+
+def pl_text_setlocation_s(*args, **kwargs):
+    return 0
+
+def pl_text_setsize(*args, **kwargs):
+    return 0
+
+def pl_tl_anchor_to_bars(*args, **kwargs):
+    return 0
+
+def pl_tl_get_anchor_to_bars(*args, **kwargs):
+    return 0
+
+def pl_tl_getactive(*args, **kwargs):
+    return 0
+
+def pl_tl_getalert(*args, **kwargs):
+    return 0
+
+
+def pl_tl_getfirst(*args, **kwargs):
+    return 0
+
+def pl_tl_getlock(*args, **kwargs):
+    return 0
+
+def pl_tl_getnext(*args, **kwargs):
+    return 0
+
+
+def pl_tl_lock(*args, **kwargs):
+    return 0
+
+def pl_tl_new_bn(*args, **kwargs):
+    return 0
+
+def pl_tl_new_dt(*args, **kwargs):
+    return 0
+
+def pl_tl_setalert(*args, **kwargs):
+    return 0
+
+def pl_tl_setbegin_bn(*args, **kwargs):
+    return 0
+
+def pl_tl_setbegin_dt(*args, **kwargs):
+    return 0
+
+def pl_tl_setbegin_s(*args, **kwargs):
+    return 0
+
+def pl_tl_setend_bn(*args, **kwargs):
+    return 0
+
+def pl_tl_setend_dt(*args, **kwargs):
+    return 0
+
+def pl_tl_setend_s(*args, **kwargs):
+    return 0
+
+def pl_tool_dashed2(*args, **kwargs):
+    return 0
+
+def pl_tool_dashed3(*args, **kwargs):
+    return 0

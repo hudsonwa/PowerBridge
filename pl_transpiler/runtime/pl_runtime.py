@@ -28,6 +28,9 @@ from ._rt_drawing import *  # noqa: F401,F403
 from ._rt_arrays_dates import *  # noqa: F401,F403
 from ._rt_builtins_az import *  # noqa: F401,F403
 from ._rt_datetime import *  # noqa: F401,F403
+from ._rt_session import *  # noqa: F401,F403
+from ._rt_color import *  # noqa: F401,F403
+from ._rt_platform_stubs import *  # noqa: F401,F403
 
 # Private helpers and state that tests, builtins and tools reach through here.
 from ._rt_core import (  # noqa: F401
