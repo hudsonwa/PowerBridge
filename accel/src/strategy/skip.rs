@@ -19,7 +19,7 @@
 //! prints the reason — never a silent full-eval fallback, never a skip that
 //! would have traded.
 
-use super::compile::{Cmp, Instr, PositionKw, Program, Series};
+use super::compile::{CallOp, Cmp, Instr, PositionKw, Program, Series};
 use super::value::Value;
 use crate::types::SkipPlan;
 
@@ -30,6 +30,30 @@ const MAX_BAR_FIXPOINT: usize = 32;
 pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
     if dates.is_empty() {
         return SkipPlan::skip(0, "empty tape");
+    }
+    // Drawing and colour calls change the run even on bars that cannot
+    // trade. A prefix skip (including "no orders, skip the tape") would
+    // drop those objects. The proof does not track them, so evaluate
+    // every bar.
+    if program.instrs.iter().any(|instr| {
+        matches!(
+            instr,
+            Instr::Call(
+                CallOp::TlNew
+                    | CallOp::TlSetColor
+                    | CallOp::TlSetStyle
+                    | CallOp::ArwNew
+                    | CallOp::TextNew
+                    | CallOp::Rgb
+                    | CallOp::LegacyColorToRgb
+                    | CallOp::GradientColor,
+                _
+            )
+        )
+    }) {
+        return SkipPlan::unproven(
+            "drawing or colour calls have side effects; cannot skip a prefix",
+        );
     }
     if !program.instrs.iter().any(|instr| {
         matches!(
@@ -985,6 +1009,37 @@ mod tests {
             "{}",
             plan.reason
         );
+    }
+
+    /// A study that only draws still has to run. "No orders" is not a
+    /// licence to skip the tape.
+    #[test]
+    fn drawing_call_blocks_the_full_tape_skip() {
+        let program = compile_body(vec![
+            json!({
+                "type": "var_decl",
+                "decls": [{
+                    "name": "tlid",
+                    "init": {"type": "unaryop", "op": "-", "operand": num(1)},
+                }],
+            }),
+            assign(
+                "tlid",
+                json!({
+                    "type": "call",
+                    "name": "tl_new",
+                    "args": [
+                        ident("date"), ident("time"), ident("low"),
+                        ident("date"), ident("time"), ident("high"),
+                    ],
+                }),
+            ),
+        ]);
+        let tape = tape_dates(&[1260102, 1260102]);
+        let plan = plan(&program, tape.dates());
+        assert!(!plan.proven, "{}", plan.reason);
+        assert_eq!(plan.eval_from, 0);
+        assert!(plan.reason.contains("drawing"), "{}", plan.reason);
     }
 
     #[test]

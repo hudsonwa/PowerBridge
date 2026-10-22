@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import struct
 
 SCHEMA = "powerbridge-drawing-dump"
 VERSION = 1
@@ -202,12 +203,17 @@ def blank_object(type_: str, seq: int) -> dict:
 
 def barkey(bn: int, date: int, time: int, price: float | None = None,
            tick: float = 0.25) -> dict:
-    """One bar key. ``time_s`` is ``time`` as HHMMSS (seconds 0)."""
+    """One bar key. ``time_s`` is ``time`` as HHMMSS (seconds 0).
+
+    ``price`` is stored as a float32 value, the precision chart prices have,
+    so the Python and native paths write the same bytes.
+    """
     key = {"bn": int(bn), "date": int(date), "time": int(time),
            "time_s": int(time) * 100}
     if price is not None:
-        key["price"] = float(price)
-        key["price_ticks"] = round(float(price) / tick)
+        value = struct.unpack("<f", struct.pack("<f", float(price)))[0]
+        key["price"] = value
+        key["price_ticks"] = round(value / tick)
     return key
 
 

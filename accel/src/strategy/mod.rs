@@ -39,6 +39,7 @@ mod trace;
 mod value;
 
 mod compile;
+mod drawing;
 mod skip;
 mod specialize;
 use compile::{compile, resolve_inputs};
@@ -82,7 +83,29 @@ pub(crate) fn run_program_inputs(
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
+    strategy.set_drawing_tick(config.tick);
     run_with_max_bars_back(series, config, &mut strategy)
+}
+
+/// Like [`run_program`], and the drawing objects the run recorded.
+///
+/// The JSON array is the object list of a `powerbridge-drawing-dump` v1
+/// (`seq` is 0; the Python dump builder assigns creation order). `producer`
+/// is not included. Colour and style defaults are the measured MultiCharts
+/// values. A drawing call this kernel does not implement is still refused.
+pub(crate) fn run_program_drawings(
+    program_ir: &str,
+    series: &BarTape,
+    data2: Option<&BarTape>,
+    config: &Config,
+    inputs: &HashMap<String, Value>,
+) -> Result<(Vec<Fill>, String), KernelError> {
+    let ast = load_program_ir(program_ir)?;
+    let data2 = prepare_data2(&ast, series, data2)?;
+    let mut strategy = Interpreter::new(ast, inputs, data2)?;
+    strategy.set_drawing_tick(config.tick);
+    let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
+    Ok((outcome.fills, strategy.drawings_json().to_string()))
 }
 
 /// Run `strategy` honouring `config.max_bars_back`.
@@ -796,5 +819,40 @@ mod tests {
         .expect("batch packet");
         assert_eq!(batch.len(), 1);
         assert_eq!(batch[0], full_packet);
+    }
+
+    /// `TLID = TL_New(...)` with `TLID` unread and no orders. Dead-store
+    /// elimination and the no-order skip must both leave the trendline.
+    #[test]
+    fn unread_tl_new_records_one_object() {
+        let ir = r#"{"kind":"pl_transpiler.ast","ir_version":1,"ast":{"type":"program","body":[
+            {"type":"var_decl","decls":[{"name":"tlid","init":{"type":"unaryop","op":"-","operand":{"type":"number","value":"1"}}}]},
+            {"type":"assign","target":{"type":"ident","name":"tlid"},"value":{"type":"call","name":"tl_new","args":[
+                {"type":"ident","name":"date"},{"type":"ident","name":"time"},{"type":"ident","name":"low"},
+                {"type":"ident","name":"date"},{"type":"ident","name":"time"},{"type":"ident","name":"high"}
+            ]}}
+        ]}}"#;
+        let tape = BarTape::from_columns(
+            vec![10.25],
+            vec![12.0],
+            vec![9.0],
+            vec![11.0],
+            vec![1.0],
+            vec![1260102],
+            vec![1002],
+        )
+        .unwrap();
+        let (_fills, raw) =
+            run_program_drawings(ir, &tape, None, &nq_config(), &HashMap::new()).expect("draw");
+        let objs: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let objs = objs.as_array().expect("array");
+        assert_eq!(objs.len(), 1, "{raw}");
+        assert_eq!(objs[0]["type"], "tl");
+        assert_eq!(objs[0]["color"], 36095);
+        assert_eq!(objs[0]["style"], 1);
+        assert_eq!(objs[0]["anchors"][0]["bn"], 1);
+        assert_eq!(objs[0]["anchors"][0]["price_ticks"], 36);
+        assert_eq!(objs[0]["anchors"][1]["price_ticks"], 48);
+        assert_eq!(objs[0]["created"]["bn"], 1);
     }
 }

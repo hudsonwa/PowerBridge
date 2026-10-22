@@ -23,6 +23,7 @@ defaults are the measured MultiCharts values.
 import gzip
 import json
 import os
+import struct
 
 import pytest
 
@@ -30,7 +31,9 @@ from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.parser_tables import COLOR_CONSTANTS, STYLE_CONSTANTS
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
 from pl_transpiler.runtime._rt_drawing import DrawingRecorder
-from pl_transpiler.runtime.drawing_dump import DumpError, canonical, validate
+from pl_transpiler.runtime.drawing_dump import (
+    DumpError, barkey, canonical, validate,
+)
 from pl_transpiler.runtime.pl_runtime import (
     pl_gradientcolor, pl_legacycolortorgb, pl_rgb, pl_tl_getbeginval,
     pl_tl_getcolor, pl_tl_getvalue, pl_tl_new, pl_tl_setcolor,
@@ -93,6 +96,14 @@ def test_dump_anchors_ids_and_repeat_bytes():
     assert obj["color"] == 36095
     assert obj["style"] == 1 and obj["size"] == 0
     assert obj["ext_left"] is False and obj["ext_right"] is False
+
+
+def test_anchor_price_is_stored_as_float32():
+    """Both paths write float32 prices, so their dumps are byte-identical."""
+    key = barkey(1, 1260102, 1000, 14957.45)
+    assert key["price"] == struct.unpack("<f", struct.pack("<f", 14957.45))[0]
+    assert key["price_ticks"] == 59830
+    assert barkey(1, 1260102, 1000, 10.125)["price_ticks"] == 40
 
 
 def test_unknown_version_is_refused():
@@ -176,8 +187,7 @@ def _synthetic_data2(bars):
                  low=bar["low"] - 2, close=bar["close"] - 2) for bar in bars]
 
 
-def _run_case(case_id, bars, data2, tape):
-    kwargs = {}
+def _run_case(case_id, bars, data2, tape, **kwargs):
     if data2 is not None:
         kwargs["data2_bars"] = data2
     return run_oracle(
@@ -357,6 +367,65 @@ def test_corpus_tl_dump_is_stable_across_runs():
     second = _corpus_run("g-tl-001-new")
     assert canonical(first["drawings"]) == canonical(second["drawings"])
     assert first["drawings"]["final_count"] == _mc_dump("g-tl-001-new")["final_count"]
+
+
+def _native_params():
+    params = []
+    for case_id in case_ids():
+        reason = _case(case_id)["xfail"].get("pb-native")
+        marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+        params.append(pytest.param(case_id, marks=marks))
+    return params
+
+
+def _needs_native():
+    from pl_transpiler.runtime.accel import accel_available
+    if not accel_available():
+        pytest.skip("native kernel is not installed")
+
+
+def _assert_native_matches(case_id, bars, data2, tape):
+    python = _run_case(case_id, bars, data2, tape)
+    native = _run_case(case_id, bars, data2, tape, use_native=True)
+    assert native["native"] is True, native.get("native_fallback_reason")
+    assert native["sha256"] == python["sha256"]
+    assert native["drawings"]["producer"]["kind"] == "pb-native"
+    native["drawings"]["producer"] = python["drawings"]["producer"]
+    assert canonical(native["drawings"]) == canonical(python["drawings"])
+    return native
+
+
+@pytest.mark.parametrize("case_id", _native_params())
+def test_native_drawings_match_python_on_synthetic_bars(case_id):
+    """The kernel records the same objects as Python. producer.kind is the
+    only envelope difference."""
+    _needs_native()
+    bars = _synthetic_bars()
+    data2 = _synthetic_data2(bars) if _case(case_id).get("data2") else None
+    _assert_native_matches(case_id, bars, data2, _TAPE)
+
+
+def test_native_drawings_match_python_off_the_float32_grid():
+    """Prices like 4000.01 are not exact in float32; both paths must round
+    them the same way."""
+    _needs_native()
+    bars = [dict(bar, open=bar["open"] + 0.01, high=bar["high"] + 0.01,
+                 low=bar["low"] + 0.01, close=bar["close"] + 0.01)
+            for bar in _synthetic_bars()]
+    native = _assert_native_matches("g-tl-001-new", bars, None, _TAPE)
+    assert native["drawings"]["objects"]
+
+
+@needs_corpus
+@pytest.mark.parametrize("case_id", _native_params())
+def test_native_corpus_drawings_match_python(case_id):
+    _needs_native()
+    tape = dict(_mc_dump(case_id)["tape"])
+    tape.setdefault("tick", 0.25)
+    data2 = _corpus_bars("data2.csv.gz") if _case(case_id).get("data2") else None
+    native = _assert_native_matches(
+        case_id, _corpus_bars("data1.csv.gz"), data2, tape)
+    assert diff(_mc_dump(case_id), native["drawings"]) == []
 
 
 def test_measured_colour_words_and_functions():

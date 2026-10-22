@@ -101,6 +101,7 @@ Public surface:
         asserts this is unchanged (zero) around a native run so a digest can
         never come from a silent Python fallback — that would be a false green.
 """
+import json
 import os
 import sys
 from collections import OrderedDict
@@ -383,6 +384,44 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
+
+
+def run_native_drawings(el_source, bars, config, *, data2_bars=None,
+                        max_bars_back=0, max_entries_per_direction=0):
+    """Native fills plus the drawing objects that run recorded.
+
+    Returns ``(fills, objects)``. ``objects`` is the drawing-dump object list
+    (``seq`` still 0). The caller builds the v1 envelope. Same refusal rules
+    as :func:`run_native`. A kernel built before drawing support is refused.
+    """
+    accel = _import_accel()
+    if not hasattr(accel, "run_program_drawings"):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build does not record drawings; rebuild accel "
+            "(tools/build_accel.sh)")
+    if max_bars_back and not getattr(accel, "MAX_BARS_BACK", False):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build predates max_bars_back; rebuild accel "
+            "(tools/build_accel.sh) to run it natively")
+    if max_entries_per_direction and not getattr(accel, "MAX_ENTRIES_PER_DIRECTION", False):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build predates max_entries_per_direction; rebuild accel "
+            "(tools/build_accel.sh) to run it natively")
+    tokens, positions = tokenise(el_source)
+    ast = parse(tokens, positions=positions, source=el_source)
+    program_ir = serialise_ir(ast)
+    series, data2 = marshalled_series(bars, data2_bars)
+    config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
+    try:
+        fills, raw = accel.run_program_drawings(
+            program_ir, series, data2, config_map)
+    except NotImplementedError as exc:
+        _record_fallback()
+        raise AccelRefused(str(exc)) from exc
+    return fills, json.loads(raw)
 
 
 def run_native_trace(el_source, bars, config, *, data2_bars=None):
