@@ -627,7 +627,8 @@ def _build_parser():
                          "Their first field is the buy/sell side, not a position label.")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="print native-kernel diagnostics (skip-region plan) "
-                         "to stderr; PB_DEBUG=1 does the same.")
+                         "and the 'accel not installed' note to stderr; "
+                         "PB_DEBUG=1 does the same for the diagnostics.")
     ap.add_argument("--drawings-json", default=None,
                     help="write a powerbridge-drawing-dump v1 file. Requires "
                          "--drawing-case. Does not change the digest on stdout.")
@@ -721,7 +722,9 @@ def _main(ap, args):
         if args.use_native is False or args.digest_v1:
             pass  # explicitly requested
         elif not accel_available():
-            warn_python_path()
+            # Expected for the default pure-Python install: only on request.
+            if args.verbose:
+                warn_python_path()
         elif not (result.get("native_fallback_reason") or "").startswith(
                 "native path refused"):
             # A refusal was already reported once by run_oracle.

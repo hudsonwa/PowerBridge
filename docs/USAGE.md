@@ -98,12 +98,12 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 
 ```
-note: powerbridge-accel not installed; using the pure-Python engine (slower). See README#acceleration
 [pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/run_out.csv
 ```
 
-The `note:` line goes to stderr and is expected without the optional
-[Rust fast path](ACCEL.md#install); results are identical either way.
+Without the optional [Rust fast path](ACCEL.md#install) the run uses the
+pure-Python engine; results are identical either way. Add `-v` to see a
+`note:` line on stderr saying so.
 
 **4. Read the output.** `out/run_out.csv` has one row per bar with the columns you
 asked for. The strategy goes long, exits with a
@@ -140,8 +140,8 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
-The digest goes to stdout. The `[pl_oracle] … fills` summary line, and a
-`note:` line when the native kernel is not installed, go to stderr, so
+The digest goes to stdout. The `[pl_oracle] … fills` summary line (and,
+with `-v`, a `note:` line when the native kernel is not installed) go to stderr, so
 `pl_oracle … > digest.txt` captures only the block above.
 
 What you can verify yourself, digest gating and captures are in

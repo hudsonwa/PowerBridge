@@ -86,7 +86,28 @@ def test_run_el_logs_python_path_note_instead_of_printing(monkeypatch, capsys, c
     assert any("pure-Python engine" in r.getMessage() for r in caplog.records)
 
 
-def test_pl_run_cli_still_prints_python_path_note(monkeypatch, capsys, tmp_path):
+def test_pl_run_cli_prints_not_installed_note_only_with_verbose(monkeypatch, capsys,
+                                                               tmp_path):
+    monkeypatch.setattr("pl_transpiler.runtime.accel.accel_available", lambda: False)
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
-    assert "note: " in capsys.readouterr().err
+    assert "not installed" not in capsys.readouterr().err
+    assert pl_run.main([EL, BARS, "-v", "-o", str(tmp_path / "out.csv")]) == 0
+    assert "note: powerbridge-accel not installed" in capsys.readouterr().err
+
+
+def test_pl_oracle_prints_not_installed_note_only_with_verbose(monkeypatch, capsys):
+    monkeypatch.setattr(pl_oracle, "accel_available", lambda: False)
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    assert pl_oracle.main([EL, BARS]) == 0
+    assert "not installed" not in capsys.readouterr().err
+    assert pl_oracle.main([EL, BARS, "--verbose"]) == 0
+    assert "note: powerbridge-accel not installed" in capsys.readouterr().err
+
+
+def test_pl_run_cli_prints_other_fallback_notes_without_verbose(monkeypatch, capsys,
+                                                                tmp_path):
+    monkeypatch.setattr("pl_transpiler.runtime.accel.accel_available", lambda: True)
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
+    assert "note: using the pure-Python engine" in capsys.readouterr().err
