@@ -739,19 +739,12 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(Value::Num(py_square(args[0].as_f64()?)?))
             }
-            CallOp::MaxList => {
+            CallOp::MaxList | CallOp::MinList => {
                 let nums = args
                     .iter()
                     .map(Value::as_f64)
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(Value::Num(py_extreme(&nums, true)?))
-            }
-            CallOp::MinList => {
-                let nums = args
-                    .iter()
-                    .map(Value::as_f64)
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(Value::Num(py_extreme(&nums, false)?))
+                Ok(Value::Num(py_extreme(&nums, op == CallOp::MaxList)?))
             }
             CallOp::TlNew => self.draw_tl_new(&args),
             CallOp::TlSetColor => {

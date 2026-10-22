@@ -20,7 +20,7 @@
 //! would have traded.
 
 use super::compile::{CallOp, Cmp, Instr, PositionKw, Program, Series};
-use super::pynum::may_raise;
+use super::pynum::program_may_raise;
 use super::value::Value;
 use crate::types::SkipPlan;
 
@@ -59,15 +59,10 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
     // A skipped bar is never evaluated, so an operation the Python path raises
     // on (a zero divisor, IntPortion of a non-finite value, ...) would go
     // unreported there. Evaluate every bar unless each one is proven safe.
-    if program
-        .instrs
-        .iter()
-        .enumerate()
-        .any(|(pc, instr)| may_raise(instr, pc.checked_sub(1).map(|p| &program.instrs[p])))
-    {
+    if program_may_raise(&program.instrs, &program.inputs) {
         return SkipPlan::unproven(
-            "an operation the Python path can raise on (zero divisor, IntPortion, Square, \
-             MaxList/MinList); cannot skip a prefix",
+            "an operation the Python path can raise on (zero divisor, IntPortion or Square of \
+             a variable, MaxList/MinList); cannot skip a prefix",
         );
     }
     if !program.instrs.iter().any(|instr| {
@@ -1212,6 +1207,56 @@ mod tests {
             assert!(plan.proven, "{op}: {}", plan.reason);
             assert_eq!(plan.eval_from, 3);
         }
+    }
+
+    fn input_divide_program(len: f64) -> Program {
+        let body = vec![
+            json!({
+                "type": "input_decl",
+                "decls": [{"name": "len", "default": num(20)}],
+            }),
+            json!({
+                "type": "var_decl",
+                "decls": [{"name": "x", "init": num(0), "data_ref": null}],
+            }),
+            assign(
+                "x",
+                json!({"type": "binop", "op": "/", "left": ident("close"), "right": ident("len")}),
+            ),
+        ];
+        let ast = json!({"type": "program", "body": body});
+        let overrides = HashMap::from([("len".to_string(), Value::Num(len))]);
+        super::super::compile::compile(&ast, &overrides).unwrap()
+    }
+
+    #[test]
+    fn input_divisor_skips_unless_zero() {
+        let tape = tape_dates(&[1030101, 1030102, 1180212]);
+        let plan_20 = plan(&input_divide_program(20.0), tape.dates());
+        assert!(plan_20.proven, "{}", plan_20.reason);
+        assert_eq!(plan_20.eval_from, 3);
+        let plan_0 = plan(&input_divide_program(0.0), tape.dates());
+        assert!(!plan_0.proven, "{}", plan_0.reason);
+        assert_eq!(plan_0.eval_from, 0);
+    }
+
+    fn call(name: &str, arg: serde_json::Value) -> serde_json::Value {
+        json!({"type": "call", "name": name, "args": [arg]})
+    }
+
+    #[test]
+    fn int_portion_of_bar_data_skips() {
+        let tape = tape_dates(&[1030101, 1030102, 1180212]);
+        let time_div =
+            json!({"type": "binop", "op": "/", "left": ident("time"), "right": num(100)});
+        let program = divide_program("*", call("intportion", time_div));
+        let p = plan(&program, tape.dates());
+        assert!(p.proven, "{}", p.reason);
+        assert_eq!(p.eval_from, 3);
+        // A variable can grow without bound, so Square of one keeps every bar.
+        let program = divide_program("*", call("square", ident("x")));
+        let p = plan(&program, tape.dates());
+        assert!(!p.proven, "{}", p.reason);
     }
 
     #[test]

@@ -264,19 +264,14 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
         CallOp::Square if args.len() == 1 => {
             Some(Instr::PushNum(py_square(args[0].as_f64().ok()?).ok()?))
         }
-        CallOp::MaxList => {
+        CallOp::MaxList | CallOp::MinList => {
             let nums = args
                 .iter()
                 .map(|a| a.as_f64().ok())
                 .collect::<Option<Vec<_>>>()?;
-            Some(Instr::PushNum(py_extreme(&nums, true).ok()?))
-        }
-        CallOp::MinList => {
-            let nums = args
-                .iter()
-                .map(|a| a.as_f64().ok())
-                .collect::<Option<Vec<_>>>()?;
-            Some(Instr::PushNum(py_extreme(&nums, false).ok()?))
+            Some(Instr::PushNum(
+                py_extreme(&nums, op == CallOp::MaxList).ok()?,
+            ))
         }
         CallOp::NumToStr if args.len() >= 2 => {
             let x = args[0].as_f64().ok()?;
@@ -410,7 +405,7 @@ fn peephole(instrs: Vec<Instr>) -> Vec<Instr> {
     compact(out)
 }
 
-fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
+pub(crate) fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
     Some(match ins {
         Instr::PushNum(_)
         | Instr::PushBool(_)

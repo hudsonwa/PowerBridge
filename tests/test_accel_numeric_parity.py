@@ -142,3 +142,39 @@ def test_zero_divisor_on_an_untraded_bar_refuses():
         run_oracle(src, BARS, NQ)
     with pytest.raises(AccelRefused):
         run_native(src, BARS, NQ)
+
+
+def test_zero_input_divisor_on_an_untraded_bar_refuses():
+    # A non-zero input divisor keeps the prefix skip; a zero one must not.
+    src = (
+        "Inputs: Len(0);\nVars: U(0);\nU = Close / Len;\n"
+        f"If Date >= {BARS[-1]['date']} Then Buy next bar at market;\n"
+    )
+    with pytest.raises(ZeroDivisionError):
+        run_oracle(src, BARS, NQ)
+    with pytest.raises(AccelRefused):
+        run_native(src, BARS, NQ)
+    nonzero = src.replace("Len(0)", "Len(20)")
+    want = run_oracle(nonzero, BARS, NQ)["sha256"]
+    assert fills_sha256(run_native(nonzero, BARS, NQ)) == want
+
+
+def test_int_portion_of_an_overflowed_variable_refuses():
+    # C = C * C overflows to inf; IntPortion(inf) raises in Python.
+    src = (
+        "Vars: C(2), U(0);\nC = C * C;\nU = IntPortion(C);\n"
+        f"If Date >= {BARS[-1]['date']} Then Buy next bar at market;\n"
+    )
+    with pytest.raises(OverflowError):
+        run_oracle(src, BARS, NQ)
+    with pytest.raises(AccelRefused):
+        run_native(src, BARS, NQ)
+
+
+def test_int_portion_of_bar_data_keeps_the_skip():
+    src = (
+        "Vars: U(0);\nU = IntPortion(Time / 100);\n"
+        f"If Date >= {BARS[-1]['date']} And U > 0 Then Buy next bar at market;\n"
+    )
+    want = run_oracle(src, BARS, NQ)["sha256"]
+    assert fills_sha256(run_native(src, BARS, NQ)) == want

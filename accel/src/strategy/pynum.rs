@@ -22,6 +22,8 @@
 //! refuses the run so the Python path runs and reports the error itself.
 
 use super::compile::{Binop, CallOp, Instr};
+use super::specialize::stack_delta;
+use super::value::Value;
 use crate::types::KernelError;
 
 fn refuse(what: &str) -> KernelError {
@@ -120,22 +122,88 @@ pub(crate) fn py_extreme(args: &[f64], max: bool) -> Result<f64, KernelError> {
 /// the kernel may refuse it at run time: a `/` or `mod` whose divisor is not a
 /// non-zero constant, `IntPortion`, `Square`, or `MaxList`/`MinList` of fewer
 /// than two values. Such an instruction must run on every bar Python runs it:
-/// it is never skipped or deleted as dead code. `prev` is the preceding
-/// instruction (the divisor push for a plain `Binop`), when known.
+/// it is never deleted as dead code. `prev` is the preceding instruction (the
+/// divisor push for a plain `Binop`), when known.
 pub(crate) fn may_raise(instr: &Instr, prev: Option<&Instr>) -> bool {
-    let divides = |op: &Binop| matches!(op, Binop::Div | Binop::Mod);
     match instr {
-        Instr::Binop(op) if divides(op) => !matches!(prev, Some(Instr::PushNum(d)) if *d != 0.0),
+        Instr::Call(CallOp::IntPortion | CallOp::Square, _) => true,
+        _ => divides_unsafely(instr, prev, &[]),
+    }
+}
+
+/// Whether `instr` is a `/` or `mod` that can see a zero divisor, or a
+/// `MaxList`/`MinList` of fewer than two values. A divisor pushed from a
+/// non-zero number literal or input (`inputs`, already resolved) is safe.
+fn divides_unsafely(instr: &Instr, prev: Option<&Instr>, inputs: &[Value]) -> bool {
+    let divides = |op: &Binop| matches!(op, Binop::Div | Binop::Mod);
+    let non_zero = |v: Option<&Value>| matches!(v, Some(Value::Num(d)) if *d != 0.0);
+    match instr {
+        Instr::Binop(op) if divides(op) => match prev {
+            Some(Instr::PushNum(d)) => *d == 0.0,
+            Some(Instr::PushInput(slot)) => !non_zero(inputs.get(*slot)),
+            _ => true,
+        },
         Instr::BinopC { op, rhs }
         | Instr::SeriesBinopC { op, rhs, .. }
         | Instr::VarBinopC { op, rhs, .. } => divides(op) && *rhs == 0.0,
         Instr::BinopCLhs { op, .. }
         | Instr::SeriesBinopCLhs { op, .. }
         | Instr::VarBinopCLhs { op, .. } => divides(op),
-        Instr::Call(CallOp::IntPortion | CallOp::Square, _) => true,
         Instr::Call(CallOp::MaxList | CallOp::MinList, n) => *n < 2,
         _ => false,
     }
+}
+
+/// Whether the one-value operand ending just before `pc` may read a variable.
+/// Bar data, literals and inputs are finite, and nothing below `pc` can make
+/// them NaN or infinite unless an unsafe division (checked separately) does.
+/// A variable can grow without bound across bars (`C = Square(C)`), so it
+/// counts as unsafe, as does an operand this walk cannot delimit.
+fn operand_reads_var(instrs: &[Instr], pc: usize) -> bool {
+    let mut need = 1;
+    let mut i = pc;
+    while need > 0 {
+        let Some(j) = i.checked_sub(1) else {
+            return true;
+        };
+        i = j;
+        let ins = &instrs[i];
+        if matches!(
+            ins,
+            Instr::PushVar(_)
+                | Instr::PushVarSeries(_)
+                | Instr::LoadVar(_)
+                | Instr::BarRefVar(_)
+                | Instr::BarRefVarConst { .. }
+                | Instr::VarBinopC { .. }
+                | Instr::VarBinopCLhs { .. }
+                | Instr::VarCompareC { .. }
+                | Instr::VarCompareCLhs { .. }
+        ) {
+            return true;
+        }
+        match stack_delta(ins) {
+            Some((pop, push)) if pop > 0 || push > 0 => need = need - push + pop,
+            _ => return true,
+        }
+    }
+    false
+}
+
+/// Whether any instruction of `instrs` can raise on the Python path for some
+/// bar, so a prefix skip would hide the error: an unsafe division (see
+/// [`divides_unsafely`]), or `IntPortion`/`Square` of a value that may be
+/// non-finite or unbounded, i.e. one that reads a variable. With no unsafe
+/// division, `IntPortion(Time / 100)` or `Square(Close - Open)` only see
+/// finite bar data and cannot raise.
+pub(crate) fn program_may_raise(instrs: &[Instr], inputs: &[Value]) -> bool {
+    instrs.iter().enumerate().any(|(pc, instr)| {
+        let prev = pc.checked_sub(1).map(|p| &instrs[p]);
+        divides_unsafely(instr, prev, inputs)
+            || (matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, 1))
+                && operand_reads_var(instrs, pc))
+            || matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, n) if *n != 1)
+    })
 }
 
 #[cfg(test)]
