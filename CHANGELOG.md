@@ -16,8 +16,7 @@
 - `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
   run with an error when drawings are not being recorded, and `TL_GetValue`
   always stops, since its interpolation is not measured.
-
-- `docs/reference/`: a keyword reference for the 256 EasyLanguage builtins PowerBridge
+- `docs/reference/`: a keyword reference for the 257 EasyLanguage builtins PowerBridge
   supports or has evidence for, grouped by topic. Each entry shows the catalog's kind,
   return type, arity and verification level, the run status observed when PowerBridge
   runs it, a short description and, for many, an example. `tools/gen_reference.py`

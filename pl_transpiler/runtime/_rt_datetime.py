@@ -17,6 +17,7 @@
 Re-exported by pl_runtime; see that module."""
 
 from ._rt_core import UnimplementedBuiltinError, f32
+from ._rt_indicators import pl_roc
 
 
 class UnmeasuredColorError(UnimplementedBuiltinError):
@@ -25,7 +26,7 @@ class UnmeasuredColorError(UnimplementedBuiltinError):
     def __init__(self, detail):
         self.builtin = "color"
         NotImplementedError.__init__(self, detail)
-from ._rt_indicators import pl_roc
+
 
 # --- DateTime helpers (GTA6 date/time conversion family) --------------------
 # PowerLanguage uses two grounded numeric encodings here:

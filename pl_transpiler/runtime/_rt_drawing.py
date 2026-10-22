@@ -37,6 +37,7 @@ class DrawingGetterError(UnimplementedBuiltinError):
         self.builtin = "drawing"
         NotImplementedError.__init__(self, detail)
 
+
 _RECORDER = contextvars.ContextVar("pb_drawing_recorder", default=None)
 
 # Process-wide fallback used only when no recorder is active. A recorder
