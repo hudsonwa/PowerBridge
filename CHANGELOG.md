@@ -29,6 +29,9 @@
   `inf`/`NaN`. Such an operation is no longer skipped as dead code or by the
   date-prefix skip. `MaxList`/`MinList` follow Python `max`/`min` for NaN and
   signed zeros.
+- The native kernel no longer rounds bar lookbacks (`Open/High/Low/Close/Volume[n]`)
+  to f32. It now reads them unrounded, as the pure-Python runtime does, so a strategy
+  comparing `Close - Close[1]` near a threshold fills the same on both paths.
 
 ## 0.7.0 — 2026-10-22
 
