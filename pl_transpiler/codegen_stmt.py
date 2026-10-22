@@ -252,6 +252,13 @@ class _StmtMixin:
     def gen_commentary(self, node):
         self.emit(f"_commentary = {self.gen_expr(node['msg'])}")
 
+    def gen_commentary_block(self, node):
+        # #BeginCmtry … #End is not executed. PowerBridge has no
+        # commentary-on mode. The statements stay in the AST so
+        # el_emit can round-trip them; they do not affect trades or drawings.
+        if not isinstance(node.get("body"), list):
+            raise ValueError("commentary_block body must be a list")
+
     # ---- Break / Continue ----
     def gen_break(self, node):
         self.emit('break')

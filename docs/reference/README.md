@@ -2,7 +2,7 @@
 
 # EasyLanguage keyword reference
 
-A reference for the EasyLanguage / PowerLanguage keywords PowerBridge supports, written for PowerBridge from its own code, tests and runs. It covers 257 builtins: every catalog builtin on the MultiCharts compile list, plus every builtin a PowerBridge test or capture-backed strategy uses. Query the full catalog with `python -m pl_transpiler.catalog`.
+A reference for the EasyLanguage / PowerLanguage keywords PowerBridge supports, written for PowerBridge from its own code, tests and runs. It covers 258 builtins: every catalog builtin on the MultiCharts compile list, plus every builtin a PowerBridge test or capture-backed strategy uses. Query the full catalog with `python -m pl_transpiler.catalog`.
 
 ## Reading an entry
 
@@ -27,13 +27,13 @@ Examples are short fragments. Each one is transpiled and run on sample bars by `
 | [Dates and times](datetime.md) | 42 |
 | [Math and lists](math.md) | 27 |
 | [Arrays](arrays.md) | 20 |
-| [Drawing, colors and output](drawing.md) | 30 |
+| [Drawing, colors and output](drawing.md) | 31 |
 
 ## Run status totals
 
 | Status | Entries |
 |---|---|
-| runs | 251 |
+| runs | 252 |
 | accepted; no effect in a backtest | 0 |
 | transpiles; the run stops (not implemented in the runtime) | 6 |
 
@@ -82,6 +82,7 @@ Examples are short fragments. Each one is transpiled and run on sample bars by `
 - [category](symbol.md#category)
 - [Ceiling](math.md#ceiling)
 - [Commentary](drawing.md#commentary)
+- [CommentaryCL](drawing.md#commentarycl)
 - [Convert_Currency](symbol.md#convert_currency)
 - [Cosine](math.md#cosine)
 - [Cotangent](math.md#cotangent)

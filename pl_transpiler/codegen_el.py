@@ -969,7 +969,14 @@ def _emit_stmt_core(node, level):
         return f"{pad}Alert( {emit_expr(node['msg'])} ) ;"
 
     if t == 'commentary':
-        return f"{pad}Commentary( {emit_expr(node['msg'])} ) ;"
+        word = "CommentaryCL" if node.get("cl") else "Commentary"
+        return f"{pad}{word}( {emit_expr(node['msg'])} ) ;"
+
+    if t == 'commentary_block':
+        lines = [f"{pad}#BeginCmtry"]
+        lines.extend(_emit_block(node.get('body') or [], level + 1))
+        lines.append(f"{pad}#End ;")
+        return "\n".join(lines)
 
     if t == 'print':
         inner = ", ".join(emit_expr(a) for a in node['args'])

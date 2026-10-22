@@ -313,9 +313,15 @@ class Parser:
         if tt == TT_IDENT and val == 'alert':
             return self.parse_alert()
 
-        # Commentary
-        if tt == TT_IDENT and val == 'commentary':
+        # Commentary / CommentaryCL. Several arguments are one message
+        # joined with +, the shape the single-msg IR node already has.
+        if tt == TT_IDENT and val in ('commentary', 'commentarycl'):
             return self.parse_commentary()
+
+        # #BeginCmtry … #End. PowerBridge has no commentary-on mode, so the
+        # block is kept in the AST and then skipped.
+        if tt == TT_IDENT and val == '#begincmtry':
+            return self.parse_commentary_block()
 
         # Print / PrintLog
         if tt == TT_IDENT and val in ('print', 'printlog'):
@@ -634,12 +640,36 @@ class Parser:
 
     # ---- Commentary ----
     def parse_commentary(self):
-        self.advance()  # 'commentary'
+        word = self.advance()[1]  # 'commentary' or 'commentarycl'
         self.expect(TT_LPAREN)
         msg = self.parse_expression()
+        while self.match(TT_COMMA):
+            msg = {'type': 'binop', 'op': '+', 'left': msg,
+                   'right': self.parse_expression()}
         self.expect(TT_RPAREN)
         self.match(TT_SEMICOLON)
-        return {'type': 'commentary', 'msg': msg}
+        node = {'type': 'commentary', 'msg': msg}
+        if word == 'commentarycl':
+            node['cl'] = True
+        return node
+
+    def parse_commentary_block(self):
+        begin_index = self.pos
+        self.advance()  # '#begincmtry'
+        stmts = []
+        while self.peek() != (TT_IDENT, '#end') and not self.at_end():
+            if self.match(TT_SEMICOLON):
+                continue
+            stmt = self.parse_statement()
+            if stmt:
+                stmts.append(stmt)
+        if self.peek() != (TT_IDENT, '#end'):
+            self._err("expected '#End' to close '#BeginCmtry'",
+                      hint="add an '#End;' to close this commentary block",
+                      tok_index=begin_index)
+        self.advance()
+        self.match(TT_SEMICOLON)
+        return {'type': 'commentary_block', 'body': stmts}
 
     # ---- Order ----
     def parse_order(self):

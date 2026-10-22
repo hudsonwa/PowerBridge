@@ -121,6 +121,12 @@ def _synthetic_programs():
         _node('attribute', _line=13, name='intrabarordergeneration',
               value=_node('boolean', value=True)),
         _node('commentary', _line=14, msg=_node('string', value='hi')),
+        _node('commentary', _line=14, msg=_node('string', value='cl'), cl=True),
+        _node('commentary_block', _line=14, body=[
+            _node('commentary', msg=_node('binop', op='+',
+                                          left=_node('string', value='a'),
+                                          right=_node('string', value='b'))),
+        ]),
         _node('order', _line=15, action='sell', label=_node('string',
                                                             value='LX'),
               quantity=num5, entry_label=_node('string', value='LE'),
@@ -255,7 +261,8 @@ def test_schema_exhaustive_over_dialect():
     # the schema enumerates exactly the node types the parser can emit
     assert ir.IR_NODE_TYPES == {
         'abort', 'alert', 'array_decl', 'assign', 'attribute', 'bar_ref',
-        'binop', 'boolean', 'break', 'call', 'commentary', 'compare',
+        'binop', 'boolean', 'break', 'call', 'commentary',
+        'commentary_block', 'compare',
         'continue', 'data_of', 'expr_stmt', 'for', 'ident', 'if',
         'input_decl', 'mc_kw', 'number', 'once', 'order', 'plot',
         'position_kw', 'position_kw_call', 'print', 'program',

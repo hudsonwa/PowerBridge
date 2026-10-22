@@ -62,10 +62,22 @@ Color constant for blue.
 |---|---|---|---|---|---|---|
 | builtin | none / not established | at least 1 | not established | PowerBridge test (`tests/generated/test_commentary.py`) | no | runs |
 
-Writes text to the per-bar commentary window. A backtest has no such window; PowerBridge accepts the statement.
+Writes text to the per-bar commentary window. Several arguments are joined with +. A #BeginCmtry block is not executed: PowerBridge has no commentary-on mode. The text does not change trades.
 
 ```easylanguage
 Commentary("bar " + NumToStr(CurrentBar, 0));
+```
+
+### CommentaryCL
+
+| Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
+|---|---|---|---|---|---|---|
+| builtin | none / not established | at least 1 | not established | PowerBridge test (`tests/test_commentary.py`) | no | runs |
+
+Like Commentary, for the closing window. Several arguments are joined with + and the text does not change trades.
+
+```easylanguage
+CommentaryCL("a", "b");
 ```
 
 ### Cyan
