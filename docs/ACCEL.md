@@ -294,6 +294,34 @@ never silently produces a different result. Verbosity is opt-in:
 - `-vv` (`pl_oracle` only) also prints native-kernel internals, the `[accel]`
   lines such as the skip-region plan. `PB_DEBUG=1` turns those on too.
 
+## Which constructs the kernel refuses
+
+A refusal names only the first construct the kernel hits. To see every one,
+ask the kernel's compile pass directly; nothing runs and no bars are needed:
+
+```bash
+pl_oracle --explain-native my_strategy.el
+```
+
+```text
+statement while 3
+statement switch 8
+function xaverage 11
+```
+
+Each line is `kind name line`: kind is `function`, `statement`, `order`,
+`variable` or `expression`, and line is the 1-based EL line of the statement.
+Lines are sorted by line. A program the kernel accepts prints
+`native kernel can run this program`. Both exit 0. Without the kernel the
+command prints `native kernel not installed` on stderr and exits 2.
+
+From Python, `pl_transpiler.runtime.accel.explain_native(el_source)` returns
+the same list as `NativeRefusal(kind, name, line, message)` records, in the
+kernel's compile order; the first `message` is the `AccelRefused` text a run
+raises. Only the compile pass is checked: a run can still be refused for
+run-time reasons (Data2 referenced but no Data2 file given, or the reverse).
+When one statement has two refused constructs, only the first is listed.
+
 ## Verification tiers, accel
 
 Mirroring the test-tier map in [AGENTS.md](../AGENTS.md): the public tier

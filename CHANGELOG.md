@@ -8,6 +8,13 @@
   the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
   `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
   the Python path's values, so these programs no longer fall back (#1).
+- `pl_oracle --explain-native FILE` lists every construct the native kernel
+  would refuse, one `kind name line` per line, instead of only the first one a
+  run reports. It needs no bars and runs nothing; it exits 0, or 2 when the
+  kernel is not installed. The Python API is
+  `pl_transpiler.runtime.accel.explain_native(el_source)`. The kernel's
+  compile pass gains a collecting mode for this; a normal native run still
+  stops at the first refusal exactly as before.
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
 - `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section; the README
