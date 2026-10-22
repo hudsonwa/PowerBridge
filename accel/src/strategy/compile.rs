@@ -157,6 +157,14 @@ pub(crate) enum CallOp {
     Square,
     MaxList,
     MinList,
+    TlNew,
+    TlSetColor,
+    TlSetStyle,
+    ArwNew,
+    TextNew,
+    Rgb,
+    LegacyColorToRgb,
+    GradientColor,
 }
 
 /// A supported `Set*` money-management risk verb.
@@ -477,18 +485,29 @@ impl Compiler {
                         let init = decl
                             .get("init")
                             .ok_or_else(|| KernelError::input(format!("var {name} has no init")))?;
-                        match node_type(init) {
+                        let init_ty = node_type(init);
+                        match init_ty {
                             Some("number") => {
                                 self.numeric_vars.insert(name.clone());
                             }
-                            Some("boolean") | Some("string") => {}
+                            Some("boolean") | Some("string") | Some("unaryop") => {}
                             other => {
                                 return Err(KernelError::unsupported(format!(
                                     "var {name} init type {other:?}"
                                 )));
                             }
                         }
-                        let init_value = eval_literal(init)?;
+                        // `Vars: TLID(-1)` is a unary minus. Inputs already
+                        // accept that form; variables must too.
+                        let init_value = if init_ty == Some("unaryop") {
+                            let value = eval_input_default(init)?;
+                            if matches!(value, Value::Num(_)) {
+                                self.numeric_vars.insert(name.clone());
+                            }
+                            value
+                        } else {
+                            eval_literal(init)?
+                        };
                         let slot = self.var_names.len();
                         self.var_slots.insert(name.clone(), slot);
                         self.var_names.push(name.clone());
@@ -1136,6 +1155,17 @@ impl Compiler {
             "square" => (CallOp::Square, false),
             "maxlist" => (CallOp::MaxList, false),
             "minlist" => (CallOp::MinList, false),
+            // Drawing and measured colour calls. Not folded: drawing calls
+            // record an object, and the colour calls share one implementation
+            // with the interpreter.
+            "tl_new" => (CallOp::TlNew, false),
+            "tl_setcolor" => (CallOp::TlSetColor, false),
+            "tl_setstyle" => (CallOp::TlSetStyle, false),
+            "arw_new" => (CallOp::ArwNew, false),
+            "text_new" => (CallOp::TextNew, false),
+            "rgb" => (CallOp::Rgb, false),
+            "legacycolortorgb" => (CallOp::LegacyColorToRgb, false),
+            "gradientcolor" => (CallOp::GradientColor, false),
             other => {
                 return Err(KernelError::unsupported(format!("function {other:?}")));
             }
@@ -1536,5 +1566,23 @@ mod tests {
         );
         assert_eq!(value, vec![true]);
         assert_eq!(numeric, vec![true]);
+    }
+
+    /// `Vars: TLID(-1)` is a unary minus of a number. It used to
+    /// refuse with `var tlid init type Some("unaryop")` before any drawing call.
+    #[test]
+    fn var_init_unary_minus_is_numeric() {
+        let ast: Json = serde_json::from_str(
+            r#"{"type":"program","body":[
+                {"type":"var_decl","decls":[{"name":"tlid","init":{
+                    "type":"unaryop","op":"-","operand":{"type":"number","value":"1"}}}]},
+                {"type":"assign","target":{"type":"ident","name":"tlid"},
+                 "value":{"type":"number","value":"2"}}
+            ]}"#,
+        )
+        .expect("valid program JSON");
+        let program = compile(&ast, &HashMap::new()).expect("unary var init");
+        assert_eq!(program.var_inits, vec![Value::Num(-1.0)]);
+        assert!(program.var_numeric[0]);
     }
 }

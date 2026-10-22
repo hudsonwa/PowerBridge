@@ -84,6 +84,7 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
     AccelRefused,
     AccelUnavailable,
     run_native,
+    run_native_drawings,
 )
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
@@ -278,7 +279,8 @@ def window_bars(bars, from_date=None, to_date=None, extra=None):
 
 def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
                        to_date, from_bar, seed_warmup, digest_version=2,
-                       max_bars_back=0, max_entries_per_direction=0):
+                       max_bars_back=0, max_entries_per_direction=0,
+                       drawings=False):
     """Attempt the native kernel path for one ``run_oracle`` call.
 
     The native path serves exactly the full-tape, non-windowed shape — the
@@ -302,9 +304,16 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
     if digest_version < 2:
         return None, "--digest-v1 is served by the Python path only"
     try:
-        fills = run_native(el_source, bars, config, data2_bars=data2_bars,
-                           max_bars_back=max_bars_back,
-                           max_entries_per_direction=max_entries_per_direction)
+        objects = None
+        if drawings:
+            fills, objects = run_native_drawings(
+                el_source, bars, config, data2_bars=data2_bars,
+                max_bars_back=max_bars_back,
+                max_entries_per_direction=max_entries_per_direction)
+        else:
+            fills = run_native(el_source, bars, config, data2_bars=data2_bars,
+                               max_bars_back=max_bars_back,
+                               max_entries_per_direction=max_entries_per_direction)
     except (AccelUnavailable, AccelRefused) as exc:
         return None, f"native path refused: {exc}"
     n = ohlcv_columns(bars)["n"]
@@ -320,6 +329,7 @@ def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
         "n_warmup": 0,
         "records": fills,
         "native": True,
+        "_native_drawings": objects,
     }
     digest["text"] = format_digest(
         fills=digest["fills"],
@@ -414,6 +424,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         from pl_transpiler.runtime._rt_drawing import (
             DrawingRecorder, make_dump, resolve_drawing_request,
         )
+        from pl_transpiler.runtime.drawing_dump import build_dump
         drawing_meta = resolve_drawing_request(
             drawing_case_id, drawing_tape, config.tick)
     fallback_reason = None
@@ -424,17 +435,22 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
             seed_warmup=seed_warmup, digest_version=digest_version,
             max_bars_back=max_bars_back,
             max_entries_per_direction=max_entries_per_direction,
+            drawings=drawings,
         )
         if native_digest is not None:
-            # The native kernel refuses any program that calls a drawing function.
-            # Reaching here means the program created no objects.
+            objects = native_digest.pop("_native_drawings", None)
             if drawings:
+                # The kernel recorded the objects; the envelope is built the
+                # same way as on the Python path.
                 cols = ohlcv_columns(bars)
-                native_digest["drawings"] = make_dump(
-                    DrawingRecorder(cols["date"], cols["time"], tick=drawing_meta[3]),
-                    cols["date"], cols["time"],
+                native_digest["drawings"] = build_dump(
+                    objects or [],
                     case_id=drawing_meta[0], tape_name=drawing_meta[1],
-                    tape_sha256=drawing_meta[2], tick=drawing_meta[3],
+                    tape_sha256=drawing_meta[2],
+                    n_bars=len(cols["date"]),
+                    first=(cols["date"][0], cols["time"][0]),
+                    last=(cols["date"][-1], cols["time"][-1]),
+                    tick=drawing_meta[3],
                     producer_kind="pb-native",
                 )
             return native_digest

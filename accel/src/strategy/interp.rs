@@ -34,6 +34,7 @@ use crate::types::{
 use super::compile::{
     compile, Binop, CallOp, Cmp, Instr, McKw, PositionKw, Program, RiskOp, Series, SeriesSrc, Unary,
 };
+use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
 use super::specialize::{specialize, Specialized, Stats as SpecializeStats};
 use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
 
@@ -73,6 +74,7 @@ pub(crate) struct Interpreter<'a> {
     orders: Vec<Order>,
     risk: RiskUpdate,
     stack: Vec<Value>,
+    drawings: DrawingStore,
 }
 
 impl<'a> Interpreter<'a> {
@@ -138,6 +140,7 @@ impl<'a> Interpreter<'a> {
             orders: Vec::new(),
             risk: RiskUpdate::default(),
             stack: Vec::new(),
+            drawings: DrawingStore::new(),
         };
         interp.seed_state();
         Ok(interp)
@@ -757,7 +760,111 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(Value::Num(m))
             }
+            CallOp::TlNew => self.draw_tl_new(&args),
+            CallOp::TlSetColor => {
+                self.need(2, "TL_SetColor", &args)?;
+                self.drawings
+                    .tl_set_color(args[0].as_f64()?, args[1].as_f64()?)
+                    .map(Value::Num)
+            }
+            CallOp::TlSetStyle => {
+                self.need(2, "TL_SetStyle", &args)?;
+                self.drawings
+                    .tl_set_style(args[0].as_f64()?, args[1].as_f64()?)
+                    .map(Value::Num)
+            }
+            CallOp::ArwNew => self.draw_arw_new(&args),
+            CallOp::TextNew => self.draw_text_new(&args),
+            CallOp::Rgb => {
+                self.need(3, "RGB", &args)?;
+                rgb(args[0].as_f64()?, args[1].as_f64()?, args[2].as_f64()?).map(Value::Num)
+            }
+            CallOp::LegacyColorToRgb => {
+                self.need(1, "LegacyColorToRGB", &args)?;
+                legacy_color_to_rgb(args[0].as_f64()?).map(Value::Num)
+            }
+            CallOp::GradientColor => {
+                self.need(5, "GradientColor", &args)?;
+                gradient_color(
+                    args[0].as_f64()?,
+                    args[1].as_f64()?,
+                    args[2].as_f64()?,
+                    args[3].as_f64()?,
+                    args[4].as_f64()?,
+                )
+                .map(Value::Num)
+            }
         }
+    }
+
+    fn need(&self, n: usize, name: &str, args: &[Value]) -> Result<(), KernelError> {
+        if args.len() == n {
+            Ok(())
+        } else {
+            Err(KernelError::unsupported(format!(
+                "{name} requires {n} args"
+            )))
+        }
+    }
+
+    fn created_bar(&self) -> (i64, i64, i64) {
+        (
+            (self.history_bars + self.bar_number) as i64,
+            self.bar.date,
+            self.bar.time,
+        )
+    }
+
+    fn draw_tl_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
+        self.need(6, "TL_New", args)?;
+        let a1 = find_anchor(
+            &self.date,
+            &self.time,
+            args[0].as_f64()?,
+            args[1].as_f64()?,
+            args[2].as_f64()?,
+        )?;
+        let a2 = find_anchor(
+            &self.date,
+            &self.time,
+            args[3].as_f64()?,
+            args[4].as_f64()?,
+            args[5].as_f64()?,
+        )?;
+        Ok(Value::Num(self.drawings.tl_new(self.created_bar(), a1, a2)))
+    }
+
+    fn draw_arw_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
+        self.need(4, "Arw_New", args)?;
+        let anchor = find_anchor(
+            &self.date,
+            &self.time,
+            args[0].as_f64()?,
+            args[1].as_f64()?,
+            args[2].as_f64()?,
+        )?;
+        Ok(Value::Num(self.drawings.arw_new(
+            self.created_bar(),
+            anchor,
+            args[3].is_truthy(),
+        )))
+    }
+
+    fn draw_text_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
+        self.need(4, "Text_New", args)?;
+        let anchor = find_anchor(
+            &self.date,
+            &self.time,
+            args[0].as_f64()?,
+            args[1].as_f64()?,
+            args[2].as_f64()?,
+        )?;
+        let text = args[3].clone().into_string();
+        Ok(Value::Num(self.drawings.text_new(
+            self.created_bar(),
+            anchor,
+            text,
+        )))
     }
 
     fn position_kw_value(&self, kind: PositionKw) -> Value {
@@ -865,6 +972,14 @@ impl<'a> Interpreter<'a> {
     /// order. The typed trace bridge projects these as its strategy columns.
     pub(crate) fn var_names(&self) -> &[String] {
         &self.program.var_names
+    }
+
+    pub(crate) fn set_drawing_tick(&mut self, tick: f64) {
+        self.drawings.set_tick(tick);
+    }
+
+    pub(crate) fn drawings_json(&self) -> Json {
+        self.drawings.to_json()
     }
 
     /// Project one strategy variable slot into a typed trace cell. Returns

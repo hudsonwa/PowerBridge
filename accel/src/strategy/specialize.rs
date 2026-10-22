@@ -472,22 +472,45 @@ fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
     })
 }
 
-fn is_pure(ins: &Instr) -> bool {
+/// A call whose result may be dropped without changing the run.
+///
+/// Drawing calls record an object and colour calls can refuse an unmeasured
+/// argument. Both must run even when the returned id or colour is unread
+/// (`TLID = TL_New(...)` with `TLID` never read, or `TL_SetColor(...)` as a
+/// statement). Treating them as pure let `dce_pure_drops` delete the call
+/// after `dce_dead_stores` turned the unread store into `Drop`, so the kernel
+/// accepted the program and recorded nothing.
+fn call_is_pure(op: CallOp) -> bool {
     !matches!(
-        ins,
-        Instr::LoadVar(_)
-            | Instr::StoreVar(_)
-            | Instr::EmitOrder { .. }
-            | Instr::EmitOrderConst { .. }
-            | Instr::EmitOrderAll { .. }
-            | Instr::RiskSet(_)
-            | Instr::SetFirstBarFalse
-            | Instr::Jump(_)
-            | Instr::JumpIfFalse(_)
-            | Instr::JumpIfTruthyPeek(_)
-            | Instr::JumpIfNotTruthyPeek(_)
-            | Instr::JumpIfNotFirstBar(_)
+        op,
+        CallOp::TlNew
+            | CallOp::TlSetColor
+            | CallOp::TlSetStyle
+            | CallOp::ArwNew
+            | CallOp::TextNew
+            | CallOp::Rgb
+            | CallOp::LegacyColorToRgb
+            | CallOp::GradientColor
     )
+}
+
+fn is_pure(ins: &Instr) -> bool {
+    match ins {
+        Instr::Call(op, _) if !call_is_pure(*op) => false,
+        Instr::LoadVar(_)
+        | Instr::StoreVar(_)
+        | Instr::EmitOrder { .. }
+        | Instr::EmitOrderConst { .. }
+        | Instr::EmitOrderAll { .. }
+        | Instr::RiskSet(_)
+        | Instr::SetFirstBarFalse
+        | Instr::Jump(_)
+        | Instr::JumpIfFalse(_)
+        | Instr::JumpIfTruthyPeek(_)
+        | Instr::JumpIfNotTruthyPeek(_)
+        | Instr::JumpIfNotFirstBar(_) => false,
+        _ => true,
+    }
 }
 
 fn dce_pure_drops(instrs: Vec<Instr>) -> Vec<Instr> {
@@ -885,6 +908,54 @@ mod tests {
         assert!(
             !spec.rest.iter().any(|i| matches!(i, Instr::PushInput(_))),
             "no PushInput remains"
+        );
+    }
+
+    /// `Vars: TLID(-1); TLID = TL_New(...)` never reads `TLID`. The call is
+    /// still the drawing. Dead-store elimination must not delete it.
+    #[test]
+    fn unread_tl_new_survives_dead_store_elimination() {
+        let program = compile_body(json!([
+            {"type":"var_decl","decls":[{"name":"tlid","init":{
+                "type":"unaryop","op":"-","operand":{"type":"number","value":"1"}}}]},
+            {"type":"assign","target":{"type":"ident","name":"tlid"},
+             "value":{"type":"call","name":"tl_new","args":[
+                {"type":"ident","name":"date"},
+                {"type":"ident","name":"time"},
+                {"type":"ident","name":"low"},
+                {"type":"ident","name":"date"},
+                {"type":"ident","name":"time"},
+                {"type":"ident","name":"high"}
+             ]}}
+        ]));
+        let spec = specialize(&program);
+        assert!(
+            spec.rest
+                .iter()
+                .any(|i| matches!(i, Instr::Call(CallOp::TlNew, 6))),
+            "unread TL_New must stay: {:?}",
+            spec.rest
+        );
+    }
+
+    /// `TL_SetColor(id, colour);` is an expression statement. Its return value
+    /// is dropped, and the call still has to recolour the object.
+    #[test]
+    fn tl_setcolor_statement_survives_drop() {
+        let program = compile_body(json!([
+            {"type":"var_decl","decls":[{"name":"tlid","init":{"type":"number","value":"1"}}]},
+            {"type":"expr_stmt","expr":{"type":"call","name":"tl_setcolor","args":[
+                {"type":"ident","name":"tlid"},
+                {"type":"number","value":"255"}
+            ]}}
+        ]));
+        let spec = specialize(&program);
+        assert!(
+            spec.rest
+                .iter()
+                .any(|i| matches!(i, Instr::Call(CallOp::TlSetColor, 2))),
+            "TL_SetColor statement must stay: {:?}",
+            spec.rest
         );
     }
 

@@ -192,6 +192,39 @@ fn run_program(
         .collect()
 }
 
+/// `run_program` plus the drawing objects that run recorded.
+///
+/// Returns `(fills, objects_json)`. `objects_json` is a JSON array of
+/// drawing-dump objects (`seq` left at 0; Python assigns creation order and
+/// the envelope). Drawing calls this kernel does not implement are refused.
+#[pyfunction]
+#[pyo3(signature = (program_ir, series, data2=None, config=None))]
+fn run_program_drawings(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(Vec<Py<PyAny>>, String)> {
+    let config = config.ok_or_else(|| {
+        PyValueError::new_err("accel run_program_drawings requires a 'config' dict")
+    })?;
+    let config = extract_config(config)?;
+    let tape = extract_tape(series)?;
+    let data2_tape = match data2 {
+        Some(d2) => Some(extract_tape(d2)?),
+        None => None,
+    };
+    let inputs = HashMap::<String, strategy::Value>::new();
+    let (fills, drawings) =
+        strategy::run_program_drawings(program_ir, &tape, data2_tape.as_ref(), &config, &inputs)
+            .map_err(kernel_error_to_py)?;
+    let py_fills = fills
+        .into_iter()
+        .map(|fill| fill_to_python(series.py(), fill))
+        .collect::<PyResult<_>>()?;
+    Ok((py_fills, drawings))
+}
+
 /// The pure-Rust seam behind the [`run_program`] pyfunction: marshal-free, so
 /// the FFI marshaling itself stays a thin layer and this core is unit-testable
 /// without a Python interpreter.
@@ -782,6 +815,7 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ping, m)?)?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(run_program, m)?)?;
+    m.add_function(wrap_pyfunction!(run_program_drawings, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_inputs, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_batch, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_batch_parallel, m)?)?;

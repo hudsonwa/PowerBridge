@@ -13,6 +13,10 @@
   `ground_truth/drawing/` holds seven drawing cases; the tests run each one on
   synthetic bars, and compare against MultiCharts readbacks only when you
   supply your own copy (it is licensed and not in the repository).
+- The native kernel records drawing objects too, so `--drawings` no longer
+  forces the Python path. Its dump matches the Python one except for
+  `producer.kind`. Drawing calls the kernel does not implement fall back to
+  Python. Anchor prices in the dump are now stored as float32 on both paths.
 - `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
   run with an error when drawings are not being recorded, and `TL_GetValue`
   always stops, since its interpolation is not measured.

@@ -31,6 +31,14 @@ not in the repository; `ground_truth/drawing/README.md` says where to put
 your own copy. Without it the corpus tests skip and the rest run on
 synthetic bars.
 
+`use_native=True` records the same objects in the native kernel.
+`producer.kind` is then `pb-native` instead of `pb-python`; that is the only
+difference in the envelope, since both paths build the dump with the same
+`build_dump` helper. A drawing or colour call the kernel does not implement
+is refused, and `run_oracle` falls back to Python. The kernel never skips a
+prefix of a program that draws, because drawing calls are side effects even
+on bars that cannot trade.
+
 Comparison (`tests/_drawing_diff.py`): counts, seq, type, bar keys,
 `price_ticks`, ints, bools and text are exact. Computed values use the
 float32 rule `|a-b| <= 1e-6 + 1e-6·|b|`. An unknown schema or version, a
