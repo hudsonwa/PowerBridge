@@ -79,6 +79,7 @@ from pl_transpiler.runtime.accel import accel_available, warn_python_path
 from pl_transpiler.runtime.accel import (
     AccelRefused,
     AccelUnavailable,
+    explain_native,
     run_native,
     run_native_drawings,
 )
@@ -649,6 +650,11 @@ def _build_parser():
     ap.add_argument("--digest-v1", dest="digest_v1", action="store_true",
                     help="emit the pre-v2 digest (for pinned v1 digests): no "
                          "reversal open legs or risk exits. Python path only.")
+    ap.add_argument("--explain-native", dest="explain_native", action="store_true",
+                    help="list every construct the native kernel would refuse in "
+                         "EL_FILE, one 'kind name line' per line sorted by line, "
+                         "then exit 0 without running anything (no bars CSV "
+                         "needed). Exits 2 if the native kernel is not installed.")
     _cli.add_version(ap, "pl_oracle")
     return ap
 
@@ -687,7 +693,25 @@ def _drawing_tape_arg(args):
     return {"name": name, "sha256": sha}
 
 
+def _explain_native(el_file):
+    """``--explain-native``: print each native refusal, run nothing."""
+    el_source = open(el_file, encoding="utf-8").read()
+    try:
+        refusals = explain_native(el_source)
+    except AccelUnavailable as exc:
+        print(f"pl_oracle: {exc}", file=sys.stderr)
+        return 2
+    if not refusals:
+        print("native kernel can run this program")
+        return 0
+    for refusal in sorted(refusals, key=lambda r: r.line):
+        print(f"{refusal.kind} {refusal.name} {refusal.line}")
+    return 0
+
+
 def _main(ap, args):
+    if args.explain_native:
+        return _explain_native(args.el_file)
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_oracle <el_file> <bars_csv> ...")
     if args.drawings_json and not args.drawing_case:
