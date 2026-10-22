@@ -640,3 +640,13 @@ BUILTIN_FUNC_MAP = {
     'yearfromdatetime': 'pl_yearfromdatetime',
     'yesterday': 'pl_yesterday',
 }
+
+# Instrument properties read from the run's InstrumentConfig (via kwargs).
+_SYMBOL_INFO_KEYWORDS = frozenset((
+    'symbol', 'symbolname', 'description', 'category',
+    'symbolcurrencycode', 'expirationdate',
+))
+
+# EL price-series abbreviations (see Parser.parse_primary).
+_PRICE_ABBREVIATIONS = {'o': 'open', 'h': 'high', 'l': 'low', 'c': 'close',
+                        'v': 'volume', 'i': 'openint'}
