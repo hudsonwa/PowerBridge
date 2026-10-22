@@ -151,6 +151,12 @@ impl TraceCollector {
         var_types: Vec<TraceType>,
         input_types: Vec<TraceType>,
     ) -> Result<Self, KernelError> {
+        if let Some(array) = program.arrays.first() {
+            return Err(KernelError::unsupported(format!(
+                "trace of array {}: array columns are not in the native trace yet",
+                array.name
+            )));
+        }
         let known = |name: &str, ty: TraceType| {
             ty.map_err(|why| KernelError::unsupported(format!("trace of {name}: {why}")))
         };

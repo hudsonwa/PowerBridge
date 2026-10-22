@@ -99,6 +99,16 @@ slowdowns of the Python path, issue #4 and a lagged function call such as
 function call yet; such a strategy runs on the Python path. Measure your own
 strategy before relying on a ratio.
 
+Arrays and loops run natively when they are numeric or true/false arrays with
+literal sizes and `for` loops; the kernel copies the Python path's list
+semantics, including its quirks (a negative index counts from the end, an
+index past the end stops the run). String arrays, `Array_Sort`,
+`Array_GetType`, `VarianceArray`, `Array_Compare`, `while` / `repeat` loops and
+a typed trace of a program with arrays are refused and run on the Python path.
+On Python 3.12 and later `Array_Sum` adds floats the way that Python's `sum()`
+does; when the kernel cannot tell whether an element is an int or a float
+there, it refuses.
+
 ## Fallback and platforms
 
 **Absent extra = identical behaviour.** Without the module, the auditable

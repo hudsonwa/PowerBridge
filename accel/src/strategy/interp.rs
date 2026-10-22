@@ -31,8 +31,10 @@ use crate::types::{
     SkipPlan, StrategyOutput,
 };
 
+use super::arrays::{py_index_int, ElArray};
 use super::compile::{
-    compile, Binop, CallOp, Cmp, Instr, McKw, PositionKw, Program, RiskOp, Series, SeriesSrc, Unary,
+    compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PositionKw, Program, RiskOp, Series,
+    SeriesSrc, Unary,
 };
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
 use super::pynum::{binop_num, py_extreme, py_int, py_sign, py_square};
@@ -76,7 +78,19 @@ pub(crate) struct Interpreter<'a> {
     risk: RiskUpdate,
     stack: Vec<Value>,
     drawings: DrawingStore,
+    /// Declared arrays. Allocated once and never reset between bars (the
+    /// Python `_state` keeps the same list); a new interpreter starts fresh.
+    arrays: Vec<ElArray>,
+    /// `(current, end)` of each `for` loop.
+    loops: Vec<(i64, i64)>,
+    /// Type of the element the last `ArrayGet` read (for `ElemKind::Read`).
+    last_read_kind: ElemKind,
 }
+
+/// Largest `for` bound the kernel runs. Python keeps the loop variable as an
+/// `int` while the kernel reloads it through f32 on the next bar, which is
+/// exact only up to 2^24.
+const MAX_FOR_BOUND: i64 = 1 << 24;
 
 impl<'a> Interpreter<'a> {
     pub(crate) fn new(
@@ -110,6 +124,8 @@ impl<'a> Interpreter<'a> {
         let n_vars = program.var_names.len();
         let spec = specialize_with(&program, keep_stores);
         let specialize_stats = spec.stats;
+        let arrays = program.arrays.iter().map(ElArray::new).collect();
+        let loops = vec![(0, 0); program.n_loops];
         let mut interp = Self {
             var_numeric: program.var_numeric.clone(),
             var_double_accum: program.var_double_accum.clone(),
@@ -152,6 +168,9 @@ impl<'a> Interpreter<'a> {
             risk: RiskUpdate::default(),
             stack: Vec::new(),
             drawings: DrawingStore::new(),
+            arrays,
+            loops,
+            last_read_kind: ElemKind::Unknown,
         };
         interp.seed_state();
         Ok(interp)
@@ -516,6 +535,73 @@ impl<'a> Interpreter<'a> {
                     }
                     RiskOp::Noop => {}
                 },
+                Instr::ArrayGet(slot) => {
+                    let index = self.stack.pop().unwrap();
+                    let (value, kind) = self.arrays[*slot].get(&index)?;
+                    self.last_read_kind = kind;
+                    self.stack.push(value);
+                }
+                Instr::ArraySet { slot, kind } => {
+                    let index = self.stack.pop().unwrap();
+                    let value = self.stack.pop().unwrap();
+                    let kind = self.write_kind(*kind);
+                    self.arrays[*slot].set(&index, value, kind)?;
+                }
+                Instr::ArrayCall { op, slot, kind } => {
+                    let at = self.stack.len() - usize::from(op.argc());
+                    let args = self.stack.split_off(at);
+                    let kind = self.write_kind(*kind);
+                    let value = self.arrays[*slot].call(*op, &args, kind)?;
+                    self.stack.push(value);
+                }
+                Instr::ArrayCopy { src, dst } => {
+                    // pl_array_copy: the chunk is read before the write, so a
+                    // copy within one array behaves as if through a buffer.
+                    let n = self.stack.pop().unwrap();
+                    let di = self.stack.pop().unwrap();
+                    let si = self.stack.pop().unwrap();
+                    let dst_len = self.arrays[*dst].len();
+                    if let Some(chunk) = self.arrays[*src].copy_chunk(dst_len, &si, &di, &n)? {
+                        self.arrays[*dst].write_chunk(chunk);
+                    }
+                    self.stack.push(Value::Num(0.0));
+                }
+                Instr::ForInit {
+                    slot,
+                    lp,
+                    downto,
+                    exit,
+                } => {
+                    let end = self.stack.pop().unwrap();
+                    let start = self.stack.pop().unwrap();
+                    let start = py_index_int(&start, "for-loop start")?;
+                    let end = py_index_int(&end, "for-loop end")?;
+                    if start.abs() > MAX_FOR_BOUND || end.abs() > MAX_FOR_BOUND {
+                        return Err(KernelError::unsupported(format!(
+                            "for-loop bounds {start}..{end} beyond ±2^24"
+                        )));
+                    }
+                    if (*downto && start < end) || (!*downto && start > end) {
+                        pc = *exit;
+                    } else {
+                        self.loops[*lp] = (start, end);
+                        self.vars[*slot] = Some(Value::Num(start as f64));
+                    }
+                }
+                Instr::ForNext {
+                    slot,
+                    lp,
+                    downto,
+                    body,
+                } => {
+                    let (current, end) = self.loops[*lp];
+                    if current != end {
+                        let next = if *downto { current - 1 } else { current + 1 };
+                        self.loops[*lp].0 = next;
+                        self.vars[*slot] = Some(Value::Num(next as f64));
+                        pc = *body;
+                    }
+                }
                 Instr::Nop => {}
                 Instr::BinopC { op, rhs } => {
                     let left = pop_num(&mut self.stack);
@@ -644,6 +730,15 @@ impl<'a> Interpreter<'a> {
             }
         }
         Ok(())
+    }
+
+    /// The stored type of a written value: `Read` takes the element read last.
+    fn write_kind(&self, kind: ElemKind) -> ElemKind {
+        if kind == ElemKind::Read {
+            self.last_read_kind
+        } else {
+            kind
+        }
     }
 
     #[inline(always)]

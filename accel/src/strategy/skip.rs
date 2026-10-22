@@ -56,6 +56,13 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
             "drawing or colour calls have side effects; cannot skip a prefix",
         );
     }
+    // Arrays keep state across bars that the proof does not model, and an
+    // out-of-range element access fails the run even on a bar that cannot
+    // trade; loops jump backwards. Evaluate every bar (checked before the
+    // "no orders" shortcut, which would skip those failures too).
+    if !program.arrays.is_empty() || program.n_loops > 0 {
+        return SkipPlan::unproven("arrays or for loops; cannot skip a prefix");
+    }
     // A skipped bar is never evaluated, so an operation the Python path raises
     // on (a zero divisor, IntPortion of a non-finite value, ...) would go
     // unreported there. Evaluate every bar unless each one is proven safe.
@@ -867,6 +874,13 @@ fn interpret_bar(
                 order = true;
                 succs.push((pc + 1, Frame { stack, vars }));
             }
+            // `plan` refuses array and loop programs before getting here.
+            Instr::ArrayGet(_)
+            | Instr::ArraySet { .. }
+            | Instr::ArrayCall { .. }
+            | Instr::ArrayCopy { .. }
+            | Instr::ForInit { .. }
+            | Instr::ForNext { .. } => failed = true,
         }
         for (next, nxt) in succs {
             if next > n {

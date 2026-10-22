@@ -157,7 +157,8 @@ fn divides_unsafely(instr: &Instr, prev: Option<&Instr>, inputs: &[Value]) -> bo
 /// Whether the one-value operand ending just before `pc` may read a variable.
 /// Bar data, literals and inputs are finite, and nothing below `pc` can make
 /// them NaN or infinite unless an unsafe division (checked separately) does.
-/// A variable can grow without bound across bars (`C = Square(C)`), so it
+/// A variable or array element can grow without bound across bars
+/// (`C = Square(C)`), so it
 /// counts as unsafe, as does an operand this walk cannot delimit.
 fn operand_reads_var(instrs: &[Instr], pc: usize) -> bool {
     let mut need = 1;
@@ -179,6 +180,8 @@ fn operand_reads_var(instrs: &[Instr], pc: usize) -> bool {
                 | Instr::VarBinopCLhs { .. }
                 | Instr::VarCompareC { .. }
                 | Instr::VarCompareCLhs { .. }
+                | Instr::ArrayGet(_)
+                | Instr::ArrayCall { .. }
         ) {
             return true;
         }
