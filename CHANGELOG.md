@@ -2,10 +2,10 @@
 
 ## Unreleased
 
+## 0.7.0 — 2026-10-22
+
 ### Added
 
-- `docs/DESIGN.md`: design notes on the architecture, the main decisions and their
-  trade-offs, how verification works (public and private), and known limitations.
 - Drawing dump: `run_oracle(..., drawings=True)` and `pl_run` / `pl_oracle
   --drawings` record trend lines, arrows and text objects as a versioned JSON
   dump (`docs/DRAWING_DUMP.md`, schema in `ground_truth/drawing/schema/`).
@@ -16,88 +16,87 @@
 - The native kernel records drawing objects too, so `--drawings` no longer
   forces the Python path. Its dump matches the Python one except for
   `producer.kind`. Drawing calls the kernel does not implement fall back to
-  Python. Anchor prices in the dump are now stored as float32 on both paths.
+  Python. Anchor prices in the dump are stored as float32 on both paths.
+- `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
+  run with an error when drawings are not being recorded, and `TL_GetValue`
+  always stops, since its interpolation is not measured.
 - `#BeginCmtry … #End` blocks parse. PowerBridge has no commentary-on mode, so
   the block is kept in the AST (and written back by the EL emitter) but not run,
   on both the Python and native paths. `Commentary` and `CommentaryCL` accept
   several arguments, joined into one message.
-- Indexed Data2 spellings (`Close[N] of Data2`, `Close of Data2[N]`,
-  `Close Data2`) are covered by tests that check they fail loudly rather than
-  read Data1.
-- `TL_Get*`, `Arw_Get*` and `Text_Get*` read the recorded object. They stop the
-  run with an error when drawings are not being recorded, and `TL_GetValue`
-  always stops, since its interpolation is not measured.
-- `docs/reference/`: a keyword reference for the 257 EasyLanguage builtins PowerBridge
-  supports or has evidence for, grouped by topic. Each entry shows the catalog's kind,
-  return type, arity and verification level, the run status observed when PowerBridge
-  runs it, a short description and, for many, an example. `tools/gen_reference.py`
-  builds the pages from the catalog and `docs/reference/_notes.json`; a test runs every
-  example and fails when the pages are stale.
-- CONTRIBUTING: where reference and catalog facts must come from (PowerBridge's
-  code, tests and observed behaviour, never vendor documentation).
+- `A crosses over B` and `A crosses under B` are accepted as synonyms for
+  `crosses above` and `crosses below`, and produce the same code. They used to
+  fail with a misleading "expected 'then'" error.
+- `N Point` / `N Points` in an expression means N minimum price moves
+  (N * MinMove / PriceScale from the instrument config; NQ: 0.25), so
+  `Buy next bar at Highest(High, 5) + 1 Point Stop;` now runs on the Python
+  path. The native kernel has no MinMove/PriceScale value and refuses such
+  programs loudly.
+- Tests for indexed Data2 spellings (`Close[N] of Data2`, `Close of Data2[N]`,
+  `Close Data2`) check that they fail loudly rather than read Data1.
+- The EL keyword catalog records how much evidence backs each keyword. Each line
+  of `pl_signatures.jsonl` gains `kind` (`syntax` for language and filler words
+  such as `If` or `Shares`, `builtin` otherwise), `arg_types`, `max_arity`,
+  `verification` and `verified_by`, all generated from PowerBridge's own code and
+  tests by `tools/gen_catalog_fields.py` (a test fails if the shipped file is
+  stale and prints the regenerate command). `verification` is `n/a` for syntax
+  words; for builtins it is `verified:capture-strategy` (used by a strategy whose
+  per-bar outputs (required columns) match a MultiCharts capture in
+  `tests/verify_all.py`; the captures are not public, so that check skips in a
+  clone), `verified:test` or `documented-unverified`. `max_arity` and
+  `arg_types` are filled only where PowerBridge itself defines an arity and are
+  `null` otherwise. `catalog.kind()`, `catalog.arg_types()`,
+  `catalog.max_arity()` and `catalog.verification()` read them,
+  `catalog.coverage()` counts keywords per kind and level, and
+  `pl_signatures.schema.json` describes a record. Existing fields are unchanged.
+- The keyword catalog fills more gaps, each checked by running PowerBridge
+  (`tests/test_catalog_returns.py` runs every keyword it fixes and compares the
+  value type with `catalog.returns()`). The 16 color constants and
+  `OpenEntriesCount` now return `numeric` instead of `unknown`, and 84 builtins
+  that were on `mc_verified_builtins.txt` without a signature record (such as
+  `CurrentBar`, `Symbol`, the `Array_*` helpers and the session-time words) gain
+  one. Unknown returns drop from 184 to 171; the rest are declaration and type
+  words, order statements, runtime stubs and the `Array_Set*Value` setters, whose
+  return value PowerBridge's own code marks as unsettled, so they stay
+  `unknown`. Three verified tokens still have no record, by design: `Abort` (a
+  statement), and `CommandLine` and `EntryName` (not implemented). A test pins
+  these counts.
+- `docs/reference/`: a keyword reference for the 257 EasyLanguage builtins
+  PowerBridge supports or has evidence for, grouped by topic. Each entry shows
+  the catalog's kind, return type, arity and verification level, the run status
+  observed when PowerBridge runs it, a short description and, for many, an
+  example. `tools/gen_reference.py` builds the pages from the catalog and
+  `docs/reference/_notes.json`; a test runs every example and fails when the
+  pages are stale.
 - `docs/API.md`: a reference for the public library functions and the CLIs,
   with runnable examples. `pl_transpiler.__all__` lists the public names, and
   `run_oracle`, `load_bars`, `load_config_file`, `catalog` and
   `UnimplementedKeywordError` now import from `pl_transpiler` directly.
-- The EL keyword catalog records how much evidence backs each keyword. Each line of
-  `pl_signatures.jsonl` gains `kind` (`syntax` for language and filler words such as
-  `If` or `Shares`, `builtin` otherwise), `arg_types`, `max_arity`, `verification` and
-  `verified_by`, all generated from PowerBridge's own code and tests by
-  `tools/gen_catalog_fields.py` (a test fails if the shipped file is stale and prints
-  the regenerate command). `verification` is `n/a` for syntax words; for builtins it is
-  `verified:capture-strategy` (used by a strategy whose per-bar outputs (required
-  columns) match a MultiCharts capture in `tests/verify_all.py`; the captures are not public, so that
-  check skips in a clone), `verified:test` or `documented-unverified`. `max_arity` and
-  `arg_types` are filled only where PowerBridge itself defines an arity and are `null`
-  otherwise. `catalog.kind()`, `catalog.arg_types()`, `catalog.max_arity()` and
-  `catalog.verification()` read them, `catalog.coverage()` counts keywords per kind and
-  level, and `pl_signatures.schema.json` describes a record. Existing fields are
-  unchanged.
-- The keyword catalog fills more gaps, each checked by running PowerBridge
-  (`tests/test_catalog_returns.py` runs every keyword it fixes and compares the value
-  type with `catalog.returns()`). The 16 color constants and `OpenEntriesCount` now
-  return `numeric` instead of `unknown`, and 84 builtins that were on
-  `mc_verified_builtins.txt` without a signature record (such as `CurrentBar`,
-  `Symbol`, the `Array_*` helpers and the session-time words) gain one. Unknown returns
-  drop from 184 to 171; the rest are declaration and type words, order statements,
-  runtime stubs and the `Array_Set*Value` setters, whose return value PowerBridge's
-  own code marks as unsettled, so they stay `unknown`. Three verified tokens still have no
-  record, by design: `Abort` (a statement), and `CommandLine` and `EntryName` (not
-  implemented). The test pins these counts.
-- `A crosses over B` and `A crosses under B` are accepted as synonyms for
-  `crosses above` and `crosses below`, and produce the same code. They used to fail
-  with a misleading "expected 'then'" error.
-- `N Point` / `N Points` in an expression means N minimum price moves
-  (N * MinMove / PriceScale from the instrument config; NQ: 0.25), so
-  `Buy next bar at Highest(High, 5) + 1 Point Stop;` now runs on the Python path. The
-  native kernel has no MinMove/PriceScale value and refuses such programs loudly.
+- `docs/DESIGN.md`: design notes on the architecture, the main decisions and
+  their trade-offs, how verification works (public and private), and known
+  limitations.
+- CONTRIBUTING: where reference and catalog facts must come from (PowerBridge's
+  code, tests and observed behaviour, never vendor documentation).
 
 ### Changed
 
+- Colour words, `RGB`, `LegacyColorToRGB`, `GradientColor` and the `Tool_*`
+  line styles now use the values measured in MultiCharts (for example Blue is
+  16711680 and Tool_Solid is 1). Colours and calls without a measurement stop
+  with an error instead of returning a guess.
 - `pl_run` and `pl_oracle` print the "powerbridge-accel not installed" note
   only with `-v` / `--verbose` (new on `pl_run`). Notes about an installed
   kernel that refuses a program or has the wrong version still always print.
   The note now names the full docs/ACCEL.md#install URL instead of
   "README#acceleration", which a terminal cannot open.
-- README cut to a pitch, install, a short quickstart and links; the walkthrough, CSV format and engine assumptions moved to `docs/USAGE.md`, the limitations to `docs/LIMITATIONS.md`, and the accel install and benchmarks to `docs/ACCEL.md`.
-- Colour words, `RGB`, `LegacyColorToRGB`, `GradientColor` and the `Tool_*`
-  line styles now use the values measured in MultiCharts (for example Blue is
-  16711680 and Tool_Solid is 1). Colours and calls without a measurement stop
-  with an error instead of returning a guess.
+- The README is cut to a pitch, install, a short quickstart and links; the
+  walkthrough, CSV format and engine assumptions moved to `docs/USAGE.md`, the
+  limitations to `docs/LIMITATIONS.md`, and the accel install and benchmarks to
+  `docs/ACCEL.md`.
 - `Sell` / `BuyToCover ... from entry("X")` that would fill while more than one
   entry is open in that direction now stops the run instead of closing the whole
   position, since the per-entry MultiCharts fills are unverified (#24).
   `--lenient` keeps the old behaviour with a warning; one open entry is unchanged.
-
-### Fixes
-
-- The `docs/USAGE.md` sections "Python (mirror dialect) to EasyLanguage", "Your
-  own data" and "Other instruments" create `out/` themselves, so they no longer
-  fail with FileNotFoundError when run on their own; the mirror section shows
-  `el_emit`'s full output. The docs test now clears `out/` at each section.
-- A stray word after an order price (for example the unsupported `+ 2 Ticks Stop`) is
-  now a syntax error that names that word, instead of an "unimplemented keywords"
-  report that listed the valid `stop` as well.
 
 ### Fixed
 
@@ -109,22 +108,31 @@
   passed those counts to the strategy. They now update on every bar, at the same
   point as `TotalTrades` and `GrossProfit`. The native kernel still refuses these
   words and falls back to the Python engine with a message.
-- `A crosses above B` and `crosses below` on the Python path silently never fired
-  when an operand was not a series: a function call such as `Average(Close, 10)`, a
-  literal, or an offset such as `Close[3]`. Each such operand now keeps its own
-  hidden history, filled at the start of every bar, so the strategy trades exactly as
-  if the operand were first assigned to a variable. `Value1`..`Value99` used directly
-  as an operand also never fired; they now keep their history like a declared
-  variable starting at 0. An operand that can change within the bar (such as
-  `Value1 + 1` or `MarketPosition`) is refused at transpile time, with its line, and the runtime raises instead of returning false when it
-  is handed a single value. The native kernel still refuses these operands and falls
-  back to the Python path with its usual message.
+- `A crosses above B` and `crosses below` on the Python path silently never
+  fired when an operand was not a series: a function call such as
+  `Average(Close, 10)`, a literal, or an offset such as `Close[3]`. Each such
+  operand now keeps its own hidden history, filled at the start of every bar, so
+  the strategy trades exactly as if the operand were first assigned to a
+  variable. `Value1`..`Value99` used directly as an operand also never fired;
+  they now keep their history like a declared variable starting at 0. An operand
+  that can change within the bar (such as `Value1 + 1` or `MarketPosition`) is
+  refused at transpile time, with its line, and the runtime raises instead of
+  returning false when it is handed a single value. The native kernel still
+  refuses these operands and falls back to the Python path with its usual
+  message.
 - `crosses above` / `crosses below` against a constant level now fire. A literal
-  (`X crosses above 0`) was treated as "no series" and never crossed, and a side that
-  is all zeros (a declared `Z(0)`) was skipped as warm-up padding, so the cross never
-  started. Leading zeros are now skipped only on a side that has a nonzero value; the
-  warm-up skip for indicator pairs is unchanged, and so are all existing digests. The
-  native kernel computes crosses the same way.
+  (`X crosses above 0`) was treated as "no series" and never crossed, and a side
+  that is all zeros (a declared `Z(0)`) was skipped as warm-up padding, so the
+  cross never started. Leading zeros are now skipped only on a side that has a
+  nonzero value; the warm-up skip for indicator pairs is unchanged, and so are
+  all existing digests. The native kernel computes crosses the same way.
+- A stray word after an order price (for example the unsupported
+  `+ 2 Ticks Stop`) is now a syntax error that names that word, instead of an
+  "unimplemented keywords" report that listed the valid `stop` as well.
+- The `docs/USAGE.md` sections "Python (mirror dialect) to EasyLanguage", "Your
+  own data" and "Other instruments" create `out/` themselves, so they no longer
+  fail with FileNotFoundError when run on their own; the mirror section shows
+  `el_emit`'s full output. The docs test now clears `out/` at each section.
 
 ## 0.6.0 — 2026-10-21
 
