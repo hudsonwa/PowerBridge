@@ -111,7 +111,7 @@ jobs:
           set -e
           cat gt2.out gt1.out bad.out
           printf '%s\n' \
-            'GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD' \
+            'GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD' \
             'OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).' > want.txt
           head -n 2 gt2.out | diff want.txt -
           test "$rc2" -eq 0
