@@ -382,8 +382,9 @@ A one-line summary (`[pl_oracle] 140 bars, 3 fills, ...`) goes to stderr.
 Python (mirror dialect) → EasyLanguage. A `.py` input is converted; any other
 input is parsed as EL and re-emitted in canonical form. After the EL it
 prints a check of every builtin used against the keyword catalog (names,
-argument counts, return types). `-o FILE` writes the EL to a file instead of
-stdout.
+argument counts, return types, and argument types where the catalog declares a
+verified `numeric` parameter and the argument's type is certain). `-o FILE` writes the EL to a file
+instead of stdout.
 
 ```sh
 pl_transpile --no-persist examples/ma_cross.el -o ma_mirror.py

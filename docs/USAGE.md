@@ -162,9 +162,9 @@ el_emit out/GT2_mirror.py -o out/GT2_from_python.txt
 ```
 
 ```
-out/GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD
+out/GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD
 OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
-NOTE: argument types are not checked; compare them with the keyword's reference page. Compiling in the MultiCharts editor is the final check.
+NOTE: argument types are checked only where the catalog declares a verified numeric parameter and the argument is a literal or a string/true-false variable; compiling in the MultiCharts editor is the final check.
 ```
 
 `el_emit` fails closed: every builtin must be in the shipped list of names
@@ -173,8 +173,18 @@ type. Anything else is reported and the command exits non-zero. For example,
 `Variance` is not on that list yet, so a mirror that calls it is reported as
 NOT-PROVEN and `el_emit` exits 1. The GT1 mirror
 (`ground_truth/GT1_functions_indicators.txt`, which uses `AvgTrueRange`,
-`RateOfChange` and `StandardDev`) passes with 0 NOT-PROVEN. Argument types are not checked; compiling in the MultiCharts editor
-is the final check.
+`RateOfChange` and `StandardDev`) passes with 0 NOT-PROVEN.
+
+Argument types are checked where both sides are certain: the catalog declares
+the parameter `numeric` on a record verified against MultiCharts, and the
+argument is a string literal, `true`/`false`, or a variable declared with a
+string or true/false initial value. A mismatch is reported as ARG-TYPE-BAD
+with the function, the argument position, the expected and found type, and
+the line of the emitted EL, for example
+`line 2: Power argument 2: expected numeric, found string`. Parameters typed
+`any` or unknown, arguments that are expressions, and `documented-unverified`
+records are skipped, never rejected. Compiling in the MultiCharts editor is
+the final check.
 
 ## As a library
 

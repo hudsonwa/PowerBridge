@@ -40,7 +40,8 @@ GT1 = os.path.join(REPO, 'ground_truth', 'GT1_functions_indicators.txt')
 GT2 = os.path.join(REPO, 'ground_truth', 'GT2_strategy_orders_position.txt')
 UNPROVEN_EL = "Vars: v(0);\nv = Variance(Close, 10, 1);\nPlot1(v);\n"
 GT2_EXPECTED = (
-    "GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD\n"
+    "GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD"
+    " | 0 ARG-TYPE-BAD\n"
     "OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).\n")
 
 

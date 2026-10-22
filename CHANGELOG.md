@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- `el_emit` / `mc_ground_check` check argument types (#7): a string or
+  true/false argument where the catalog declares a verified `numeric` parameter
+  is reported as ARG-TYPE-BAD with the function, argument position, expected
+  and found type, and line. `documented-unverified` records are skipped.
+
 ## 0.7.0 — 2026-10-22
 
 ### Added
