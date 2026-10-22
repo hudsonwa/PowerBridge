@@ -76,6 +76,44 @@ def _collect_declared(ast):
     return declared
 
 
+def add_scratch_decls(ast):
+    """Declare the undeclared `Value0..99` / `Condition0..99` the program uses.
+
+    EL predeclares them: numeric (`ValueN`) or boolean (`ConditionN`) variables
+    that start at 0 / false and keep their value from bar to bar, exactly as if
+    the program had `Vars: ValueN(0), ConditionN(false);`. Returns `ast` itself
+    when nothing is missing, else a shallow copy whose body starts with that
+    `var_decl` (names sorted). A for-loop counter still needs the declaration.
+    """
+    declared, used = set(), set()
+
+    def walk(n):
+        if isinstance(n, dict):
+            t = n.get('type')
+            if t in ('var_decl', 'input_decl', 'array_decl'):
+                declared.update(d['name'] for d in n.get('decls', []))
+            elif t == 'ident' and n.get('name') in _SCRATCH_VARS:
+                used.add(n['name'])
+            elif t == 'for' and n.get('var') in _SCRATCH_VARS:
+                used.add(n['var'])
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for x in n:
+                walk(x)
+
+    walk(ast.get('body', []))
+    missing = sorted(used - declared)
+    if not missing:
+        return ast
+    decls = [{'name': name,
+              'init': ({'type': 'number', 'value': '0'}
+                       if name.startswith('value')
+                       else {'type': 'boolean', 'value': False})}
+             for name in missing]
+    return {**ast, 'body': [{'type': 'var_decl', 'decls': decls}, *ast['body']]}
+
+
 def _is_known_name(name, declared):
     """True if `name` is a legitimate identifier (declared or a known builtin)."""
     if name in declared:

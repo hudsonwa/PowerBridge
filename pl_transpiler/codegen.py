@@ -37,11 +37,8 @@ from .codegen_util import (  # noqa: F401
     _f32_literal_const,
 )
 from .codegen_expr import _ExprMixin
+from .semantic import add_scratch_decls
 from .codegen_stmt import _StmtMixin
-
-# EL numeric scratch variables, usable without a Vars: declaration.
-_VALUE_SCRATCH = frozenset(f"value{i}" for i in range(100))
-
 
 class CodeGen(_ExprMixin, _StmtMixin):
     def __init__(self, trace=False, partial=False, persist=None):
@@ -162,16 +159,6 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     if name:
                         self._trace_vars.add(name)
                         self._array_vars.add(name)
-        # A ValueN scratch variable used as a crosses operand needs its bar
-        # history, so treat it like `Vars: ValueN(0);` (EL scratch variables
-        # keep their value across bars and start at zero).
-        if self.persist:
-            for name in sorted(self._crossed_scratch_vars(node['body'])):
-                self._trace_vars.add(name)
-                self._stateful_vars.add(name)
-                self._numeric_vars.add(name)
-                self._state_inits[name] = '0'
-
         # Detect self-referential numeric accumulators: assignments of the form
         # `Var = ...Var...` (Var referenced on its own RHS, as ident or Var[n]).
         # EL/PowerLanguage numeric variables are DOUBLE precision; an unbounded
@@ -555,27 +542,6 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 and (node.get('name') in _SERIES_PARAMS
                      or node.get('name') in self._stateful_vars))
 
-    def _crossed_scratch_vars(self, node, out=None):
-        """Undeclared Value0..Value99 names used directly as crosses operands."""
-        if out is None:
-            out = set()
-        if isinstance(node, list):
-            for n in node:
-                self._crossed_scratch_vars(n, out)
-        elif isinstance(node, dict):
-            if (node.get('type') == 'call'
-                    and node.get('name') in ('crossesabove', 'crossesbelow')):
-                for arg in node.get('args') or []:
-                    name = arg.get('name') if isinstance(arg, dict) else None
-                    if (arg.get('type') == 'ident' and name in _VALUE_SCRATCH
-                            and name not in self._stateful_vars
-                            and name not in self._declared_all):
-                        out.add(name)
-            for v in node.values():
-                if isinstance(v, (dict, list)):
-                    self._crossed_scratch_vars(v, out)
-        return out
-
     def _is_bar_pure(self, node):
         """True if an expression's value depends only on bar data and inputs,
         so evaluating it at the top of the bar gives the value it has where it
@@ -829,4 +795,4 @@ def generate(ast, trace=False, partial=False, persist=None):
     stubs (pl_partial_stub) under a NOT-FAITHFUL watermark instead of raising at
     transpile time; the strict default (partial=False) raises."""
     cg = CodeGen(trace=trace, partial=partial, persist=persist)
-    return cg.gen_program(ast)
+    return cg.gen_program(add_scratch_decls(ast))
