@@ -24,6 +24,7 @@
 //! The `Array_*` functions are ports of `_rt_arrays_dates.py` /
 //! `_rt_builtins_az.py` / `_rt_datetime.py`; each method names its source.
 
+use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::types::KernelError;
@@ -62,7 +63,9 @@ pub(crate) struct ElArray {
 }
 
 /// Python `int(x)` for a value the kernel holds (truncates toward zero).
-pub(crate) fn py_index_int(value: &Value, what: &str) -> Result<i64, KernelError> {
+/// `what` names the index in errors; it is only formatted on failure, so
+/// hot callers pass `format_args!` instead of building a `String`.
+pub(crate) fn py_index_int(value: &Value, what: impl fmt::Display) -> Result<i64, KernelError> {
     match value {
         Value::Bool(b) => Ok(i64::from(*b)),
         Value::Num(n) if n.is_nan() => Err(KernelError::strategy(format!(
@@ -227,7 +230,7 @@ impl ElArray {
 
     /// `A[i]` (`A[-(int(i) + 1)]`), with the element's type.
     pub(crate) fn get(&self, index: &Value) -> Result<(Value, ElemKind), KernelError> {
-        let i = py_index_int(index, &format!("index of {}", self.name))?;
+        let i = py_index_int(index, format_args!("index of {}", self.name))?;
         let pos = wrapped_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
         Ok((self.items[pos].clone(), self.kinds[pos]))
     }
@@ -245,7 +248,7 @@ impl ElArray {
                 self.name
             )));
         }
-        let i = py_index_int(index, &format!("index of {}", self.name))?;
+        let i = py_index_int(index, format_args!("index of {}", self.name))?;
         let pos = wrapped_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
         self.items[pos] = value;
         self.kinds[pos] = kind;
@@ -266,7 +269,7 @@ impl ElArray {
             }
             _ => {}
         }
-        let i = py_index_int(index, &format!("Array_*Value index into {}", self.name))?;
+        let i = py_index_int(index, format_args!("Array_*Value index into {}", self.name))?;
         Ok(usize::try_from(i).ok().filter(|i| *i < self.items.len()))
     }
 

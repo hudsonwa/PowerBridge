@@ -335,3 +335,14 @@ def test_python_errors_in_loops_and_arrays_refuse(name, bars):
         run_oracle(source, bars, NQ)
     with pytest.raises(AccelRefused, match="the Python path raises"):
         run_native(source, bars, NQ)
+
+
+def test_arrays_and_loops_match_python_on_a_long_random_walk():
+    """20k bars: arrays and loops stay in step with Python over a long tape."""
+    from tests.test_accel_lookback_precision import random_walk
+
+    long_bars = random_walk(20000, seed=7)
+    source = LOOP_ARITHMETIC
+    fills, sha = native_sha(source, long_bars)
+    assert len(fills) > 100, "the program must trade on the long tape"
+    assert sha == run_oracle(source, long_bars, NQ)["sha256"]
