@@ -110,6 +110,7 @@ pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
 ```
 
 ```
+note: pl_oracle: strategy reads past bars and --max-bars-back is 0; fills may differ from MultiCharts during warm-up (set --max-bars-back N, or -q to hide this)
 powerbridge-trade-digest v2
 fills: 3
 round_turns: 1
@@ -162,13 +163,11 @@ To write a strategy by hand instead of transpiling one, see
 [Writing a strategy in Python](docs/PYTHON_STRATEGIES.md): the dialect from
 scratch, with a worked example in `examples/hand_written.py`.
 
-**Warm-up differs from MultiCharts by default.** PowerBridge evaluates every
-bar from bar 1, so `Average(Close, 21)` returns 0 for the first 20 bars;
-MultiCharts skips its MaxBarsBack bars (default 50) instead. Pass
-`--max-bars-back 50` (or your chart's value) to `pl_oracle` / `pl_run` to
-match. Without it, both print the `note:` above on stderr when a strategy reads
-past bars (or the `lookback past available history` warning instead, when
-that applies); `-q` hides only the note. The note never changes the output on stdout.
+**Warm-up differs from MultiCharts by default:** pass `--max-bars-back 50` (or
+your chart's value) to `pl_oracle` / `pl_run` to match MultiCharts, which is
+what the stderr `note:` above suggests. [Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback)
+explains why and what the note means.
+
 The [usage guide](docs/USAGE.md) walks through each step in detail.
 
 ## Acceleration

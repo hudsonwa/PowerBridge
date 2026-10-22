@@ -335,6 +335,16 @@ MarketPosition,NetProfit
 The trade list (and so the `pl_oracle` digest) does not depend on the point
 value; profit figures do.
 
+## Warm-up and MaxBarsBack
+
+PowerBridge evaluates every bar from bar 1, so `Average(Close, 21)` returns 0
+for the first 20 bars; MultiCharts skips its MaxBarsBack bars (default 50)
+instead. Pass `--max-bars-back 50` (or your chart's value) to `pl_oracle` /
+`pl_run` to match. Without it, both print a `note:` on stderr when a strategy
+reads past bars (or the `lookback past available history` warning instead,
+when that applies); `-q` hides only the note. The note never changes the
+output on stdout.
+
 ## What the engine assumes
 
 These hold whatever the config:
