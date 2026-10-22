@@ -9,6 +9,13 @@
   is reported as ARG-TYPE-BAD with the function, argument position, expected
   and found type, and line. `documented-unverified` records are skipped.
 
+### Fixed
+
+- The native typed trace (`run_native_trace`) now prints exactly what the
+  Python trace prints for every program the kernel runs: inputs are columns,
+  variables nothing reads keep their values, and ints print as ints. A program
+  whose int/float/bool types depend on the run is refused instead.
+
 ## 0.7.0 — 2026-10-22
 
 ### Added
