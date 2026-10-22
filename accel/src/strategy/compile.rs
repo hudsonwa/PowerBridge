@@ -526,10 +526,90 @@ pub(crate) fn compile(
     compiler.collect_decls(&body, input_overrides)?;
     compiler.collect_double_accums(&body);
     compiler.collect_var_kinds(&body, decl_inits(&body)?);
-    for stmt in &body {
-        compiler.compile_stmt(stmt)?;
-    }
+    compiler.compile_body(&body)?;
     Ok(compiler.finish())
+}
+
+/// One construct the native compiler refuses: the source line of the
+/// enclosing statement (0 when the IR carries none) and the refusal message,
+/// exactly as a plain [`compile`] would report it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Refusal {
+    pub(crate) line: i64,
+    pub(crate) message: String,
+}
+
+impl Refusal {
+    /// A coarse `(kind, name)` for the refusal: kind is one of `function`,
+    /// `statement`, `order`, `variable` or `expression`.
+    pub(crate) fn kind_and_name(&self) -> (&'static str, String) {
+        let detail = self
+            .message
+            .strip_prefix("unsupported native construct: ")
+            .unwrap_or(&self.message);
+        let quoted = detail
+            .split('"')
+            .nth(1)
+            .filter(|_| detail.matches('"').count() >= 2)
+            .map(str::to_string);
+        let word = |n: usize| {
+            detail
+                .split_whitespace()
+                .nth(n)
+                .unwrap_or(detail)
+                .to_string()
+        };
+        let named = |n: usize| quoted.clone().unwrap_or_else(|| word(n));
+        let statement = [
+            ("while loops", "while"),
+            ("repeat-until loops", "repeat_until"),
+            ("switch", "switch"),
+            ("abort", "abort"),
+            ("break outside a for loop", "break"),
+            ("continue outside a for loop", "continue"),
+        ];
+        if let Some((_, name)) = statement.iter().find(|(msg, _)| *msg == detail) {
+            return ("statement", (*name).to_string());
+        }
+        if detail.starts_with("statement type ") {
+            ("statement", named(2))
+        } else if detail.starts_with("array function ") {
+            ("function", word(2))
+        } else if detail.starts_with("function ") || detail.starts_with("risk function ") {
+            ("function", named(1))
+        } else if detail.starts_with("order ") || detail.starts_with("bar_timing ") {
+            ("order", named(1))
+        } else if detail.starts_with("var ") || detail.starts_with("array ") {
+            ("variable", word(1))
+        } else if detail.starts_with("Data2-tied variable ") {
+            ("variable", word(2))
+        } else if detail == "string arrays" {
+            ("variable", "string array".to_string())
+        } else {
+            ("expression", quoted.unwrap_or_else(|| detail.to_string()))
+        }
+    }
+}
+
+/// Every construct [`compile`] would refuse in `ast`, in compile order.
+///
+/// The compiler keeps going after a refusal: a refused statement is skipped
+/// (its nested statements are still checked) and a refused declaration still
+/// gets its slot, so later uses are not reported again. The first entry is
+/// the refusal a plain [`compile`] returns. Malformed IR (an `input` error)
+/// is still returned as an error.
+pub(crate) fn explain(
+    ast: &Json,
+    input_overrides: &HashMap<String, Value>,
+) -> Result<Vec<Refusal>, KernelError> {
+    let body = body_of(ast)?.to_vec();
+    let mut compiler = Compiler::new();
+    compiler.refusals = Some(Vec::new());
+    compiler.collect_decls(&body, input_overrides)?;
+    compiler.collect_double_accums(&body);
+    compiler.collect_var_kinds(&body, decl_inits(&body)?);
+    compiler.compile_body(&body)?;
+    Ok(compiler.refusals.unwrap_or_default())
 }
 
 /// Python trace types of `program`'s variables and inputs, in slot order.
@@ -604,6 +684,11 @@ struct Compiler {
     /// Variables Python seeds and assigns through `f32()`, so always a
     /// `float`: a plain number init, not an accumulator, not a loop variable.
     float_vars: HashSet<String>,
+    /// `Some` in [`explain`] mode: refusals are recorded here and compiling
+    /// continues. `None` (a plain [`compile`]): the first refusal is returned.
+    refusals: Option<Vec<Refusal>>,
+    /// Source line of the statement being compiled (`_line`, 0 if absent).
+    line: i64,
 }
 
 #[derive(Default)]
@@ -636,7 +721,46 @@ impl Compiler {
             int_inputs: HashSet::new(),
             int_vars: HashSet::new(),
             float_vars: HashSet::new(),
+            refusals: None,
+            line: 0,
         }
+    }
+
+    /// Pass `result` through, or, in [`explain`] mode, record an
+    /// `unsupported` refusal at the current line and carry on.
+    fn refuse_or(&mut self, result: Result<(), KernelError>) -> Result<(), KernelError> {
+        match (result, self.refusals.as_mut()) {
+            (Err(error), Some(refusals))
+                if !error.to_string().starts_with("invalid accel input:") =>
+            {
+                refusals.push(Refusal {
+                    line: self.line,
+                    message: error.to_string(),
+                });
+                Ok(())
+            }
+            (result, _) => result,
+        }
+    }
+
+    /// Set the current line from `stmt`'s `_line`, returning the previous one.
+    fn enter_line(&mut self, stmt: &Json) -> i64 {
+        let previous = self.line;
+        if let Some(line) = stmt.get("_line").and_then(Json::as_i64) {
+            self.line = line;
+        }
+        previous
+    }
+
+    fn compile_body(&mut self, stmts: &[Json]) -> Result<(), KernelError> {
+        for stmt in stmts {
+            let previous = self.enter_line(stmt);
+            let result = self.compile_stmt(stmt);
+            let result = self.refuse_or(result);
+            self.line = previous;
+            result?;
+        }
+        Ok(())
     }
 
     fn finish(self) -> Program {
@@ -710,65 +834,104 @@ impl Compiler {
                     }
                 }
                 Some("var_decl") => {
+                    let previous = self.enter_line(stmt);
                     for decl in decls_of(stmt)? {
-                        let name = decl_name(decl)?.to_string();
-                        if decl.get("data_ref").is_some_and(|v| !v.is_null()) {
-                            return Err(KernelError::unsupported(format!(
-                                "Data2-tied variable {name}"
-                            )));
-                        }
-                        let init = decl
-                            .get("init")
-                            .ok_or_else(|| KernelError::input(format!("var {name} has no init")))?;
-                        let init_ty = node_type(init);
-                        match init_ty {
-                            Some("number") => {
-                                self.numeric_vars.insert(name.clone());
-                            }
-                            Some("boolean") | Some("string") | Some("unaryop") => {}
-                            other => {
-                                return Err(KernelError::unsupported(format!(
-                                    "var {name} init type {other:?}"
-                                )));
+                        let result = self.declare_var(decl);
+                        if result.is_err() && self.refusals.is_some() {
+                            // Keep the slot so later uses are not refused too.
+                            let name = decl_name(decl)?.to_string();
+                            if !self.var_slots.contains_key(&name) {
+                                self.var_slots.insert(name.clone(), self.var_names.len());
+                                self.var_names.push(name.clone());
+                                self.var_inits.push(Value::Num(0.0));
+                                self.stateful.push(name);
                             }
                         }
-                        // `Vars: TLID(-1)` is a unary minus. Inputs already
-                        // accept that form; variables must too.
-                        let init_value = if init_ty == Some("unaryop") {
-                            let value = eval_input_default(init)?;
-                            if matches!(value, Value::Num(_)) {
-                                self.numeric_vars.insert(name.clone());
-                            }
-                            value
-                        } else {
-                            eval_literal(init)?
-                        };
-                        let slot = self.var_names.len();
-                        self.var_slots.insert(name.clone(), slot);
-                        self.var_names.push(name.clone());
-                        self.var_inits.push(init_value);
-                        self.stateful.push(name);
+                        self.refuse_or(result)?;
                     }
+                    self.line = previous;
                 }
                 Some("array_decl") => {
+                    let previous = self.enter_line(stmt);
                     for decl in decls_of(stmt)? {
-                        self.declare_array(decl)?;
+                        let result = self.declare_array(decl);
+                        if result.is_err() && self.refusals.is_some() {
+                            let name = decl_name(decl)?.to_string();
+                            if !self.array_slots.contains_key(&name) {
+                                self.array_slots.insert(name.clone(), self.arrays.len());
+                                self.arrays.push(ArrayDecl {
+                                    name,
+                                    init: Value::Num(0.0),
+                                    init_kind: ElemKind::Unknown,
+                                    len: 1,
+                                });
+                            }
+                        }
+                        self.refuse_or(result)?;
                     }
+                    self.line = previous;
                 }
                 _ => {}
             }
         }
         collect_for_vars(body, &mut self.for_vars);
-        for name in self.array_slots.keys() {
-            if self.var_slots.contains_key(name)
-                || self.input_slots.contains_key(name)
-                || Series::from_name(name).is_some()
-            {
+        let clashes: Vec<String> = self
+            .array_slots
+            .keys()
+            .filter(|name| {
+                self.var_slots.contains_key(*name)
+                    || self.input_slots.contains_key(*name)
+                    || Series::from_name(name).is_some()
+            })
+            .cloned()
+            .collect();
+        for name in clashes {
+            self.refuse_or(Err(KernelError::unsupported(format!(
+                "array {name} shares its name with a variable, input or price series"
+            ))))?;
+        }
+        Ok(())
+    }
+
+    /// One `Vars:` declaration: a literal (or unary-minus) init gets a slot.
+    fn declare_var(&mut self, decl: &Json) -> Result<(), KernelError> {
+        let name = decl_name(decl)?.to_string();
+        if decl.get("data_ref").is_some_and(|v| !v.is_null()) {
+            return Err(KernelError::unsupported(format!(
+                "Data2-tied variable {name}"
+            )));
+        }
+        let init = decl
+            .get("init")
+            .ok_or_else(|| KernelError::input(format!("var {name} has no init")))?;
+        let init_ty = node_type(init);
+        match init_ty {
+            Some("number") => {
+                self.numeric_vars.insert(name.clone());
+            }
+            Some("boolean") | Some("string") | Some("unaryop") => {}
+            other => {
                 return Err(KernelError::unsupported(format!(
-                    "array {name} shares its name with a variable, input or price series"
+                    "var {name} init type {other:?}"
                 )));
             }
         }
+        // `Vars: TLID(-1)` is a unary minus. Inputs already
+        // accept that form; variables must too.
+        let init_value = if init_ty == Some("unaryop") {
+            let value = eval_input_default(init)?;
+            if matches!(value, Value::Num(_)) {
+                self.numeric_vars.insert(name.clone());
+            }
+            value
+        } else {
+            eval_literal(init)?
+        };
+        let slot = self.var_names.len();
+        self.var_slots.insert(name.clone(), slot);
+        self.var_names.push(name.clone());
+        self.var_inits.push(init_value);
+        self.stateful.push(name);
         Ok(())
     }
 
@@ -959,21 +1122,18 @@ impl Compiler {
                 Ok(())
             }
             Some("if") => {
-                self.compile_expr(stmt.get("cond").unwrap_or(&Json::Null), false)?;
+                let cond = self.compile_expr(stmt.get("cond").unwrap_or(&Json::Null), false);
+                self.refuse_or(cond)?;
                 let jump_if_false = self.instrs.len();
                 self.instrs.push(Instr::JumpIfFalse(0)); // patched below
                 if let Some(Json::Array(body)) = stmt.get("body") {
-                    for s in body {
-                        self.compile_stmt(s)?;
-                    }
+                    self.compile_body(body)?;
                 }
                 let jump_end = self.instrs.len();
                 self.instrs.push(Instr::Jump(0)); // patched below
                 let else_start = self.instrs.len();
                 if let Some(Json::Array(body)) = stmt.get("else_body") {
-                    for s in body {
-                        self.compile_stmt(s)?;
-                    }
+                    self.compile_body(body)?;
                 }
                 let end = self.instrs.len();
                 self.instrs[jump_if_false] = Instr::JumpIfFalse(else_start);
@@ -984,9 +1144,7 @@ impl Compiler {
                 let skip = self.instrs.len();
                 self.instrs.push(Instr::JumpIfNotFirstBar(0)); // patched below
                 if let Some(Json::Array(body)) = stmt.get("body") {
-                    for s in body {
-                        self.compile_stmt(s)?;
-                    }
+                    self.compile_body(body)?;
                 }
                 self.instrs.push(Instr::SetFirstBarFalse);
                 let end = self.instrs.len();
@@ -1087,8 +1245,10 @@ impl Compiler {
             .and_then(Json::as_array)
             .map(|a| a.as_slice())
             .unwrap_or(&[]);
-        self.compile_expr(stmt.get("start").unwrap_or(&Json::Null), false)?;
-        self.compile_expr(stmt.get("end").unwrap_or(&Json::Null), false)?;
+        let start = self.compile_expr(stmt.get("start").unwrap_or(&Json::Null), false);
+        self.refuse_or(start)?;
+        let end = self.compile_expr(stmt.get("end").unwrap_or(&Json::Null), false);
+        self.refuse_or(end)?;
         let lp = self.n_loops;
         self.n_loops += 1;
         let init = self.instrs.len();
@@ -1104,7 +1264,7 @@ impl Compiler {
             self.int_loop_vars.push(var.to_string());
         }
         self.loops.push(LoopJumps::default());
-        let compiled = body.iter().try_for_each(|s| self.compile_stmt(s));
+        let compiled = self.compile_body(body);
         let jumps = self.loops.pop().unwrap_or_default();
         if int_var {
             self.int_loop_vars.pop();
@@ -2237,7 +2397,7 @@ mod tests {
     use serde_json::Value as Json;
 
     use super::super::value::Value;
-    use super::{compile, resolve_inputs, CallOp, Instr, Program};
+    use super::{compile, explain, resolve_inputs, CallOp, Instr, Program};
 
     fn needs(src: &str) -> (Vec<bool>, Vec<bool>) {
         let ast: Json = serde_json::from_str(src).expect("valid program JSON");
@@ -2279,6 +2439,44 @@ mod tests {
         );
         let ast: Json = serde_json::from_str(&src).expect("valid program JSON");
         compile(&ast, &HashMap::<String, Value>::new())
+    }
+
+    /// `explain` keeps going after a refusal and tags each with its
+    /// statement's `_line`; its first message is the one `compile` returns.
+    #[test]
+    fn explain_lists_every_refusal_in_order() {
+        let ast: Json = serde_json::from_str(
+            r#"{"type":"program","body":[
+                {"type":"var_decl","_line":1,"decls":[{"name":"x","init":{"type":"number","value":"0"}}]},
+                {"type":"while","_line":2,"cond":{"type":"number","value":"1"},"body":[]},
+                {"type":"if","_line":3,"cond":{"type":"number","value":"1"},"body":[
+                    {"type":"switch","_line":4}
+                ]},
+                {"type":"abort","_line":5}
+            ]}"#,
+        )
+        .expect("valid program JSON");
+        let none = HashMap::<String, Value>::new();
+        let refusals = explain(&ast, &none).expect("well-formed IR");
+        let got: Vec<_> = refusals
+            .iter()
+            .map(|r| {
+                let (kind, name) = r.kind_and_name();
+                (kind, name, r.line)
+            })
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("statement", "while".to_string(), 2),
+                ("statement", "switch".to_string(), 4),
+                ("statement", "abort".to_string(), 5),
+            ]
+        );
+        let Err(first) = compile(&ast, &none) else {
+            panic!("compile must refuse the program");
+        };
+        assert_eq!(first.to_string(), refusals[0].message);
     }
 
     /// `EntryPrice(0)` is the open position and compiles; `EntryPrice(n)` for

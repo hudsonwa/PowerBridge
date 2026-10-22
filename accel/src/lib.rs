@@ -489,6 +489,18 @@ fn run_program_trace(
     Ok((trace.columns, rows, fills))
 }
 
+/// Every construct the native compiler would refuse in `program_ir`.
+///
+/// Returns a list of ``(kind, name, line, message)`` tuples in compile order;
+/// an empty list means the compile pass accepts the program. ``message`` of
+/// the first entry is the ``NotImplementedError`` text [`run_program`] raises.
+/// Malformed IR raises ``ValueError``.
+#[pyfunction]
+#[allow(clippy::type_complexity)]
+fn explain_program(program_ir: &str) -> PyResult<Vec<(&'static str, String, i64, String)>> {
+    strategy::explain_program(program_ir).map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
 /// Convert one Python value to a strategy input [`strategy::Value`] (number,
 /// boolean, or string — the three kinds the IR input surface admits).
 fn extract_input_value(value: &Bound<'_, PyAny>) -> PyResult<strategy::Value> {
@@ -828,6 +840,7 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(audit_skip_eval_from, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_audit_packet_inputs, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_audit_packet_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(explain_program, m)?)?;
     Ok(())
 }
 
