@@ -124,6 +124,15 @@ def test_pl_oracle_verbose_explains_skipped_bars():
                for ln in proc.stderr.splitlines()), proc.stderr
 
 
+def test_pl_oracle_accel_internals_need_vv():
+    pytest.importorskip("pl_transpiler._accel", reason="native kernel not built")
+    for flag, shown in (("-v", False), ("-vv", True)):
+        proc = _run("pl_oracle", EL, BARS, "--native", flag, env_extra={"PB_ACCEL_VERBOSE": ""})
+        assert proc.returncode == 0, proc.stderr
+        assert any(ln.startswith("[accel] ") for ln in proc.stderr.splitlines()) is shown, \
+            (flag, proc.stderr)
+
+
 UNIMPL_EL = "Vars: X(0);\nX = TradesToday(0);\nIf X > 5 then Buy next bar at market;\n"
 UNDECLARED_EL = "Vars: X(0);\nMyTotal = 3;\n"
 

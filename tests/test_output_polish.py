@@ -110,6 +110,14 @@ def test_pl_oracle_prints_not_installed_note_only_with_verbose(monkeypatch, caps
     assert ACCEL_URL in err
 
 
+def test_pl_oracle_accel_internals_only_at_vv(monkeypatch):
+    # -v stays user-facing; the kernel's [accel] diagnostics need -vv
+    for argv, want in (([], None), (["-v"], None), (["-vv"], "1"), (["-v", "-v"], "1")):
+        monkeypatch.delenv("PB_ACCEL_VERBOSE", raising=False)
+        assert pl_oracle.main([EL, BARS, "--python", *argv]) == 0
+        assert os.environ.get("PB_ACCEL_VERBOSE") == want, argv
+
+
 def test_not_installed_note_url_anchor_exists():
     # the note is read in a terminal, so it names a full URL; its anchor must exist
     accel_md = os.path.join(REPO, "docs", "ACCEL.md")
