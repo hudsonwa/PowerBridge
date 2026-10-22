@@ -44,7 +44,8 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(REPO, "README.md")
-DOCS = [README, os.path.join(REPO, "docs", "USAGE.md")]
+DOCS = [README, os.path.join(REPO, "docs", "USAGE.md"),
+        os.path.join(REPO, "docs", "PYTHON_STRATEGIES.md")]
 COMMANDS = {
     "pl_transpile": "pl_transpiler.tools.pl_transpile",
     "pl_run": "pl_transpiler.tools.pl_run",

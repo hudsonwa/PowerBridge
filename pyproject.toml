@@ -115,6 +115,8 @@ ignore = ["E701", "E702", "E731", "E741"]
 "pl_transpiler/builtins.py" = ["F821"]
 # Package re-export of the runtime's public names.
 "pl_transpiler/runtime/__init__.py" = ["F401", "F403"]
+# Mirror-dialect source: the star import and _orders/_risk names are the dialect.
+"examples/hand_written.py" = ["F403", "F405"]
 # Trailing whitespace inside string literals is content, not style.
 "pl_transpiler/engine_dates.py" = ["W293"]
 "tests/run_gt.py" = ["W293"]
