@@ -51,7 +51,7 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 # remains pure-stdlib, zero-dependency, with no build step. This extra is
 # opt-in only. The native wheel, powerbridge-accel, is not on PyPI yet, so
 # `pip install .[accel]` fails today: install the wheel from the GitHub Release
-# or build accel/ from source (README "Acceleration"). release.yml will publish
+# or build accel/ from source (docs/ACCEL.md "Install"). release.yml will publish
 # it to PyPI; keep this pin equal to `version`.
 accel = ["powerbridge-accel==0.6.0"]
 

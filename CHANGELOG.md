@@ -67,6 +67,7 @@
 
 ### Changed
 
+- README cut to a pitch, install, a short quickstart and links; the walkthrough, CSV format and engine assumptions moved to `docs/USAGE.md`, the limitations to `docs/LIMITATIONS.md`, and the accel install and benchmarks to `docs/ACCEL.md`.
 - Colour words, `RGB`, `LegacyColorToRGB`, `GradientColor` and the `Tool_*`
   line styles now use the values measured in MultiCharts (for example Blue is
   16711680 and Tool_Solid is 1). Colours and calls without a measurement stop

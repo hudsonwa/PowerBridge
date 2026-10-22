@@ -71,7 +71,7 @@ jobs:
 
 
   # el_emit's name check must work from the installed wheel, with no repo on disk: build the
-  # wheel, install it in a fresh venv and run the README's el_emit examples from a temp dir.
+  # wheel, install it in a fresh venv and run the usage guide's el_emit examples from a temp dir.
   installed-el-emit:
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +87,7 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install "$RUNNER_TEMP"/dist/*.whl
-      - name: Run the README's el_emit examples outside the repo
+      - name: Run the usage guide's el_emit examples outside the repo
         run: |
           mkdir "$RUNNER_TEMP/run" && cd "$RUNNER_TEMP/run"
           PY="$RUNNER_TEMP/venv/bin/python"

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run the README examples and compare the output the README documents.
+"""Run the README and usage-guide examples and compare the output they document.
 
-Every ```bash / ```python block in README.md runs, in order, in one scratch
+Every ```bash / ```python block in README.md, then docs/USAGE.md, runs, in order, in one scratch
 directory that holds copies of examples/ and ground_truth/ (so the README's
 "run from the repository root" paths resolve). Console commands
 (pl_transpile, pl_run, pl_oracle, el_emit) run as `python -m` modules so the
@@ -41,6 +41,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(REPO, "README.md")
+DOCS = [README, os.path.join(REPO, "docs", "USAGE.md")]
 COMMANDS = {
     "pl_transpile": "pl_transpiler.tools.pl_transpile",
     "pl_run": "pl_transpiler.tools.pl_run",
@@ -156,18 +157,25 @@ def run(argv, cwd):
     return p.returncode, p.stdout.splitlines(), p.stderr.splitlines()
 
 
+def doc_blocks():
+    """(file label, block) for every runnable block, README first."""
+    for path in DOCS:
+        for b in parse_readme(open(path, encoding="utf-8").read()):
+            yield os.path.relpath(path, REPO).replace(os.sep, "/"), b
+
+
 def test_readme_parses_runnable_blocks():
-    blocks = parse_readme(open(README, encoding="utf-8").read())
+    blocks = [b for _, b in doc_blocks()]
     assert sum(1 for b in blocks if not b["skip"]) >= 8
     assert sum(1 for b in blocks if b["output"] and not b["skip"]) >= 5
 
 
 def test_readme_examples(workdir):
     failures = []
-    for b in parse_readme(open(README, encoding="utf-8").read()):
+    for doc, b in doc_blocks():
         if b["skip"]:
             continue
-        where = f"README.md:{b['line']}"
+        where = f"{doc}:{b['line']}"
         if b["lang"] == "":
             path = workdir / b["file"]
             if not path.exists() or not matches(b["body"], path.read_text().splitlines()):

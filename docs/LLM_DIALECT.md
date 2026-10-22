@@ -93,7 +93,7 @@ surface, not an aspiration:
   `pass  # Abort` (`_inv_expr_stmt`, `_inv_order`, `_inv_risk_assign`).
 
 Anything else — a comprehension, a `numpy`/`pandas` call, a lambda, a `with`/`try` block, an
-unrecognised function — raises `PyFrontError`. See the README **Limitations** section for the
+unrecognised function — raises `PyFrontError`. See [LIMITATIONS.md](LIMITATIONS.md) for the
 residual gaps.
 
 ## Worked example

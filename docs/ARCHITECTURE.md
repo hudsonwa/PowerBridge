@@ -32,6 +32,16 @@ list is worse than an error, because nobody notices it. So we:
 - make the native kernel either reproduce the Python trade list bit for bit or
   hand the run back to Python with a visible note.
 
+## Repository layout
+
+`pl_transpiler/` is the package (`runtime/` holds the bar loop and fill engine,
+`tools/` the console commands), `accel/` the optional Rust kernel, `tests/` the
+suite and gates, `tools/` maintainer scripts, `examples/` and `ground_truth/`
+the sample bars and the EL conformance corpus. `emitted/ground_truth/` holds
+EasyLanguage that `el_emit`'s emitter (`codegen_el.emit_el`) produced from the
+`ground_truth/` programs at the 0.2.0 export; no script in the tree regenerates
+it, and `tests/test_ir_roundtrip.py` parses it as extra corpus input.
+
 ## Pipeline
 
 ```text
@@ -169,12 +179,12 @@ proves.
   effort on every engine change. We accept that cost because the Python path
   is the readable audit trail and the Rust path is the fast one.
 - **Narrow validated scope.** Validation covers 1-minute bars on the
-  instruments listed in the README. Other instruments and timeframes are
+  instruments listed in [LIMITATIONS.md](LIMITATIONS.md). Other instruments and timeframes are
   untested.
 - **Simplified execution model.** There is no commission or slippage,
   MaxBarsBack warm-up is opt-in (`--max-bars-back`, default 0), and the session
   end is fixed. These are documented in
-  the README rather than half-modelled.
+  [USAGE.md](USAGE.md#what-the-engine-assumes) rather than half-modelled.
 - **Kernel coverage.** The kernel does not yet run strategies that declare
   arrays (they fall back to Python), and `pl_run`'s per-bar trace rows always
   use Python.

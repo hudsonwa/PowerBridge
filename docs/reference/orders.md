@@ -2,7 +2,7 @@
 
 # Orders and exits
 
-Words that place entries and exits. Order words are statements, so they have no return value. PowerBridge fills them in its own fill engine; see README for the fill model.
+Words that place entries and exits. Order words are statements, so they have no return value. PowerBridge fills them in its own fill engine; see the usage guide (docs/USAGE.md) for the fill model.
 
 [Back to the keyword reference index](README.md)
 

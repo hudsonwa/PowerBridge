@@ -214,7 +214,7 @@ per-bar captures exported from MultiCharts over licensed market data. That data
 cannot be redistributed, so the captures are not in the repository and the tests
 that need them skip on a clone ([CAPTURES.md](CAPTURES.md) shows how to attach your
 own). Only a checksummed manifest is shipped. The public claims that rest on this
-gate are stated in the README: 1-minute @NQ and @ES, and four configurations of a
+gate are stated in [LIMITATIONS.md](LIMITATIONS.md): 1-minute @NQ and @ES, and four configurations of a
 real-world multi-entry strategy with 4,278 of 4,278 fills identical. A reader can
 reproduce the digest machinery and the Python/native agreement, but not the
 MultiCharts comparison itself without their own captures.
