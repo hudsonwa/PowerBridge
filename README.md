@@ -1,19 +1,3 @@
-<!--
- Copyright 2026 Joshua Hudson
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
--->
-
 # PowerBridge
 
 [![Public tests](https://github.com/hudsonwa/PowerBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/hudsonwa/PowerBridge/actions/workflows/ci.yml)
@@ -144,12 +128,33 @@ MarketPosition,NetProfit,TotalTrades
 1,1343.80,1
 ```
 
+And back: transpile to the mirror dialect, then emit checked EasyLanguage:
+
+```bash
+pl_transpile examples/ma_cross.el --no-persist -o ma_mirror.py
+```
+
+```
+[pl_transpile] wrote ma_mirror.py
+```
+
+```bash
+el_emit ma_mirror.py -o ma_cross_back.el
+```
+
+```
+ma_cross_back.el: 3 builtins used | 3 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD
+OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
+NOTE: argument types are checked only where the catalog declares a verified numeric parameter and the argument is a literal or a string/true-false variable; compiling in the MultiCharts editor is the final check.
+```
+
 `pl_transpile` writes plain Python; `pl_oracle` backtests the strategy on the
 bundled synthetic bars and prints a trade digest (its `[pl_oracle] 140 bars, …`
 summary line goes to stderr); `pl_run` prints one CSV row
 per bar (add `-o file.csv` to write a file). Without the optional
 [Rust fast path](#acceleration) the pure-Python engine runs (add `-v` to get a
 `note:` saying so); results are identical either way. `pl_run` executes the generated Python, so only run files you trust.
+`el_emit` exits non-zero if any builtin is not known to compile in MultiCharts.
 The [usage guide](docs/USAGE.md) walks through each step in detail.
 
 ## Acceleration

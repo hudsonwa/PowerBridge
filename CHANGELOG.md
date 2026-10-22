@@ -9,6 +9,11 @@
   is reported as ARG-TYPE-BAD with the function, argument position, expected
   and found type, and line. `documented-unverified` records are skipped.
 
+### Changed
+
+- README quickstart now shows the Python to EasyLanguage direction (`el_emit`);
+  dropped the licence comment from README.md; CONTRIBUTING.md explains default skips.
+
 ### Fixed
 
 - The native typed trace (`run_native_trace`) now prints exactly what the
