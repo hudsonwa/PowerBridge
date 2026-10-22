@@ -16,7 +16,8 @@
 
 use crate::types::KernelError;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
+use std::collections::BTreeSet;
 
 /// Schema version written by `pl_transpiler.ir.IR_SCHEMA_VERSION`.
 pub(crate) const IR_SCHEMA_VERSION: i64 = 1;
@@ -104,7 +105,87 @@ pub(crate) fn load_program_ir(payload: &str) -> Result<Value, KernelError> {
             node_type(&ast)
         )));
     }
-    Ok(ast)
+    Ok(add_scratch_decls(ast))
+}
+
+/// Mirror of Python's `semantic.add_scratch_decls`: EL predeclares
+/// `Value0..99` (numeric, start 0) and `Condition0..99` (boolean, start
+/// false) as variables that keep their value across bars. Prepend
+/// `Vars: <name>(0 | false);` for each one the body uses but never declares
+/// (names sorted), so the compiler treats them as ordinary declared vars.
+fn add_scratch_decls(mut ast: Value) -> Value {
+    let mut declared = BTreeSet::new();
+    let mut used = BTreeSet::new();
+    if let Some(body) = ast.get("body") {
+        collect_scratch(body, &mut declared, &mut used);
+    }
+    let missing: Vec<&String> = used.difference(&declared).collect();
+    if missing.is_empty() {
+        return ast;
+    }
+    let decls: Vec<Value> = missing
+        .into_iter()
+        .map(|name| {
+            let init = if name.starts_with("value") {
+                json!({"type": "number", "value": "0"})
+            } else {
+                json!({"type": "boolean", "value": false})
+            };
+            json!({"name": name, "init": init})
+        })
+        .collect();
+    if let Some(body) = ast.get_mut("body").and_then(Value::as_array_mut) {
+        body.insert(0, json!({"type": "var_decl", "decls": decls}));
+    }
+    ast
+}
+
+fn collect_scratch(node: &Value, declared: &mut BTreeSet<String>, used: &mut BTreeSet<String>) {
+    match node {
+        Value::Object(map) => {
+            let name = match map.get("type").and_then(Value::as_str) {
+                Some("var_decl" | "input_decl" | "array_decl") => {
+                    for decl in map
+                        .get("decls")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                    {
+                        if let Some(name) = decl.get("name").and_then(Value::as_str) {
+                            declared.insert(name.to_string());
+                        }
+                    }
+                    None
+                }
+                Some("ident") => map.get("name").and_then(Value::as_str),
+                Some("for") => map.get("var").and_then(Value::as_str),
+                _ => None,
+            };
+            if let Some(name) = name.filter(|n| is_scratch_name(n)) {
+                used.insert(name.to_string());
+            }
+            for child in map.values() {
+                collect_scratch(child, declared, used);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_scratch(item, declared, used);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `value0`..`value99` or `condition0`..`condition99` (names are lower-cased).
+fn is_scratch_name(name: &str) -> bool {
+    let digits = name
+        .strip_prefix("value")
+        .or_else(|| name.strip_prefix("condition"));
+    digits.is_some_and(|d| {
+        (d.len() == 1 || (d.len() == 2 && !d.starts_with('0')))
+            && d.bytes().all(|b| b.is_ascii_digit())
+    })
 }
 
 pub(crate) fn node_type(node: &Value) -> Option<&str> {
@@ -141,12 +222,71 @@ fn uses_data_stream(node: &Value, min_data_num: i64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::json_nesting_depth;
+    use super::{add_scratch_decls, is_scratch_name, json_nesting_depth};
+    use serde_json::{json, Value};
 
     #[test]
     fn nesting_depth_ignores_brackets_inside_strings() {
         assert_eq!(json_nesting_depth("1"), 0);
         assert_eq!(json_nesting_depth(r#"{"a":[1,{"b":2}],"c":{}}"#), 3);
         assert_eq!(json_nesting_depth(r#"{"s":"[[{{\"}}"}"#), 1);
+    }
+
+    #[test]
+    fn scratch_names_are_value_and_condition_0_to_99() {
+        for name in [
+            "value0",
+            "value9",
+            "value10",
+            "value99",
+            "condition0",
+            "condition99",
+        ] {
+            assert!(is_scratch_name(name), "{name}");
+        }
+        for name in [
+            "value",
+            "value100",
+            "value01",
+            "value1a",
+            "conditions1",
+            "x1",
+        ] {
+            assert!(!is_scratch_name(name), "{name}");
+        }
+    }
+
+    /// Undeclared scratch names (idents and for counters) get one prepended
+    /// sorted `var_decl`; a declared one is left alone.
+    #[test]
+    fn undeclared_scratch_variables_are_declared() {
+        let ast: Value = serde_json::from_str(
+            r#"{"type":"program","body":[
+                {"type":"var_decl","decls":[{"name":"value1","init":{"type":"number","value":"5"}}]},
+                {"type":"assign","target":{"type":"ident","name":"value2"},
+                 "value":{"type":"ident","name":"value1"}},
+                {"type":"for","var":"condition3","downto":false,
+                 "start":{"type":"number","value":"0"},"end":{"type":"number","value":"1"},"body":[]}
+            ]}"#,
+        )
+        .expect("valid program JSON");
+        let out = add_scratch_decls(ast);
+        assert_eq!(
+            out["body"][0],
+            json!({"type": "var_decl", "decls": [
+                {"name": "condition3", "init": {"type": "boolean", "value": false}},
+                {"name": "value2", "init": {"type": "number", "value": "0"}},
+            ]})
+        );
+        assert_eq!(out["body"].as_array().map(Vec::len), Some(4));
+    }
+
+    #[test]
+    fn program_without_scratch_variables_is_unchanged() {
+        let ast = json!({"type": "program", "body": [
+            {"type": "assign", "target": {"type": "ident", "name": "x"},
+             "value": {"type": "number", "value": "1"}}
+        ]});
+        assert_eq!(add_scratch_decls(ast.clone()), ast);
     }
 }

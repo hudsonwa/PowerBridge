@@ -22,6 +22,12 @@
   negative indexes, out-of-range fails the run), `Array_SetMaxIndex` growth and
   the common `Array_*` functions. String arrays, the remaining array functions,
   `while` / `repeat` and array trace columns are still refused.
+- The native kernel runs the undeclared predeclared variables `Value0`..`Value99`
+  (numeric) and `Condition0`..`Condition99` (boolean) (#1). As in EasyLanguage
+  they start at 0 / false and keep their value from bar to bar, exactly like
+  `Vars: Value1(0), Condition1(false);`: history references (`Value1[1]`),
+  series arguments and trace columns work as for a declared variable, and the
+  native fill digest matches the Python one.
 
 ### Changed
 
@@ -41,6 +47,11 @@
 
 ### Fixed
 
+- The Python engine treated an undeclared `ValueN` / `ConditionN` as a plain
+  per-bar local, so reading one before writing it (`Value1 = Value1 + 1`)
+  raised `UnboundLocalError`, it never kept its value between bars, and
+  `Value1[1]` failed. They are now variables initialised to 0 / false that
+  persist across bars (#103).
 - Without `-o`, `el_emit`'s check report names the input file instead of a
   temporary file.
 - The native typed trace (`run_native_trace`) now prints exactly what the
