@@ -15,7 +15,7 @@
 
 """el_emit.py — minimal reverse-transpiler CLI.
 
-    python3 pl_transpiler/tools/el_emit.py <in.py|in.txt> [-o out.txt]
+    python3 -m pl_transpiler.tools.el_emit <in.py|in.txt> [-o out.txt]
 
 Input kind is detected by extension:
   * `.py`  -> py_to_el  (clean mirror-dialect Python -> EL)
@@ -29,9 +29,6 @@ import argparse
 import os
 import sys
 import tempfile
-
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, REPO)
 
 from pl_transpiler.reverse import py_to_el, el_roundtrip
 from pl_transpiler.tools import _cli, mc_ground_check

@@ -73,26 +73,22 @@ if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
     from pl_transpiler.tools.pl_run import Bars
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if REPO not in sys.path:
-    sys.path.insert(0, REPO)
-
-from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
-from pl_transpiler.runtime.accel import accel_available, warn_python_path  # noqa: E402
-from pl_transpiler.runtime.accel import (  # noqa: E402
+from pl_transpiler import transpile
+from pl_transpiler.engine import FillEngine, run_bar_loop
+from pl_transpiler.runtime.accel import accel_available, warn_python_path
+from pl_transpiler.runtime.accel import (
     AccelRefused,
     AccelUnavailable,
     run_native,
     run_native_drawings,
 )
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches  # noqa: E402
-from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns  # noqa: E402
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode  # noqa: E402
-from pl_transpiler.tools import _cli  # noqa: E402
-from pl_transpiler.lookback import (  # noqa: E402
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.tools import _cli
+from pl_transpiler.lookback import (
     check_max_bars_back, check_max_entries_per_direction, warn_short_history)
-from pl_transpiler.tools.pl_run import (  # noqa: E402
+from pl_transpiler.tools.pl_run import (
     load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
 )
 
