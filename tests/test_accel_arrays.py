@@ -120,6 +120,22 @@ if Mod(P[0], 2) = 0 then Buy ("P" + NumToStr(P[2], 2)) next bar at market
 else Sell ("Q" + NumToStr(P[0], 0)) next bar at market;
 """
 
+# Mod and division inside a loop follow Python's sign and float rules, and
+# Close[k] with a loop index reads the unrounded lookback.
+LOOP_ARITHMETIC = """
+Arrays: R[5](0.0);
+Vars: k(0), n(0), Acc(0), Q(0);
+n = n + 1;
+Acc = 0;
+for k = 0 to 4 begin
+  R[k] = Mod(Close[k] - Open[k] - k, 3) + (High[k] - Low[k]) / (k + 1);
+  Acc = Acc + Mod(-n - k, 4) / 7 + Close[k] / Close;
+end;
+Q = Array_Sum(R, 0, 4);
+if Mod(n, 3) = 1 and Acc > 5 then Buy ("M" + NumToStr(Q, 6) + "/" + NumToStr(Acc, 8)) next bar at market;
+if Mod(n, 3) = 2 then Sell ("N" + NumToStr(Q, 6)) next bar at market;
+"""
+
 SYNTHETIC = {
     "arrays_numeric": fixture("arrays_numeric.txt"),
     "loops_only": fixture("loops_only.txt"),
@@ -128,6 +144,7 @@ SYNTHETIC = {
     "copies": COPIES,
     "sum_precision": SUM_PRECISION,
     "intrabar_persist": INTRABAR,
+    "loop_arithmetic": LOOP_ARITHMETIC,
 }
 
 # Loop-only programs: no array columns, so the typed trace must match too.
@@ -144,6 +161,17 @@ for i = 0 to Len + 1 begin
   Seen = Seen + i * Close;
 end;
 if Seen > 4 * Close then Buy next bar at market else Sell next bar at market;
+""",
+    "loop_lookbacks": """
+Vars: k(0), n(0), Swing(0), Rem(0);
+n = n + 1;
+Swing = 0;
+Rem = 0;
+for k = 1 to 6 begin
+  Swing = Swing + (Close[k - 1] - Close[k]) / k;
+  Rem = Rem + Mod(Close[k] * 4 - n, 7);
+end;
+if Swing > 0 and Mod(Rem, 2) < 1 then Buy next bar at market else Sell next bar at market;
 """,
 }
 
@@ -277,4 +305,33 @@ def test_gt_master_now_stops_at_while_loops(bars):
     with open(path, encoding="utf-8") as handle:
         source = handle.read()
     with pytest.raises(AccelRefused, match="while loops"):
+        run_native(source, bars, NQ)
+
+
+# Python raises on these, on a bar that cannot trade: the kernel must refuse
+# (not skip the bar as a prefix, nor drop the unread result as dead code).
+RAISING_IN_LOOPS = {
+    "zero divisor in a loop": (
+        "Vars: k(0), U(0);\nfor k = 0 to 2 begin U = Close / k; end;\n",
+        ZeroDivisionError,
+    ),
+    "modulo by zero of an element": (
+        "Arrays: B[2](0);\nVars: k(0), U(0);\n"
+        "for k = 0 to 2 begin U = Mod(Close, B[k]); end;\n",
+        ZeroDivisionError,
+    ),
+    "array element divisor": (
+        "Arrays: B[2](1);\nVars: U(0);\nB[1] = B[1] - 1;\nU = Close / B[1];\n",
+        ZeroDivisionError,
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(RAISING_IN_LOOPS))
+def test_python_errors_in_loops_and_arrays_refuse(name, bars):
+    body, error = RAISING_IN_LOOPS[name]
+    source = body + f"If Date >= {bars[-1]['date']} Then Buy next bar at market;\n"
+    with pytest.raises(error):
+        run_oracle(source, bars, NQ)
+    with pytest.raises(AccelRefused, match="the Python path raises"):
         run_native(source, bars, NQ)
