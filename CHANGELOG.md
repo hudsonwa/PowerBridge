@@ -4,6 +4,8 @@
 
 ### Added
 
+- `docs/DESIGN.md`: design notes on the architecture, the main decisions and their
+  trade-offs, how verification works (public and private), and known limitations.
 - `docs/reference/`: a keyword reference for the 256 EasyLanguage builtins PowerBridge
   supports or has evidence for, grouped by topic. Each entry shows the catalog's kind,
   return type, arity and verification level, the run status observed when PowerBridge
