@@ -71,7 +71,7 @@ from pl_transpiler.engine import (
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
 from pl_transpiler.tools import _cli
 from pl_transpiler.lookback import (
-    check_max_bars_back, check_max_entries_per_direction, warn_short_history)
+    check_max_bars_back, check_max_entries_per_direction, note_warmup, warn_short_history)
 
 # A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
 # or a column-contiguous BarTape holding the same values.
@@ -617,6 +617,10 @@ def _build_parser():
                     help="drop the prefix instead of seeding warmup. Only "
                          "equivalent when the trade-list oracle agrees.")
     _cli.add_max_bars_back_arg(ap)
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="hide the warm-up note printed when a strategy reads "
+                         "past bars and --max-bars-back is not set (other "
+                         "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
@@ -696,6 +700,9 @@ def _main(ap, args):
     if out_path:
         out_f.close()
 
+    # After the run, so a failing run still prints a single error line.
+    note_warmup(el_source, args.max_bars_back, "pl_run", quiet=args.quiet,
+                n_bars=ohlcv_columns(bars)["n"])
     warmup_note = (f", {result['n_warmup']} warmup" if result.get("n_warmup") else "")
     print(f"[pl_run] {len(bars)} bars{warmup_note}, {result['n_rows']} rows, "
           f"{len(result['trades'])} fills, {len(result['trades']) // 2} round-turns"

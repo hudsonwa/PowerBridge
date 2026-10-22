@@ -428,7 +428,8 @@ def argtype_violations(raw, sigs):
     return out
 
 
-def check(path):
+def check(path, label=None):
+    """Check the EL file at ``path``; the report names ``label`` (default ``path``)."""
     raw = open(path, encoding='utf-8', errors='ignore').read()
     code = _strip(raw)
     used = set(w.lower() for w in re.findall(r'[A-Za-z_]\w*', code))
@@ -444,7 +445,7 @@ def check(path):
     rettype_bad = returntype_violations(code, raw, sigs)
     # PASS 4 (argument types where the catalog and the argument are both certain).
     argtype_bad = argtype_violations(raw, sigs)
-    print(f"{path}: {len(cands)} builtins used | {len(cands) - len(not_proven)} PROVEN | "
+    print(f"{label or path}: {len(cands)} builtins used | {len(cands) - len(not_proven)} PROVEN | "
           f"{len(not_proven)} NOT-PROVEN | {len(arity_bad)} ARITY-BAD | {len(rettype_bad)} RETURN-TYPE-BAD | "
           f"{len(argtype_bad)} ARG-TYPE-BAD")
     if not_proven:
