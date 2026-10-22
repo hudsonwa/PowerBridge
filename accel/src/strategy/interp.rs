@@ -873,6 +873,7 @@ impl<'a> Interpreter<'a> {
                 )
                 .map(Value::Num)
             }
+            CallOp::SessionTime(hhmm) => Ok(Value::Num(f64::from(hhmm))),
         }
     }
 

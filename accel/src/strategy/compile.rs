@@ -166,6 +166,36 @@ pub(crate) enum CallOp {
     Rgb,
     LegacyColorToRgb,
     GradientColor,
+    /// A session-template word the Python runtime answers with a constant
+    /// EL HHmm time whatever its arguments (`pl_sessionendtime` -> 1600,
+    /// `pl_sessionstarttime` -> 1700, ...). See [`session_time`].
+    SessionTime(u16),
+}
+
+/// The constant a session-time word returns on the Python path, copied from
+/// `pl_transpiler/runtime/_rt_session.py`. The Python functions take
+/// `*args` and ignore them; arguments are still evaluated, as in Python.
+pub(crate) fn session_time(name: &str) -> Option<u16> {
+    Some(match name {
+        "sessionendtime" => 1600,
+        "sessionstarttime" => 1700,
+        "sessionendtimems" | "sess1endtime" | "sess2endtime" => 1515,
+        "sessionstarttimems" | "sess1starttime" | "sess2starttime" => 830,
+        "sess1firstbartime" | "sess2firstbartime" => 831,
+        _ => return None,
+    })
+}
+
+/// [`session_time`] for a word written without parentheses. Python lowers
+/// only these bare words to a `pl_*()` call; bare `SessionEndTime`,
+/// `SessionStartTime` and `Sess1StartTime` read run kwargs instead, so they
+/// stay refused.
+pub(crate) fn bare_session_time(name: &str) -> Option<u16> {
+    match name {
+        "sess1endtime" | "sess2endtime" | "sess2starttime" | "sess1firstbartime"
+        | "sess2firstbartime" => session_time(name),
+        _ => None,
+    }
 }
 
 /// A whole-array function. The array is baked into the instruction; the
@@ -1492,6 +1522,10 @@ impl Compiler {
             self.instrs.push(Instr::PushNum(0.0));
             return Ok(());
         }
+        if let Some(hhmm) = bare_session_time(name) {
+            self.instrs.push(Instr::PushNum(f64::from(hhmm)));
+            return Ok(());
+        }
         Err(KernelError::unsupported(format!(
             "unresolved identifier {name:?}"
         )))
@@ -1755,9 +1789,12 @@ impl Compiler {
             "rgb" => (CallOp::Rgb, false),
             "legacycolortorgb" => (CallOp::LegacyColorToRgb, false),
             "gradientcolor" => (CallOp::GradientColor, false),
-            other => {
-                return Err(KernelError::unsupported(format!("function {other:?}")));
-            }
+            other => match session_time(other) {
+                Some(hhmm) => (CallOp::SessionTime(hhmm), false),
+                None => {
+                    return Err(KernelError::unsupported(format!("function {other:?}")));
+                }
+            },
         };
         for arg in args {
             self.compile_expr(arg, false)?;

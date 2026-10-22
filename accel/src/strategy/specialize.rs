@@ -282,6 +282,7 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
             let decimals = args[1].as_f64().ok()? as i64;
             Some(Instr::PushStr(num_to_str(x, decimals)))
         }
+        CallOp::SessionTime(hhmm) => Some(Instr::PushNum(f64::from(hhmm))),
         CallOp::File if !args.is_empty() => Some(Instr::PushStr(args[0].clone().into_string())),
         _ => None,
     }
