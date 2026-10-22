@@ -44,8 +44,10 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
-Write and test a strategy in Python, then emit EasyLanguage that passes name, argument-count and return-type checks for
-MultiCharts or TradeStation. Or take existing EL and run it bar-by-bar in Python.
+Take existing EL and run it bar-by-bar in Python. Or write a strategy in
+PowerBridge's small Python "mirror dialect" (not general Python) and emit
+EasyLanguage that passes name, argument-count and return-type checks for
+MultiCharts or TradeStation, then backtest that EL here.
 The import name is `pl_transpiler`. Everything is the Python standard library:
 no PyPI deps, no network.
 
@@ -119,6 +121,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --columns MarketPosition
 ```
 
 ```
+note: pl_run: strategy reads past bars and --max-bars-back is 0; fills may differ from MultiCharts during warm-up (set --max-bars-back N, or -q to hide this)
 [pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns
 MarketPosition,NetProfit,TotalTrades
 0,0.00,0
@@ -155,6 +158,16 @@ per bar (add `-o file.csv` to write a file). Without the optional
 [Rust fast path](#acceleration) the pure-Python engine runs (add `-v` to get a
 `note:` saying so); results are identical either way. `pl_run` executes the generated Python, so only run files you trust.
 `el_emit` exits non-zero if any builtin is not known to compile in MultiCharts.
+To write a strategy by hand instead of transpiling one, see
+[Writing a strategy in Python](docs/PYTHON_STRATEGIES.md): the dialect from
+scratch, with a worked example in `examples/hand_written.py`.
+
+**Warm-up differs from MultiCharts by default.** PowerBridge evaluates every
+bar from bar 1, so `Average(Close, 21)` returns 0 for the first 20 bars;
+MultiCharts skips its MaxBarsBack bars (default 50) instead. Pass
+`--max-bars-back 50` (or your chart's value) to `pl_oracle` / `pl_run` to
+match. Without it, both print the `note:` above on stderr when a strategy reads
+past bars; `-q` hides it. The note never changes the output on stdout.
 The [usage guide](docs/USAGE.md) walks through each step in detail.
 
 ## Acceleration

@@ -4,6 +4,13 @@
 
 ### Added
 
+- `docs/PYTHON_STRATEGIES.md` teaches the mirror dialect `el_emit` reads, from
+  scratch, with a hand-written example (`examples/hand_written.py`) that is
+  tested through `el_emit`, `pl_oracle` and an EL round trip.
+- `pl_run` and `pl_oracle` print one `note:` on stderr when a strategy reads past
+  bars and `--max-bars-back` is not set: warm-up fills may differ from
+  MultiCharts. New `-q` / `--quiet` hides it. Defaults and digests are unchanged;
+  the library API stays silent.
 - `el_emit` / `mc_ground_check` check argument types (#7): a string or
   true/false argument where the catalog declares a verified `numeric` parameter
   is reported as ARG-TYPE-BAD with the function, argument position, expected
@@ -11,6 +18,8 @@
 
 ### Changed
 
+- README states the Python to EasyLanguage direction accepts only the mirror
+  dialect, and calls out the MaxBarsBack warm-up difference in the quickstart.
 - README quickstart now shows the Python to EasyLanguage direction (`el_emit`);
   dropped the licence comment from README.md; CONTRIBUTING.md explains default skips.
 - Repository recreated on 2026-10-22; pull-request pages from before then are not available.
