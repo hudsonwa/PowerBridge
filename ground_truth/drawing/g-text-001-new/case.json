@@ -1,0 +1,15 @@
+{
+  "behaviour": "a text \"H<high>\" at the High of every 12:00 bar (defaults)",
+  "case_id": "g-text-001-new",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "text",
+  "keywords": [
+    "Text_New"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {}
+}

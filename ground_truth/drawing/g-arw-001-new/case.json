@@ -1,0 +1,15 @@
+{
+  "behaviour": "an up arrow at the Low of every 10:00 bar and a down arrow at the High of every 14:00 bar (defaults)",
+  "case_id": "g-arw-001-new",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "arw",
+  "keywords": [
+    "Arw_New"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {}
+}

@@ -1,0 +1,15 @@
+{
+  "behaviour": "a TL at every on-the-hour bar from 10:00, Low[29] -> High; fixed 10:00 buy / 14:00 sell",
+  "case_id": "g-tl-001-new",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "tl",
+  "keywords": [
+    "TL_New"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {}
+}

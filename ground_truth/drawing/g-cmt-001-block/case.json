@@ -1,0 +1,20 @@
+{
+  "behaviour": "the on-the-hour TLs plus a #BeginCmtry Commentary block (must not change drawings or trades)",
+  "case_id": "g-cmt-001-block",
+  "compare_ids": false,
+  "expect": {
+    "fn": "cases"
+  },
+  "family": "commentary",
+  "keywords": [
+    "TL_New",
+    "#BeginCmtry",
+    "Commentary"
+  ],
+  "reason": null,
+  "reproducible": "yes",
+  "xfail": {
+    "pb-python": "Commentary with several arguments does not parse yet",
+    "pb-native": "same parse error on the native path"
+  }
+}
