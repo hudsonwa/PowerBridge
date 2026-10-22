@@ -350,6 +350,14 @@ fn data_series_short_history_matches_python_across_lengths_and_windows() {
 }
 
 #[test]
+fn series_lookback_reads_raw_price_like_python() {
+    // Python reads `close[-2]` unrounded; f32(Close[1]) fired this on bar 3.
+    let source = "If BarNumber = 3 and Close - Close[1] > 8.179648437499964 Then\n\
+                  Buy (\"LB\") 1 Contracts Next Bar At Market;\n";
+    assert_python_native_parity("Close - Close[1] near an f32 boundary", source, 0, 20);
+}
+
+#[test]
 fn variable_short_history_uses_python_initializer_fallback() {
     for (lookback, start, end) in [(2, 0, 8), (3, 4, 13), (5, 9, 21)] {
         let source = format!(

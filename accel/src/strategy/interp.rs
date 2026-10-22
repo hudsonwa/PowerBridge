@@ -389,11 +389,10 @@ impl<'a> Interpreter<'a> {
                             *self.time.get(self.time.len().wrapping_sub(n)).unwrap_or(&0) as f64
                         }
                     };
-                    if series.is_ohlcv() {
-                        self.stack.push(Value::Num(narrow_f32(value)));
-                    } else {
-                        self.stack.push(Value::Num(value));
-                    }
+                    // Python reads `close[-(n + 1)]` (and the `open[-1]`
+                    // fallback) unrounded, even for `[0]`; only the hoisted
+                    // current-bar `_close` is f32.
+                    self.stack.push(Value::Num(value));
                 }
                 Instr::BarRefVar(slot) => {
                     let index = self.stack.pop().unwrap().as_f64()? as i64;
@@ -556,11 +555,10 @@ impl<'a> Interpreter<'a> {
                             *self.time.get(self.time.len().wrapping_sub(n)).unwrap_or(&0) as f64
                         }
                     };
-                    if series.is_ohlcv() {
-                        self.stack.push(Value::Num(narrow_f32(value)));
-                    } else {
-                        self.stack.push(Value::Num(value));
-                    }
+                    // Python reads `close[-(n + 1)]` (and the `open[-1]`
+                    // fallback) unrounded, even for `[0]`; only the hoisted
+                    // current-bar `_close` is f32.
+                    self.stack.push(Value::Num(value));
                 }
                 Instr::BarRefVarConst { slot, index } => {
                     let n = *index as usize;
