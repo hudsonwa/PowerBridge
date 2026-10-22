@@ -198,4 +198,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), which also covers running the tests.
 Open an issue before a large change. Small fixes can be a pull request on their own.
 
 Development started in a private repository; this public repository begins at
-the 0.2.0 export. Changes since then are made here in the open. On 2026-10-22 the repository was recreated (pull-request pages from before then are not available); its issues were transferred from the previous repository, which is why many were closed within a few seconds of each other.
+the 0.2.0 export. Changes since then are made here in the open.
