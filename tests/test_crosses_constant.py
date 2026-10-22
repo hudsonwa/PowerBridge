@@ -60,14 +60,16 @@ def test_runtime_zero_level():
     x = [0.0, 5.0, -1.0, -2.0, 3.0]
     zeros = [0.0] * len(x)
     assert pl_crosses_above(x, zeros)
-    assert pl_crosses_above(x, 0)
-    assert not pl_crosses_below(x, 0)
+    assert not pl_crosses_below(x, zeros)
     assert pl_crosses_below(x[:3], zeros[:3])
-    assert pl_crosses_below(x[:3], 0.0)
     # The leading pad zero on X is still skipped: no cross on its first bar.
     assert not pl_crosses_above(x[:2], zeros[:2])
     # Two all-zero sides never cross.
     assert not pl_crosses_above(zeros, zeros)
+    # A bare scalar never reaches the runtime (codegen gives a literal its
+    # own history), so the runtime refuses one.
+    with pytest.raises(TypeError):
+        pl_crosses_above(x, 0)
 
 
 def test_runtime_warmup_skip_kept():
