@@ -14,6 +14,14 @@
 - README quickstart now shows the Python to EasyLanguage direction (`el_emit`);
   dropped the licence comment from README.md; CONTRIBUTING.md explains default skips.
 - Repository recreated on 2026-10-22; issues transferred; earlier PR pages unavailable.
+- `pl_oracle -v` stays user-facing; the kernel's `[accel]` internals (such as
+  the skip-region plan) now need `-vv` (or `PB_DEBUG=1`).
+- The installed package no longer adds the checkout root to `sys.path` on
+  import (`el_emit` did so unconditionally); run the tools as console scripts
+  or with `python -m pl_transpiler.tools.<name>`.
+- Docs: CONTRIBUTING.md describes the default skips by category instead of a
+  stale count; LIMITATIONS.md and ACCEL.md mention the prebuilt accel wheels and
+  how to tell which path ran.
 
 ### Fixed
 

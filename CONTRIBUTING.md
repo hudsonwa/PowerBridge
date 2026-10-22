@@ -35,12 +35,20 @@ CI uses it on every OS). Capture-backed gates skip cleanly when the large
 MultiCharts CSVs are absent; see [docs/CAPTURES.md](docs/CAPTURES.md) if you
 want to attach your own.
 
-About 85 tests skip by default; that is expected. Native-kernel tests need the
-optional Rust module (`pl_transpiler._accel`): build it with
-`tools/build_accel.sh` (needs a Rust toolchain; see [docs/ACCEL.md](docs/ACCEL.md)).
-Corpus and capture tests need licensed MultiCharts data, which is not
-redistributed. `python3 -m pytest -q -rs --timeout=60` lists each skip with
-its reason.
+On a fresh clone over a hundred tests skip; that is expected. They fall into
+three groups, each skipped with a one-line reason:
+
+- **Native kernel** (the large majority): parity, batch and gate tests for the
+  optional Rust module (`pl_transpiler._accel`). Build it with
+  `tools/build_accel.sh` (needs a Rust toolchain; see [docs/ACCEL.md](docs/ACCEL.md))
+  and they run, except a handful kept for programs the kernel refuses (arrays,
+  some functions), which fall back to Python.
+- **Licensed data**: drawing-corpus, capture and audit-tape tests need
+  MultiCharts data, which is not redistributed (see [docs/CAPTURES.md](docs/CAPTURES.md)).
+- **Opt-in checks**: a wall-clock check (`PB_PERF=1`), the wheel-build test
+  (needs `build` and setuptools>=77) and a few known round-trip gaps.
+
+`python3 -m pytest -q -rs --timeout=60` lists each skip with its reason.
 
 ## Keyword reference and catalog: where facts come from
 
