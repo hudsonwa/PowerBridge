@@ -145,7 +145,8 @@ MarketPosition,NetProfit,TotalTrades
 ```
 
 `pl_transpile` writes plain Python; `pl_oracle` backtests the strategy on the
-bundled synthetic bars and prints a trade digest; `pl_run` prints one CSV row
+bundled synthetic bars and prints a trade digest (its `[pl_oracle] 140 bars, …`
+summary line goes to stderr); `pl_run` prints one CSV row
 per bar (add `-o file.csv` to write a file). Without the optional
 [Rust fast path](#acceleration) the pure-Python engine runs (add `-v` to get a
 `note:` saying so); results are identical either way. `pl_run` executes the generated Python, so only run files you trust.

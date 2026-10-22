@@ -150,8 +150,10 @@ What you can verify yourself, digest gating and captures are in
 ## Python (mirror dialect) to EasyLanguage
 
 ```python
+import os
 from pl_transpiler import transpile
 el = open("ground_truth/GT2_strategy_orders_position.txt").read()
+os.makedirs("out", exist_ok=True)
 open("out/GT2_mirror.py", "w").write(transpile(el, dialect="mirror"))
 ```
 
@@ -162,6 +164,7 @@ el_emit out/GT2_mirror.py -o out/GT2_from_python.txt
 ```
 out/GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD
 OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
+NOTE: argument types are not checked; compare them with the keyword's reference page. Compiling in the MultiCharts editor is the final check.
 ```
 
 `el_emit` fails closed: every builtin must be in the shipped list of names
@@ -258,6 +261,8 @@ digest as the EL-integer original:
 
 ```python
 import csv
+import os
+os.makedirs("out", exist_ok=True)
 rows = list(csv.reader(open("examples/NQ_sample_bars.csv")))
 with open("out/my_bars.csv", "w", newline="") as f:
     w = csv.writer(f)
@@ -300,6 +305,7 @@ a missing key or a wrong type stops the run with one `error:` line and exit 2.
 The same bars and strategy with the ES point value ($50 instead of $20):
 
 ```bash
+mkdir -p out
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
     --config examples/configs/ES.json --columns MarketPosition,NetProfit -o out/es_out.csv
 ```

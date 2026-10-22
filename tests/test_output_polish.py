@@ -13,6 +13,7 @@ from pl_transpiler.tools.pl_run import display_row_sink, tick_decimals  # noqa: 
 
 EL = os.path.join(REPO, "examples", "ma_cross.el")
 BARS = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
+ACCEL_URL = "https://github.com/hudsonwa/PowerBridge/blob/main/docs/ACCEL.md#install"
 
 
 def test_tick_decimals():
@@ -93,7 +94,9 @@ def test_pl_run_cli_prints_not_installed_note_only_with_verbose(monkeypatch, cap
     assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
     assert "not installed" not in capsys.readouterr().err
     assert pl_run.main([EL, BARS, "-v", "-o", str(tmp_path / "out.csv")]) == 0
-    assert "note: powerbridge-accel not installed" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "note: powerbridge-accel not installed" in err
+    assert ACCEL_URL in err
 
 
 def test_pl_oracle_prints_not_installed_note_only_with_verbose(monkeypatch, capsys):
@@ -102,7 +105,16 @@ def test_pl_oracle_prints_not_installed_note_only_with_verbose(monkeypatch, caps
     assert pl_oracle.main([EL, BARS]) == 0
     assert "not installed" not in capsys.readouterr().err
     assert pl_oracle.main([EL, BARS, "--verbose"]) == 0
-    assert "note: powerbridge-accel not installed" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "note: powerbridge-accel not installed" in err
+    assert ACCEL_URL in err
+
+
+def test_not_installed_note_url_anchor_exists():
+    # the note is read in a terminal, so it names a full URL; its anchor must exist
+    accel_md = os.path.join(REPO, "docs", "ACCEL.md")
+    assert ACCEL_URL.endswith("/docs/ACCEL.md#install")
+    assert "\n## Install\n" in open(accel_md, encoding="utf-8").read()
 
 
 def test_pl_run_cli_prints_other_fallback_notes_without_verbose(monkeypatch, capsys,

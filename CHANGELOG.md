@@ -77,6 +77,8 @@
 - `pl_run` and `pl_oracle` print the "powerbridge-accel not installed" note
   only with `-v` / `--verbose` (new on `pl_run`). Notes about an installed
   kernel that refuses a program or has the wrong version still always print.
+  The note now names the full docs/ACCEL.md#install URL instead of
+  "README#acceleration", which a terminal cannot open.
 - README cut to a pitch, install, a short quickstart and links; the walkthrough, CSV format and engine assumptions moved to `docs/USAGE.md`, the limitations to `docs/LIMITATIONS.md`, and the accel install and benchmarks to `docs/ACCEL.md`.
 - Colour words, `RGB`, `LegacyColorToRGB`, `GradientColor` and the `Tool_*`
   line styles now use the values measured in MultiCharts (for example Blue is
@@ -85,6 +87,10 @@
 
 ### Fixes
 
+- The `docs/USAGE.md` sections "Python (mirror dialect) to EasyLanguage", "Your
+  own data" and "Other instruments" create `out/` themselves, so they no longer
+  fail with FileNotFoundError when run on their own; the mirror section shows
+  `el_emit`'s full output. The docs test now clears `out/` at each section.
 - A stray word after an order price (for example the unsupported `+ 2 Ticks Stop`) is
   now a syntax error that names that word, instead of an "unimplemented keywords"
   report that listed the valid `stop` as well.
