@@ -307,7 +307,8 @@ def pl_pos_trade_field(kwargs, field, pos_ago=0, trade_number=0):
 # The runtime submodules that may hold the trivial pl_* stubs listed in
 # _loud_stub_names (generated from their sources by tools/gen_loud_stubs.py).
 _RUNTIME_SUBMODULES = ('_rt_core', '_rt_indicators', '_rt_drawing',
-                       '_rt_arrays_dates', '_rt_builtins_az', '_rt_datetime')
+                       '_rt_arrays_dates', '_rt_builtins_az', '_rt_datetime',
+                       '_rt_session', '_rt_color', '_rt_platform_stubs')
 
 
 def _install_loud_stubs():

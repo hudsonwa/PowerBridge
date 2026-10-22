@@ -36,7 +36,8 @@ OUT = os.path.join(RUNTIME, "_loud_stub_names.py")
 
 # The runtime submodules whose sources are scanned for trivial pl_* stubs.
 SUBMODULES = ('_rt_core', '_rt_indicators', '_rt_drawing',
-              '_rt_arrays_dates', '_rt_builtins_az', '_rt_datetime')
+              '_rt_arrays_dates', '_rt_builtins_az', '_rt_datetime',
+              '_rt_session', '_rt_color', '_rt_platform_stubs')
 
 HEADER = '''\
 # Copyright 2026 Joshua Hudson
