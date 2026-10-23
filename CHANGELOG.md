@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `--version` on the command-line tools also says whether the native kernel is available and, if not, why, and `native_status()` gives the same check from Python (#173).
+
 ## 0.9.0 — 2026-10-23
 
 Highlights:
