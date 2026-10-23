@@ -90,15 +90,17 @@ _WINDOWED_CALLS = _windowed_calls()
 # the largest length in the group, so ``MACDSignal(Price, Fast, Slow, Sig)``
 # (``((1, 2), (3,))``) counts max(Fast, Slow) + Sig. An int is a fixed count.
 # A windowed call missing here (or passed too few arguments) is refused by
-# ``--max-bars-back auto`` rather than guessed. MRO and KeltnerChannel are
-# MultiCharts functions PowerBridge does not run; they are listed so auto
-# reports their length instead of calling them user functions.
+# ``--max-bars-back auto`` rather than guessed. Each count is checked against
+# the runtime (tests/test_max_bars_back_auto.py): at that MaxBarsBack the first
+# evaluated bar already has a full window. _Scan.window adds what the table
+# cannot say: LinearRegValue's TgtBar, and ADX / ADXR, whose Wilder smoothing
+# returns 0 and then 50 until 2 * Length (ADXR: 3 * Length - 1) bars.
 _LENGTH_ARGS = {
     **dict.fromkeys((
         'average', 'averagefc', 'averagetfc', 'bollingerband', 'countif',
-        'highest', 'highestbar', 'keltnerchannel', 'linearregangle',
-        'linearregslope', 'linearregvalue', 'lowest', 'lowestbar', 'median',
-        'momentum', 'mro', 'rateofchange', 'roc', 'rsi', 'standarddev',
+        'highest', 'highestbar', 'linearregangle',
+        'linearregslope', 'linearregvalue', 'lowest', 'lowestbar',
+        'momentum', 'rateofchange', 'roc', 'rsi', 'standarddev',
         'stddev', 'summation', 'variance', 'waverage', 'weightedaverage',
         'xaverage'), ((1,),)),
     **dict.fromkeys((
@@ -113,8 +115,9 @@ _LENGTH_ARGS = {
     'truerange': 1,
 }
 
-# Windowed builtins with no length argument to read (left out of the table).
-_LENGTH_UNKNOWN = frozenset(('parabolicsar', 'tsi'))
+# MultiCharts functions PowerBridge does not run (left out of the table):
+# refused by name rather than called user functions.
+_NOT_IMPLEMENTED = frozenset(('keltnerchannel', 'median', 'mro', 'parabolicsar', 'tsi'))
 
 # Bare reserved words that read the previous bar (TrueRange uses Close[1]).
 _LOOKBACK_IDENTS = frozenset(('truerange', 'truehigh', 'truelow'))
@@ -146,7 +149,7 @@ def _base_name(name):
 
 def _is_windowed(name):
     name = _base_name(name)
-    return name in _WINDOWED_CALLS or name in _LENGTH_ARGS
+    return name in _WINDOWED_CALLS or name in _LENGTH_ARGS or name in _NOT_IMPLEMENTED
 
 
 def _is_number(node, pred):
@@ -215,30 +218,170 @@ def _input_defaults(ast):
     return out
 
 
-def _length(node, arg, inputs):
-    """A length argument's value: a number or an input's default."""
-    if _is_number(arg, lambda v: v >= 0):
-        return int(float(arg['value']))
-    if (isinstance(arg, dict) and arg.get('type') == 'ident'
-            and str(arg.get('name', '')).lower() in inputs):
-        return int(inputs[str(arg['name']).lower()])
-    raise LookbackUnknown(
-        f"the length of {node.get('name')}() is not a number or input")
+def _const(arg, inputs):
+    """A number, an input's default, or either negated; else None."""
+    if isinstance(arg, dict) and arg.get('type') == 'unaryop' and arg.get('op') == '-':
+        value = _const(arg.get('operand'), inputs)
+        return None if value is None else -value
+    if _is_number(arg, lambda v: True):
+        return float(arg['value'])
+    if isinstance(arg, dict) and arg.get('type') == 'ident':
+        return inputs.get(str(arg.get('name', '')).lower())
+    return None
 
 
-def _window(node, args, inputs):
-    """Past bars a windowed builtin call reads, from _LENGTH_ARGS."""
-    name = _base_name(str(node.get('name', '')).lower())
-    spec = _LENGTH_ARGS.get(name)
-    if isinstance(spec, int):
-        return spec
-    if spec is None or max(p for group in spec for p in group) >= len(args):
-        raise LookbackUnknown(
-            f"the length argument of {node.get('name')}() is not known")
-    lengths = [[_length(node, args[p], inputs) for p in group] for group in spec]
-    if name in _CURRENT_BAR_AT_1 and lengths[0][0] <= 1:
-        return 0
-    return sum(max(group) for group in lengths)
+class _Scan:
+    """One walk of a parsed strategy; see infer_max_bars_back."""
+
+    def __init__(self, ast, source):
+        self.inputs = _input_defaults(ast)
+        self.lines = source.splitlines()
+        self.line = None
+        # Variable -> past price bars its assignments read (0 if none).
+        self.var_need = {}
+        self.vars_pass = True
+        assigns = []
+        stack = [ast]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                target = node.get('target')
+                if (node.get('type') == 'assign' and isinstance(target, dict)
+                        and target.get('type') == 'ident'):
+                    assigns.append((str(target.get('name', '')).lower(), node))
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+        # A variable read without [n] counts what it reads; repeat until the
+        # counts settle (a self-referencing variable stops after a bounded
+        # number of rounds and is refused in the second pass).
+        for _ in range(len(assigns) + 2):
+            changed = False
+            for name, node in assigns:
+                self.line = node.get('_line')
+                n = self.need(node.get('value'))
+                if n > self.var_need.get(name, 0):
+                    self.var_need[name] = n
+                    changed = True
+            if not changed:
+                break
+        self.vars_pass = False
+
+    def name(self, node):
+        """The identifier as written in the source (``FastD``, ``File``)."""
+        line, col = node.get('_line'), node.get('_col')
+        text = str(node.get('_ident') or node.get('name', ''))
+        if isinstance(line, int) and isinstance(col, int) and 0 < line <= len(self.lines):
+            word = self.lines[line - 1][col - 1:col - 1 + len(text)]
+            if word.lower() == text.lower():
+                return word
+        return text
+
+    def unknown(self, what):
+        where = f" on line {self.line}" if self.line else ""
+        return LookbackUnknown(f"{what}{where}")
+
+    def index(self, node, what):
+        """A non-negative whole [n] or length: a number or an input's default."""
+        value = _const(node, self.inputs)
+        if value is None or value < 0 or value != int(value):
+            raise self.unknown(what)
+        return int(value)
+
+    def window(self, node, args):
+        """Past bars a windowed builtin call reads, from _LENGTH_ARGS."""
+        label = self.name(node)
+        name = _base_name(str(node.get('name', '')).lower())
+        if name in _NOT_IMPLEMENTED:
+            raise self.unknown(f"{label}() is not implemented in PowerBridge")
+        spec = _LENGTH_ARGS.get(name)
+        if isinstance(spec, int):
+            return spec
+        if spec is None or max(p for group in spec for p in group) >= len(args):
+            raise self.unknown(f"the length argument of {label}() is not known")
+        what = f"the length of {label}() is not a number or input"
+        lengths = [[self.index(args[p], what) for p in group] for group in spec]
+        if name in _CURRENT_BAR_AT_1 and lengths[0][0] <= 1:
+            return 0
+        n = sum(max(group) for group in lengths)
+        if name == 'linearregvalue' and len(args) > 2:
+            # TgtBar > 0 reads that many bars further back (_linreg_window).
+            tgt = _const(args[2], self.inputs)
+            if tgt is None:
+                raise self.unknown(f"the TgtBar of {label}() is not a number or input")
+            n += max(int(tgt), 0)
+        if name == 'adx':
+            n *= 2  # Wilder-smoothed DX: 0 then 50 until 2 * Length bars
+        elif name == 'adxr':
+            n = 3 * n - 1  # ADX now and Length - 1 bars ago
+        return n
+
+    def var_in(self, node):
+        """The source name of a variable that reads past bars, when ``node``
+        is just that variable; else None."""
+        if (isinstance(node, dict) and node.get('type') == 'ident'
+                and self.var_need.get(str(node.get('name', '')).lower())):
+            return self.name(node)
+        return None
+
+    def need(self, node):
+        """Past bars an expression reads (see infer_max_bars_back)."""
+        if isinstance(node, list):
+            return max((self.need(n) for n in node), default=0)
+        if not isinstance(node, dict):
+            return 0
+        if isinstance(node.get('_line'), int):
+            self.line = node['_line']
+        kind = node.get('type')
+        name = str(node.get('name', '')).lower()
+        if kind == 'bar_ref':
+            series = node.get('series')
+            k = self.index(node.get('index'),
+                           "a series is indexed by a non-constant [n]")
+            inner = self.need(series)
+            if isinstance(series, dict) and series.get('type') == 'ident':
+                var = str(series.get('name', '')).lower()
+                if var not in _PRICE_SERIES:
+                    if not self.var_need.get(var):
+                        # Its own history only: no price bars (first pass).
+                        return 0 if self.vars_pass else k
+                    if k and not self.vars_pass:
+                        label = self.name(series)
+                        raise self.unknown(
+                            f"the variable {label} reads past bars and is itself "
+                            f"read {k} bar{'s' if k > 1 else ''} back ({label}[{k}])")
+            return k + inner
+        if kind == 'call':
+            args = node.get('args') or []
+            inner = self.need(args)
+            if name in ('crossesabove', 'crossesbelow', 'crossover', 'crossunder') and len(args) == 2:
+                return 1 + inner
+            if _is_windowed(name):
+                n = self.window(node, args)
+                if n and not self.vars_pass:
+                    for arg in args:
+                        var = self.var_in(arg)
+                        if var:
+                            raise self.unknown(
+                                f"the variable {var} reads past bars and "
+                                f"{self.name(node)}() reads its past values")
+                return n + inner
+            if not _is_builtin(name):
+                raise self.unknown(f"it calls the user function {self.name(node)}()")
+            return inner
+        if kind == 'ident':
+            if name in _LOOKBACK_IDENTS:
+                return 1
+            return self.var_need.get(name, 0) if self.vars_pass else 0
+        return self.need([v for k, v in node.items() if not str(k).startswith('_')])
+
+
+def _is_builtin(name):
+    """A call codegen handles itself (BUILTIN_FUNC_MAP, a runtime ``pl_<name>``
+    such as File or FileAppend, or a catalog keyword), not a user function."""
+    from pl_transpiler.codegen_util import _available_pl_targets
+    return (name in BUILTIN_FUNC_MAP or f'pl_{name}' in _available_pl_targets()
+            or catalog.get(name) is not None)
 
 
 def _scan(el_source):
@@ -250,37 +393,10 @@ def _scan(el_source):
         return LookbackUnknown("it uses 'of N bars ago'")
     ast = parse(tokens, positions=positions, source=el_source)
     try:
-        return _need(ast, _input_defaults(ast))
+        scan = _Scan(ast, el_source)
+        return scan.need(ast)
     except LookbackUnknown as exc:
         return exc
-
-
-def _need(node, inputs):
-    """Past bars an expression reads (see infer_max_bars_back)."""
-    if isinstance(node, list):
-        return max((_need(n, inputs) for n in node), default=0)
-    if not isinstance(node, dict):
-        return 0
-    kind = node.get('type')
-    name = str(node.get('name', '')).lower()
-    if kind == 'bar_ref':
-        index = node.get('index')
-        if not _is_number(index, lambda v: v >= 0 and v == int(v)):
-            raise LookbackUnknown("a series is indexed by a non-constant [n]")
-        return int(float(index['value'])) + _need(node.get('series'), inputs)
-    if kind == 'call':
-        args = node.get('args') or []
-        inner = _need(args, inputs)
-        if name in ('crossesabove', 'crossesbelow', 'crossover', 'crossunder') and len(args) == 2:
-            return 1 + inner
-        if _is_windowed(name):
-            return _window(node, args, inputs) + inner
-        if name not in BUILTIN_FUNC_MAP and catalog.get(name) is None:
-            raise LookbackUnknown(f"it calls the user function {node.get('name')}()")
-        return inner
-    if kind == 'ident' and name in _LOOKBACK_IDENTS:
-        return 1
-    return _need([v for k, v in node.items() if not str(k).startswith('_')], inputs)
 
 
 def infer_max_bars_back(el_source):
@@ -288,11 +404,15 @@ def infer_max_bars_back(el_source):
     lookback found by a static scan, or 0 if ``uses_lookback`` is False.
 
     A read of ``X[k]`` counts k bars plus what X itself reads; a windowed
-    builtin (``Highest(High, Len)``) counts its length argument (by position,
-    from _LENGTH_ARGS), a number or an input's default. So ``Highest(High, 10)[1]`` gives 11. Raises LookbackUnknown when
-    the scan cannot bound it (a non-constant index or length, ``of N bars
-    ago``, a user function, a windowed builtin whose length position is
-    not known). This is an estimate from the source, not
+    builtin (``Highest(High, Len)``) counts the bars the runtime needs for a
+    full window (_LENGTH_ARGS, by argument position). An index or length may
+    be a number or an input's default, so ``Highest(High, 10)[1]`` and
+    ``Inputs: Len(10); ... Close[Len]`` give 11 and 10. Raises
+    LookbackUnknown, naming the construct and its line, when the scan cannot
+    bound it: a non-constant index or length, ``of N bars ago``, a user
+    function, a builtin PowerBridge does not run, or ``X[k]`` on a variable X
+    that itself reads past bars (its history starts on the first evaluated
+    bar, so no MaxBarsBack fills it). This is an estimate from the source, not
     MultiCharts' run-time auto-detect."""
     n = _scan(el_source)
     if isinstance(n, LookbackUnknown):
