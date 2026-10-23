@@ -61,6 +61,11 @@
 
 ### Changed
 
+- CI builds the native kernel for Python 3.9, 3.12 and 3.14 (`accel-parity`
+  in `ci.yml`) and runs the native-vs-Python accel tests and every
+  `needs_native` test with it loaded, so a parity drift on one interpreter
+  fails the build (#124).
+
 - The frozen `el_emit` output used as extra parser corpus moved from
   `emitted/` to `tests/fixtures/emitted/`, with a README saying what it is.
 - The README quickstart passes `--max-bars-back 21` (`ma_cross.el`'s own
@@ -98,6 +103,13 @@
   five public modules (annotation-only changes; byte-identical output).
 
 ### Fixed
+
+- Native `Array_Sum` now adds like the running Python's `sum()` on 3.14 too:
+  from 3.14, ints after the first float are compensated like floats, so
+  `sum([1e16, 1, -1e16])` is `1.0` there but `0.0` on 3.12 and 3.13. The
+  kernel used the 3.12 rule on 3.14, and the `sum_precision` parity test
+  failed whenever the extension was built for 3.14. An int past the C long
+  range in that position is refused natively on 3.12 and 3.13 (#124).
 
 - `explain_native` / `pl_oracle --explain-native` no longer crashes the native
   kernel ("no entry found for key") on a `Vars:` declared inside a block; the
