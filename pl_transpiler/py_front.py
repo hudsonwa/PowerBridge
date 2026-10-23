@@ -136,7 +136,7 @@ from pl_transpiler.codegen import (
 )
 from pl_transpiler.codegen_el import _INV_MCKW, _INV_POSKW  # noqa: F401  (re-exported)
 from pl_transpiler.codegen_tables import CANONICAL_EL_NAME  # noqa: F401  (re-exported)
-from pl_transpiler.codegen_util import demangle_name
+from pl_transpiler.codegen_util import _MANGLE_PREFIX, demangle_name
 
 # Must match transpiler.codegen.DIALECT_VERSION (the forward dialect this inverts).
 # v3: the forward codegen now emits a same-line trailing `#|` comment (was its own
@@ -614,6 +614,7 @@ def _parse_decls(body, i, out, declared):
     introduces a NEW name — the block therefore ends at the first target that is
     already declared (a reassignment), the first non-`Name = expr` statement, or the
     first generated `_`-prefixed target (e.g. `_stoch_result`), whichever comes first.
+    A user name codegen mangled (`_el_max`) is still a declaration.
 
     Array inits (`[x]` / `[x] * (size + 1)`) are recognised structurally; every other
     init is a Var declaration whose init is the inverted RHS (this covers
@@ -626,7 +627,8 @@ def _parse_decls(body, i, out, declared):
                 and _is_name(stmt.targets[0])):
             break
         name = stmt.targets[0].id
-        if name in declared or name.startswith('_'):
+        if name in declared or (name.startswith('_')
+                                and not name.startswith(_MANGLE_PREFIX)):
             break
         arr = _array_init_form(stmt.value)
         if arr is not None:

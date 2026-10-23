@@ -125,10 +125,15 @@ def test_round_trip_restores_el_names():
     for n in NAMES:
         el = py_to_el(transpile(program(n), dialect="mirror")).lower()
         assert f"{n} = close - close[2]" in el, n
+        assert f"vars: {n}( 0 )" in el and "vars: k( 0 )" in el, n
         # Arrays are outside the mirror dialect, so no roles() here.
         src = f"Inputs: {n}(3);\nVars: {n}_i(0);\nFor {n}_i = 1 To {n} Begin\nEnd;\n"
         el = py_to_el(transpile(src, dialect="mirror")).lower().replace(" ", "")
         assert f"inputs:{n}(3)" in el and f"for{n}_i=1to{n}begin" in el, n
+        # A mangled Var must not end the declaration block early.
+        el = py_to_el(transpile(f"Vars: {n}(0);\nArrays: q{n}[3](0);\nq{n}[1] = {n};\n",
+                                dialect="mirror")).lower().replace(" ", "")
+        assert f"vars:{n}(0)" in el and f"arrays:q{n}[3](0)" in el, n
 
 
 @pytest.mark.parametrize("make", [program, roles])
