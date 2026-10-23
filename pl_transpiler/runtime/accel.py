@@ -90,6 +90,10 @@ Public surface:
     accel_available() -> bool
         True iff ``import pl_transpiler._accel`` succeeds.
 
+    native_status() -> (bool, str)
+        Whether the kernel is usable, plus one line saying so (its version) or
+        why not; ``pl_oracle --version`` / ``pl_run --version`` print the line.
+
     AccelUnavailable / AccelRefused
         Raised by ``run_native`` when the extension is absent, or when the
         kernel refuses the program (NotImplementedError). Both are LOUD
@@ -211,13 +215,39 @@ def _version_mismatch(accel):
             "using the Python path" % (kernel, have, FILL_LOG_VERSION))
 
 
-def accel_available():
-    """True iff the native extension imports and matches this core's fill log."""
+def _probe():
+    """``(kernel, reason)``: the importable kernel, or None and why it is unusable."""
     try:
         import pl_transpiler._accel as accel
-    except ImportError:
-        return False
-    return _version_mismatch(accel) is None
+    except ModuleNotFoundError as exc:
+        if exc.name in ("pl_transpiler._accel", "pl_transpiler"):
+            return None, "not installed"
+        return None, "import failed: %s" % exc
+    except ImportError as exc:
+        return None, "import failed: %s" % exc
+    return accel, _version_mismatch(accel)
+
+
+def accel_available():
+    """True iff the native extension imports and matches this core's fill log."""
+    accel, reason = _probe()
+    return accel is not None and reason is None
+
+
+def native_status():
+    """``(available, line)`` for the native kernel, the same check the run uses.
+
+    ``line`` is e.g. ``"native kernel: powerbridge-accel 0.9.0 (available)"`` or
+    ``"native kernel: not available (not installed); install ..."``.
+    """
+    accel, reason = _probe()
+    if accel is not None and reason is None:
+        kernel = getattr(accel, "__version__", None) or "(unknown version)"
+        return True, "native kernel: powerbridge-accel %s (available)" % kernel
+    reason = reason.replace("; using the Python path", "")
+    return False, ("native kernel: not available (%s); install the "
+                   "powerbridge-accel wheel for your platform, see docs/ACCEL.md"
+                   % " ".join(reason.split()))
 
 
 def _import_accel():

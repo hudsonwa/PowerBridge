@@ -54,6 +54,19 @@ pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@vX.Y.Z"
 pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<file>.whl
 ```
 
+**Check your install.** Run `pl_oracle --version` (or `pl_run --version`).
+The second line says whether the kernel will be used:
+
+```text
+pl_oracle 0.9.0
+native kernel: powerbridge-accel 0.9.0 (available)
+```
+
+If it says `not available`, the reason follows in brackets: `not installed`,
+`import failed: ...` (often a wheel for another platform) or a version mismatch
+with `powerbridge`. From Python, `pl_transpiler.runtime.accel.native_status()`
+returns `(available, line)` with the same line.
+
 **From source.** Build it from a checkout (needs a Rust toolchain):
 
 <!-- readme-test: skip (needs a Rust toolchain) -->
