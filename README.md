@@ -62,7 +62,10 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
-The digest is the same with or without the Rust kernel. To see the run bar by
+The digest goes to stdout. A status line goes to stderr, so it shows in your
+terminal but not in a redirected file:
+`[pl_oracle] 140 bars, 3 fills, 1 round-turns [python]` (`[native]` when the
+Rust kernel ran). The digest is the same either way. To see the run bar by
 bar (`pl_run` executes generated Python, so only run files you trust):
 
 ```bash
@@ -81,6 +84,53 @@ MarketPosition,NetProfit,TotalTrades
 
 `--max-bars-back 21` is the strategy's own lookback; why it matters is in
 [Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback).
+
+## Your own strategy
+
+Put your EasyLanguage in a `.el` (or `.txt`) file and your bars in a CSV with
+this header, in any order and any case (extra columns are ignored), one bar per
+row, oldest first:
+
+<!-- readme-test: file examples/NQ_sample_bars.csv -->
+```
+date,time,open,high,low,close,volume
+1240102,930,14997.50,15005.00,14992.50,15000.00,125
+...
+```
+
+`date` is an EL integer (`1240102` is 2 Jan 2024) or `D/M/YYYY` / `YYYY-MM-DD`
+(`--date-format mdy` for US month-first dates); `time` is `HHMM` or `HH:MM`.
+The [full rules](docs/USAGE.md#your-own-data) cover the edge cases. For example:
+
+```python
+import os
+os.makedirs("out", exist_ok=True)
+with open("out/breakout.el", "w") as f:
+    f.write("Inputs: Len(20);\n"
+            "If Close > Highest(High, Len)[1] Then Buy (\"BO\") Next Bar At Market;\n"
+            "If Close < Lowest(Low, Len)[1] Then Sell (\"BX\") Next Bar At Market;\n")
+```
+
+```bash
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 21
+pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 21 -o out/breakout_trace.csv
+```
+
+```
+powerbridge-trade-digest v2
+...
+```
+
+Set `--max-bars-back` to the longest lookback your strategy reads (here
+`Highest(High, 20)[1]` reads 21 bars), and `--config ES` or
+`--config my_instrument.json` for an instrument other than NQ
+([other instruments](docs/USAGE.md#other-instruments)).
+
+If the file uses a keyword PowerBridge does not implement, nothing runs: the
+command prints `error: unimplemented EL keyword '...' at line N` and exits
+with code 2. Check [limitations](docs/LIMITATIONS.md#unsupported-keywords) and
+the [keyword reference](docs/reference/README.md), rewrite that line with
+supported keywords, or open an issue naming the keyword.
 
 ## Next steps
 

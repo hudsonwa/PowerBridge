@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- The README quickstart explains the stderr status line and adds a "Your own strategy" section; CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
+
 ## 0.8.0 — 2026-10-23
 
 ### Added
