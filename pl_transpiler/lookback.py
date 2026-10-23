@@ -264,6 +264,8 @@ class _Scan:
                 stack.extend(node.values())
             elif isinstance(node, list):
                 stack.extend(node)
+        # Source order, so a refusal names the first offending line.
+        assigns.sort(key=lambda item: item[1].get('_line') or 0)
         # A variable read without [n] counts what it reads; repeat until the
         # counts settle (a self-referencing variable stops after a bounded
         # number of rounds and is refused in the second pass).

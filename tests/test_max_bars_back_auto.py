@@ -363,3 +363,13 @@ def test_ground_truth_refused_at_the_series_read(name):
         src = fh.read()
     with pytest.raises(LookbackUnknown, match=r"non-constant \[n\] on line 93$"):
         infer_max_bars_back(src)
+
+
+def test_refusal_names_the_first_offending_line():
+    src = ("Vars: Idx(0), Xv(0), Yv(0);\n"
+           "For Idx = 0 To 2 Begin\n"
+           "    Xv = Close[Idx];\n"
+           "    Yv = Open[Idx];\n"
+           "End;\n")
+    with pytest.raises(LookbackUnknown, match=r"on line 3$"):
+        infer_max_bars_back(src)
