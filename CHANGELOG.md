@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- The native kernel runs `StrLen`, `FormatDate`, `NewLine`, `Text_SetColor` and the `FileAppend` / `FileDelete` no-op stubs, and refuses a string mixed with a number instead of converting it (#138).
+
 ### Changed
 
 - The README quickstart explains the stderr status line and adds a "Your own strategy" section; CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
