@@ -273,8 +273,8 @@ if S > 4 then Buy next bar at market else Sell next bar at market;
 
 
 # x cycles 1e16, 1, -1e16, 1, so every Average(x, 4) window sums to 2 when
-# compensated (3.12+) and to 0 or 1 when added plainly (#124). Warm-up
-# bars average to 0.
+# compensated (3.12+) and to 0 or 1 when added plainly (#124); it is 0 on the
+# even bars, where the strategy places an order. Warm-up bars average to 0.
 AVERAGE_PRECISION = """
 Vars: n(0), x(0), A(0);
 n = n + 1;
@@ -295,7 +295,8 @@ def test_average_precision_follows_the_running_python(bars):
     if sys.version_info >= (3, 12):
         assert signals == {"A0.00", "A0.50"}
     else:
-        assert signals == {"A0.00", "A0.25"}
+        # Added plainly, the windows that place an order (even n) sum to 0.
+        assert signals == {"A0.00"}
 
 
 def test_average_of_a_series_of_unknown_type_needs_python_before_312(bars):
