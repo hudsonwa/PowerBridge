@@ -170,6 +170,10 @@ pub(crate) enum CallOp {
     /// EL HHmm time whatever its arguments (`pl_sessionendtime` -> 1600,
     /// `pl_sessionstarttime` -> 1700, ...). See [`session_time`].
     SessionTime(u16),
+    /// `CurrentSession(...)`: the ISO weekday (1 = Monday .. 7 = Sunday) of
+    /// the bar's date. `bar_loop` passes this as the `currentsession` run
+    /// value; the arguments are evaluated and ignored, as in Python.
+    CurrentSession,
 }
 
 /// The constant a session-time word returns on the Python path, copied from
@@ -182,6 +186,10 @@ pub(crate) fn session_time(name: &str) -> Option<u16> {
         "sessionendtimems" | "sess1endtime" | "sess2endtime" => 1515,
         "sessionstarttimems" | "sess1starttime" | "sess2starttime" => 830,
         "sess1firstbartime" | "sess2firstbartime" => 831,
+        // Not times, but the same kind of template constant: the week has
+        // five sessions and session 1 ends on day 1.
+        "sessioncount" | "sessioncountms" => 5,
+        "sessionendday" | "sessionenddayms" => 1,
         _ => return None,
     })
 }
@@ -193,7 +201,8 @@ pub(crate) fn session_time(name: &str) -> Option<u16> {
 pub(crate) fn bare_session_time(name: &str) -> Option<u16> {
     match name {
         "sess1endtime" | "sess2endtime" | "sess2starttime" | "sess1firstbartime"
-        | "sess2firstbartime" => session_time(name),
+        | "sess2firstbartime" | "sessioncount" | "sessioncountms" | "sessionendday"
+        | "sessionenddayms" => session_time(name),
         _ => None,
     }
 }
@@ -1768,6 +1777,12 @@ impl Compiler {
             .get("kwarg")
             .and_then(Json::as_str)
             .ok_or_else(|| KernelError::unsupported("position_kw missing kwarg"))?;
+        // Bare CurrentSession reads the `currentsession` run value, which
+        // bar_loop always sets to the same weekday CurrentSession(...) returns.
+        if kw == "currentsession" {
+            self.instrs.push(Instr::Call(CallOp::CurrentSession, 0));
+            return Ok(());
+        }
         let kind = match kw {
             "barnumber" | "currentbar" => PositionKw::Barnumber,
             "market_position" => PositionKw::MarketPosition,
@@ -1949,6 +1964,7 @@ impl Compiler {
             "rgb" => (CallOp::Rgb, false),
             "legacycolortorgb" => (CallOp::LegacyColorToRgb, false),
             "gradientcolor" => (CallOp::GradientColor, false),
+            "currentsession" => (CallOp::CurrentSession, false),
             other => match session_time(other) {
                 Some(hhmm) => (CallOp::SessionTime(hhmm), false),
                 None => {

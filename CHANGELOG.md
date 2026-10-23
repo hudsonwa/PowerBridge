@@ -4,6 +4,10 @@
 
 ### Added
 
+- The native kernel runs `CurrentSession` (the bar date's weekday, as the
+  Python bar loop computes it) and the session-template words `SessionCount`,
+  `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS`, so these programs
+  no longer fall back (#1).
 - The native kernel runs `SessionEndTime(...)`, `SessionStartTime(...)` and
   the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
   `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
