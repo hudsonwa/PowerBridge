@@ -86,13 +86,13 @@ def _worker_transpile(source):
 
 
 def _execution_result(records):
-    from pl_transpiler.tools.pl_oracle import fills_sha256
+    from pl_transpiler.tools.pl_oracle import count_round_turns, fills_sha256
 
     fills = len(records)
     return {
         "status": "OK",
         "fills": fills,
-        "round_turns": fills // 2,
+        "round_turns": count_round_turns(records),
         "digest": fills_sha256(records),
     }
 

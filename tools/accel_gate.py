@@ -47,6 +47,7 @@ if REPO not in sys.path:
 import pl_transpiler.runtime.accel as accel_mod  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import (  # noqa: E402
+    count_round_turns,
     fills_sha256,
     format_digest,
     run_oracle,
@@ -102,7 +103,7 @@ def _compare():
         )
     native_text = format_digest(
         fills=len(native_fills),
-        round_turns=len(native_fills) // 2,
+        round_turns=count_round_turns(native_fills),
         sha256=native_sha,
     )
     if native_text != python_digest["text"]:
@@ -110,7 +111,7 @@ def _compare():
 
     return PASS, 0, (
         f"digests identical ({len(native_fills)} fills, "
-        f"{len(native_fills) // 2} round-turns, sha256={native_sha[:16]}…) "
+        f"{count_round_turns(native_fills)} round-turns, sha256={native_sha[:16]}…) "
         "with the native path taken"
     )
 
