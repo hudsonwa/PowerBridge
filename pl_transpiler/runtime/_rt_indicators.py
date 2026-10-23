@@ -64,17 +64,21 @@ def pl_lowest(series, length):
     window = series[-length:] if len(series) >= length else series
     return f32(min(window))
 
-def _cross_prior_relation(series_a, series_b, start):
+def _cross_prior_relation(series_a, series_b, start, off_a=0, off_b=0):
     """Return the sign of (A - B) on the bar that establishes the pre-cross
     relation, walking back through any consecutive run of equal bars
     (pdf:2502-2509 / 2580-2587). EL defines a cross relative to the last bar
     BEFORE the current one on which A and B differed: a run of equal bars
     immediately preceding the current bar is transparent, and the relation is
     taken from the bar before that run. Returns -1 if A<B, +1 if A>B, 0 if no
-    differing prior bar exists (all-equal history -> no cross)."""
-    i = len(series_a) - 2  # bar immediately preceding the current bar
+    differing prior bar exists (all-equal history -> no cross).
+
+    ``i`` counts bars in the common, right-aligned window of the two
+    histories; ``off_a`` / ``off_b`` are how many extra leading items each
+    side holds (see ``_cross_operands``)."""
+    i = len(series_a) - off_a - 2  # bar immediately preceding the current bar
     while i >= start:
-        a, b = series_a[i], series_b[i]
+        a, b = series_a[i + off_a], series_b[i + off_b]
         if a < b:
             return -1
         if a > b:
@@ -93,26 +97,35 @@ def _require_cross_series(series_a, series_b):
                 f"a cross needs the operand's earlier values")
 
 def _cross_operands(series_a, series_b):
-    """Normalise crosses operands. Returns (series_a, series_b, start), or
-    start None when no cross is possible yet. Both sides must be
+    """Normalise crosses operands. Returns (off_a, off_b, start), or start
+    None when no cross is possible yet. Both sides must be
     series (see ``_require_cross_series``). Leading zeros are the
     runner's PAD element and indicator warm-up, so they are skipped, but only
     on a side that has a nonzero value: an all-zero side is a zero level (for
-    example a declared ``Z(0)``), and skipping it would never start the cross."""
+    example a declared ``Z(0)``), and skipping it would never start the cross.
+
+    The two histories end on the current bar but may differ in length: under
+    MaxBarsBack a price series holds the skipped bars too, while a variable's
+    history starts on the first evaluated bar. They are compared right-aligned
+    over the bars both hold; ``off_a`` / ``off_b`` are each side's extra
+    leading items and ``start`` indexes that common window."""
     _require_cross_series(series_a, series_b)
     if len(series_a) < 2 or len(series_b) < 2:
-        return series_a, series_b, None
-    start_a = _find_first_valid(series_a)
-    start_b = _find_first_valid(series_b)
-    if start_a == len(series_a):
+        return 0, 0, None
+    n = min(len(series_a), len(series_b))
+    off_a = len(series_a) - n
+    off_b = len(series_b) - n
+    start_a = max(_find_first_valid(series_a) - off_a, 0)
+    start_b = max(_find_first_valid(series_b) - off_b, 0)
+    if start_a == n:
         start = start_b
-    elif start_b == len(series_b):
+    elif start_b == n:
         start = start_a
     else:
         start = max(start_a, start_b)
-    if len(series_a) - start < 2:
-        return series_a, series_b, None
-    return series_a, series_b, start
+    if n - start < 2:
+        return off_a, off_b, None
+    return off_a, off_b, start
 
 def pl_crosses_above(series_a, series_b):
     """True if series_a crossed above series_b on this bar.
@@ -121,10 +134,11 @@ def pl_crosses_above(series_a, series_b):
     level, not a warm-up, and is compared from the other side's first bar.
     A run of equal bars immediately preceding the current bar is transparent;
     the pre-cross relation is taken from the bar before that run (pdf:2502-2509)."""
-    series_a, series_b, start = _cross_operands(series_a, series_b)
+    off_a, off_b, start = _cross_operands(series_a, series_b)
     if start is None:
         return False
-    return series_a[-1] > series_b[-1] and _cross_prior_relation(series_a, series_b, start) < 0
+    return (series_a[-1] > series_b[-1]
+            and _cross_prior_relation(series_a, series_b, start, off_a, off_b) < 0)
 
 def pl_crosses_below(series_a, series_b):
     """True if series_a crossed below series_b on this bar.
@@ -133,10 +147,11 @@ def pl_crosses_below(series_a, series_b):
     level, not a warm-up, and is compared from the other side's first bar.
     A run of equal bars immediately preceding the current bar is transparent;
     the pre-cross relation is taken from the bar before that run (pdf:2561-2569)."""
-    series_a, series_b, start = _cross_operands(series_a, series_b)
+    off_a, off_b, start = _cross_operands(series_a, series_b)
     if start is None:
         return False
-    return series_a[-1] < series_b[-1] and _cross_prior_relation(series_a, series_b, start) > 0
+    return (series_a[-1] < series_b[-1]
+            and _cross_prior_relation(series_a, series_b, start, off_a, off_b) > 0)
 
 def pl_true_range(high, low, prev_close):
     """True Range = max(high-low, abs(high-prev_close), abs(low-prev_close))"""
