@@ -689,6 +689,7 @@ impl Cx<'_, '_> {
             "tickid" | "execoffset" => Ty::of(INT),
             n if super::compile::bare_session_time(n).is_some() => Ty::of(INT),
             "lastbaronchart_s" => Ty::of(BOOL),
+            "newline" => Ty::of(STR),
             _ => Ty::bad("identifier unknown to the trace typer"),
         }
     }
@@ -788,6 +789,19 @@ impl Cx<'_, '_> {
             // Session-template words return an int literal (_rt_session).
             n if super::compile::session_time(n).is_some() => with_bad(Ty::of(INT)),
             "currentsession" => with_bad(Ty::of(INT)),
+            // __builtin_len(s)
+            "strlen" => match tys.as_slice() {
+                [t] if t.bits == STR => with_bad(Ty::of(INT)),
+                _ => Ty::bad("StrLen argument type"),
+            },
+            // pl_formatdate returns a str ('' with fewer than two args).
+            "formatdate" => with_bad(Ty::of(STR)),
+            // pl_file returns its path; pl_text_setcolor and the file stubs 0.
+            "file" => match tys.as_slice() {
+                [t] if t.bits == STR => with_bad(Ty::of(STR)),
+                _ => Ty::bad("File argument type"),
+            },
+            "text_setcolor" | "fileappend" | "filedelete" => with_bad(Ty::of(INT)),
             // Drawing ids come from a process-wide counter in Python.
             _ => Ty::bad("call result type unknown to the trace typer"),
         }

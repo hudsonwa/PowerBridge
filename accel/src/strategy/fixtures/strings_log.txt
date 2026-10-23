@@ -1,0 +1,21 @@
+{ Synthetic logging fixture (issue #138): string variables, FormatDate,
+  NumToStr, NewLine, StrLen, Text_SetColor and the FileAppend / FileDelete
+  no-op stubs. StrLen of the change text feeds the entry, so the string
+  helpers reach the trade digest. }
+Inputs: Len(4);
+Vars: Line(""), Chg(""), Stamp(""), N(0), Logged(0);
+Stamp = FormatDate("dddd yyyy-MM-dd HH:mm:ss tt", Date + Time / 2400);
+Chg = NumToStr(Close - Close[1], 2);
+Line = "D=" + Stamp + " C=" + NumToStr(Close, 4) + " d=" + Chg + NewLine;
+N = StrLen(Chg);
+FileAppend(File("strings_log.csv"), Line);
+if CurrentBar = 1 then FileDelete("strings_log.csv");
+if N >= 5 and Close > Close[Len] then begin
+  Text_SetColor(Text_New(Date, Time, Close, Chg), RGB(255, 0, 0));
+  Logged = Logged + 1;
+  Buy ("SLE") next bar at market;
+end;
+if N <= 4 and MarketPosition = 1 then Sell ("SLX") next bar at market;
+if StrLen(Line) > 70 and MarketPosition = 0 then SellShort ("SSE") next bar at market;
+if Stamp = "" then BuyToCover ("SSX") next bar at market;
+if MarketPosition = -1 and N >= 6 then BuyToCover ("SSX2") next bar at market;

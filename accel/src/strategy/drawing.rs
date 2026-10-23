@@ -159,6 +159,12 @@ impl DrawingStore {
         Ok(0.0)
     }
 
+    /// `pl_text_setcolor`: `_live("text", id)["color"] = int(color)`.
+    pub(crate) fn text_set_color(&mut self, id: f64, color: f64) -> Result<f64, KernelError> {
+        self.live_mut(Kind::Text, id)?.color = whole("color", color)?;
+        Ok(0.0)
+    }
+
     pub(crate) fn tl_set_style(&mut self, id: f64, style: f64) -> Result<f64, KernelError> {
         self.live_mut(Kind::Tl, id)?.style = Some(whole("style", style)?);
         Ok(0.0)

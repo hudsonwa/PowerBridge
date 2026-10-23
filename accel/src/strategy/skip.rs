@@ -45,6 +45,7 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
                     | CallOp::TlSetStyle
                     | CallOp::ArwNew
                     | CallOp::TextNew
+                    | CallOp::TextSetColor
                     | CallOp::Rgb
                     | CallOp::LegacyColorToRgb
                     | CallOp::GradientColor,
@@ -62,6 +63,11 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
     // "no orders" shortcut, which would skip those failures too).
     if !program.arrays.is_empty() || program.n_loops > 0 {
         return SkipPlan::unproven("arrays or for loops; cannot skip a prefix");
+    }
+    // A string operation the kernel refuses (Python raises TypeError) must
+    // be reached on the bar Python reaches it.
+    if program.uses_strings {
+        return SkipPlan::unproven("string values; cannot skip a prefix");
     }
     // A skipped bar is never evaluated, so an operation the Python path raises
     // on (a zero divisor, IntPortion of a non-finite value, ...) would go
