@@ -6,6 +6,7 @@
 
 - The native kernel runs `EntryName(n)` / `ExitName(n)` (always `""`, as in the Python runtime) and the bracket form of an input (`Len[1]`), so an input named like a position keyword whose runtime key differs (`Inputs: ExitTime(1555)`, then `ExitTime[1]`) no longer refuses with "bar_ref series" (#153).
 - The native kernel refuses a program that reads an input whose name is a key the Python runtime passes on every bar (`Inputs: MaxShares(2)`, then `MaxShares` or `MaxShares[1]`). Python reads the runtime value for such an input, so the native run gave different trades; the run now falls back to Python and `--explain-native` names the collision. The same holds for a key a runner adds per bar, such as `data2_close` when Data2 is supplied (#153).
+- The native kernel refuses a program that reads an `OutPath` input anywhere but a file path (`Inputs: OutPath(5)`, then `OutPath > 2`, `OutPath[1]`, arithmetic, a condition or an order quantity). The Python runtime always reads `OutPath` as `""`, so the native run used the input's value where Python raised or traded differently; the run now falls back to Python and `--explain-native` gives the reason. `Print(File(OutPath), ...)` and `FileAppend(OutPath + ..., ...)` still run natively (#155).
 
 ## 0.8.1 — 2026-10-23
 

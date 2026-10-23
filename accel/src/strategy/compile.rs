@@ -836,6 +836,9 @@ struct Compiler {
     arrays: Vec<ArrayDecl>,
     n_loops: usize,
     uses_strings: bool,
+    /// `OutPath` reads in a string position of a file sink (see
+    /// [`Compiler::allow_outpath`]); every other read is refused.
+    outpath_ok: HashSet<*const Json>,
     /// Pending `break` / `continue` jumps of the enclosing `for` loops.
     loops: Vec<LoopJumps>,
     /// Variables assigned by any `for` statement (their Python type is `int`
@@ -895,6 +898,7 @@ impl Compiler {
             arrays: Vec::new(),
             n_loops: 0,
             uses_strings: false,
+            outpath_ok: HashSet::new(),
             loops: Vec::new(),
             for_vars: HashSet::new(),
             int_loop_vars: Vec::new(),
@@ -1198,6 +1202,29 @@ impl Compiler {
     /// a key a runner adds per bar reads the runtime value, not the input.
     /// Such a read is refused, so the run falls back to Python.
     fn push_input(&mut self, name: &str, slot: usize) -> Result<(), KernelError> {
+        self.push_input_at(name, slot, None)
+    }
+
+    /// [`Self::push_input`] for the identifier `node`. Python reads `OutPath`
+    /// as `''` (its sandbox), never the input's value, so the kernel only
+    /// reads it where the value cannot matter: a string operand of a file
+    /// sink, which is a no-op in both modes. Any other read (a comparison,
+    /// arithmetic, a condition or an order quantity) is refused, so the run
+    /// falls back to Python and fails or runs the same way.
+    fn push_input_at(
+        &mut self,
+        name: &str,
+        slot: usize,
+        node: Option<&Json>,
+    ) -> Result<(), KernelError> {
+        if name == trace_types::BLANKED_INPUT
+            && !node.is_some_and(|n| self.outpath_ok.contains(&std::ptr::from_ref(n)))
+        {
+            return Err(KernelError::unsupported(
+                "input 'outpath' is read outside a file path; Python reads OutPath \
+                 as '' (its sandbox), not the input",
+            ));
+        }
         if trace_types::BAR_LOOP_KWARGS.contains(&name)
             || trace_types::PER_BAR_EXTRA_KEYS.contains(&name)
         {
@@ -1208,6 +1235,53 @@ impl Compiler {
         }
         self.instrs.push(Instr::PushInput(slot));
         Ok(())
+    }
+
+    /// Mark the `OutPath` reads of file-sink argument `arg` that sit in a
+    /// string position: `OutPath` itself, or an operand of a `+` chain whose
+    /// every operand is a string, so Python's `''` concatenates too.
+    fn allow_outpath(&mut self, arg: &Json) {
+        if !self.is_string_expr(arg) {
+            return;
+        }
+        match node_type(arg) {
+            Some("ident") => {
+                if arg.get("name").and_then(Json::as_str) == Some(trace_types::BLANKED_INPUT) {
+                    self.outpath_ok.insert(std::ptr::from_ref(arg));
+                }
+            }
+            Some("binop") => {
+                self.allow_outpath(arg.get("left").unwrap_or(&Json::Null));
+                self.allow_outpath(arg.get("right").unwrap_or(&Json::Null));
+            }
+            _ => {}
+        }
+    }
+
+    /// `node` is a string in Python: a string literal, `OutPath`, a variable
+    /// with a string init, a string-valued call, or a `+` of strings.
+    fn is_string_expr(&self, node: &Json) -> bool {
+        match node_type(node) {
+            Some("string") => true,
+            Some("ident") => {
+                let name = node.get("name").and_then(Json::as_str).unwrap_or("");
+                name == trace_types::BLANKED_INPUT
+                    || self
+                        .var_slots
+                        .get(name)
+                        .is_some_and(|slot| self.var_inits[*slot].is_str())
+            }
+            Some("call") => matches!(
+                node.get("name").and_then(Json::as_str),
+                Some("numtostr" | "file" | "formatdate")
+            ),
+            Some("binop") => {
+                node.get("op").and_then(Json::as_str) == Some("+")
+                    && self.is_string_expr(node.get("left").unwrap_or(&Json::Null))
+                    && self.is_string_expr(node.get("right").unwrap_or(&Json::Null))
+            }
+            _ => false,
+        }
     }
 
     /// A block-declared variable has no history: Python cannot read it as a
@@ -1489,6 +1563,7 @@ impl Compiler {
             Some("print") => {
                 if let Some(Json::Array(args)) = stmt.get("args") {
                     for arg in args {
+                        self.allow_outpath(arg);
                         self.compile_expr(arg, false)?;
                         self.instrs.push(Instr::Drop);
                     }
@@ -2027,7 +2102,7 @@ impl Compiler {
             return Ok(());
         }
         if let Some(slot) = self.input_slots.get(name).copied() {
-            return self.push_input(name, slot);
+            return self.push_input_at(name, slot, Some(node));
         }
         // TickID and ExecOffset matches MultiCharts backtests: 0 on every
         // historical bar (checked against a MultiCharts capture).
@@ -2213,14 +2288,9 @@ impl Compiler {
             // (then discarded) so a construct the kernel cannot run is refused.
             // This is also how an input named like a position keyword
             // (`Inputs: ExitTime(1555)`) shadows it in bracket form.
-            // `OutPath[n]` keeps the generic refusal below: Python reads
-            // `OutPath` as "" (its sandbox), not the input.
-            if let Some(slot) = self
-                .input_slots
-                .get(name)
-                .copied()
-                .filter(|_| name != trace_types::BLANKED_INPUT)
-            {
+            // `OutPath[n]` is refused by `push_input`: Python reads `OutPath`
+            // as "" (its sandbox), not the input.
+            if let Some(slot) = self.input_slots.get(name).copied() {
                 let mark = self.instrs.len();
                 self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
                 // Dropping the index's instructions is safe: compiling it only
@@ -2418,6 +2488,11 @@ impl Compiler {
             CallOp::NumToStr | CallOp::File | CallOp::StrLen | CallOp::FormatDate
         ) {
             self.uses_strings = true;
+        }
+        if matches!(op, CallOp::File | CallOp::FileNoop) {
+            for arg in args {
+                self.allow_outpath(arg);
+            }
         }
         for arg in args {
             self.compile_expr(arg, false)?;
