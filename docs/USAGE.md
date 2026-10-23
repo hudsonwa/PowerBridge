@@ -428,6 +428,29 @@ In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
 prints no note. The default is 0; pass your chart's value (the MultiCharts
 default is 50) to match MultiCharts.
 
+`--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`)
+uses the longest lookback PowerBridge finds in the strategy source, the same
+number the warm-up note reports: `X[k]` counts k bars plus whatever `X` reads,
+and a windowed builtin counts its length (a number or an input's default), so
+`Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
+stderr shows the value it chose (`max-bars-back 21 (auto)`). When the scan
+cannot bound the lookback (a non-constant index such as `Close[Len2]`, a length
+that is an expression, `of N bars ago`, or a call to your own function), `auto`
+stops with an error asking for a number instead of guessing: a silent 0 would
+give the warm-up fills `auto` exists to avoid.
+
+`auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
+time, raising it and restarting the calculation when a study reads further back
+than it has; `auto` is a static estimate made before the run, and it can differ
+(it may count one bar more than the strict minimum, and it does not follow
+lookbacks inside variables or recursive averages such as `XAverage`). To match
+a MultiCharts chart exactly, pass the MaxBarsBack shown in its strategy
+properties.
+
+The default stays 0 rather than `auto` so that a run means exactly what its
+flags say: every existing command, digest and test keeps its output, and a
+strategy whose lookback cannot be inferred still runs.
+
 ## What the engine assumes
 
 These hold whatever the config:
