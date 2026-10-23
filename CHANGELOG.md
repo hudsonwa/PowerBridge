@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- The native kernel runs `EntryName(n)` / `ExitName(n)` (always `""`, as in the Python runtime) and the bracket form of an input (`Len[1]`), so an input named like a position keyword (`Inputs: ExitTime(1555)`, then `ExitTime[1]`) no longer refuses with "bar_ref series" (#153).
+
 ## 0.8.1 — 2026-10-23
 
 ### Added
