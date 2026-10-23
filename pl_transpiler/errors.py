@@ -53,6 +53,9 @@ def _describe(e):
     if e.get('kind') == 'arity':
         name = e.get('spelling', e['name'])
         return f"'{name}'{where} {e['detail']}"
+    if e.get('kind') == 'unsupported':
+        name = e.get('spelling', e['name'])
+        return f"'{name}'{where}: {e['detail']}"
     return f"'{e['name']}'{where}"
 
 
@@ -61,11 +64,11 @@ def unimplemented_message(errors):
     unimplemented keyword uses the short one-line format."""
     if len(errors) == 1:
         e = errors[0]
-        if e.get('kind') in ('undeclared', 'arity'):
+        if e.get('kind') in ('undeclared', 'arity', 'unsupported'):
             return _describe(e)
         where = f" at line {e['line']}" if e['line'] else ""
         return f"unimplemented EL keyword '{e['name']}'{where}"
-    if any(e.get('kind') in ('undeclared', 'arity') for e in errors):
+    if any(e.get('kind') in ('undeclared', 'arity', 'unsupported') for e in errors):
         return (f"cannot transpile: {len(errors)} errors: "
                 + "; ".join(_describe(e) for e in errors))
     return (f"cannot transpile: {len(errors)} unimplemented keywords: "
@@ -78,7 +81,8 @@ def restore_spelling(errors, source):
     lines = source.splitlines()
     for e in errors:
         line = e.get('line')
-        if e.get('kind') not in ('undeclared', 'arity') or not line or line > len(lines):
+        if (e.get('kind') not in ('undeclared', 'arity', 'unsupported')
+                or not line or line > len(lines)):
             continue
         m = re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])' % re.escape(e['name']),
                       lines[line - 1], re.IGNORECASE)

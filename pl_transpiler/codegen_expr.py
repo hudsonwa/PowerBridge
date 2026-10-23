@@ -23,6 +23,12 @@ from .codegen_util import (
 )
 from .errors import UnimplementedKeywordError, unimplemented_message
 
+# Computed reserved words that depend only on the bar's data columns.
+_BARE_COMPUTED_PRICES = frozenset((
+    'range', 'truerange', 'medianprice', 'avgprice', 'truehigh', 'truelow',
+    'typicalprice', 'weightedclose',
+))
+
 # Position keywords whose positions-ago form (EntryDate(n), ...) reads the
 # closed-position ledger via pl_pos_ago (keys of runtime _rt_core._POS_AGO_FIELDS).
 _POS_AGO_KWARGS = frozenset((
@@ -246,6 +252,96 @@ class _ExprMixin:
         'linearregangle',
     }
 
+    # Series functions whose first argument is the price series. EL evaluates
+    # that argument on every bar, so an expression (``(High + Low) / 2``), an
+    # offset (``Close[5]``) or a computed word (``Range``) passed there gets a
+    # hidden per-site history, like a crosses operand (see _collect_arg_sites).
+    _PRICE_ARG_FUNCS = frozenset((
+        'average', 'averagefc', 'averagetfc', 'weightedaverage', 'waverage',
+        'xaverage', 'highest', 'lowest', 'highestbar', 'lowestbar',
+        'summation', 'momentum', 'roc', 'rateofchange', 'rsi',
+        'standarddev', 'stddev', 'variance',
+        'linearregvalue', 'linearregslope', 'linearregangle',
+    ))
+
+    def _is_user_name(self, name):
+        """True if ``name`` is declared or assigned by the program (it then
+        wins over a reserved word of the same name)."""
+        return (name in self._declared_all
+                or name in self._trace_vars or name in self._stateful_vars
+                or name in self._array_vars or name in self._numeric_vars)
+
+    def _price_arg_site(self, call):
+        """The hidden history for ``call``'s price argument, or None.
+
+        A price argument that needs one but cannot have it (its value can
+        change within the bar) is recorded as an error: the call would
+        otherwise crash at run time."""
+        name = call.get('name')
+        args = call.get('args') or []
+        if not self.persist or name not in self._PRICE_ARG_FUNCS or not args:
+            return None
+        arg = args[0]
+        site = getattr(self, '_arg_sites', {}).get(id(arg))
+        if site is not None:
+            return f"_state['__pb_a{site[0]}']"
+        if self._needs_arg_site(arg):
+            from pl_transpiler.codegen_el import emit_expr
+            line = call.get('_line') or self._cur_stmt_line
+            self._unimpl_errors.append({
+                'name': name, 'line': line, 'kind': 'unsupported',
+                'detail': (f"price argument {emit_expr(arg)!r} can change within "
+                           f"the bar; assign it to a declared variable and pass "
+                           f"that variable instead")})
+        return None
+
+    def _needs_arg_site(self, node):
+        """True if a price argument needs a hidden history: an offset, a
+        computed word or an expression whose generated form is not already a
+        series. Shapes that were already series-valued keep their old form."""
+        t = node.get('type')
+        if t == 'bar_ref':
+            return node['series'].get('type') != 'position_kw'
+        if t == 'ident':
+            return (node.get('name') in _BARE_COMPUTED_PRICES
+                    and not self._is_user_name(node.get('name')))
+        if t in ('binop', 'unaryop', 'compare'):
+            return not self._emits_list(node)
+        return False
+
+    def _emits_list(self, node):
+        """True if the series-context form of ``node`` evaluates to a list
+        without raising (``High + Low`` and ``Close * N`` do)."""
+        t = node.get('type')
+        if t == 'ident':
+            return (node.get('name') in _SERIES_PARAMS
+                    or node.get('name') in self._stateful_vars)
+        if t != 'binop':
+            return False
+        left, right = self._emits_list(node['left']), self._emits_list(node['right'])
+        if node['op'] == '+':
+            return left and right
+        if node['op'] == '*' and left != right:
+            other = node['right'] if left else node['left']
+            return not (other.get('type') == 'number' and '.' in str(other.get('value')))
+        return False
+
+    def _gen_lagged_range(self, name, index):
+        """``Range[n]`` = High[n] - Low[n]; ``TrueRange[n]`` also uses Close[n + 1]."""
+        def col(c, idx):
+            return self._gen_bar_ref({'type': 'bar_ref',
+                                      'series': {'type': 'ident', 'name': c},
+                                      'index': idx})
+        hi, lo = col('high', index), col('low', index)
+        if name == 'range':
+            return f"({hi} - {lo})"
+        if index.get('type') == 'number':
+            prev = {'type': 'number', 'value': str(int(index['value']) + 1)}
+        else:
+            prev = {'type': 'binop', 'op': '+', 'left': index,
+                    'right': {'type': 'number', 'value': '1'}}
+        return f"pl_true_range({hi}, {lo}, {col('close', prev)})"
+
     def _is_known_bare_ident(self, name):
         """True if a bare (parenless) identifier reaching gen_expr's ident fallback
         is a LEGITIMATE name and must pass through as-is (never flagged).
@@ -434,6 +530,9 @@ class _ExprMixin:
             self._series_context = True
         args = [self.gen_expr(a) for a in node['args']]
         self._series_context = old_ctx
+        site = self._price_arg_site(node)
+        if site is not None:
+            args[0] = site
 
         # Special cases
         if name == 'power' and len(args) == 2:
@@ -736,8 +835,11 @@ class _ExprMixin:
             # For regular functions, pass series args with offset slicing
             # Slice each data series argument to shift the lookback window
             sliced_args = []
+            site = self._price_arg_site(series)
             for i, arg in enumerate(series['args']):
-                if arg['type'] == 'ident' and arg['name'] in _SERIES_PARAMS:
+                if i == 0 and site is not None:
+                    sliced_args.append(self._lagged(site, offset))
+                elif arg['type'] == 'ident' and arg['name'] in _SERIES_PARAMS:
                     sliced_args.append(self._lagged(raw_args[i], offset))
                 else:
                     sliced_args.append(raw_args[i])
@@ -745,6 +847,12 @@ class _ExprMixin:
             if py_name and not py_name.startswith('__'):
                 return f"{py_name}({', '.join(sliced_args)})"
             return self._impl_call(func_name, series, sliced_args)
+
+        # Range[n] / TrueRange[n]: the value n bars ago, built from the data
+        # columns n (and n + 1) bars ago like the EL functions themselves.
+        if (series['type'] == 'ident' and series['name'] in ('range', 'truerange')
+                and not self._is_user_name(series['name'])):
+            return self._gen_lagged_range(series['name'], index)
 
         # Original behaviour for data series and arrays
         old_ctx = self._series_context
