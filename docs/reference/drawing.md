@@ -202,6 +202,20 @@ If CurrentBar = 1 Then ID = Text_New(Date, Time, High, "start");
 
 Like `Text_New`, with the time given as HHMMSS.
 
+### TL_GetEndTime
+
+| Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
+|---|---|---|---|---|---|---|
+| builtin | numeric | 1 | any | PowerBridge test (`tests/test_drawing_offtape_anchors.py`) | no | transpiles; the run stops (not implemented in the runtime) |
+
+Time (HHMM) of a trend line's end point, as it was given: line ID. It needs drawing capture (`--drawings-json`); a run without it stops with an error instead of returning 0.
+
+```easylanguage
+Vars: id(0), t(0);
+id = TL_New(Date, Time, Low, Date, Time, High);
+t = TL_GetEndTime(id);
+```
+
 ### TL_GetValue
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
@@ -237,6 +251,14 @@ If CurrentBar = 10 Then ID = TL_New(Date[5], Time[5], Low[5], Date, Time, Low);
 
 Like `TL_New`, with times given as HHMMSS.
 
+### TL_SetBegin
+
+| Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
+|---|---|---|---|---|---|---|
+| builtin | numeric | 4 | any, any, any, any | PowerBridge test (`tests/test_drawing_offtape_anchors.py`) | no | runs |
+
+Moves a trend line's start point: line ID, then date, time (HHMM) and price. The point need not be a bar on the chart.
+
 ### TL_SetColor
 
 | Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
@@ -244,6 +266,14 @@ Like `TL_New`, with times given as HHMMSS.
 | builtin | numeric | 2 | any, any | PowerBridge test (`tests/real_world/test_comprehensive.py`) | no | runs |
 
 Sets a trend line's color: line ID, then a color value.
+
+### TL_SetEnd
+
+| Kind | Returns | Arguments | Argument types | Evidence | On MC compile list | Run status |
+|---|---|---|---|---|---|---|
+| builtin | numeric | 4 | any, any, any, any | PowerBridge test (`tests/test_drawing_offtape_anchors.py`) | no | runs |
+
+Moves a trend line's end point: line ID, then date, time (HHMM) and price. The point need not be a bar on the chart.
 
 ### TL_SetExtLeft
 

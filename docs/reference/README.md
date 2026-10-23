@@ -2,7 +2,7 @@
 
 # EasyLanguage keyword reference
 
-A reference for the EasyLanguage / PowerLanguage keywords PowerBridge supports, written for PowerBridge from its own code, tests and runs. It covers 258 builtins: every catalog builtin on the MultiCharts compile list, plus every builtin a PowerBridge test or capture-backed strategy uses. Query the full catalog with `python -m pl_transpiler.catalog`.
+A reference for the EasyLanguage / PowerLanguage keywords PowerBridge supports, written for PowerBridge from its own code, tests and runs. It covers 261 builtins: every catalog builtin on the MultiCharts compile list, plus every builtin a PowerBridge test or capture-backed strategy uses. Query the full catalog with `python -m pl_transpiler.catalog`.
 
 ## Reading an entry
 
@@ -27,15 +27,15 @@ Examples are short fragments. Each one is transpiled and run on sample bars by `
 | [Dates and times](datetime.md) | 42 |
 | [Math and lists](math.md) | 27 |
 | [Arrays](arrays.md) | 20 |
-| [Drawing, colors and output](drawing.md) | 31 |
+| [Drawing, colors and output](drawing.md) | 34 |
 
 ## Run status totals
 
 | Status | Entries |
 |---|---|
-| runs | 252 |
+| runs | 254 |
 | accepted; no effect in a backtest | 0 |
-| transpiles; the run stops (not implemented in the runtime) | 6 |
+| transpiles; the run stops (not implemented in the runtime) | 7 |
 
 ## All keywords
 
@@ -279,10 +279,13 @@ Examples are short fragments. Each one is transpiled and run on sample bars by `
 - [time_s](bar-data.md#time_s)
 - [Time_s2Time](datetime.md#time_s2time)
 - [TimeToString](datetime.md#timetostring)
+- [TL_GetEndTime](drawing.md#tl_getendtime)
 - [TL_GetValue](drawing.md#tl_getvalue)
 - [TL_New](drawing.md#tl_new)
 - [TL_New_s](drawing.md#tl_new_s)
+- [TL_SetBegin](drawing.md#tl_setbegin)
 - [TL_SetColor](drawing.md#tl_setcolor)
+- [TL_SetEnd](drawing.md#tl_setend)
 - [TL_SetExtLeft](drawing.md#tl_setextleft)
 - [TL_SetExtRight](drawing.md#tl_setextright)
 - [TL_SetStyle](drawing.md#tl_setstyle)
