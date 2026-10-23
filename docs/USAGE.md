@@ -437,6 +437,9 @@ full, taken by argument position: `StdDev(Close, 20, 1)` counts 20,
 further back), and `ADX(7)` counts 14 (its smoothing gives 0 and then 50
 until then). An index or length may be a number or an input's default, so
 `Close[Len]` and `Average(Close, Len)` with `Inputs: Len(10)` both count 10.
+An array element such as `Buf[Idx]` is not a past-bar read: it counts only
+what its index reads (`Buf[Close[3]]` counts 3) and what was stored in the
+array, and an assignment's target never counts.
 `Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
 stderr shows the value it chose (`max-bars-back 21 (auto)`).
 
