@@ -151,6 +151,17 @@ Python's exact integer `10 ** n` cannot be matched in floating point.
 `pricescale`), the values the Python bar loop passes in, and
 `LastBarOnChart_s` is `True`, the runtime's constant.
 
+`Floor(x)` is Python's `math.floor`: an integer, so `Floor(-2.5)` is -3 and
+there is no negative zero; a NaN or infinite value stops the run, as it raises
+in Python. `ELDateToDateTime(d)` runs the runtime's `pl_datetojulian` on
+`int(d)` (days since 1899-12-30, with Python's floor division, so an
+out-of-range month or day gives the same number on both paths), and
+`ELDateToDateTime(d, t)` is `d * 10000 + t`. `CurrentTime_s`,
+`CurrentDate_s` and `ComputerDateTime` read the computer clock: the kernel
+calls the runtime's `_rt_datetime._clock_now()` on every use, so both paths
+share one time source and a test that patches it pins the native run too.
+`CurrentDate` and `CurrentTime` are the bar's date and time on both paths.
+
 The `total` order modifier runs natively. The Python engine does not read
 it, so an order with `total` fills exactly like the same order without it.
 `Sell` / `BuyToCover ... from entry ("X")` also runs natively and closes its
