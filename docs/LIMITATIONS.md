@@ -60,7 +60,9 @@ trust a backtest from partial output.
   release (macOS, Linux and Windows) or build it from source; see
   [ACCEL.md](ACCEL.md). It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
-  `pl_run` (per-bar trace rows) always uses the Python path.
+  `pl_run` (per-bar trace rows) uses it only for full-tape runs without
+  `--max-bars-back`, `--max-entries-per-direction` or `--partial`; other runs
+  use the Python path and say so on stderr.
 - Same-direction entries always add to the position (as with MultiCharts'
   'allow multiple entries' setting). MultiCharts' default setting refuses
   them; that default is documented behaviour, not verified against a capture.

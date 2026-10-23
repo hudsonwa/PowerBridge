@@ -136,12 +136,10 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
     --config NQ --columns MarketPosition,NetProfit,TotalTrades -o out/run_out.csv
 ```
 
-```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/run_out.csv
-```
-
-Without the optional [Rust fast path](ACCEL.md#install) the run uses the
-pure-Python engine; results are identical either way. Add `-v` to see a
+It prints `[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns [python] -> out/run_out.csv`
+on stderr. With the optional [Rust fast path](ACCEL.md#install) installed the
+line ends `[native] -> out/run_out.csv`; the CSV is byte-identical either way.
+Without it the run uses the pure-Python engine. Add `-v` to see a
 `note:` line on stderr saying so.
 
 **4. Read the output.** `out/run_out.csv` has one row per bar with the columns you
@@ -389,10 +387,6 @@ The same bars and strategy with the ES point value ($50 instead of $20):
 mkdir -p out
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
     --config examples/configs/ES.json --columns MarketPosition,NetProfit -o out/es_out.csv
-```
-
-```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/es_out.csv
 ```
 
 <!-- readme-test: file out/es_out.csv -->

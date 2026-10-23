@@ -160,3 +160,51 @@ def test_synthetic_programs_trace_like_python(source, bars):
 def test_run_dependent_types_are_refused(kinds, bars):
     with pytest.raises(AccelRefused, match=f"depends on the run \\({kinds}\\)"):
         run_native_trace(AMBIGUOUS[kinds], bars, get_config("NQ"))
+
+
+# --- pl_run CLI: native trace by default, byte-identical CSV -----------------
+
+def _cli(argv, tmp_path, name, capsys):
+    from pl_transpiler.tools import pl_run
+    out = tmp_path / name
+    assert pl_run.main(argv + ["-o", str(out)]) == 0
+    return out.read_bytes(), capsys.readouterr().err
+
+
+@pytest.mark.parametrize("extra", [
+    [], ["--full-precision"],
+    ["--columns", "MarketPosition,NetProfit,TotalTrades"],
+    ["--columns", "Date,Time,Close,CurrentBar,Fast,Slow,FastLen"],
+])
+def test_pl_run_cli_native_csv_is_byte_identical(extra, tmp_path, capsys):
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, err_py = _cli([el, BARS_CSV, "--python"] + extra, tmp_path, "py.csv", capsys)
+    got, err_nat = _cli([el, BARS_CSV] + extra, tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert "[python]" in err_py and "pure-Python" not in err_py
+    assert "round-turns [native]" in err_nat and "pure-Python" not in err_nat
+
+
+def test_pl_run_cli_unsupported_option_falls_back_loudly(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, _ = _cli([el, BARS_CSV, "--python", "--max-bars-back", "21"],
+                   tmp_path, "py.csv", capsys)
+    got, err = _cli([el, BARS_CSV, "--native", "--max-bars-back", "21"],
+                    tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert "using the pure-Python engine" in err and "max-bars-back" in err
+    assert "[python]" in err
+
+
+def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, capsys):
+    def refuse(*_a, **_k):
+        raise AccelRefused("synthetic refusal")
+    monkeypatch.setattr("pl_transpiler.runtime.accel.run_native_trace", refuse)
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, _ = _cli([el, BARS_CSV, "--python"], tmp_path, "py.csv", capsys)
+    got, err = _cli([el, BARS_CSV], tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert ("[pl_run] native path refused: synthetic refusal; "
+            "using the pure-Python engine (slower)") in err
+    assert "[python]" in err

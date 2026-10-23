@@ -354,7 +354,10 @@ path that produced the digest, `[native]` or `[python]`:
 [pl_oracle] 140 bars, 3 fills, 1 round-turns [native]
 ```
 
-`pl_run` always uses the Python path. A kernel that is installed but refuses a
+`pl_run` uses the kernel's typed per-bar trace for full-tape runs (`--python`
+forces Python; the CSV is byte-identical either way, and its status line ends
+`[native]` or `[python]`). Windowed, `--partial`, `--max-bars-back` and
+`--max-entries-per-direction` runs use the Python path, with a `note:` line. A kernel that is installed but refuses a
 program falls back to Python with a one-line note on stderr; it never crashes and
 never silently produces a different result. Verbosity is opt-in:
 

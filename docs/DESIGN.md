@@ -237,8 +237,8 @@ capture is labelled "documented behaviour, unverified" wherever it appears.
   two entries open closes the whole position; the documented EL meaning differs and
   is tracked as unverified (#47) until a capture exists.
 - **Unimplemented builtins** stop the run rather than return a guess.
-- **Kernel coverage.** Arrays fall back to Python; `pl_run` trace rows always use
-  Python.
+- **Kernel coverage.** Arrays fall back to Python; `pl_run` trace rows use Python
+  for windowed, `--max-bars-back` and entry-capped runs.
 - **Out of scope:** the package has no live-trading, broker or charting code; it
   backtests and translates only.
 
