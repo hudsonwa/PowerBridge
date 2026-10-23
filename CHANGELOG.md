@@ -11,6 +11,10 @@
 
 - The lexer now runs in linear time, so long programs tokenise much faster (a 3,200-line program in about 0.04 s instead of 2 s), with identical output (#180).
 
+### Fixed
+
+- A strict-mode stop (`from entry ("X")` with several entries open, a missing bar column such as `OpenInt`, or an unimplemented builtin) now names the line of the statement that raised it; before, `pl_run` and `pl_oracle` named the first line that mentioned the word, even a comment or a different order (#178).
+
 ## 0.9.0 — 2026-10-23
 
 Highlights:
