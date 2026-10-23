@@ -144,6 +144,11 @@ The digest goes to stdout. The `[pl_oracle] … fills` summary line (and,
 with `-v`, a `note:` line when the native kernel is not installed) go to stderr, so
 `pl_oracle … > digest.txt` captures only the block above.
 
+To see why a strategy would run on the Python path, list every construct the
+native kernel refuses (no bars CSV needed, nothing runs):
+`pl_oracle --explain-native my_strategy.el`. Details are in
+[ACCEL.md](ACCEL.md#which-constructs-the-kernel-refuses).
+
 What you can verify yourself, digest gating and captures are in
 [verification.md](verification.md).
 

@@ -95,6 +95,12 @@ Public surface:
         kernel refuses the program (NotImplementedError). Both are LOUD
         signals to fall back to the Python path — never a result.
 
+    explain_native(el_source) -> list[NativeRefusal]
+        Every construct the native compile pass would refuse, not just the
+        first: ``(kind, name, line, message)`` records in compile order.
+        Empty means native can run the program. Raises ``AccelUnavailable``
+        when the extension is absent (never a guess from Python).
+
     fallback_count() -> int
         Process-wide count of native falls back (AccelUnavailable or
         AccelRefused signalled by ``run_native``). The differential gate
@@ -102,7 +108,7 @@ Public surface:
         never come from a silent Python fallback — that would be a false green.
 """
 import json
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.parser import parse
@@ -379,6 +385,46 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
+
+
+NativeRefusal = namedtuple("NativeRefusal", "kind name line message")
+NativeRefusal.__doc__ = """One construct the native kernel refuses.
+
+``kind`` is ``function``, ``statement``, ``order``, ``variable`` or
+``expression``; ``name`` the keyword or construct; ``line`` the 1-based EL
+source line of the enclosing statement (0 if unknown); ``message`` the
+kernel's refusal text, as ``AccelRefused`` would carry it."""
+
+
+def explain_native(el_source):
+    """List every construct the native kernel would refuse in ``el_source``.
+
+    Returns a list of :class:`NativeRefusal` in the kernel's compile order;
+    the first one's ``message`` is the refusal :func:`run_native` raises. An
+    empty list means the compile pass accepts the program. Only the compile
+    pass is checked: run-time conditions (a missing Data2 tape, MaxBarsBack on
+    an entry point without it) are not listed. A refused statement is skipped,
+    so a second refusal inside the same expression is reported on the next
+    run once the first is fixed.
+
+    Nothing is executed and the fallback counter is not touched. Raises
+    ``AccelUnavailable`` when the extension is not built (or too old to
+    explain), and the parser's ``PLSyntaxError`` for invalid EL.
+    """
+    try:
+        import pl_transpiler._accel as accel
+    except ImportError as exc:
+        raise AccelUnavailable(
+            "native kernel not installed: pl_transpiler._accel is not built "
+            "(see README 'Acceleration', or tools/build_accel.sh)") from exc
+    if not hasattr(accel, "explain_program"):
+        raise AccelUnavailable(
+            "this accel build predates explain_native; rebuild accel "
+            "(tools/build_accel.sh)")
+    tokens, positions = tokenise(el_source)
+    ast = parse(tokens, positions=positions, source=el_source)
+    return [NativeRefusal(kind, name, line, message)
+            for kind, name, line, message in accel.explain_program(serialise_ir(ast))]
 
 
 def run_native_drawings(el_source, bars, config, *, data2_bars=None,

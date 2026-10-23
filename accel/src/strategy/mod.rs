@@ -91,6 +91,24 @@ pub(crate) fn run_program_inputs(
     run_with_max_bars_back(series, config, &mut strategy)
 }
 
+/// Every construct the native compiler refuses in `program_ir`, as
+/// `(kind, name, line, message)` in compile order (empty = native can run it).
+/// The first message is the refusal [`run_program`] would raise. Run-time
+/// checks (the Data2 tape, config options) are not part of the compile pass.
+pub(crate) fn explain_program(
+    program_ir: &str,
+) -> Result<Vec<(&'static str, String, i64, String)>, KernelError> {
+    let ast = load_program_ir(program_ir)?;
+    let refusals = compile::explain(&ast, &HashMap::new())?;
+    Ok(refusals
+        .into_iter()
+        .map(|refusal| {
+            let (kind, name) = refusal.kind_and_name();
+            (kind, name, refusal.line, refusal.message)
+        })
+        .collect())
+}
+
 /// Like [`run_program`], and the drawing objects the run recorded.
 ///
 /// The JSON array is the object list of a `powerbridge-drawing-dump` v1
