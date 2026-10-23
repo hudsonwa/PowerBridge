@@ -129,6 +129,7 @@ pub(crate) fn run_program_drawings(
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
     strategy.set_drawing_tick(config.tick);
+    strategy.set_drawing_tape(series.dates(), series.times())?;
     strategy.set_price_units(config.minmove, config.pricescale);
     let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
     Ok((outcome.fills, strategy.drawings_json().to_string()))

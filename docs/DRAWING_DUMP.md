@@ -12,6 +12,12 @@ capture is turned on, and for every drawing dump in
 - Bar key: `bn` (1-based index into the tape passed to the run, not
   MultiCharts `CurrentBar`), EL `date` (YYYMMDD), `time` (HHmm), `time_s`
   (HHmmss).
+- An anchor need not be a bar on the tape (a v1 extension): `(0, 0)` from
+  an out-of-history lookback, or a session-end time, is kept as given with
+  `bn` null. `bn` is looked up on the whole tape, so an anchor on a later bar
+  has its `bn`. This is PowerBridge's own convention; it has not been
+  checked against MultiCharts. Only a null-`bn` anchor may have a date or
+  time outside the EL ranges, and its `(date, time)` must not be a tape bar.
 - Prices: `price` plus `price_ticks = round(price / tick)`. Comparisons use
   ticks.
 - Colours: MultiCharts integer `R + 256·G + 65536·B` (Red = 255). `argb` is

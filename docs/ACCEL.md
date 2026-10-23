@@ -398,7 +398,9 @@ Each line is `kind name line`: kind is `function`, `statement`, `order`,
 e.g. `expression MaxPositionProfit 2`), and line is the 1-based EL line of
 the statement.
 Lines are sorted by line. A program the kernel accepts prints
-`native kernel can run this program`. Both exit 0. Without the kernel the
+`native kernel can run this program (compile-time check only; a native run
+can still be refused at run time)`; with refusals, that note goes to stderr.
+Both exit 0. Without the kernel the
 command prints `native kernel not installed` on stderr and exits 2.
 
 From Python, `pl_transpiler.runtime.accel.explain_native(el_source)` returns

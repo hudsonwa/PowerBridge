@@ -214,29 +214,57 @@
    ],
    "properties": {
     "bn": {
-     "type": "integer",
-     "minimum": 1
+     "type": [
+      "integer",
+      "null"
+     ],
+     "minimum": 1,
+     "description": "null only when the anchor is not a bar on the tape (v1 extension)"
     },
     "date": {
      "type": "integer",
-     "minimum": 1000101,
-     "maximum": 1991231
+     "minimum": 0
     },
     "time": {
      "type": "integer",
-     "minimum": 0,
-     "maximum": 2359
+     "minimum": 0
     },
     "time_s": {
      "type": "integer",
-     "minimum": 0,
-     "maximum": 235959
+     "minimum": 0
     },
     "price": {
      "type": "number"
     },
     "price_ticks": {
      "type": "integer"
+    }
+   },
+   "if": {
+    "properties": {
+     "bn": {
+      "type": "null"
+     }
+    },
+    "required": [
+     "bn"
+    ]
+   },
+   "then": {
+    "description": "An anchor that is not a tape bar, e.g. (0, 0) from an out-of-history lookback: any non-negative date and time."
+   },
+   "else": {
+    "properties": {
+     "date": {
+      "minimum": 1000101,
+      "maximum": 1991231
+     },
+     "time": {
+      "maximum": 2359
+     },
+     "time_s": {
+      "maximum": 235959
+     }
     }
    }
   },

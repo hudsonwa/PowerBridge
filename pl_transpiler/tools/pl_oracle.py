@@ -668,7 +668,8 @@ def _build_parser():
                     help="list every construct the native kernel would refuse in "
                          "EL_FILE, one 'kind name line' per line sorted by line, "
                          "then exit 0 without running anything (no bars CSV "
-                         "needed). Exits 2 if the native kernel is not installed.")
+                         "needed). A compile-time check: a run can still be "
+                         "refused at run time. Exits 2 if the native kernel is not installed.")
     _cli.add_version(ap, "pl_oracle")
     return ap
 
@@ -707,6 +708,10 @@ def _drawing_tape_arg(args):
     return {"name": name, "sha256": sha}
 
 
+_EXPLAIN_NOTE = ("compile-time check only; a native run can still be "
+                 "refused at run time")
+
+
 def _explain_native(el_file):
     """``--explain-native``: print each native refusal, run nothing."""
     el_source = open(el_file, encoding="utf-8").read()
@@ -716,10 +721,11 @@ def _explain_native(el_file):
         print(f"pl_oracle: {exc}", file=sys.stderr)
         return 2
     if not refusals:
-        print("native kernel can run this program")
+        print(f"native kernel can run this program ({_EXPLAIN_NOTE})")
         return 0
     for refusal in sorted(refusals, key=lambda r: r.line):
         print(f"{refusal.kind} {refusal.name} {refusal.line}")
+    print(f"pl_oracle: {_EXPLAIN_NOTE}", file=sys.stderr)
     return 0
 
 

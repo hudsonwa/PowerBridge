@@ -187,7 +187,8 @@ with `-v`, a `note:` line when the native kernel is not installed) go to stderr,
 
 To see why a strategy would run on the Python path, list every construct the
 native kernel refuses (no bars CSV needed, nothing runs):
-`pl_oracle --explain-native my_strategy.el`. Details are in
+`pl_oracle --explain-native my_strategy.el`. It is a compile-time check: a run
+can still be refused at run time. Details are in
 [ACCEL.md](ACCEL.md#which-constructs-the-kernel-refuses).
 
 What you can verify yourself, digest gating and captures are in

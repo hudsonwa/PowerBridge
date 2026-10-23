@@ -38,7 +38,9 @@ use super::compile::{
     Series, SeriesSrc, Unary,
 };
 use super::datefmt::format_date;
-use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
+use super::drawing::{
+    find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore, TapeIndex,
+};
 use super::pynum::{
     binop_num, py_datetojulian, py_extreme, py_floor, py_int, py_round, py_sign, py_square,
 };
@@ -88,6 +90,9 @@ pub(crate) struct Interpreter<'a> {
     risk: RiskUpdate,
     stack: Vec<Value>,
     drawings: DrawingStore,
+    /// The whole run tape, for drawing anchor `bn` (see
+    /// [`Self::set_drawing_tape`]). Empty unless the drawings are dumped.
+    drawing_tape: TapeIndex,
     /// Declared arrays. Allocated once and never reset between bars (the
     /// Python `_state` keeps the same list); a new interpreter starts fresh.
     arrays: Vec<ElArray>,
@@ -187,6 +192,7 @@ impl<'a> Interpreter<'a> {
             risk: RiskUpdate::default(),
             stack: Vec::new(),
             drawings: DrawingStore::new(),
+            drawing_tape: TapeIndex::default(),
             arrays,
             loops,
             last_read_kind: ElemKind::Unknown,
@@ -967,15 +973,13 @@ impl<'a> Interpreter<'a> {
     fn draw_tl_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
         self.need(6, "TL_New", args)?;
         let a1 = find_anchor(
-            &self.date,
-            &self.time,
+            &self.drawing_tape,
             args[0].as_f64()?,
             args[1].as_f64()?,
             args[2].as_f64()?,
         )?;
         let a2 = find_anchor(
-            &self.date,
-            &self.time,
+            &self.drawing_tape,
             args[3].as_f64()?,
             args[4].as_f64()?,
             args[5].as_f64()?,
@@ -986,8 +990,7 @@ impl<'a> Interpreter<'a> {
     fn draw_arw_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
         self.need(4, "Arw_New", args)?;
         let anchor = find_anchor(
-            &self.date,
-            &self.time,
+            &self.drawing_tape,
             args[0].as_f64()?,
             args[1].as_f64()?,
             args[2].as_f64()?,
@@ -1002,8 +1005,7 @@ impl<'a> Interpreter<'a> {
     fn draw_text_new(&mut self, args: &[Value]) -> Result<Value, KernelError> {
         self.need(4, "Text_New", args)?;
         let anchor = find_anchor(
-            &self.date,
-            &self.time,
+            &self.drawing_tape,
             args[0].as_f64()?,
             args[1].as_f64()?,
             args[2].as_f64()?,
@@ -1162,6 +1164,16 @@ impl<'a> Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub(crate) fn set_drawing_tick(&mut self, tick: f64) {
         self.drawings.set_tick(tick);
+    }
+
+    /// Index the whole run tape so an anchor on a later bar gets its `bn`.
+    pub(crate) fn set_drawing_tape(
+        &mut self,
+        dates: &[i64],
+        times: &[i64],
+    ) -> Result<(), KernelError> {
+        self.drawing_tape = TapeIndex::new(dates, times)?;
+        Ok(())
     }
 
     /// The config's `minmove` and `pricescale`, which the Python bar loop
