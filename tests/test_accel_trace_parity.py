@@ -175,6 +175,9 @@ def _cli(argv, tmp_path, name, capsys):
     [], ["--full-precision"],
     ["--columns", "MarketPosition,NetProfit,TotalTrades"],
     ["--columns", "Date,Time,Close,CurrentBar,Fast,Slow,FastLen"],
+    ["--max-bars-back", "21"],
+    ["--max-bars-back", "50", "--columns", "BarNumber,Date,Close,MarketPosition"],
+    ["--max-bars-back", "21", "--max-entries-per-direction", "1"],
 ])
 def test_pl_run_cli_native_csv_is_byte_identical(extra, tmp_path, capsys):
     el = os.path.join(REPO, "examples", "ma_cross.el")
@@ -188,13 +191,21 @@ def test_pl_run_cli_native_csv_is_byte_identical(extra, tmp_path, capsys):
 def test_pl_run_cli_unsupported_option_falls_back_loudly(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     el = os.path.join(REPO, "examples", "ma_cross.el")
-    want, _ = _cli([el, BARS_CSV, "--python", "--max-bars-back", "21"],
+    want, _ = _cli([el, BARS_CSV, "--python", "--from-bar", "30"],
                    tmp_path, "py.csv", capsys)
-    got, err = _cli([el, BARS_CSV, "--native", "--max-bars-back", "21"],
+    got, err = _cli([el, BARS_CSV, "--native", "--from-bar", "30"],
                     tmp_path, "nat.csv", capsys)
     assert got == want
-    assert "using the pure-Python engine" in err and "max-bars-back" in err
+    assert "using the pure-Python engine" in err and "windowed" in err
     assert "[python]" in err
+
+
+def test_old_kernel_trace_refuses_max_bars_back(monkeypatch, bars):
+    import pl_transpiler._accel as accel
+    monkeypatch.delattr(accel, "TRACE_RUN_OPTIONS", raising=False)
+    el = open(os.path.join(REPO, "examples", "ma_cross.el"), encoding="utf-8").read()
+    with pytest.raises(AccelRefused, match="predates max_bars_back"):
+        run_native_trace(el, bars, get_config("NQ"), max_bars_back=21)
 
 
 def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, capsys):

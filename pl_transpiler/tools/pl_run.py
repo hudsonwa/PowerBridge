@@ -453,8 +453,9 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     has no ``drawings`` key.
     use_native    : False (default): the Python engine. True: try the optional
                     native kernel's typed trace first; it serves full-tape runs
-                    without partial mode, drawings, max_bars_back or an entry
-                    cap, and its rows are byte-identical to the Python rows.
+                    (max_bars_back and an entry cap included) without partial
+                    mode or drawings, and its rows are byte-identical to the
+                    Python rows.
                     Any other run, or a program the kernel refuses, runs on the
                     Python path and ``native_fallback_reason`` says why.
 
@@ -472,11 +473,12 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     if use_native:
         reason = _native_shape_refusal(
             partial=partial, from_date=from_date, from_bar=from_bar,
-            max_bars_back=max_bars_back,
-            max_entries_per_direction=max_entries_per_direction, drawings=drawings)
+            drawings=drawings)
         if reason is None:
             out, fallback_reason = _run_el_native(
-                el_source, bars, config, trace_columns=trace_columns,
+                el_source, bars, config, max_bars_back=max_bars_back,
+                max_entries_per_direction=max_entries_per_direction,
+                trace_columns=trace_columns,
                 row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows)
             if out is not None:
                 return out
@@ -625,24 +627,20 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     return out
 
 
-def _native_shape_refusal(*, partial, from_date, from_bar, max_bars_back,
-                          max_entries_per_direction, drawings):
+def _native_shape_refusal(*, partial, from_date, from_bar, drawings):
     """Why ``run_el(use_native=True)`` must take the Python path before asking
     the kernel, or None. The typed trace serves the full-tape run only."""
     if partial:
         return "--partial is served by the Python path only"
     if from_date is not None or from_bar is not None:
         return "run is windowed (not the native shape)"
-    if max_bars_back:
-        return "--max-bars-back is not supported by the native trace yet"
-    if max_entries_per_direction:
-        return "--max-entries-per-direction is not supported by the native trace yet"
     if drawings:
         return "drawings are served by the Python path only"
     return None
 
 
-def _run_el_native(el_source, bars, config, *, trace_columns, row_sink,
+def _run_el_native(el_source, bars, config, *, max_bars_back,
+                   max_entries_per_direction, trace_columns, row_sink,
                    header_sink, retain_rows):
     """The native typed trace, rendered the way ``emit_row`` renders it.
 
@@ -657,11 +655,14 @@ def _run_el_native(el_source, bars, config, *, trace_columns, row_sink,
         run_native_trace,
     )
     try:
-        native_cols, native_rows, fills = run_native_trace(el_source, bars, config)
+        native_cols, native_rows, fills = run_native_trace(
+            el_source, bars, config, max_bars_back=max_bars_back,
+            max_entries_per_direction=max_entries_per_direction)
     except AccelUnavailable as exc:
         return None, str(exc)
     except AccelRefused as exc:
         return None, f"native path refused: {exc}"
+    warn_short_history(el_source, max_bars_back, len(bars), 'pl_run')
     if retain_rows is None:
         retain_rows = row_sink is None
     columns = list(trace_columns) if trace_columns is not None else []

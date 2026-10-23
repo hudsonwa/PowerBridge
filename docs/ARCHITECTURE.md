@@ -187,6 +187,6 @@ proves.
   [USAGE.md](USAGE.md#what-the-engine-assumes) rather than half-modelled.
 - **Kernel coverage.** The kernel does not yet run strategies that declare
   arrays (they fall back to Python), and `pl_run`'s per-bar trace rows use
-  Python for windowed, `--max-bars-back` and entry-capped runs.
+  Python for windowed and `--partial` runs.
 - **Mirror-only reverse direction.** Python → EL works only on our own mirror
   dialect.

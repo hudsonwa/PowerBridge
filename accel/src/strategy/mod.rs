@@ -147,6 +147,17 @@ fn run_with_max_bars_back(
     if config.max_bars_back == 0 {
         return run_native(series, config.into(), strategy);
     }
+    let (rest, skip) = feed_history(series, config, strategy)?;
+    run_native_from_offset(&rest, config.into(), strategy, skip, |_, _, _, _| Ok(()))
+}
+
+/// Feed the first `config.max_bars_back` bars to `strategy` as history only
+/// and return the rest of the tape (to evaluate) and the number fed.
+fn feed_history(
+    series: &BarTape,
+    config: &Config,
+    strategy: &mut Interpreter<'_>,
+) -> Result<(BarTape, usize), KernelError> {
     let skip = config.max_bars_back.min(series.len());
     for index in 0..skip {
         strategy.observe_history(series.bar(index));
@@ -160,7 +171,7 @@ fn run_with_max_bars_back(
         series.dates()[skip..].to_vec(),
         series.times()[skip..].to_vec(),
     )?;
-    run_native_from_offset(&rest, config.into(), strategy, skip, |_, _, _, _| Ok(()))
+    Ok((rest, skip))
 }
 
 /// The trace, audit and batch entry points do not implement MaxBarsBack or the
@@ -181,13 +192,16 @@ fn refuse_run_program_options(config: &Config, entry: &str) -> Result<(), Kernel
 }
 
 /// Produce the typed per-bar trace plus the outcome fills.
+///
+/// Honours `max_bars_back` and `max_entries_per_direction` like
+/// [`run_program`]: history-only bars emit no row, and the `_barnumber`
+/// column restarts at 1 on the first evaluated bar (as the Python trace).
 pub(crate) fn run_program_trace(
     program_ir: &str,
     series: &BarTape,
     data2: Option<&BarTape>,
     config: &Config,
 ) -> Result<(TypedTrace, Vec<Fill>), KernelError> {
-    refuse_run_program_options(config, "run_program_trace")?;
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let blanked = HashMap::from([(trace_types::BLANKED_INPUT.to_owned(), Value::str(""))]);
@@ -199,8 +213,9 @@ pub(crate) fn run_program_trace(
     let mut strategy = Interpreter::from_program_with(program, data2_aligned, true)?;
     strategy.set_price_units(config.minmove, config.pricescale);
     let instrument: Instrument = config.into();
+    let (rest, _) = feed_history(series, config, &mut strategy)?;
     let outcome = run_native_from_offset(
-        series,
+        &rest,
         instrument,
         &mut strategy,
         0,
@@ -646,8 +661,13 @@ mod tests {
         config.max_bars_back = tape.len() + 5;
         let none = run_program(ir, &tape, None, &config, &HashMap::new()).unwrap();
         assert!(none.fills.is_empty());
-        let error = run_program_trace(ir, &tape, None, &config).unwrap_err();
-        assert!(error.to_string().contains("max_bars_back"), "{error}");
+        let (trace, trace_fills) = run_program_trace(ir, &tape, None, &config).unwrap();
+        assert!(trace.rows.is_empty() && trace_fills.is_empty());
+        // The trace run skips the same bars and makes the same fills.
+        config.max_bars_back = 50;
+        let (trace, trace_fills) = run_program_trace(ir, &tape, None, &config).unwrap();
+        assert_eq!(trace_fills, skipped.fills);
+        assert_eq!(trace.rows.len(), tape.len() - 50);
     }
 
     #[test]
