@@ -78,9 +78,9 @@ REFUSALS = {
     "linearregvalue-negative-tgtbar": (
         "LinearRegValue(Close, 7, -2)",
         "LinearRegValue with a negative TgtBar (-2) is not supported yet"),
-    "average-of-variable-expression": (
-        "Average(y + 1, 5)",
-        "'Average' at line 2: price argument 'y + 1' can change within the bar"),
+    "average-of-variable-expression-in-iff": (
+        "IFF(Close > 0, Average(y + 1, 5), 0)",
+        "'Average' at line 2: price argument 'y + 1' reads a variable"),
 }
 
 
