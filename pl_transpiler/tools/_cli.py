@@ -76,14 +76,37 @@ def _non_negative_int(text):
     return value
 
 
+def _max_bars_back(text):
+    if text.strip().lower() == "auto":
+        return "auto"
+    return _non_negative_int(text)
+
+
 def add_max_bars_back_arg(ap):
-    """The shared ``--max-bars-back N`` option (MultiCharts MaxBarsBack)."""
+    """The shared ``--max-bars-back N|auto`` option (MultiCharts MaxBarsBack)."""
     ap.add_argument("--max-bars-back", dest="max_bars_back", default=0,
-                    type=_non_negative_int, metavar="N",
+                    type=_max_bars_back, metavar="N|auto",
                     help="treat the first N bars as history only: no strategy "
                          "evaluation and no orders, and BarNumber starts at 1 on "
-                         "bar N+1. MultiCharts skips MaxBarsBack bars (default "
-                         "50); pass 50 to reproduce that. Default: 0.")
+                         "bar N+1. 'auto' uses the longest lookback found in the "
+                         "strategy source (an error if it cannot be found). "
+                         "MultiCharts skips MaxBarsBack bars (default 50); pass "
+                         "50 to reproduce that. Default: 0.")
+
+
+def check_max_bars_back(args, el_source):
+    """Resolve ``args.max_bars_back`` in place (``auto`` -> a number).
+
+    Returns the status-line suffix: ``", max-bars-back N (auto)"`` for auto,
+    else ``""`` so the line is unchanged."""
+    from pl_transpiler.lookback import check_max_bars_back as resolve
+    if args.max_bars_back != "auto":
+        return ""
+    try:
+        args.max_bars_back = resolve("auto", el_source)
+    except ValueError as exc:
+        raise CliError(str(exc).replace("max_bars_back auto", "--max-bars-back auto")) from None
+    return ", max-bars-back %d (auto)" % args.max_bars_back
 
 
 def _positive_int(text):

@@ -99,6 +99,12 @@ WARMUP_NOTE = ("note: {tool}: strategy reads past bars and --max-bars-back is 0;
                "fills may differ from MultiCharts during warm-up "
                "(set --max-bars-back N, or -q to hide this)")
 
+# The same note when infer_max_bars_back() finds a number.
+WARMUP_NOTE_AUTO = ("note: {tool}: strategy reads up to {n} past bars and "
+                    "--max-bars-back is 0; fills may differ from MultiCharts "
+                    "during warm-up (set --max-bars-back auto (= {n}), or -q "
+                    "to hide this)")
+
 
 def _is_windowed(name):
     return name in _WINDOWED_CALLS or (
@@ -169,8 +175,85 @@ def note_warmup(el_source, max_bars_back, tool, quiet=False, n_bars=None):
     if (n_bars is not None and max_bars_back < n_bars
             and short_history_bar(el_source, max_bars_back) is not None):
         return False
-    print(WARMUP_NOTE.format(tool=tool), file=sys.stderr)
+    try:
+        n = infer_max_bars_back(el_source)
+    except LookbackUnknown:
+        n = 0
+    note = WARMUP_NOTE_AUTO if n else WARMUP_NOTE
+    print(note.format(tool=tool, n=n), file=sys.stderr)
     return True
+
+
+class LookbackUnknown(ValueError):
+    """``infer_max_bars_back`` could not bound the strategy's lookback."""
+
+
+def _input_defaults(ast):
+    """Lower-cased input name -> numeric literal default."""
+    out = {}
+    for stmt in ast.get('body') or []:
+        if isinstance(stmt, dict) and stmt.get('type') == 'input_decl':
+            for decl in stmt.get('decls') or []:
+                default = decl.get('default')
+                if isinstance(default, dict) and default.get('type') == 'number':
+                    out[str(decl.get('name', '')).lower()] = float(default['value'])
+    return out
+
+
+def _need(node, inputs):
+    """Past bars an expression reads (see infer_max_bars_back)."""
+    if isinstance(node, list):
+        return max((_need(n, inputs) for n in node), default=0)
+    if not isinstance(node, dict):
+        return 0
+    kind = node.get('type')
+    name = str(node.get('name', '')).lower()
+    if kind == 'bar_ref':
+        index = node.get('index')
+        if not _is_number(index, lambda v: v >= 0 and v == int(v)):
+            raise LookbackUnknown("a series is indexed by a non-constant [n]")
+        return int(float(index['value'])) + _need(node.get('series'), inputs)
+    if kind == 'call':
+        args = node.get('args') or []
+        inner = _need(args, inputs)
+        if name in ('crossesabove', 'crossesbelow', 'crossover', 'crossunder') and len(args) == 2:
+            return 1 + inner
+        if _is_windowed(name):
+            length = args[-1] if args else None
+            if _is_number(length, lambda v: v >= 0):
+                value = float(length['value'])
+            elif (isinstance(length, dict) and length.get('type') == 'ident'
+                    and str(length.get('name', '')).lower() in inputs):
+                value = inputs[str(length['name']).lower()]
+            else:
+                raise LookbackUnknown(
+                    f"the length of {node.get('name')}() is not a number or input")
+            return int(value) + inner
+        if name not in BUILTIN_FUNC_MAP and catalog.get(name) is None:
+            raise LookbackUnknown(f"it calls the user function {node.get('name')}()")
+        return inner
+    if kind == 'ident' and name in _LOOKBACK_IDENTS:
+        return 1
+    return _need([v for k, v in node.items() if not str(k).startswith('_')], inputs)
+
+
+def infer_max_bars_back(el_source):
+    """The MaxBarsBack that ``--max-bars-back auto`` uses: the longest
+    lookback found by a static scan, or 0 if ``uses_lookback`` is False.
+
+    A read of ``X[k]`` counts k bars plus what X itself reads; a windowed
+    builtin (``Highest(High, Len)``) counts its length, a number or an input's
+    default. So ``Highest(High, 10)[1]`` gives 11. Raises LookbackUnknown when
+    the scan cannot bound it (a non-constant index or length, ``of N bars
+    ago``, a user function). This is an estimate from the source, not
+    MultiCharts' run-time auto-detect."""
+    if not uses_lookback(el_source):
+        return 0
+    tokens, positions = tokenise(el_source)
+    if _bars_ago(tokens):
+        raise LookbackUnknown("it uses 'of N bars ago'")
+    ast = parse(tokens, positions=positions, source=el_source)
+    return _need(ast, _input_defaults(ast))
 
 
 def short_history_bar(el_source, max_bars_back):
@@ -194,8 +277,18 @@ def warn_short_history(el_source, max_bars_back, n_bars, tool):
     return bar
 
 
-def check_max_bars_back(max_bars_back):
-    """Validate and normalise a ``max_bars_back`` argument."""
+def check_max_bars_back(max_bars_back, el_source=None):
+    """Validate and normalise a ``max_bars_back`` argument.
+
+    ``"auto"`` resolves to ``infer_max_bars_back(el_source)``; when that
+    cannot bound the lookback it raises ValueError rather than guess."""
+    if isinstance(max_bars_back, str) and max_bars_back.strip().lower() == 'auto':
+        try:
+            return infer_max_bars_back(el_source)
+        except LookbackUnknown as exc:
+            raise ValueError(
+                f"max_bars_back auto: cannot infer the lookback ({exc}); "
+                "pass a number instead") from None
     mbb = int(max_bars_back or 0)
     if mbb < 0:
         raise ValueError(f"max_bars_back must be >= 0, got {max_bars_back}")
