@@ -1090,7 +1090,11 @@ impl Compiler {
             Some("var_decl") => {
                 for decl in decls_of(stmt)? {
                     let name = decl_name(decl)?.to_string();
-                    let slot = self.var_slots[&name];
+                    // Only top-level declarations get a slot; one nested
+                    // in a block is refused rather than indexed blindly.
+                    let slot = *self.var_slots.get(&name).ok_or_else(|| {
+                        KernelError::unsupported(format!("variable {name} declared inside a block"))
+                    })?;
                     self.instrs.push(Instr::LoadVar(slot));
                 }
                 Ok(())
@@ -2493,6 +2497,29 @@ mod tests {
             panic!("compile must refuse the program");
         };
         assert_eq!(first.to_string(), refusals[0].message);
+    }
+
+    /// A `Vars:` nested in a block gets no slot (only top-level declarations
+    /// do): compile refuses it and explain lists it, neither panics.
+    #[test]
+    fn nested_var_decl_is_refused_not_panic() {
+        let ast: Json = serde_json::from_str(
+            r#"{"type":"program","body":[
+                {"type":"array_decl","_line":1,"decls":[{"name":"s","size":{"type":"number","value":"3"},"init":{"type":"string","value":"a"}}]},
+                {"type":"if","_line":2,"cond":{"type":"number","value":"1"},"body":[
+                    {"type":"var_decl","_line":3,"decls":[{"name":"z","init":{"type":"number","value":"0"}}]}
+                ]}
+            ]}"#,
+        )
+        .expect("valid program JSON");
+        let none = HashMap::<String, Value>::new();
+        let refusals = explain(&ast, &none).expect("well-formed IR");
+        let lines: Vec<i64> = refusals.iter().map(|r| r.line).collect();
+        assert_eq!(lines, [1, 3]);
+        assert!(refusals[1]
+            .message
+            .contains("variable z declared inside a block"));
+        assert!(compile(&ast, &none).is_err());
     }
 
     /// `EntryPrice(0)` is the open position and compiles; `EntryPrice(n)` for
