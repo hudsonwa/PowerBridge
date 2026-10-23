@@ -483,6 +483,7 @@ pub(crate) fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
         | Instr::BarRefSeries(_)
         | Instr::BarRefVar(_)
         | Instr::BarRefPositionKw(_)
+        | Instr::PositionsAgo(_)
         | Instr::BinopC { .. }
         | Instr::BinopCLhs { .. }
         | Instr::CompareC { .. }

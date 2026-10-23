@@ -296,6 +296,11 @@ fn series_lookback(program: &Program) -> Result<usize, &'static str> {
                 max_lb = max_lb.max(2);
                 stack.push(None);
             }
+            // The index counts closed positions, not bars.
+            Instr::PositionsAgo(_) => {
+                stack.pop();
+                stack.push(None);
+            }
             Instr::BarRefSeries(_) | Instr::BarRefVar(_) | Instr::BarRefPositionKw(_) => {
                 let index = stack.pop().flatten();
                 match index {
@@ -809,7 +814,10 @@ fn interpret_bar(
                 stack.push(Abs::Top);
                 succs.push((pc + 1, Frame { stack, vars }));
             }
-            Instr::BarRefSeries(_) | Instr::BarRefVar(_) | Instr::BarRefPositionKw(_) => {
+            Instr::BarRefSeries(_)
+            | Instr::BarRefVar(_)
+            | Instr::BarRefPositionKw(_)
+            | Instr::PositionsAgo(_) => {
                 stack.pop();
                 stack.push(Abs::Top);
                 succs.push((pc + 1, Frame { stack, vars }));
