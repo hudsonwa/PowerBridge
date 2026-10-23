@@ -27,15 +27,15 @@ use std::sync::Arc;
 use serde_json::Value as Json;
 
 use crate::types::{
-    narrow_f32, Bar, BarTape, KernelError, NativeStrategy, Order, PositionView, RiskUpdate,
-    SkipPlan, StrategyOutput,
+    narrow_f32, Bar, BarTape, ClosedTrade, KernelError, NativeStrategy, Order, PositionView,
+    RiskUpdate, SkipPlan, StrategyOutput, TradeHistory,
 };
 
 use super::arrays::{py_index_int, ElArray};
 use super::clock::{clock_value, python_clock, Clock};
 use super::compile::{
-    compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PositionKw, Program, RiskOp, Series,
-    SeriesSrc, Unary,
+    compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PosAgoField, PositionKw, Program, RiskOp,
+    Series, SeriesSrc, Unary,
 };
 use super::datefmt::format_date;
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
@@ -77,6 +77,12 @@ pub(crate) struct Interpreter<'a> {
     /// Data2 alignment index is the tape index, `history_bars + bar_number - 1`.
     history_bars: usize,
     position: PositionView,
+    /// The engine's trade history as of this bar (see
+    /// [`NativeStrategy::observe_trade_history`]).
+    entry_date: i64,
+    entry_time: i64,
+    max_shares: isize,
+    closed_trades: Vec<ClosedTrade>,
     first_bar: bool,
     orders: Vec<Order>,
     risk: RiskUpdate,
@@ -172,6 +178,10 @@ impl<'a> Interpreter<'a> {
             bar_number: 0,
             history_bars: 0,
             position: empty_position(),
+            entry_date: 0,
+            entry_time: 0,
+            max_shares: 0,
+            closed_trades: Vec::new(),
             first_bar: true,
             orders: Vec::new(),
             risk: RiskUpdate::default(),
@@ -450,6 +460,11 @@ impl<'a> Interpreter<'a> {
                 Instr::BarRefPositionKw(kind) => {
                     self.stack.pop();
                     let v = self.position_kw_value(*kind);
+                    self.stack.push(v);
+                }
+                Instr::PositionsAgo(field) => {
+                    let index = self.stack.pop().unwrap_or(Value::Num(0.0));
+                    let v = self.positions_ago(*field, &index)?;
                     self.stack.push(v);
                 }
                 Instr::DataOf { series, data_num } => {
@@ -1027,7 +1042,48 @@ impl<'a> Interpreter<'a> {
             PositionKw::LastBarOnChartEx => Value::Bool(false),
             PositionKw::MinMove => Value::Num(self.minmove),
             PositionKw::PriceScale => Value::Num(self.pricescale),
+            PositionKw::EntryDate => Value::Num(self.entry_date as f64),
+            PositionKw::EntryTime => Value::Num(self.entry_time as f64),
+            PositionKw::ExitDate | PositionKw::ExitTime => Value::Num(0.0),
+            PositionKw::MaxShares => Value::Num(self.max_shares as f64),
         }
+    }
+
+    /// Python `pl_pos_ago`: `n = int(index)` (0 when that raises
+    /// ValueError); `n <= 0` is the bare keyword, `n >= 1` the n-th most
+    /// recently closed position, and 0 past the oldest one.
+    fn positions_ago(&self, field: PosAgoField, index: &Value) -> Result<Value, KernelError> {
+        if index.is_str() {
+            return Err(KernelError::unsupported(
+                "positions-ago keyword with a string index",
+            ));
+        }
+        let raw = index.as_f64()?;
+        if raw.is_infinite() {
+            // int(inf) raises OverflowError, which pl_pos_ago does not catch.
+            return Err(KernelError::unsupported(
+                "positions-ago keyword with an infinite index",
+            ));
+        }
+        // int(nan) raises ValueError, which pl_pos_ago maps to 0.
+        let n = if raw.is_nan() { 0.0 } else { raw.trunc() };
+        if n <= 0.0 {
+            return Ok(self.position_kw_value(field.current()));
+        }
+        let closed = &self.closed_trades;
+        if n > closed.len() as f64 {
+            return Ok(Value::Num(0.0));
+        }
+        let trade = &closed[closed.len() - n as usize];
+        Ok(Value::Num(match field {
+            PosAgoField::EntryDate => trade.entry_date as f64,
+            PosAgoField::EntryTime => trade.entry_time as f64,
+            PosAgoField::EntryPrice => trade.entry_price,
+            PosAgoField::ExitDate => trade.exit_date as f64,
+            PosAgoField::ExitTime => trade.exit_time as f64,
+            PosAgoField::ExitPrice => trade.exit_price,
+            PosAgoField::MaxShares => trade.contracts as f64,
+        }))
     }
 
     fn series_last(&self, series: Series) -> f64 {
@@ -1168,6 +1224,16 @@ impl<'a> NativeStrategy for Interpreter<'a> {
             orders: std::mem::take(&mut self.orders),
             risk: std::mem::take(&mut self.risk),
         })
+    }
+
+    fn observe_trade_history(&mut self, history: TradeHistory<'_>) {
+        self.entry_date = history.entry_date;
+        self.entry_time = history.entry_time;
+        self.max_shares = history.max_shares;
+        // The ledger only grows: copy the positions closed since last bar.
+        if let Some(new) = history.closed.get(self.closed_trades.len()..) {
+            self.closed_trades.extend_from_slice(new);
+        }
     }
 
     fn skip_plan(&self, tape: &BarTape) -> SkipPlan {
@@ -1855,6 +1921,65 @@ mod builtin_tests {
 
     fn ident(name: &str) -> Json {
         json!({"type": "ident", "name": name})
+    }
+
+    #[test]
+    fn positions_ago_follows_pl_pos_ago() {
+        let ast = json!({"type": "program", "body": []});
+        let program = compile(&ast, &HashMap::new()).unwrap();
+        let mut interp = Interpreter::from_program_with(program, None, true).unwrap();
+        let trade = |entry_date, exit_price| ClosedTrade {
+            entry_date,
+            entry_time: 930,
+            entry_price: 10.5,
+            exit_date: 1240103,
+            exit_time: 1000,
+            exit_price,
+            contracts: 2,
+        };
+        let closed = [trade(1240101, 11.0), trade(1240102, 12.0)];
+        interp.observe_trade_history(TradeHistory {
+            entry_date: 1240104,
+            entry_time: 945,
+            max_shares: 3,
+            closed: &closed,
+        });
+        fn at(interp: &Interpreter<'_>, field: PosAgoField, index: f64) -> f64 {
+            interp
+                .positions_ago(field, &Value::Num(index))
+                .unwrap()
+                .as_f64()
+                .unwrap()
+        }
+        // n <= 0 (after truncation, NaN as 0) is the current position.
+        assert_eq!(at(&interp, PosAgoField::EntryDate, 0.0), 1240104.0);
+        assert_eq!(at(&interp, PosAgoField::EntryDate, 0.9), 1240104.0);
+        assert_eq!(at(&interp, PosAgoField::EntryDate, -2.0), 1240104.0);
+        assert_eq!(at(&interp, PosAgoField::EntryTime, f64::NAN), 945.0);
+        assert_eq!(at(&interp, PosAgoField::MaxShares, 0.0), 3.0);
+        assert_eq!(at(&interp, PosAgoField::ExitDate, 0.0), 0.0);
+        // n >= 1 counts back from the most recently closed position.
+        assert_eq!(at(&interp, PosAgoField::EntryDate, 1.0), 1240102.0);
+        assert_eq!(at(&interp, PosAgoField::ExitPrice, 1.7), 12.0);
+        assert_eq!(at(&interp, PosAgoField::ExitPrice, 2.0), 11.0);
+        assert_eq!(at(&interp, PosAgoField::MaxShares, 2.0), 2.0);
+        assert_eq!(at(&interp, PosAgoField::ExitTime, 2.0), 1000.0);
+        // Past the oldest one is 0.
+        assert_eq!(at(&interp, PosAgoField::EntryPrice, 3.0), 0.0);
+        assert!(interp
+            .positions_ago(PosAgoField::EntryDate, &Value::Num(f64::INFINITY))
+            .is_err());
+        // The ledger only grows: a later bar appends without duplicating.
+        let more = [closed[0], closed[1], trade(1240105, 13.0)];
+        interp.observe_trade_history(TradeHistory {
+            entry_date: 0,
+            entry_time: 0,
+            max_shares: 0,
+            closed: &more,
+        });
+        assert_eq!(at(&interp, PosAgoField::ExitPrice, 1.0), 13.0);
+        assert_eq!(at(&interp, PosAgoField::ExitPrice, 3.0), 11.0);
+        assert_eq!(at(&interp, PosAgoField::ExitPrice, 4.0), 0.0);
     }
 
     #[test]

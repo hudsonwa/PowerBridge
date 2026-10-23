@@ -432,6 +432,7 @@ where
         if trading {
             engine.before_bar(bar, bar_number)?;
         }
+        strategy.observe_trade_history(engine.trade_history());
         let output = strategy
             .on_bar(bar, bar_number, engine.position())
             .map_err(|error| KernelError::strategy(format!("bar {bar_number}: {error}")))?;

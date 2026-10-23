@@ -143,6 +143,57 @@ pub(crate) enum PositionKw {
     /// `MinMove` / `PriceScale`: the run's instrument config values.
     MinMove,
     PriceScale,
+    /// The open position's entry bar date / time (0 when flat).
+    EntryDate,
+    EntryTime,
+    /// `ExitDate` / `ExitTime` of the current position: always 0, like the
+    /// Python run, which never sets those keyword values.
+    ExitDate,
+    ExitTime,
+    /// Most contracts held while the current position is open (0 when flat).
+    MaxShares,
+}
+
+/// A position keyword with a positions-ago form (`EntryDate(n)`, ...): the
+/// keys of the Python runtime's `_POS_AGO_FIELDS`. `n >= 1` reads the n-th
+/// most recently closed position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PosAgoField {
+    EntryDate,
+    EntryTime,
+    EntryPrice,
+    ExitDate,
+    ExitTime,
+    ExitPrice,
+    MaxShares,
+}
+
+impl PosAgoField {
+    fn from_kwarg(kw: &str) -> Option<Self> {
+        Some(match kw {
+            "entry_date" => Self::EntryDate,
+            "entry_time" => Self::EntryTime,
+            "entry_price" => Self::EntryPrice,
+            "exit_date" => Self::ExitDate,
+            "exit_time" => Self::ExitTime,
+            "exit_price" => Self::ExitPrice,
+            "maxshares" => Self::MaxShares,
+            _ => return None,
+        })
+    }
+
+    /// The bare keyword `n <= 0` reads.
+    pub(crate) fn current(self) -> PositionKw {
+        match self {
+            Self::EntryDate => PositionKw::EntryDate,
+            Self::EntryTime => PositionKw::EntryTime,
+            Self::EntryPrice => PositionKw::EntryPrice,
+            Self::ExitDate => PositionKw::ExitDate,
+            Self::ExitTime => PositionKw::ExitTime,
+            Self::ExitPrice => PositionKw::ExitPrice,
+            Self::MaxShares => PositionKw::MaxShares,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -384,6 +435,8 @@ pub(crate) enum Instr {
     BarRefSeries(Series),
     BarRefVar(usize),
     BarRefPositionKw(PositionKw),
+    /// Pop the positions-ago index, push that position's field.
+    PositionsAgo(PosAgoField),
     DataOf {
         series: Series,
         data_num: u8,
@@ -2099,6 +2152,11 @@ impl Compiler {
             "lastbaronchartex" => PositionKw::LastBarOnChartEx,
             "minmove" => PositionKw::MinMove,
             "pricescale" => PositionKw::PriceScale,
+            "entry_date" => PositionKw::EntryDate,
+            "entry_time" => PositionKw::EntryTime,
+            "exit_date" => PositionKw::ExitDate,
+            "exit_time" => PositionKw::ExitTime,
+            "maxshares" => PositionKw::MaxShares,
             other => {
                 return Err(KernelError::unsupported(format!(
                     "position/data keyword {other:?}"
@@ -2143,17 +2201,14 @@ impl Compiler {
                 .ok_or_else(|| KernelError::unsupported("position_kw missing kwarg"))?;
             let kind = position_kw_kind(kw)
                 .ok_or_else(|| KernelError::unsupported(format!("position/data keyword {kw:?}")))?;
-            // EntryPrice(n)/ExitPrice(n) with n != 0 read a closed position, which
-            // the strategy cannot see here (it gets only PositionView). Refuse so
-            // the run falls back to the Python path (pl_pos_ago, issue #9).
-            if matches!(kind, PositionKw::EntryPrice | PositionKw::ExitPrice)
-                && !is_literal_zero(node.get("index"))
-            {
-                return Err(KernelError::unsupported(format!(
-                    "positions-ago {kw:?}(n) with n != 0"
-                )));
+            // EntryDate(n)/ExitPrice(n)/... with n != 0 read the closed-position
+            // ledger (Python pl_pos_ago); other keywords discard the index.
+            match PosAgoField::from_kwarg(kw) {
+                Some(field) if !is_literal_zero(node.get("index")) => {
+                    self.instrs.push(Instr::PositionsAgo(field));
+                }
+                _ => self.instrs.push(Instr::BarRefPositionKw(kind)),
             }
-            self.instrs.push(Instr::BarRefPositionKw(kind));
             return Ok(());
         }
         if node_type(series) == Some("ident") {
@@ -2609,6 +2664,11 @@ fn position_kw_kind(kw: &str) -> Option<PositionKw> {
         "alert_enabled" => PositionKw::AlertEnabled,
         "check_alert" => PositionKw::CheckAlert,
         "lastbaronchartex" => PositionKw::LastBarOnChartEx,
+        "entry_date" => PositionKw::EntryDate,
+        "entry_time" => PositionKw::EntryTime,
+        "exit_date" => PositionKw::ExitDate,
+        "exit_time" => PositionKw::ExitTime,
+        "maxshares" => PositionKw::MaxShares,
         _ => return None,
     })
 }
@@ -2707,7 +2767,7 @@ fn eval_input_default(node: &Json) -> Result<Value, KernelError> {
 }
 
 /// True when `node` is a number literal equal to 0 (e.g. the `0` in `EntryPrice(0)`).
-fn is_literal_zero(node: Option<&Json>) -> bool {
+pub(crate) fn is_literal_zero(node: Option<&Json>) -> bool {
     node.is_some_and(|n| node_type(n) == Some("number") && number_literal(n).ok() == Some(0.0))
 }
 
@@ -2845,7 +2905,10 @@ mod tests {
     use serde_json::Value as Json;
 
     use super::super::value::Value;
-    use super::{compile, explain, explain_for, resolve_inputs, CallOp, Instr, Program, PySum};
+    use super::{
+        compile, explain, explain_for, resolve_inputs, CallOp, Instr, PosAgoField, PositionKw,
+        Program, PySum,
+    };
 
     fn needs(src: &str) -> (Vec<bool>, Vec<bool>) {
         let ast: Json = serde_json::from_str(src).expect("valid program JSON");
@@ -3164,24 +3227,27 @@ mod tests {
         );
     }
 
-    /// `EntryPrice(0)` is the open position and compiles; `EntryPrice(n)` for
-    /// n != 0 (or a non-literal n) needs the closed-position ledger and is
-    /// refused so the run falls back to Python (issue #9).
+    /// `EntryPrice(0)` is the bare keyword; `EntryPrice(n)` for n != 0 (or a
+    /// non-literal n) reads the closed-position ledger (#149).
     #[test]
-    fn positions_ago_entry_price_is_refused_unless_zero() {
-        assert!(compile_entry_price_ref(r#"{"type":"number","value":"0"}"#).is_ok());
+    fn positions_ago_entry_price_reads_the_ledger_unless_zero() {
+        let has = |index: &str, want: Instr| {
+            let program = compile_entry_price_ref(index).expect("native");
+            assert!(
+                program.instrs.contains(&want),
+                "{index}: {:?}",
+                program.instrs
+            );
+        };
+        has(
+            r#"{"type":"number","value":"0"}"#,
+            Instr::BarRefPositionKw(PositionKw::EntryPrice),
+        );
         for index in [
             r#"{"type":"number","value":"1"}"#,
             r#"{"type":"ident","name":"X"}"#,
         ] {
-            let error = match compile_entry_price_ref(index) {
-                Ok(_) => panic!("EntryPrice({index}) must be refused"),
-                Err(error) => error.to_string(),
-            };
-            assert!(
-                error.contains("positions-ago"),
-                "unexpected refusal: {error}"
-            );
+            has(index, Instr::PositionsAgo(PosAgoField::EntryPrice));
         }
     }
 

@@ -15,9 +15,9 @@
 use std::collections::VecDeque;
 
 use crate::types::{
-    fill_side_type, narrow_f32, Action, Bar, ClosedPosition, Config, Fill, Instrument, KernelError,
-    Order, OrderType, PositionAggregates, PositionView, RiskUpdate, SessionEngine, SessionStats,
-    StrategyOutput, Timing,
+    fill_side_type, narrow_f32, Action, Bar, ClosedPosition, ClosedTrade, Config, Fill, Instrument,
+    KernelError, Order, OrderType, PositionAggregates, PositionView, RiskUpdate, SessionEngine,
+    SessionStats, StrategyOutput, Timing, TradeHistory,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -126,6 +126,8 @@ pub(crate) struct FillEngine {
     risk: RiskSettings,
     fills: Vec<Fill>,
     closed_positions: Vec<ClosedPosition>,
+    // The positions-ago view of `closed_positions` (see `trade_history`).
+    closed_trades: Vec<ClosedTrade>,
     position_aggregates: PositionAggregates,
     session_stats: SessionStats,
     entry_date: i64,
@@ -172,6 +174,7 @@ impl FillEngine {
             risk: RiskSettings::default(),
             fills: Vec::new(),
             closed_positions: Vec::new(),
+            closed_trades: Vec::new(),
             position_aggregates: PositionAggregates {
                 entries: 0,
                 max_contracts: 0,
@@ -231,6 +234,22 @@ impl FillEngine {
 
     pub(crate) fn max_id_drawdown(&self) -> f64 {
         self.max_id_drawdown
+    }
+
+    /// What the positions-ago keywords (`EntryDate(n)`, `ExitPrice(n)`, ...)
+    /// read this bar.
+    pub(crate) fn trade_history(&self) -> TradeHistory<'_> {
+        TradeHistory {
+            entry_date: self.entry_date,
+            entry_time: self.entry_time,
+            // Python `max_shares`: 0 when flat.
+            max_shares: if self.market_position != 0 {
+                self.position_aggregates.max_contracts
+            } else {
+                0
+            },
+            closed: &self.closed_trades,
+        }
     }
 
     pub(crate) fn entry_date(&self) -> i64 {
@@ -1174,6 +1193,15 @@ impl SessionEngine for FillEngine {
             mae_pc = mae_pc.min(excursion);
         }
 
+        self.closed_trades.push(ClosedTrade {
+            entry_date: self.entry_date,
+            entry_time: self.entry_time,
+            entry_price: self.entry_price,
+            exit_date,
+            exit_time,
+            exit_price: narrow_f32(exit_price),
+            contracts: self.position_aggregates.max_contracts,
+        });
         self.closed_positions.push(ClosedPosition {
             pnl: self.position_profit,
             bars,

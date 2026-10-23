@@ -394,7 +394,9 @@ function xaverage 11
 ```
 
 Each line is `kind name line`: kind is `function`, `statement`, `order`,
-`variable` or `expression`, and line is the 1-based EL line of the statement.
+`variable` or `expression` (a refused keyword is named by its EL spelling,
+e.g. `expression MaxPositionProfit 2`), and line is the 1-based EL line of
+the statement.
 Lines are sorted by line. A program the kernel accepts prints
 `native kernel can run this program`. Both exit 0. Without the kernel the
 command prints `native kernel not installed` on stderr and exits 2.

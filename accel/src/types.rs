@@ -648,6 +648,33 @@ pub(crate) trait SessionEngine {
     );
 }
 
+/// One closed position as the positions-ago keywords (`EntryDate(n)`,
+/// `ExitPrice(n)`, `MaxShares(n)`, ...) read it: the fields of a Python
+/// `FillEngine.closed_trades` entry that `pl_pos_ago` serves. `exit_price` is
+/// already narrowed to f32 and `contracts` is the most contracts held while
+/// the position was open.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ClosedTrade {
+    pub(crate) entry_date: i64,
+    pub(crate) entry_time: i64,
+    pub(crate) entry_price: f64,
+    pub(crate) exit_date: i64,
+    pub(crate) exit_time: i64,
+    pub(crate) exit_price: f64,
+    pub(crate) contracts: isize,
+}
+
+/// The engine's trade history as the strategy sees it before a bar: the open
+/// position's entry date/time and `MaxShares`, and every closed position so
+/// far, oldest first.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TradeHistory<'a> {
+    pub(crate) entry_date: i64,
+    pub(crate) entry_time: i64,
+    pub(crate) max_shares: isize,
+    pub(crate) closed: &'a [ClosedTrade],
+}
+
 /// The strategy/interpreter seam the `accel/strategy/` module implements and the
 /// bar loop drives.
 ///
@@ -663,6 +690,11 @@ pub(crate) trait NativeStrategy {
         bar_number: usize,
         position: PositionView,
     ) -> Result<StrategyOutput, KernelError>;
+
+    /// The engine's trade history, given before each [`NativeStrategy::on_bar`].
+    /// The default ignores it; the IR interpreter keeps what the positions-ago
+    /// keywords read.
+    fn observe_trade_history(&mut self, _history: TradeHistory<'_>) {}
 
     /// Prove a prefix of `tape` cannot emit an order, or refuse loudly.
     ///

@@ -42,6 +42,7 @@ use std::collections::HashSet;
 
 use serde_json::Value as Json;
 
+use super::compile::is_literal_zero;
 use super::ir::node_type;
 
 /// The Python type of one traced name.
@@ -716,9 +717,18 @@ impl Cx<'_, '_> {
                 }
             }
             Some("position_kw") => {
-                match series.get("kwarg").and_then(Json::as_str).unwrap_or("") {
+                let kw = series.get("kwarg").and_then(Json::as_str).unwrap_or("");
+                let literal_zero = is_literal_zero(node.get("index"));
+                match kw {
                     // pl_pos_ago(kwargs, field, 0) is the bare keyword.
-                    kw @ ("entry_price" | "exit_price") => position_kw_ty(kw),
+                    "entry_price" | "exit_price" if literal_zero => position_kw_ty(kw),
+                    // n >= 1 reads the ledger's f32 price, or the int 0 past
+                    // the oldest closed position.
+                    "entry_price" | "exit_price" => position_kw_ty(kw).join(Ty::of(INT)),
+                    // Ints in the bare keyword and the ledger alike.
+                    "entry_date" | "entry_time" | "exit_date" | "exit_time" | "maxshares" => {
+                        Ty::of(INT)
+                    }
                     _ => Ty::bad("positions-ago keyword type"),
                 }
             }
@@ -861,9 +871,8 @@ fn position_kw_ty(kw: &str) -> Ty {
     match kw {
         "barnumber" | "currentbar" | "market_position" | "current_contracts"
         | "bars_since_entry" | "bars_since_exit" | "totaltrades" | "maxcontractsheld"
-        | "current_date" | "current_time" | "currentsession" | "minmove" | "pricescale" => {
-            Ty::of(INT)
-        }
+        | "current_date" | "current_time" | "currentsession" | "minmove" | "pricescale"
+        | "entry_date" | "entry_time" | "exit_date" | "exit_time" | "maxshares" => Ty::of(INT),
         "entry_price"
         | "avgentryprice"
         | "exit_price"
