@@ -14,8 +14,11 @@
 
 """PowerLanguage Parser — builds an AST from token list via recursive descent."""
 
+import copy
 import re
+from collections import OrderedDict
 
+from . import lexer as _lexer
 from ._parser_expr import _ExpressionsMixin
 from ._parser_stmts import _reconstruct_tokens, _StatementsMixin  # noqa: F401  (re-exported)
 from .lexer import (  # noqa: F401  (re-exported)
@@ -34,6 +37,7 @@ from .lexer import (  # noqa: F401  (re-exported)
     PLSyntaxError,
     _source_line,
     collect_comments,
+    tokenise,
 )
 from .parser_tables import (  # noqa: F401  (re-exported)
     _PRICE_ABBREVIATIONS,
@@ -339,12 +343,19 @@ def parse(tokens, positions=None, source=''):
     findings are collected and attached to the AST under '_warnings' (they do
     not block valid code from transpiling).
     """
+    return _parse(tokens, positions, source,
+                  collect_comments(source) if source else [])
+
+
+def _parse(tokens, positions, source, comments):
+    """`parse` with the comment side-list supplied (``collect_comments(source)``,
+    or what the `tokenise(source)` that produced `tokens` left behind)."""
     p = Parser(tokens, positions=positions, source=source)
     ast = p.parse_program()
     # Attach the verbatim comment side-channel. Derived purely from `source`
     # (comments are stripped from the token stream, so this is additive and never
     # affects behaviour). Empty when no source text was supplied.
-    ast['_comments'] = collect_comments(source) if source else []
+    ast['_comments'] = comments if source else []
     # Leading blank lines at the very top of the source (preserved across round trips). Counted
     # verbatim from `source` here — the ONLY place EL line-0 whitespace is known —
     # so the emitter can reproduce it without inferring from `_line` (which is
@@ -362,3 +373,50 @@ def parse(tokens, positions=None, source=''):
     if warnings:
         ast['_warnings'] = warnings
     return ast
+
+
+# One lex and one parse per distinct source text. A run reaches the front end
+# from several places (lookback scans, the native serialiser, transpile, the
+# strict pre-pass of --partial); all are pure functions of the source, so they
+# share these results. Failures are never cached: a source that does not lex
+# or parse raises afresh, with the same error, at every call.
+_SOURCE_CACHE_SIZE = 8
+_source_cache: "OrderedDict[str, dict]" = OrderedDict()
+
+
+def _source_entry(source):
+    entry = _source_cache.get(source)
+    if entry is None:
+        tokens, positions = tokenise(source)
+        entry = {'tokens': tokens, 'positions': positions,
+                 'comments': [dict(c) for c in _lexer.last_comments]}
+        _source_cache[source] = entry
+        if len(_source_cache) > _SOURCE_CACHE_SIZE:
+            _source_cache.popitem(last=False)
+    else:
+        _source_cache.move_to_end(source)
+        # Leave the lexer side channel as a fresh tokenise(source) would.
+        _lexer.last_comments[:] = [dict(c) for c in entry['comments']]
+    return entry
+
+
+def tokenise_source(source):
+    """``tokenise(source)``, lexed at most once per distinct source text."""
+    entry = _source_entry(source)
+    return list(entry['tokens']), list(entry['positions'])
+
+
+def parse_source(source):
+    """``parse(*tokenise(source), source=source)``, lexed and parsed at most once
+    per distinct source text. Returns a private deep copy of the AST, so callers
+    may mutate it."""
+    entry = _source_entry(source)
+    if 'ast' not in entry:
+        entry['ast'] = _parse(list(entry['tokens']), list(entry['positions']),
+                              source, [dict(c) for c in entry['comments']])
+    return copy.deepcopy(entry['ast'])
+
+
+def clear_source_cache():
+    """Forget every cached lex/parse (for tests that patch the front end)."""
+    _source_cache.clear()

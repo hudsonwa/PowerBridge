@@ -110,10 +110,8 @@ def transpile(pl_source: str, trace: bool = False, partial: bool = False,
         restore_spelling,
         unimplemented_message,
     )
-    from .lexer import tokenise
-    from .parser import parse
-    tokens, positions = tokenise(pl_source)
-    ast = parse(tokens, positions=positions, source=pl_source)
+    from .parser import parse_source
+    ast = parse_source(pl_source)
     try:
         out = generate(ast, trace=trace, partial=partial, persist=persist)
     except UnimplementedKeywordError as exc:
