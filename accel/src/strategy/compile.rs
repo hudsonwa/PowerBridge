@@ -352,6 +352,8 @@ pub(crate) enum Instr {
         order_type: OrderType,
         timing: Timing,
         has_price: bool,
+        /// `from entry("label")`: a literal label, see `Order::from_entry`.
+        from_entry: Option<String>,
     },
     RiskSet(RiskOp),
 
@@ -481,6 +483,7 @@ pub(crate) enum Instr {
         timing: Timing,
         quantity: f64,
         signal: String,
+        from_entry: Option<String>,
     },
     /// `Sell All` / `Buy All`: quantity from `position.contracts`, baked signal.
     EmitOrderAll {
@@ -488,6 +491,7 @@ pub(crate) enum Instr {
         order_type: OrderType,
         timing: Timing,
         signal: String,
+        from_entry: Option<String>,
     },
 }
 
@@ -591,6 +595,8 @@ impl Refusal {
             ("function", word(2))
         } else if detail.starts_with("function ") || detail.starts_with("risk function ") {
             ("function", named(1))
+        } else if let Some(rest) = detail.strip_prefix("order modifier '") {
+            ("order", rest.split('\'').next().unwrap_or(rest).to_string())
         } else if detail.starts_with("order ") || detail.starts_with("bar_timing ") {
             ("order", named(1))
         } else if detail.starts_with("var ") || detail.starts_with("array ") {
@@ -603,6 +609,20 @@ impl Refusal {
             ("expression", quoted.unwrap_or_else(|| detail.to_string()))
         }
     }
+}
+
+/// The text of a literal order label (a bare string or a `string` node).
+fn literal_label(label: &Json) -> Option<String> {
+    if let Some(s) = label.as_str() {
+        return Some(s.to_string());
+    }
+    if node_type(label) == Some("string") {
+        return label
+            .get("value")
+            .and_then(Json::as_str)
+            .map(str::to_string);
+    }
+    None
 }
 
 /// Every construct [`compile`] would refuse in `ast`, in compile order.
@@ -1454,16 +1474,18 @@ impl Compiler {
     }
 
     fn compile_order(&mut self, stmt: &Json) -> Result<(), KernelError> {
-        if stmt.get("entry_label").is_some_and(|v| !v.is_null()) {
-            return Err(KernelError::unsupported(
-                "from entry(\"…\") named exits are not in the native Order surface",
-            ));
-        }
-        if stmt.get("total").and_then(Json::as_bool) == Some(true) {
-            return Err(KernelError::unsupported(
-                "order modifier 'total' is not in the native Order surface",
-            ));
-        }
+        // `total` is parsed but the Python engine never reads it
+        // (`engine.py:_check_named_exit` only strips it), so it compiles to
+        // the same order as without it.
+        let from_entry = match stmt.get("entry_label") {
+            None | Some(Json::Null) => None,
+            Some(label) => Some(literal_label(label).ok_or_else(|| {
+                KernelError::unsupported(
+                    "order modifier 'from entry' with a non-literal label is not in the \
+                     native Order surface",
+                )
+            })?),
+        };
         let action = match stmt.get("action").and_then(Json::as_str).unwrap_or("") {
             "buy" => Action::Buy,
             "sellshort" => Action::SellShort,
@@ -1515,6 +1537,7 @@ impl Compiler {
             order_type,
             timing,
             has_price,
+            from_entry,
         });
         Ok(())
     }
@@ -2515,6 +2538,45 @@ mod tests {
             panic!("compile must refuse the program");
         };
         assert_eq!(first.to_string(), refusals[0].message);
+    }
+
+    /// `total` compiles to the plain order; `from entry("X")` carries its
+    /// literal label; a computed label is refused naming the modifier.
+    #[test]
+    fn order_modifiers_compile_or_name_the_refusal() {
+        let order = |extra: &str| {
+            format!(
+                r#"{{"type":"program","body":[{{"type":"order","_line":1,"action":"sell",
+                "order_type":"market","bar_timing":"next","label":"X","quantity":null{extra}}}]}}"#
+            )
+        };
+        let none = HashMap::<String, Value>::new();
+        let emitted = |src: String| {
+            let ast: Json = serde_json::from_str(&src).expect("valid program JSON");
+            let program = compile(&ast, &none).expect("compiles natively");
+            program
+                .instrs
+                .iter()
+                .find_map(|i| match i {
+                    Instr::EmitOrder { from_entry, .. } => Some(from_entry.clone()),
+                    _ => None,
+                })
+                .expect("one order")
+        };
+        assert_eq!(emitted(order(r#","total":true"#)), None);
+        assert_eq!(
+            emitted(order(r#","entry_label":{"type":"string","value":"L"}"#)),
+            Some("L".to_string())
+        );
+        let ast: Json =
+            serde_json::from_str(&order(r#","entry_label":{"type":"ident","name":"n"}"#))
+                .expect("valid program JSON");
+        let refusals = explain(&ast, &none).expect("well-formed IR");
+        assert_eq!(refusals.len(), 1);
+        assert_eq!(
+            refusals[0].kind_and_name(),
+            ("order", "from entry".to_string())
+        );
     }
 
     /// A `Vars:` nested in a block gets no slot (only top-level declarations

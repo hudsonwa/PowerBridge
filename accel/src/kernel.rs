@@ -248,6 +248,7 @@ impl FillEngine {
             if self.entry_refused(queued.order.action) {
                 continue;
             }
+            self.check_named_exit(&queued.order)?;
             let quantity = resolve_on_close_quantity(queued.order.quantity)?;
             let previous = self.signed_position();
             self.apply_action(
@@ -370,6 +371,7 @@ impl FillEngine {
         if self.entry_refused(order.action) {
             return Ok(());
         }
+        self.check_named_exit(&order)?;
         let quantity = self.resolve_fill_quantity(order.action, order.quantity)?;
         let previous = self.signed_position();
         self.apply_action(order.action, quantity, fill_price, bar)?;
@@ -394,6 +396,28 @@ impl FillEngine {
             Action::Sell | Action::BuyToCover => false,
         };
         cap > 0 && same_direction && self.entry_qtys.len() >= cap
+    }
+
+    /// Python `_check_named_exit`: a `Sell` / `BuyToCover ... from
+    /// entry("X")` while more than one entry is open on the exit's side is
+    /// unverified (#24). Python stops (strict) or warns and closes the whole
+    /// side (lenient); the kernel refuses the run, never a guessed result.
+    fn check_named_exit(&self, order: &Order) -> Result<(), KernelError> {
+        let Some(entry) = &order.from_entry else {
+            return Ok(());
+        };
+        let (verb, side) = match order.action {
+            Action::Sell => ("Sell", 1),
+            Action::BuyToCover => ("BuyToCover", -1),
+            Action::Buy | Action::SellShort => return Ok(()),
+        };
+        if self.market_position == side && self.entry_qtys.len() > 1 {
+            return Err(KernelError::unsupported(format!(
+                "order modifier 'from entry' ({verb} from entry(\"{entry}\")) with more \
+                 than one open entry is not in the native Order surface"
+            )));
+        }
+        Ok(())
     }
 
     /// Take `quantity` contracts off the oldest entries first (Python
@@ -1541,6 +1565,7 @@ mod tests {
                         timing: Timing::NextBar,
                         signal: "PT_NOPRICE".to_owned(),
                         price: None,
+                        from_entry: None,
                     }],
                     risk: RiskUpdate::default(),
                 },
@@ -1833,6 +1858,62 @@ mod tests {
         assert_eq!(engine.contracts, 2);
         assert_eq!(engine.entry_qtys.len(), 2);
         assert_eq!(engine.fills.len(), 4);
+    }
+
+    fn named_exit(action: Action, entry: &str) -> Order {
+        Order {
+            from_entry: Some(entry.to_owned()),
+            ..Order::market(action, 0.0, "X")
+        }
+    }
+
+    #[test]
+    fn named_exit_with_one_entry_closes_like_plain_exit() {
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        queue(
+            &mut engine,
+            vec![named_exit(Action::Sell, "A")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+            2,
+        );
+        engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 932), 3)
+            .unwrap();
+        assert_eq!(engine.market_position, 0);
+        assert_eq!(engine.fills.len(), 2);
+    }
+
+    #[test]
+    fn named_exit_with_two_entries_is_refused() {
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        // Wrong side: a BuyToCover from entry while long is not checked.
+        queue(
+            &mut engine,
+            vec![named_exit(Action::BuyToCover, "A")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+            2,
+        );
+        engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 932), 3)
+            .unwrap();
+        queue(
+            &mut engine,
+            vec![named_exit(Action::Sell, "A")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 933),
+            4,
+        );
+        let err = engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 934), 5)
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("'from entry' (Sell from entry(\"A\")) with more than one open entry"));
     }
 
     #[test]

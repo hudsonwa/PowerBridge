@@ -300,6 +300,11 @@ pub(crate) struct Order {
     pub(crate) timing: Timing,
     pub(crate) signal: String,
     pub(crate) price: Option<f64>,
+    /// The `from entry("label")` of a named exit, else `None`. Python closes
+    /// the exit's side as usual but fails loud when more than one entry is
+    /// open on that side (`engine.py:_check_named_exit`); the kernel refuses
+    /// the run there instead of guessing per-entry fills.
+    pub(crate) from_entry: Option<String>,
 }
 
 impl Order {
@@ -312,6 +317,7 @@ impl Order {
             timing: Timing::NextBar,
             signal: signal.to_owned(),
             price: None,
+            from_entry: None,
         }
     }
 
@@ -330,6 +336,7 @@ impl Order {
             timing: Timing::NextBar,
             signal: signal.to_owned(),
             price: Some(price),
+            from_entry: None,
         }
     }
 }

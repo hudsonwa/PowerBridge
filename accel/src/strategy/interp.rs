@@ -483,6 +483,7 @@ impl<'a> Interpreter<'a> {
                     order_type,
                     timing,
                     has_price,
+                    from_entry,
                 } => {
                     let price = if *has_price {
                         Some(self.stack.pop().unwrap().as_f64()?)
@@ -498,6 +499,7 @@ impl<'a> Interpreter<'a> {
                         timing: *timing,
                         signal,
                         price,
+                        from_entry: from_entry.clone(),
                     });
                 }
                 Instr::RiskSet(op) => match op {
@@ -707,6 +709,7 @@ impl<'a> Interpreter<'a> {
                     timing,
                     quantity,
                     signal,
+                    from_entry,
                 } => {
                     self.orders.push(Order {
                         action: *action,
@@ -715,6 +718,7 @@ impl<'a> Interpreter<'a> {
                         timing: *timing,
                         signal: signal.clone(),
                         price: None,
+                        from_entry: from_entry.clone(),
                     });
                 }
                 Instr::EmitOrderAll {
@@ -722,6 +726,7 @@ impl<'a> Interpreter<'a> {
                     order_type,
                     timing,
                     signal,
+                    from_entry,
                 } => {
                     self.orders.push(Order {
                         action: *action,
@@ -730,6 +735,7 @@ impl<'a> Interpreter<'a> {
                         timing: *timing,
                         signal: signal.clone(),
                         price: None,
+                        from_entry: from_entry.clone(),
                     });
                 }
             }

@@ -4,6 +4,13 @@
 
 ### Added
 
+- The native kernel runs the `total` order modifier and
+  `Sell` / `BuyToCover ... from entry ("X")` named exits with a literal label,
+  with the Python path's fills. A named exit that would fill while more than
+  one entry is open on its side refuses the run, so it falls back to Python
+  loudly (#24). A computed `from entry` label is still refused, and
+  `--explain-native` names the modifier (`order from entry`) rather than the
+  message text (#125).
 - The native kernel runs `Round(value, precision)` (half away from zero,
   negative precision included, raising where the Python path raises),
   `MinMove` and `PriceScale` (from the run's instrument config) and
