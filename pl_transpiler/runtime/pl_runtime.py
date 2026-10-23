@@ -24,6 +24,7 @@ public name is re-exported here, because generated strategies do
 
 from ._rt_core import *  # noqa: F401,F403
 from ._rt_indicators import *  # noqa: F401,F403
+from ._rt_trend import *  # noqa: F401,F403
 from ._rt_drawing import *  # noqa: F401,F403
 from ._rt_arrays_dates import *  # noqa: F401,F403
 from ._rt_builtins_az import *  # noqa: F401,F403
