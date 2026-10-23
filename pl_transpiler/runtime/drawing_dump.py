@@ -74,14 +74,23 @@ def _barkey(key, where: str, price: bool = False, tick: float = 0.25) -> None:
     if price:
         keys |= {"price", "price_ticks"}
     _need(key, keys, where)
-    if not _is_int(key["bn"]) or key["bn"] < 1:
+    if price and key["bn"] is None:
+        # An anchor that is not a tape bar, e.g. (0, 0) from an
+        # out-of-history lookback: any non-negative date and time.
+        if not _is_int(key["date"]) or key["date"] < 0:
+            raise DumpError(f"date must be an int >= 0 at {where}.date")
+        if not _is_int(key["time"]) or key["time"] < 0:
+            raise DumpError(f"time must be an int >= 0 at {where}.time")
+        if key["time_s"] != key["time"] * 100:
+            raise DumpError(f"time_s must be time * 100 at {where}.time_s")
+    elif not _is_int(key["bn"]) or key["bn"] < 1:
         raise DumpError(f"bn must be an int >= 1 at {where}.bn")
-    if not _is_int(key["date"]) or not 1000101 <= key["date"] <= 1991231:
+    elif not _is_int(key["date"]) or not 1000101 <= key["date"] <= 1991231:
         raise DumpError(f"date must be EL YYYMMDD at {where}.date")
-    if (not _is_int(key["time"]) or not 0 <= key["time"] <= 2359
+    elif (not _is_int(key["time"]) or not 0 <= key["time"] <= 2359
             or key["time"] % 100 > 59):
         raise DumpError(f"time must be HHmm at {where}.time")
-    if (not _is_int(key["time_s"]) or key["time_s"] // 100 != key["time"]
+    elif (not _is_int(key["time_s"]) or key["time_s"] // 100 != key["time"]
             or key["time_s"] % 100 > 59):
         raise DumpError(f"time_s must be HHmmss matching time at {where}.time_s")
     if price:
@@ -201,14 +210,16 @@ def blank_object(type_: str, seq: int) -> dict:
     return obj
 
 
-def barkey(bn: int, date: int, time: int, price: float | None = None,
+def barkey(bn: int | None, date: int, time: int, price: float | None = None,
            tick: float = 0.25) -> dict:
     """One bar key. ``time_s`` is ``time`` as HHMMSS (seconds 0).
+
+    ``bn`` is None for an anchor that is not a bar on the tape.
 
     ``price`` is stored as a float32 value, the precision chart prices have,
     so the Python and native paths write the same bytes.
     """
-    key = {"bn": int(bn), "date": int(date), "time": int(time),
+    key = {"bn": None if bn is None else int(bn), "date": int(date), "time": int(time),
            "time_s": int(time) * 100}
     if price is not None:
         value = struct.unpack("<f", struct.pack("<f", float(price)))[0]

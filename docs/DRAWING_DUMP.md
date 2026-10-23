@@ -12,6 +12,8 @@ capture is turned on, and for every drawing dump in
 - Bar key: `bn` (1-based index into the tape passed to the run, not
   MultiCharts `CurrentBar`), EL `date` (YYYMMDD), `time` (HHmm), `time_s`
   (HHmmss).
+- An anchor need not be a bar on the tape: `(0, 0)` from an out-of-history
+  lookback, or a session-end time, is kept as given with `bn` null.
 - Prices: `price` plus `price_ticks = round(price / tick)`. Comparisons use
   ticks.
 - Colours: MultiCharts integer `R + 256·G + 65536·B` (Red = 255). `argb` is

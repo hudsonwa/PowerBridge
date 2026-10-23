@@ -16,8 +16,8 @@
 //!
 //! The values are the MultiCharts measurements cited by the golden corpus
 //! (g-tl-001-new, g-arw-001-new, g-text-001-new, g-colour-001-hours). An
-//! unmeasured colour call or an anchor that is not a bar already on the tape
-//! is an error. `TL_GetValue` interpolation is not implemented here: the
+//! unmeasured colour call is an error. An anchor need not be a bar on the
+//! tape: it keeps its raw (date, time) and has no `bn`, as on the Python side. `TL_GetValue` interpolation is not implemented here: the
 //! compiler still refuses that call.
 
 use serde_json::{json, Value as Json};
@@ -66,7 +66,7 @@ impl Kind {
 }
 
 pub(crate) struct Anchor {
-    bn: i64,
+    bn: Option<i64>,
     date: i64,
     time: i64,
     price: f64,
@@ -273,7 +273,7 @@ impl DrawObj {
             "type": self.kind.name(),
             "seq": 0,
             "id": self.id,
-            "created": bar_key(self.created_bn, self.created_date, self.created_time, None, tick),
+            "created": bar_key(Some(self.created_bn), self.created_date, self.created_time, None, tick),
             "anchors": self.anchors.iter().map(|a| bar_key(a.bn, a.date, a.time, Some(a.price), tick)).collect::<Vec<_>>(),
             "color": self.color,
             "argb": Json::Null,
@@ -294,7 +294,7 @@ impl DrawObj {
     }
 }
 
-fn bar_key(bn: i64, date: i64, time: i64, price: Option<f64>, tick: f64) -> Json {
+fn bar_key(bn: Option<i64>, date: i64, time: i64, price: Option<f64>, tick: f64) -> Json {
     let mut key = json!({
         "bn": bn,
         "date": date,
@@ -333,6 +333,8 @@ pub(crate) fn find_anchor(
 ) -> Result<Anchor, KernelError> {
     let date = whole("anchor date", date)?;
     let time = whole("anchor time", time)?;
+    // `None` when the anchor is not a tape bar, e.g. (0, 0) from an
+    // out-of-history lookback or a session-end time.
     let mut found = None;
     for index in 1..dates.len() {
         if dates[index] == date && times[index] == time {
@@ -344,11 +346,8 @@ pub(crate) fn find_anchor(
             found = Some(index as i64);
         }
     }
-    let bn = found.ok_or_else(|| {
-        KernelError::strategy(format!("anchor ({date}, {time}) is not a tape bar"))
-    })?;
     Ok(Anchor {
-        bn,
+        bn: found,
         date,
         time,
         price,
@@ -471,10 +470,38 @@ mod tests {
 
     #[test]
     fn anchor_price_is_float32_and_ticks_round_half_to_even() {
-        let key = bar_key(1, 1260102, 1000, Some(14957.45), 0.25);
+        let key = bar_key(Some(1), 1260102, 1000, Some(14957.45), 0.25);
         assert_eq!(key["price"], json!(14957.45_f32 as f64));
         assert_eq!(key["price_ticks"], 59830);
         // 10.125 / 0.25 = 40.5, which Python's round() takes to 40.
-        assert_eq!(bar_key(1, 1, 1, Some(10.125), 0.25)["price_ticks"], 40);
+        assert_eq!(
+            bar_key(Some(1), 1, 1, Some(10.125), 0.25)["price_ticks"],
+            40
+        );
+    }
+
+    #[test]
+    fn anchor_off_the_tape_keeps_its_date_and_time_with_null_bn() {
+        let mut store = DrawingStore::new();
+        let dates = vec![0, 1260102, 1260102];
+        let times = vec![0, 1000, 1001];
+        // Date[1], Time[1] out of history on bar 1, and a session-end time.
+        let a1 = find_anchor(&dates, &times, 0.0, 0.0, 10.0).unwrap();
+        let a2 = find_anchor(&dates, &times, 1260102.0, 1615.0, 14.0).unwrap();
+        store.tl_new((1, 1260102, 1000), a1, a2);
+        let dumped = store.to_json();
+        let anchors = &dumped[0]["anchors"];
+        assert_eq!(anchors[0]["bn"], Json::Null);
+        assert_eq!(anchors[0]["date"], 0);
+        assert_eq!(anchors[0]["time_s"], 0);
+        assert_eq!(anchors[1]["bn"], Json::Null);
+        assert_eq!(anchors[1]["time"], 1615);
+        assert_eq!(anchors[1]["time_s"], 161500);
+        assert_eq!(anchors[1]["price_ticks"], 56);
+        // Between bars and in the future.
+        let between = find_anchor(&dates, &times, 1260102.0, 1030.0, 1.0).unwrap();
+        assert_eq!(between.bn, None);
+        let future = find_anchor(&dates, &times, 1301231.0, 930.0, 1.0).unwrap();
+        assert_eq!(future.bn, None);
     }
 }

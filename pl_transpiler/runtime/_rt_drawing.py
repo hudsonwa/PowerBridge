@@ -112,9 +112,9 @@ class DrawingRecorder:
 
     def _anchor(self, date, time, price):
         key = (int(date), int(time))
+        # An anchor need not be a bar: (0, 0) from an out-of-history
+        # lookback, or a session-end time, is kept with bn None.
         bn = self._bn_of.get(key)
-        if bn is None:
-            raise DrawingError(f"anchor ({key[0]}, {key[1]}) is not a tape bar")
         return barkey(bn, key[0], key[1], float(price), self.tick)
 
     def _new(self, kind, anchors, **props):

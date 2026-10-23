@@ -10,6 +10,8 @@ one; this file is the short contract.
   LF. Equal content gives an equal sha256.
 - Bar key: `bn` (1-based index into the tape, not MultiCharts `CurrentBar`),
   EL `date` (YYYMMDD), `time` (HHmm), `time_s` (HHmmss).
+- An anchor need not be a bar on the tape: `(0, 0)` from an out-of-history
+  lookback, or a session-end time, is kept as given with `bn` null.
 - Prices: `price` plus `price_ticks = round(price / tick)`. Bar-price anchors
   are compared on ticks.
 - Colours: MultiCharts integer `R + 256·G + 65536·B` (Red = 255). `argb` is

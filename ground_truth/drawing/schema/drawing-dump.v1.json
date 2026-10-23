@@ -214,23 +214,24 @@
    ],
    "properties": {
     "bn": {
-     "type": "integer",
-     "minimum": 1
+     "type": [
+      "integer",
+      "null"
+     ],
+     "minimum": 1,
+     "description": "null when the anchor is not a bar on the tape"
     },
     "date": {
      "type": "integer",
-     "minimum": 1000101,
-     "maximum": 1991231
+     "minimum": 0
     },
     "time": {
      "type": "integer",
-     "minimum": 0,
-     "maximum": 2359
+     "minimum": 0
     },
     "time_s": {
      "type": "integer",
-     "minimum": 0,
-     "maximum": 235959
+     "minimum": 0
     },
     "price": {
      "type": "number"
