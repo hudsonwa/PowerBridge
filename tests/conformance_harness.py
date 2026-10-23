@@ -151,10 +151,10 @@ def canonical_trade(trade):
             )
         try:
             normalized = int(value)
-        except (TypeError, ValueError, OverflowError):
+        except (TypeError, ValueError, OverflowError) as err:
             raise ValueError(
                 f"trade record field {field!r} is not an integer: {value!r}"
-            )
+            ) from err
         if value != normalized:
             raise ValueError(
                 f"trade record field {field!r} is not an integer: {value!r}"
@@ -582,7 +582,7 @@ def minimize_counterexample(python_runner, accel_runner, el_source, bars,
         )
         minimal_bars = _ddmin(
             minimal_bars,
-            lambda candidate: _is_mismatch(
+            lambda candidate, source=source: _is_mismatch(
                 python_runner, accel_runner, source, candidate,
                 mismatch_signature,
             ),

@@ -702,7 +702,7 @@ def py_to_ast(py_source):
     try:
         module = ast.parse(py_source)
     except SyntaxError as e:
-        raise PyFrontError(f"input is not valid Python: {e.msg}{_ln(e)}")
+        raise PyFrontError(f"input is not valid Python: {e.msg}{_ln(e)}") from e
     fn = _find_strategy(module)
     body = fn.body
     out = []

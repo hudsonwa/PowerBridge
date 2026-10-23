@@ -99,8 +99,8 @@ extend-exclude = ["tests/fixtures/emitted", "tests/generated", "accel/target", "
 [tool.ruff.lint]
 # pycodestyle errors (imports E4, statements E7, syntax E9), warnings (W) and
 # pyflakes (F). Line length (E501) is not enforced: there is no formatter.
-# Also import sorting (I) and pyupgrade (UP).
-select = ["E4", "E7", "E9", "W", "F", "I", "UP"]
+# Also import sorting (I), pyupgrade (UP) and bugbear (B).
+select = ["E4", "E7", "E9", "W", "F", "I", "UP", "B"]
 # E701/E702/E731/E741: established style in the engine and runtime.
 # UP007/UP045: `X | None` needs Python 3.10 at runtime; the target is 3.9 and
 # the public API annotations are evaluated.

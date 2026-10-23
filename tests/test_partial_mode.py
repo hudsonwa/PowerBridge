@@ -211,7 +211,7 @@ def group_f_argless_stub_raises_unimplemented_not_typeerror():
     except UnimplementedKeywordError as e:
         assert "partial-mode stub executed" in str(e), repr(str(e))
     except TypeError as e:  # the exact bug this guards
-        raise AssertionError(f"Regression: TypeError not UnimplementedKeywordError: {e!r}")
+        raise AssertionError(f"Regression: TypeError not UnimplementedKeywordError: {e!r}") from e
 
     # Nested unknowns: BOTH named in the watermark, argless stub, still raises.
     nested = "Value1 = FakeOuter(FakeInner(Close));\n"

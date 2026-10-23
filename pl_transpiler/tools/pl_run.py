@@ -125,8 +125,8 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
         reader = csv.reader(f)
         try:
             header = [h.strip().lower() for h in next(reader)]
-        except StopIteration:
-            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS))
+        except StopIteration as err:
+            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS)) from err
         missing = [name for name in _CSV_COLUMNS if name not in header]
         if missing:
             raise ValueError("header is missing column(s) %s (want: %s)"

@@ -168,7 +168,7 @@ def get_config(name: str = "NQ") -> InstrumentConfig:
         return load_config_file(name)
     try:
         return _CONFIGS[name]
-    except KeyError:
+    except KeyError as err:
         raise KeyError(
             f"unknown instrument config {name!r}; known: {sorted(_CONFIGS)} "
-            "or a path to a JSON config file")
+            "or a path to a JSON config file") from err

@@ -214,7 +214,7 @@ def main():
     print("\n" + "=" * 74)
     print("MUTATION SCOREBOARD")
     print("=" * 74)
-    for mid, desc, fn, caught, detail in results:
+    for mid, _desc, fn, caught, detail in results:
         mark = "CAUGHT" if caught else "MISSED"
         print(f"  [{mark}] {mid:26s} {fn:18s} {detail}")
     print(f"\n  caught {len(results) - len(missed)}/{len(results)} mutations; "
