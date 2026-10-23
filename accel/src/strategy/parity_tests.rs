@@ -674,3 +674,35 @@ fn session_time_words_match_python() {
         Some(1515)
     );
 }
+
+#[test]
+fn current_session_and_session_counts_match_python() {
+    // CurrentSession is the bar date's ISO weekday (the sample tape is a
+    // Tuesday, 2); SessionCount / SessionEndDay are template constants.
+    let source = "Variables: S(0), N(0);\n\
+                  S = CurrentSession(0);\n\
+                  N = SessionCount(1) + SessionCountMS + SessionEndDay(1, 1) + SessionEndDayMS(1);\n\
+                  If S = 2 and N = 12 and Time < SessionEndTime(1, 1) - 530 Then\n\
+                      Buy (\"CS\") 1 Contracts Next Bar At Market;\n\
+                  If Time >= 1100 and CurrentSession = S Then\n\
+                      Sell (\"CX\") Next Bar At Market;\n";
+    assert_python_native_parity("CurrentSession/SessionCount", source, 0, 140);
+}
+
+#[test]
+fn iso_weekday_matches_python_datetime() {
+    use super::interp::iso_weekday;
+    assert_eq!(iso_weekday(1240102), Some(2)); // 2024-01-02, Tuesday
+    assert_eq!(iso_weekday(1240107), Some(7)); // Sunday
+    assert_eq!(iso_weekday(1240229), Some(4)); // leap day
+    assert_eq!(iso_weekday(700101), Some(4)); // 1970-01-01
+    assert_eq!(iso_weekday(1000229), Some(2)); // 2000-02-29
+    assert_eq!(iso_weekday(991231), Some(5)); // 1999-12-31
+    assert_eq!(iso_weekday(301), Some(4)); // 1900-03-01
+                                           // Dates Python's datetime.date rejects.
+    assert_eq!(iso_weekday(229), None); // 1900 is not a leap year
+    assert_eq!(iso_weekday(1230229), None);
+    assert_eq!(iso_weekday(1241301), None);
+    assert_eq!(iso_weekday(1240100), None);
+    assert_eq!(iso_weekday(1), None);
+}

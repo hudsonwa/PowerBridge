@@ -753,6 +753,7 @@ impl Cx<'_, '_> {
             "rgb" | "legacycolortorgb" | "gradientcolor" => with_bad(Ty::of(INT)),
             // Session-template words return an int literal (_rt_session).
             n if super::compile::session_time(n).is_some() => with_bad(Ty::of(INT)),
+            "currentsession" => with_bad(Ty::of(INT)),
             // Drawing ids come from a process-wide counter in Python.
             _ => Ty::bad("call result type unknown to the trace typer"),
         }
@@ -796,7 +797,7 @@ fn position_kw_ty(kw: &str) -> Ty {
     match kw {
         "barnumber" | "currentbar" | "market_position" | "current_contracts"
         | "bars_since_entry" | "bars_since_exit" | "totaltrades" | "maxcontractsheld"
-        | "current_date" | "current_time" => Ty::of(INT),
+        | "current_date" | "current_time" | "currentsession" => Ty::of(INT),
         "entry_price"
         | "avgentryprice"
         | "exit_price"
