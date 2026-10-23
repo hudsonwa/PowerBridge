@@ -712,7 +712,11 @@ impl Cx<'_, '_> {
                         // Any earlier bar's value, or the seed when there is
                         // not enough history yet.
                         Some(slot) => start[slot].join(env[slot]),
-                        None => Ty::bad("lookback of an unknown series"),
+                        // Input[n] is the input itself (the index is dropped).
+                        None => match self.inputs.iter().position(|i| i.name == name) {
+                            Some(slot) => self.input_tys[slot],
+                            None => Ty::bad("lookback of an unknown series"),
+                        },
                     },
                 }
             }
@@ -770,6 +774,8 @@ impl Cx<'_, '_> {
                     Ty::bad("NumToStr argument types")
                 }
             }
+            // kwargs.get('entry_name' / 'exit_name', '')
+            "entryname" | "exitname" if !tys.is_empty() => with_bad(Ty::of(STR)),
             // abs() keeps int/float (a bool becomes an int).
             "absvalue" | "abs" => match tys.first() {
                 Some(t) if !t.has(STR) => with_bad(Ty::of(t.numeric_bits())),

@@ -2192,6 +2192,18 @@ impl Compiler {
                 self.instrs.push(Instr::ArrayGet(slot));
                 return Ok(());
             }
+            // Input[n]: an input is constant for the run, so Python codegen
+            // emits its value and drops the index. The index is still compiled
+            // (then discarded) so a construct the kernel cannot run is refused.
+            // This is also how an input named like a position keyword
+            // (`Inputs: ExitTime(1555)`) shadows it in bracket form.
+            if let Some(slot) = self.input_slots.get(name).copied() {
+                let mark = self.instrs.len();
+                self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
+                self.instrs.truncate(mark);
+                self.instrs.push(Instr::PushInput(slot));
+                return Ok(());
+            }
         }
         self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
         if node_type(series) == Some("position_kw") {
@@ -2293,6 +2305,20 @@ impl Compiler {
                     a,
                     b,
                 });
+                return Ok(());
+            }
+            // EntryName(n) / ExitName(n): Python codegen emits
+            // kwargs.get('entry_name' / 'exit_name', ''), a run value no runner
+            // sets, so the result is always "". The index is compiled (then
+            // discarded) only so a construct the kernel cannot run is refused.
+            "entryname" | "exitname" if !args.is_empty() => {
+                let mark = self.instrs.len();
+                for arg in args {
+                    self.compile_expr(arg, false)?;
+                }
+                self.instrs.truncate(mark);
+                self.uses_strings = true;
+                self.instrs.push(Instr::PushStr(String::new()));
                 return Ok(());
             }
             _ => {}
