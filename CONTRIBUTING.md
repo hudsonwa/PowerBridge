@@ -24,6 +24,7 @@ CI runs these on every pull request. The tools are for development only;
 the library itself still needs nothing beyond the standard library.
 
 ```sh
+python3 -m pip install --upgrade pip  # pip older than 21.3 (bundled with Python 3.9) cannot install this project in editable mode
 python3 -m pip install -e '.[dev]'  # pytest, pytest-timeout, build, ruff, mypy
 python3 -m pytest -q --timeout=60  # everything, including the public tier
 ruff check .                       # lint (rules in pyproject.toml)
