@@ -208,4 +208,6 @@ def test_version(tool):
     from pl_transpiler import __version__
     proc = _run(tool, "--version")
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == "%s %s" % (tool, __version__)
+    first, second = proc.stdout.splitlines()
+    assert first == "%s %s" % (tool, __version__)
+    assert second.startswith("native kernel: ")

@@ -36,10 +36,25 @@ def debug_enabled():
     return os.environ.get("PB_DEBUG", "") not in ("", "0")
 
 
+class _VersionAction(argparse.Action):
+    """``--version``: the tool version, then the native kernel status line."""
+
+    def __init__(self, option_strings, version, dest=argparse.SUPPRESS,
+                 default=argparse.SUPPRESS, help="show program's version number and exit"):
+        super().__init__(option_strings=option_strings, dest=dest, default=default,
+                         nargs=0, help=help)
+        self.version = version
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        from pl_transpiler.runtime.accel import native_status
+        sys.stdout.write("%s\n%s\n" % (self.version, native_status()[1]))
+        parser.exit()
+
+
 def add_version(ap, prog):
-    """Add ``--version`` (prints e.g. ``pl_run 0.9.0``)."""
+    """Add ``--version`` (prints e.g. ``pl_run 0.9.0`` and the native kernel status)."""
     from pl_transpiler import __version__
-    ap.add_argument("--version", action="version", version="%s %s" % (prog, __version__))
+    ap.add_argument("--version", action=_VersionAction, version="%s %s" % (prog, __version__))
 
 
 def output_path(path):
