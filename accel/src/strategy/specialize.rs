@@ -775,6 +775,7 @@ fn fuse(instrs: Vec<Instr>) -> Vec<Instr> {
                         order_type,
                         timing,
                         has_price: false,
+                        from_entry,
                     },
                 ) => {
                     out[i] = Instr::EmitOrderConst {
@@ -783,6 +784,7 @@ fn fuse(instrs: Vec<Instr>) -> Vec<Instr> {
                         timing: *timing,
                         quantity: *qty,
                         signal: sig.clone(),
+                        from_entry: from_entry.clone(),
                     };
                     out[i + 1] = Instr::Nop;
                     out[i + 2] = Instr::Nop;
@@ -797,6 +799,7 @@ fn fuse(instrs: Vec<Instr>) -> Vec<Instr> {
                         order_type,
                         timing,
                         has_price: false,
+                        from_entry,
                     },
                 ) => {
                     out[i] = Instr::EmitOrderAll {
@@ -804,6 +807,7 @@ fn fuse(instrs: Vec<Instr>) -> Vec<Instr> {
                         order_type: *order_type,
                         timing: *timing,
                         signal: sig.clone(),
+                        from_entry: from_entry.clone(),
                     };
                     out[i + 1] = Instr::Nop;
                     out[i + 2] = Instr::Nop;

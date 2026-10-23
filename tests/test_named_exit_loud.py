@@ -18,8 +18,9 @@ The engine closes the whole position for a named exit, but EasyLanguage
 documents it as closing only entry X. No MultiCharts capture confirms those
 fills, so a named exit that would fill while more than one entry is open in
 its direction stops the run (strict) or warns (lenient). One open entry keeps
-today's fills. The native kernel refuses every named exit, so `use_native`
-falls back to the Python engine and raises the same error.
+today's fills. The native kernel runs a named exit with one entry open and
+refuses the run when several are (#125), so `use_native` falls back to the
+Python engine and raises the same error.
 """
 import os
 import sys
@@ -92,4 +93,4 @@ def test_single_entry_named_exit_unchanged(strict, src, native):
     assert got["fills"] == 2
     assert got["sha256"] == ref["sha256"]
     if native:
-        assert "from entry" in (got["native_fallback_reason"] or "")
+        assert got.get("native_fallback_reason") is None
