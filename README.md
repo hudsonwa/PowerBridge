@@ -16,22 +16,22 @@ reported, not approximated ([status and scope](docs/USAGE.md#status-and-scope),
 ## Install
 
 Python 3.9 or newer. Install the wheel attached to the
-[v0.7.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.7.0):
+[v0.8.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.8.0):
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.7.0/powerbridge-0.7.0-py3-none-any.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.8.0/powerbridge-0.8.0-py3-none-any.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.7.0"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.8.0"
 ```
 
 The optional native fast path is a separate wheel per platform,
-`powerbridge_accel-0.7.0-cp39-abi3-<platform>.whl` on the same release page;
+`powerbridge_accel-0.8.0-cp39-abi3-<platform>.whl` on the same release page;
 see [the platform table](docs/ACCEL.md#install). PyPI publishing is coming in a
 later release.
 
