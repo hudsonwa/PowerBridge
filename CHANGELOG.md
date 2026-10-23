@@ -62,6 +62,10 @@
 - Internal refactor with byte-identical output: `parser.py` and `py_front.py`
   are split into smaller modules (`_parser_stmts.py`, `_parser_expr.py`,
   `_py_front_common.py`, `_py_front_expr.py`).
+- Internal refactor with byte-identical output: `engine.py`, `codegen_el.py`
+  and `runtime/_rt_indicators.py` are split into smaller modules
+  (`_engine_stops.py`, `_engine_report.py`, `_codegen_el_layout.py`,
+  `runtime/_rt_trend.py`).
 
 ### Fixed
 
