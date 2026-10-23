@@ -29,6 +29,7 @@ use serde_json::Value as Json;
 
 use crate::types::{Action, KernelError, OrderType, Timing};
 
+use super::arrays::{python_sum, PySum};
 use super::ir::node_type;
 use super::trace_types::{self, TraceType};
 use super::value::Value;
@@ -519,6 +520,10 @@ pub(crate) struct Program {
     pub(crate) var_double_accum: Vec<bool>,
     pub(crate) var_inits: Vec<Value>,
     pub(crate) stateful: Vec<usize>,
+    // Per-slot flags: a variable declared inside a block (see
+    // [`Compiler::collect_block_decls`]). Python makes it a plain local of the
+    // bar function, so it is neither traced nor kept from bar to bar.
+    pub(crate) var_block: Vec<bool>,
     // Per-slot flags: which slots must keep a growing bar history because their
     // value is observable as a series (BarRefVar read, average/crosses arg).
     // A variable that is only ever read as a scalar keeps no history at all —
@@ -548,6 +553,7 @@ pub(crate) fn compile(
     let body = body_of(ast)?.to_vec();
     let mut compiler = Compiler::new();
     compiler.collect_decls(&body, input_overrides)?;
+    compiler.collect_block_decls(&body);
     compiler.collect_double_accums(&body);
     compiler.collect_var_kinds(&body, decl_inits(&body)?);
     compiler.compile_body(&body)?;
@@ -642,10 +648,21 @@ pub(crate) fn explain(
     ast: &Json,
     input_overrides: &HashMap<String, Value>,
 ) -> Result<Vec<Refusal>, KernelError> {
+    explain_for(ast, input_overrides, python_sum())
+}
+
+/// [`explain`] as if the running Python's `sum()` were `py_sum`.
+fn explain_for(
+    ast: &Json,
+    input_overrides: &HashMap<String, Value>,
+    py_sum: PySum,
+) -> Result<Vec<Refusal>, KernelError> {
     let body = body_of(ast)?.to_vec();
     let mut compiler = Compiler::new();
+    compiler.py_sum = py_sum;
     compiler.refusals = Some(Vec::new());
     compiler.collect_decls(&body, input_overrides)?;
+    compiler.collect_block_decls(&body);
     compiler.collect_double_accums(&body);
     compiler.collect_var_kinds(&body, decl_inits(&body)?);
     compiler.compile_body(&body)?;
@@ -675,6 +692,7 @@ pub(crate) fn trace_types(
                     vars.push(trace_types::VarDecl {
                         name: decl_name(decl)?,
                         init: decl.get("init").unwrap_or(&Json::Null),
+                        block: false,
                     });
                 }
             }
@@ -688,6 +706,19 @@ pub(crate) fn trace_types(
             }
             _ => {}
         }
+    }
+    // Block-declared variables follow, in slot order.
+    for (name, _) in program
+        .var_names
+        .iter()
+        .zip(&program.var_block)
+        .filter(|(_, block)| **block)
+    {
+        vars.push(trace_types::VarDecl {
+            name,
+            init: &Json::Null,
+            block: true,
+        });
     }
     Ok(trace_types::infer(body, &vars, &inputs, &double_accum))
 }
@@ -724,6 +755,17 @@ struct Compiler {
     /// Variables Python seeds and assigns through `f32()`, so always a
     /// `float`: a plain number init, not an accumulator, not a loop variable.
     float_vars: HashSet<String>,
+    /// Names declared only inside blocks; each has one non-stateful slot.
+    block_vars: HashSet<String>,
+    /// The block-declared names in scope at the statement being compiled.
+    block_scope: Vec<String>,
+    /// Names a call argument or a lookback reads (a superset of the
+    /// variables Python keeps a history list for).
+    series_refs: HashSet<String>,
+    /// Statement-list nesting: 1 at the top level.
+    depth: usize,
+    /// The running Python's `sum()` (`Average` depends on it).
+    py_sum: PySum,
     /// `Some` in [`explain`] mode: refusals are recorded here and compiling
     /// continues. `None` (a plain [`compile`]): the first refusal is returned.
     refusals: Option<Vec<Refusal>>,
@@ -761,6 +803,11 @@ impl Compiler {
             int_inputs: HashSet::new(),
             int_vars: HashSet::new(),
             float_vars: HashSet::new(),
+            block_vars: HashSet::new(),
+            block_scope: Vec::new(),
+            series_refs: HashSet::new(),
+            depth: 0,
+            py_sum: python_sum(),
             refusals: None,
             line: 0,
         }
@@ -792,15 +839,21 @@ impl Compiler {
         previous
     }
 
+    /// Compile a statement list. A block-declared name goes out of scope at
+    /// the end of the list that declares it.
     fn compile_body(&mut self, stmts: &[Json]) -> Result<(), KernelError> {
-        for stmt in stmts {
+        let scope = self.block_scope.len();
+        self.depth += 1;
+        let result = stmts.iter().try_for_each(|stmt| {
             let previous = self.enter_line(stmt);
             let result = self.compile_stmt(stmt);
             let result = self.refuse_or(result);
             self.line = previous;
-            result?;
-        }
-        Ok(())
+            result
+        });
+        self.depth -= 1;
+        self.block_scope.truncate(scope);
+        result
     }
 
     fn finish(self) -> Program {
@@ -820,6 +873,11 @@ impl Compiler {
             var_numeric[i] = self.numeric_vars.contains(name);
             var_double_accum[i] = self.double_accum.contains(name);
         }
+        let var_block = self
+            .var_names
+            .iter()
+            .map(|name| self.block_vars.contains(name))
+            .collect();
         let stateful = self
             .stateful
             .iter()
@@ -832,6 +890,7 @@ impl Compiler {
             var_double_accum,
             var_inits: self.var_inits,
             stateful,
+            var_block,
             var_needs_value_history,
             var_needs_numeric_history,
             inputs: self.inputs,
@@ -929,6 +988,116 @@ impl Compiler {
             self.refuse_or(Err(KernelError::unsupported(format!(
                 "array {name} shares its name with a variable, input or price series"
             ))))?;
+        }
+        Ok(())
+    }
+
+    /// `codegen_stmt.gen_var_decl` for a `Vars:` inside a block: the name is
+    /// not one of the codegen's stateful (top-level) variables, so it is a
+    /// plain local, `name = <init>` each time the declaration runs, with no
+    /// `f32()`, no trace column and nothing kept between bars. Each such
+    /// name gets one slot after the top-level ones. A name that is also
+    /// declared at the top level, or is an input, array or price series,
+    /// gets none (see [`Compiler::compile_block_decl`]).
+    fn collect_block_decls(&mut self, body: &[Json]) {
+        fn walk(compiler: &mut Compiler, stmts: &[Json], nested: bool) {
+            for stmt in stmts {
+                if nested && node_type(stmt) == Some("var_decl") {
+                    for decl in decls_of(stmt).unwrap_or(&[]) {
+                        let Ok(name) = decl_name(decl) else { continue };
+                        if compiler.var_slots.contains_key(name)
+                            || compiler.input_slots.contains_key(name)
+                            || compiler.array_slots.contains_key(name)
+                            || Series::from_name(name).is_some()
+                        {
+                            continue;
+                        }
+                        compiler
+                            .var_slots
+                            .insert(name.to_string(), compiler.var_names.len());
+                        compiler.var_names.push(name.to_string());
+                        compiler.var_inits.push(Value::Num(0.0));
+                        compiler.block_vars.insert(name.to_string());
+                    }
+                }
+                for key in ["body", "else_body"] {
+                    if let Some(Json::Array(inner)) = stmt.get(key) {
+                        walk(compiler, inner, true);
+                    }
+                }
+            }
+        }
+        walk(self, body, false);
+        collect_series_refs(&Json::Array(body.to_vec()), false, &mut self.series_refs);
+    }
+
+    /// A `Vars:` inside a block (see [`Compiler::collect_block_decls`]).
+    fn compile_block_decl(&mut self, stmt: &Json) -> Result<(), KernelError> {
+        for decl in decls_of(stmt)? {
+            let name = decl_name(decl)?.to_string();
+            if decl.get("data_ref").is_some_and(|v| !v.is_null()) {
+                return Err(KernelError::unsupported(format!(
+                    "Data2-tied variable {name}"
+                )));
+            }
+            let init = decl
+                .get("init")
+                .ok_or_else(|| KernelError::input(format!("var {name} has no init")))?;
+            if !self.block_vars.contains(&name) {
+                if !self.var_slots.contains_key(&name) {
+                    return Err(KernelError::unsupported(format!(
+                        "var {name} declared inside a block shares its name with \
+                         an input, array or price series"
+                    )));
+                }
+                // Redeclaring a top-level variable: Python emits nothing for
+                // a scalar, but reloads the previous bar's value for one it
+                // keeps a history list for. Only the no-op is native.
+                let literal = match node_type(init) {
+                    Some("number" | "string" | "boolean") => true,
+                    Some("unaryop") => {
+                        node_type(init.get("operand").unwrap_or(&Json::Null)) == Some("number")
+                    }
+                    _ => false,
+                };
+                if !literal || self.series_refs.contains(&name) {
+                    return Err(KernelError::unsupported(format!(
+                        "var {name} redeclared inside a block (with a non-literal \
+                         init, or read as a series or with a lookback)"
+                    )));
+                }
+                continue;
+            }
+            // Python evaluates the init before binding the name.
+            let compiled = self.compile_expr(init, false);
+            self.block_scope.push(name.clone());
+            compiled?;
+            let slot = self.var_slots[&name];
+            self.instrs.push(Instr::StoreVar(slot));
+        }
+        Ok(())
+    }
+
+    /// A block-declared variable is a Python local: reading or assigning it
+    /// where its declaration has not run on this bar raises in Python
+    /// (`UnboundLocalError`), so only uses after the declaration, in the
+    /// same block or one nested in it, are native.
+    fn check_block_scope(&self, name: &str) -> Result<(), KernelError> {
+        if self.block_vars.contains(name) && !self.block_scope.iter().any(|n| n == name) {
+            return Err(KernelError::unsupported(format!(
+                "var {name} used outside the block that declares it"
+            )));
+        }
+        Ok(())
+    }
+
+    /// A block-declared variable has no history: Python cannot read it as a
+    /// series or with a lookback.
+    fn refuse_block_series(&self, name: &str) -> Result<(), KernelError> {
+        if self.block_vars.contains(name) {
+            return Err(KernelError::unsupported(format!(
+                "var {name} declared inside a block is read as a series"
+            )));
         }
         Ok(())
     }
@@ -1118,14 +1287,14 @@ impl Compiler {
     fn compile_stmt(&mut self, stmt: &Json) -> Result<(), KernelError> {
         match node_type(stmt) {
             Some("input_decl") | Some("attribute") => Ok(()),
+            Some("var_decl") if self.depth > 1 => self.compile_block_decl(stmt),
             Some("var_decl") => {
                 for decl in decls_of(stmt)? {
                     let name = decl_name(decl)?.to_string();
-                    // Only top-level declarations get a slot; one nested
-                    // in a block is refused rather than indexed blindly.
-                    let slot = *self.var_slots.get(&name).ok_or_else(|| {
-                        KernelError::unsupported(format!("variable {name} declared inside a block"))
-                    })?;
+                    let slot = *self
+                        .var_slots
+                        .get(&name)
+                        .ok_or_else(|| KernelError::input(format!("var {name} has no slot")))?;
                     self.instrs.push(Instr::LoadVar(slot));
                 }
                 Ok(())
@@ -1162,6 +1331,7 @@ impl Compiler {
                     KernelError::unsupported(format!("assignment to unknown variable {name:?}"))
                 })?;
                 self.compile_expr(stmt.get("value").unwrap_or(&Json::Null), false)?;
+                self.check_block_scope(name)?;
                 self.instrs.push(Instr::StoreVar(slot));
                 Ok(())
             }
@@ -1283,6 +1453,7 @@ impl Compiler {
         let slot = *self.var_slots.get(var).ok_or_else(|| {
             KernelError::unsupported(format!("for loop over undeclared variable {var:?}"))
         })?;
+        self.check_block_scope(var)?;
         let downto = stmt.get("downto").and_then(Json::as_bool).unwrap_or(false);
         let body: &[Json] = stmt
             .get("body")
@@ -1715,12 +1886,14 @@ impl Compiler {
             }
             return Ok(());
         }
-        if let Some(slot) = self.var_slots.get(name) {
+        if let Some(&slot) = self.var_slots.get(name) {
+            self.check_block_scope(name)?;
             if series_ctx {
+                self.refuse_block_series(name)?;
                 self.needs_value_history.insert(name.to_string());
-                self.instrs.push(Instr::PushVarSeries(*slot));
+                self.instrs.push(Instr::PushVarSeries(slot));
             } else {
-                self.instrs.push(Instr::PushVar(*slot));
+                self.instrs.push(Instr::PushVar(slot));
             }
             return Ok(());
         }
@@ -1919,6 +2092,7 @@ impl Compiler {
                 return Ok(());
             }
             if let Some(slot) = self.var_slots.get(name) {
+                self.refuse_block_series(name)?;
                 self.needs_value_history.insert(name.to_string());
                 self.instrs.push(Instr::BarRefVar(*slot));
                 return Ok(());
@@ -1965,6 +2139,19 @@ impl Compiler {
                 }
                 let src = self.series_src(&args[0])?;
                 let kind = self.series_kind(&args[0]);
+                // Decided here, not when the window is summed, so that
+                // `explain` lists it (the run would refuse it anyway).
+                if self.py_sum != PySum::Plain && !matches!(kind, ElemKind::Int | ElemKind::Float) {
+                    let shown = match name {
+                        "averagefc" => "AverageFC",
+                        "averagetfc" => "AverageTFC",
+                        _ => "Average",
+                    };
+                    return Err(KernelError::unsupported(format!(
+                        "function {shown} over a series whose Python int/float type is not \
+                         known natively (Python 3.12+ sums floats with compensation)"
+                    )));
+                }
                 self.compile_expr(&args[1], true)?;
                 self.instrs.push(Instr::Average { src, kind });
                 return Ok(());
@@ -2134,6 +2321,7 @@ impl Compiler {
             )));
         }
         if let Some(slot) = self.var_slots.get(name) {
+            self.refuse_block_series(name)?;
             if self.numeric_vars.contains(name) {
                 self.needs_numeric_history.insert(name.to_string());
                 return Ok(SeriesSrc::NumericVar(*slot));
@@ -2454,6 +2642,85 @@ fn eval_literal(node: &Json) -> Result<Value, KernelError> {
     }
 }
 
+/// `codegen_expr._SERIES_FUNCS`: calls whose arguments the codegen reads as
+/// series.
+const SERIES_FUNCS: [&str; 33] = [
+    "average",
+    "averagefc",
+    "averagetfc",
+    "weightedaverage",
+    "xaverage",
+    "highest",
+    "lowest",
+    "highestbar",
+    "lowestbar",
+    "rsi",
+    "momentum",
+    "summation",
+    "standarddev",
+    "stddev",
+    "variance",
+    "correlation",
+    "linearregvalue",
+    "linearregslope",
+    "macdvalue",
+    "macd",
+    "macddiff",
+    "macdsignal",
+    "roc",
+    "rateofchange",
+    "crossesabove",
+    "crossesbelow",
+    "waverage",
+    "countif",
+    "bollingerband",
+    "stochastic",
+    "linearregangle",
+    "summationif",
+    "xaveragefc",
+];
+
+/// `codegen._collect_history_vars`, widened: every name read anywhere in the
+/// arguments of a series function (or of a call nested in one), or as a
+/// lookback series with any index.
+fn collect_series_refs(node: &Json, in_series: bool, out: &mut HashSet<String>) {
+    match node {
+        Json::Object(map) => {
+            let ty = map.get("type").and_then(Json::as_str);
+            if ty == Some("ident") && in_series {
+                if let Some(name) = map.get("name").and_then(Json::as_str) {
+                    out.insert(name.to_string());
+                }
+            }
+            if ty == Some("bar_ref") {
+                if let Some(name) = map
+                    .get("series")
+                    .filter(|s| node_type(s) == Some("ident"))
+                    .and_then(|s| s.get("name"))
+                    .and_then(Json::as_str)
+                {
+                    out.insert(name.to_string());
+                }
+            }
+            let in_series = in_series
+                || (ty == Some("call")
+                    && map
+                        .get("name")
+                        .and_then(Json::as_str)
+                        .is_some_and(|n| SERIES_FUNCS.contains(&n.to_lowercase().as_str())));
+            for child in map.values() {
+                collect_series_refs(child, in_series, out);
+            }
+        }
+        Json::Array(items) => {
+            for child in items {
+                collect_series_refs(child, in_series, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn ident_referenced(node: &Json, name: &str) -> bool {
     match node {
         Json::Object(map) => {
@@ -2476,7 +2743,7 @@ mod tests {
     use serde_json::Value as Json;
 
     use super::super::value::Value;
-    use super::{compile, explain, resolve_inputs, CallOp, Instr, Program};
+    use super::{compile, explain, explain_for, resolve_inputs, CallOp, Instr, Program, PySum};
 
     fn needs(src: &str) -> (Vec<bool>, Vec<bool>) {
         let ast: Json = serde_json::from_str(src).expect("valid program JSON");
@@ -2597,27 +2864,202 @@ mod tests {
         );
     }
 
-    /// A `Vars:` nested in a block gets no slot (only top-level declarations
-    /// do): compile refuses it and explain lists it, neither panics.
-    #[test]
-    fn nested_var_decl_is_refused_not_panic() {
-        let ast: Json = serde_json::from_str(
-            r#"{"type":"program","body":[
-                {"type":"array_decl","_line":1,"decls":[{"name":"s","size":{"type":"number","value":"3"},"init":{"type":"string","value":"a"}}]},
-                {"type":"if","_line":2,"cond":{"type":"number","value":"1"},"body":[
-                    {"type":"var_decl","_line":3,"decls":[{"name":"z","init":{"type":"number","value":"0"}}]}
-                ]}
-            ]}"#,
+    fn ast(json: &str) -> Json {
+        serde_json::from_str(json).expect("valid program JSON")
+    }
+
+    fn num(v: &str) -> String {
+        format!(r#"{{"type":"number","value":"{v}"}}"#)
+    }
+
+    fn ident(n: &str) -> String {
+        format!(r#"{{"type":"ident","name":"{n}"}}"#)
+    }
+
+    fn decl(line: i64, name: &str, init: &str) -> String {
+        format!(
+            r#"{{"type":"var_decl","_line":{line},"decls":[{{"name":"{name}","init":{init}}}]}}"#
         )
-        .expect("valid program JSON");
+    }
+
+    fn assign(line: i64, name: &str, value: &str) -> String {
+        format!(
+            r#"{{"type":"assign","_line":{line},"target":{},"value":{value}}}"#,
+            ident(name)
+        )
+    }
+
+    fn if_block(line: i64, body: &[String], else_body: &[String]) -> String {
+        format!(
+            r#"{{"type":"if","_line":{line},"cond":{},"body":[{}],"else_body":[{}]}}"#,
+            num("1"),
+            body.join(","),
+            else_body.join(",")
+        )
+    }
+
+    fn program(body: &[String]) -> Json {
+        ast(&format!(
+            r#"{{"type":"program","body":[{}]}}"#,
+            body.join(",")
+        ))
+    }
+
+    /// A `Vars:` inside a block is a plain local: one slot after the
+    /// top-level ones, not stateful, not numeric (no `f32()`), and its
+    /// declaration stores the init each time it runs.
+    #[test]
+    fn block_var_decl_gets_a_local_slot_and_stores_its_init() {
+        let body = [
+            decl(1, "a", &num("0")),
+            if_block(
+                2,
+                &[decl(3, "z", &num("1.5")), assign(4, "a", &ident("z"))],
+                &[decl(5, "z", &num("2")), assign(6, "z", &ident("a"))],
+            ),
+        ];
+        let program = compile(&program(&body), &HashMap::new()).expect("block vars compile");
+        assert_eq!(program.var_names, ["a", "z"]);
+        assert_eq!(program.var_block, [false, true]);
+        assert_eq!(program.stateful, [0]);
+        assert_eq!(program.var_numeric, [true, false]);
+        let stores = program
+            .instrs
+            .iter()
+            .filter(|i| matches!(i, Instr::StoreVar(1)))
+            .count();
+        assert_eq!(stores, 3, "two declarations and one assignment");
+    }
+
+    /// Uses that Python cannot run (an unset local, a lookback or series
+    /// read of a local, a redeclared top-level variable Python keeps a
+    /// history for) are refused with a `variable` kind; nothing panics.
+    #[test]
+    fn block_var_uses_python_cannot_run_are_refused() {
+        let lookback = r#"{"type":"bar_ref","series":{"type":"ident","name":"z"},"index":{"type":"number","value":"1"}}"#;
+        let average = r#"{"type":"call","name":"average","args":[{"type":"ident","name":"b"},{"type":"number","value":"3"}]}"#;
+        let body = [
+            decl(1, "a", &num("0")),
+            decl(1, "b", &num("0")),
+            assign(2, "a", &ident("z")),
+            if_block(
+                3,
+                &[
+                    assign(4, "a", &ident("z")),
+                    decl(5, "z", &num("0")),
+                    assign(6, "a", lookback),
+                    decl(7, "b", &num("1")),
+                ],
+                &[assign(8, "z", &num("1"))],
+            ),
+            assign(9, "a", average),
+        ];
         let none = HashMap::<String, Value>::new();
-        let refusals = explain(&ast, &none).expect("well-formed IR");
-        let lines: Vec<i64> = refusals.iter().map(|r| r.line).collect();
-        assert_eq!(lines, [1, 3]);
-        assert!(refusals[1]
+        let refusals = explain(&program(&body), &none).expect("well-formed IR");
+        let got: Vec<(i64, (&str, String))> = refusals
+            .iter()
+            .map(|r| (r.line, r.kind_and_name()))
+            .collect();
+        let var = |n: &str| ("variable", n.to_string());
+        assert_eq!(
+            got,
+            [
+                (2, var("z")),
+                (4, var("z")),
+                (6, var("z")),
+                (7, var("b")),
+                (8, var("z")),
+            ]
+        );
+        assert!(refusals[0]
             .message
-            .contains("variable z declared inside a block"));
-        assert!(compile(&ast, &none).is_err());
+            .contains("outside the block that declares it"));
+        assert!(refusals[2].message.contains("read as a series"));
+        assert!(refusals[3].message.contains("redeclared inside a block"));
+        assert!(compile(&program(&body), &none).is_err());
+    }
+
+    /// Redeclaring a top-level scalar inside a block is a no-op in Python,
+    /// and nothing is emitted for it natively.
+    #[test]
+    fn redeclared_top_level_scalar_is_a_no_op() {
+        let plain = [decl(1, "a", &num("0")), assign(2, "a", &num("3"))];
+        let redeclared = [
+            decl(1, "a", &num("0")),
+            if_block(2, &[decl(3, "a", &num("5"))], &[]),
+            assign(4, "a", &num("3")),
+        ];
+        let none = HashMap::new();
+        let with = compile(&program(&redeclared), &none).expect("compiles");
+        let without = compile(&program(&plain), &none).expect("compiles");
+        assert_eq!(with.var_names, ["a"]);
+        assert_eq!(with.var_block, [false]);
+        assert!(!with
+            .instrs
+            .iter()
+            .any(|i| matches!(i, Instr::PushNum(n) if *n == 5.0)));
+        assert_eq!(
+            with.instrs.len(),
+            without.instrs.len() + 3,
+            "only the if's jumps"
+        );
+    }
+
+    /// A block var clashing with an input, an array or a price column has
+    /// no slot and is refused where it is declared.
+    #[test]
+    fn block_var_named_like_an_input_is_refused() {
+        let ir = ast(&format!(
+            r#"{{"type":"program","body":[
+                {{"type":"input_decl","_line":1,"decls":[{{"name":"len","default":{}}}]}},
+                {}
+            ]}}"#,
+            num("3"),
+            if_block(2, &[decl(3, "len", &num("0"))], &[])
+        ));
+        let refusals = explain(&ir, &HashMap::new()).expect("well-formed IR");
+        assert_eq!(refusals.len(), 1);
+        assert_eq!(refusals[0].line, 3);
+        assert_eq!(refusals[0].kind_and_name(), ("variable", "len".to_string()));
+    }
+
+    /// From Python 3.12 an `Average` over a series of unknown int/float
+    /// type is refused at compile time, so `explain` lists it; before 3.12
+    /// it compiles.
+    #[test]
+    fn average_of_unknown_type_is_refused_at_compile_time_from_312() {
+        let average = r#"{"type":"call","name":"average","args":[{"type":"ident","name":"x"},{"type":"number","value":"3"}]}"#;
+        let half = r#"{"type":"binop","op":"+","left":{"type":"ident","name":"x"},"right":{"type":"number","value":"0.5"}}"#;
+        let body = [
+            decl(1, "x", &num("0")),
+            decl(1, "m", &num("0")),
+            assign(2, "x", half),
+            assign(3, "m", average),
+        ];
+        let ir = program(&body);
+        let none = HashMap::<String, Value>::new();
+        assert_eq!(explain_for(&ir, &none, PySum::Plain).expect("IR"), []);
+        for mode in [PySum::CompensatedFloats, PySum::CompensatedAll] {
+            let refusals = explain_for(&ir, &none, mode).expect("IR");
+            assert_eq!(refusals.len(), 1);
+            assert_eq!(refusals[0].line, 3);
+            assert_eq!(
+                refusals[0].kind_and_name(),
+                ("function", "Average".to_string())
+            );
+            assert!(refusals[0].message.contains("Average over a series"));
+        }
+        // A known element type (a plain numeric variable is f32()'d: float).
+        let known = [
+            decl(1, "y", &num("0")),
+            decl(1, "m", &num("0")),
+            assign(2, "y", &ident("close")),
+            assign(3, "m", &average.replace("\"x\"", "\"y\"")),
+        ];
+        assert_eq!(
+            explain_for(&program(&known), &none, PySum::CompensatedAll).expect("IR"),
+            []
+        );
     }
 
     /// `EntryPrice(0)` is the open position and compiles; `EntryPrice(n)` for

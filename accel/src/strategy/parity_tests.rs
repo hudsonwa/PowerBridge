@@ -377,6 +377,15 @@ fn variable_short_history_uses_python_initializer_fallback() {
 }
 
 #[test]
+fn block_declared_variables_match_python() {
+    // Re-initialised each time their block runs (on later bars and on every
+    // loop iteration), the same name declared in both branches of an `if`,
+    // and a redeclared top-level variable (a no-op in Python).
+    let source = include_str!("fixtures/block_vars.txt");
+    assert_python_native_parity("Vars: inside blocks", source, 0, 140);
+}
+
+#[test]
 fn second_once_matches_python_first_bar_consumption() {
     let source = "Once Buy (\"FIRST\") 1 Contracts Next Bar At Market;\n\
                   Once Buy (\"SECOND\") 1 Contracts Next Bar At Market;\n";

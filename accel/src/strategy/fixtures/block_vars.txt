@@ -1,0 +1,23 @@
+Vars: n(0), A(0), S(0), k(0);
+n = n + 1;
+If Mod(n, 4) <> 0 And Close > Open Then Begin
+    Vars: Gap(0.3), Cnt(0);
+    Gap = Gap + (Close - Open) / 2;
+    Cnt = Cnt + 1;
+    If Gap > 1 Then Begin
+        Vars: Half(Gap / 2);
+        A = Half + Cnt;
+    End;
+End Else Begin
+    Vars: Gap(2), Tag("D");
+    Gap = Gap * n;
+    A = Gap;
+    Vars: S(5);
+End;
+For k = 1 To 3 Begin
+    Vars: T(0);
+    T = T + k;
+    S = S + T;
+End;
+If Mod(n, 3) = 0 And A > 1 Then Buy ("B" + NumToStr(A, 4)) Next Bar At Market
+Else If Mod(n, 3) = 1 Then Sell ("S" + NumToStr(S, 0)) Next Bar At Market;

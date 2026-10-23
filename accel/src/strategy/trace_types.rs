@@ -109,6 +109,9 @@ impl Ty {
 pub(crate) struct VarDecl<'a> {
     pub(crate) name: &'a str,
     pub(crate) init: &'a Json,
+    /// Declared only inside blocks: a plain Python local, bound to its init
+    /// (no `f32()`) each time the declaration runs, and never traced.
+    pub(crate) block: bool,
 }
 
 /// One declared input and its default expression.
@@ -131,13 +134,17 @@ pub(crate) fn infer(
     // codegen._numeric_vars: only a plain number init makes a variable numeric.
     let numeric: Vec<bool> = vars
         .iter()
-        .map(|v| node_type(v.init) == Some("number"))
+        .map(|v| !v.block && node_type(v.init) == Some("number"))
         .collect();
     let mut py_double_accum = HashSet::new();
     collect_double_accums(body, vars, &numeric, &mut py_double_accum);
     let seeds: Vec<Ty> = vars
         .iter()
         .map(|v| {
+            if v.block {
+                // Every read follows the declaration on the same bar.
+                return Ty::of(0);
+            }
             let accum = py_double_accum.contains(v.name);
             if accum != rust_double_accum.contains(v.name) {
                 return Ty::bad("Python and the kernel narrow this variable differently");
@@ -506,6 +513,26 @@ impl Cx<'_, '_> {
                         *a = a.join(b);
                     }
                 }
+                Some("var_decl") => {
+                    // A top-level (or redeclared top-level) name is not
+                    // rebound; a block-declared one is `name = <init>`.
+                    for decl in stmt
+                        .get("decls")
+                        .and_then(Json::as_array)
+                        .into_iter()
+                        .flatten()
+                    {
+                        let slot = decl
+                            .get("name")
+                            .and_then(Json::as_str)
+                            .and_then(|n| self.var_slot(n))
+                            .filter(|slot| self.vars[*slot].block);
+                        if let Some(slot) = slot {
+                            env[slot] =
+                                self.expr(decl.get("init").unwrap_or(&Json::Null), start, env);
+                        }
+                    }
+                }
                 Some("for") => self.for_loop(stmt, start, env),
                 Some(kind @ ("break" | "continue")) => {
                     if let Some(exits) = self.loop_exits.borrow_mut().last_mut() {
@@ -830,7 +857,11 @@ mod tests {
         let body = src_body.as_array().unwrap().clone();
         let decls: Vec<VarDecl<'_>> = vars
             .iter()
-            .map(|(name, init)| VarDecl { name, init })
+            .map(|(name, init)| VarDecl {
+                name,
+                init,
+                block: false,
+            })
             .collect();
         let accum: HashSet<String> = accum.iter().map(|s| (*s).to_owned()).collect();
         infer(&body, &decls, &[], &accum).0
