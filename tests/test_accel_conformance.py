@@ -273,6 +273,7 @@ def test_full_suite_accepts_identical_trade_lists():
     )
 
 
+@pytest.mark.needs_native
 def test_accel_runner_delegates_to_frozen_run_program():
     try:
         import pl_transpiler._accel as accel
@@ -284,6 +285,7 @@ def test_accel_runner_delegates_to_frozen_run_program():
     assert callable(getattr(accel, "run_program", None))
 
 
+@pytest.mark.needs_native
 def test_python_vs_accel_identical_trade_lists():
     try:
         import pl_transpiler._accel as accel

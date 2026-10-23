@@ -17,7 +17,7 @@ ground_truth/captures/*
 *.EL
 !examples/**
 !ground_truth/**
-!emitted/**
+!tests/fixtures/emitted/**
 # ...but captures stay private: re-ignore them after the folder-wide re-allow above.
 ground_truth/captures/*
 !ground_truth/captures/MANIFEST.md

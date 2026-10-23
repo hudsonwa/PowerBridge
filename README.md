@@ -34,7 +34,7 @@ if pl_crosses_above((_state['fast'] + [fast]), (_state['slow'] + [slow])):
     _orders.append(('buy', 'market', 0, 'next', 'LE'))
 ```
 
-`pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv` backtests it and
+`pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21` backtests it and
 prints an exact trade digest (the same on the Rust and Python paths):
 
 ```
@@ -106,11 +106,10 @@ pl_transpile examples/ma_cross.el -o ma_cross.py
 ```
 
 ```bash
-pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21
 ```
 
 ```
-note: pl_oracle: strategy reads past bars and --max-bars-back is 0; fills may differ from MultiCharts during warm-up (set --max-bars-back N, or -q to hide this)
 powerbridge-trade-digest v2
 fills: 3
 round_turns: 1
@@ -118,12 +117,11 @@ sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
 ```bash
-pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --columns MarketPosition,NetProfit,TotalTrades
+pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --columns MarketPosition,NetProfit,TotalTrades
 ```
 
 ```
-note: pl_run: strategy reads past bars and --max-bars-back is 0; fills may differ from MultiCharts during warm-up (set --max-bars-back N, or -q to hide this)
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns
+[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns
 MarketPosition,NetProfit,TotalTrades
 0,0.00,0
 ...
@@ -163,9 +161,11 @@ To write a strategy by hand instead of transpiling one, see
 [Writing a strategy in Python](docs/PYTHON_STRATEGIES.md): the dialect from
 scratch, with a worked example in `examples/hand_written.py`.
 
-**Warm-up differs from MultiCharts by default:** pass `--max-bars-back 50` (or
-your chart's value) to `pl_oracle` / `pl_run` to match MultiCharts, which is
-what the stderr `note:` above suggests. [Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback)
+**Warm-up:** `--max-bars-back 21` is `ma_cross.el`'s own lookback (a
+21-bar average, compared with its previous value by `crosses`). The default
+is 0; without the flag, `pl_oracle` / `pl_run` print a warm-up `note:` on
+stderr for any strategy that reads past bars. Pass your chart's value (the
+MultiCharts default is 50) to match MultiCharts. [Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback)
 explains why and what the note means.
 
 The [usage guide](docs/USAGE.md) walks through each step in detail.

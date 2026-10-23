@@ -64,8 +64,9 @@ def _corpus_files():
     files = []
     files += glob.glob(os.path.join(REPO, 'ground_truth', '**', '*.txt'),
                        recursive=True)
-    files += glob.glob(os.path.join(REPO, 'emitted', 'ground_truth', '**',
-                                    '*.txt'), recursive=True)
+    files += glob.glob(os.path.join(REPO, 'tests', 'fixtures', 'emitted',
+                                    'ground_truth', '**', '*.txt'),
+                       recursive=True)
     files += glob.glob(os.path.join(REPO, 'tests', 'real_world', '*.txt'))
     return sorted(set(files))
 

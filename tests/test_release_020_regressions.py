@@ -66,6 +66,7 @@ def test_unimplemented_builtins_are_reported(capsys, monkeypatch):
     assert "unimplemented EasyLanguage builtin" in capsys.readouterr().err
 
 
+@pytest.mark.needs_native
 def test_native_unguarded_entry_does_not_double():
     # Rust once sized a qty-0 entry off the open position: 2**n fills, unbounded RAM.
     if not accel.accel_available():

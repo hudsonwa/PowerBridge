@@ -7,22 +7,21 @@
 - The native kernel runs `CurrentSession` (the bar date's weekday, as the
   Python bar loop computes it) and the session-template words `SessionCount`,
   `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS`, so these programs
-  no longer fall back (#1).
+  no longer fall back (#113).
 - The native kernel runs `SessionEndTime(...)`, `SessionStartTime(...)` and
   the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
   `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
-  the Python path's values, so these programs no longer fall back (#1).
+  the Python path's values, so these programs no longer fall back (#109).
 - `pl_oracle --explain-native FILE` lists every construct the native kernel
   would refuse, one `kind name line` per line, instead of only the first one a
   run reports. It needs no bars and runs nothing; it exits 0, or 2 when the
   kernel is not installed. The Python API is
   `pl_transpiler.runtime.accel.explain_native(el_source)`. The kernel's
   compile pass gains a collecting mode for this; a normal native run still
-  stops at the first refusal exactly as before.
+  stops at the first refusal exactly as before (#111).
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
-- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section; the README
-  quickstart shows `pl_oracle`'s warm-up `note:` as a real run prints it.
+- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section.
 - `docs/PYTHON_STRATEGIES.md` teaches the mirror dialect `el_emit` reads, from
   scratch, with a hand-written example (`examples/hand_written.py`) that is
   tested through `el_emit`, `pl_oracle` and an EL round trip.
@@ -40,9 +39,9 @@
   results as the Python path: reversed-list indexing (truncated, wrapping
   negative indexes, out-of-range fails the run), `Array_SetMaxIndex` growth and
   the common `Array_*` functions. String arrays, the remaining array functions,
-  `while` / `repeat` and array trace columns are still refused.
+  `while` / `repeat` and array trace columns are still refused (#100).
 - The native kernel runs the undeclared predeclared variables `Value0`..`Value99`
-  (numeric) and `Condition0`..`Condition99` (boolean) (#1). As in EasyLanguage
+  (numeric) and `Condition0`..`Condition99` (boolean) (#104). As in EasyLanguage
   they start at 0 / false and keep their value from bar to bar, exactly like
   `Vars: Value1(0), Condition1(false);`: history references (`Value1[1]`),
   series arguments and trace columns work as for a declared variable, and the
@@ -50,6 +49,15 @@
 
 ### Changed
 
+- The frozen `el_emit` output used as extra parser corpus moved from
+  `emitted/` to `tests/fixtures/emitted/`, with a README saying what it is.
+- The README quickstart passes `--max-bars-back 21` (`ma_cross.el`'s own
+  lookback) to `pl_oracle` and `pl_run`, so the demo prints no warm-up
+  `note:`; a test keeps it that way. Defaults are unchanged.
+- Tests carry `needs_native`, `needs_captures` and `perf` markers. A plain
+  pytest run deselects `needs_captures` (licensed MultiCharts data) and `perf`
+  (`PB_PERF=1`); select them with `-m`. Kernel tests stay collected and show
+  as one `needs_native` line in the skip summary until the kernel is built.
 - README states the Python to EasyLanguage direction accepts only the mirror
   dialect, and calls out the MaxBarsBack warm-up difference in the quickstart.
 - README quickstart now shows the Python to EasyLanguage direction (`el_emit`);

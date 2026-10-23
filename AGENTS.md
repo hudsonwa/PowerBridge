@@ -37,7 +37,7 @@ trade-offs are in [docs/DESIGN.md](docs/DESIGN.md).
 - `docs/reference/` — generated keyword reference (`tools/gen_reference.py` from the
   catalog and `docs/reference/_notes.json`; edit the notes, then regenerate).
 - `tests/` — verification gates (not packaged into the wheel).
-- `ground_truth/`, `emitted/`, `examples/` — EL sources and synthetic sample data.
+- `ground_truth/`, `tests/fixtures/emitted/`, `examples/` — EL sources and synthetic sample data.
 
 The shared intermediate representation is the parser's dict AST.
 

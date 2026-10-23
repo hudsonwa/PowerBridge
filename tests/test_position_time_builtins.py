@@ -153,6 +153,7 @@ If V <> 0 Then SellShort next bar at market;
     assert not getattr(getattr(pl_runtime, f"pl_{name.lower()}"), "_pl_loud_stub", False)
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize("name", ["TickID", "ExecOffset"])
 def test_zero_native_matches_python(name):
     try:
@@ -177,6 +178,7 @@ End;
 """
 
 
+@pytest.mark.needs_native
 def test_maxsharesheld_native_matches_python():
     # MaxSharesHeld reads the same engine field as MaxContractsHeld, which the
     # native kernel already supplies; both paths must trade identically.

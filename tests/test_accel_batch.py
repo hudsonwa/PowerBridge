@@ -79,6 +79,7 @@ def _setup():
     return el, bars, series, cmap
 
 
+@pytest.mark.needs_native
 def test_batch_default_variant_matches_run_program():
     _require_accel()
     accel = _ffi()
@@ -92,6 +93,7 @@ def test_batch_default_variant_matches_run_program():
     assert fills_sha256(batch[0]) == fills_sha256(default)
 
 
+@pytest.mark.needs_native
 def test_batch_variants_match_solo_inputs():
     _require_accel()
     accel = _ffi()
@@ -107,6 +109,7 @@ def test_batch_variants_match_solo_inputs():
         assert fills_sha256(batch[i]) == fills_sha256(solo), f"variant {i}"
 
 
+@pytest.mark.needs_native
 def test_batch_parallel_is_bit_identical_to_sequential():
     _require_accel()
     accel = _ffi()
@@ -122,6 +125,7 @@ def test_batch_parallel_is_bit_identical_to_sequential():
         assert fills_sha256(seq[i]) == fills_sha256(par[i]), f"variant {i}"
 
 
+@pytest.mark.needs_native
 def test_run_program_inputs_empty_equals_run_program():
     _require_accel()
     accel = _ffi()
@@ -133,6 +137,7 @@ def test_run_program_inputs_empty_equals_run_program():
     assert fills_sha256(a) == fills_sha256(b)
 
 
+@pytest.mark.needs_native
 def test_batch_requires_variants_list():
     _require_accel()
     accel = _ffi()
@@ -143,6 +148,7 @@ def test_batch_requires_variants_list():
         accel.run_program_batch(pir, series, None, cmap)
 
 
+@pytest.mark.needs_native
 def test_run_native_sweep_public_api_matches_solo():
     _require_accel()
     from pl_transpiler.runtime.accel import run_native_inputs, run_native_sweep
@@ -172,6 +178,7 @@ If MyParam <= 0.10 Then
 """
 
 
+@pytest.mark.needs_native
 def test_source_spelling_override_changes_trade_list():
     """``{"MyParam": 0.101}`` must apply against IR name ``myparam``.
 
@@ -202,6 +209,7 @@ def test_source_spelling_override_changes_trade_list():
     assert fills_sha256(par[1]) == fills_sha256(source)
 
 
+@pytest.mark.needs_native
 def test_gt2_fastlen_source_spelling_matches_folded_and_batch():
     """GT2 writes ``FastLen``; override maps using that spelling must apply."""
     _require_accel()

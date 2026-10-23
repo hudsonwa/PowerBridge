@@ -71,6 +71,7 @@ def _sample_bars():
     return load_bars_csv(SAMPLES)
 
 
+@pytest.mark.needs_native
 def test_native_path_one_ffi_crossing_and_bit_identical():
     _require_accel()
     import pl_transpiler._accel as accel
@@ -105,6 +106,7 @@ def test_native_path_one_ffi_crossing_and_bit_identical():
     assert fills_sha256(native_fills) == fills_sha256(python_records)
 
 
+@pytest.mark.needs_native
 def test_native_data2_matches_python_bit_exactly():
     _require_accel()
     bars = _sample_bars()
@@ -120,6 +122,7 @@ def test_native_data2_matches_python_bit_exactly():
     assert fills_sha256(native_fills) == fills_sha256(python_records)
 
 
+@pytest.mark.needs_native
 def test_python_data2_bars_matches_native_data2_bars():
     """Python path given only data2_bars must match the native path.
 
@@ -142,6 +145,7 @@ def test_python_data2_bars_matches_native_data2_bars():
     assert python["fills"] == native["fills"]
 
 
+@pytest.mark.needs_native
 def test_refusal_is_loud_and_python_still_runs():
     _require_accel()
     bars = _sample_bars()
@@ -155,6 +159,7 @@ def test_refusal_is_loud_and_python_still_runs():
     assert python_digest["text"].startswith("powerbridge-trade-digest v2\n")
 
 
+@pytest.mark.needs_native
 def test_run_oracle_forwards_data2_on_native_path():
     _require_accel()
     import pl_transpiler._accel as accel
@@ -195,6 +200,7 @@ def test_run_oracle_forwards_data2_on_native_path():
     assert result["text"] == python["text"]
 
 
+@pytest.mark.needs_native
 def test_run_oracle_use_native_digest_identical():
     _require_accel()
     gt2 = open(GT2, encoding="utf-8").read()
@@ -208,6 +214,7 @@ def test_run_oracle_use_native_digest_identical():
     assert native["text"] == python["text"]
 
 
+@pytest.mark.needs_native
 def test_run_oracle_use_native_falls_back_loudly_on_refusal(capsys):
     _require_accel()
     bars = _sample_bars()

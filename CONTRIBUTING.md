@@ -35,22 +35,25 @@ CI uses it on every OS). Capture-backed gates skip cleanly when the large
 MultiCharts CSVs are absent; see [docs/CAPTURES.md](docs/CAPTURES.md) if you
 want to attach your own.
 
-On a fresh clone over a hundred tests skip; that is expected. They fall into
-three groups, each skipped with a one-line reason:
+Tests that need something a clone cannot provide carry a pytest marker
+(registered in `pytest.ini`):
 
-- **Native kernel** (the large majority): parity, batch and gate tests for the
-  optional Rust module (`pl_transpiler._accel`). Build it with
-  `tools/build_accel.sh` (needs a Rust toolchain; see [docs/ACCEL.md](docs/ACCEL.md))
-  and they run, except a handful kept for programs the kernel refuses (arrays,
-  some functions), which fall back to Python. CI runs them in the
-  `accel (macOS arm64)` job of `.github/workflows/accel.yml`, which builds the
-  wheel and runs the full pytest suite with the kernel loaded.
-- **Licensed data**: drawing-corpus, capture and audit-tape tests need
-  MultiCharts data, which is not redistributed (see [docs/CAPTURES.md](docs/CAPTURES.md)).
-  No CI job runs them; they run only where that data is attached locally.
-- **Opt-in checks**: a wall-clock check (`PB_PERF=1`), the wheel-build test
-  (needs `build` and setuptools>=77) and a few known round-trip gaps. CI does
-  not set `PB_PERF`.
+| Marker | Needs | Default run | Run it with |
+| --- | --- | --- | --- |
+| `needs_native` | the optional Rust kernel (`pl_transpiler._accel`) | collected; skips until the kernel is built | `tools/build_accel.sh`, then a plain run (see [docs/ACCEL.md](docs/ACCEL.md)) |
+| `needs_captures` | MultiCharts captures, audit tapes or the drawing corpus (licensed, not redistributed; see [docs/CAPTURES.md](docs/CAPTURES.md)) | deselected | `pytest -m needs_captures` with your data attached |
+| `perf` | a quiet machine (wall-clock check) | deselected | `PB_PERF=1 pytest -m perf` |
+
+So a plain run on a fresh clone deselects the `needs_captures` and `perf`
+groups and skips only the `needs_native` tests (one summary line) plus a
+couple of known gaps (the offline wheel-build test, which needs `build` and
+setuptools>=77, and two round-trip gaps). With the kernel built, almost
+nothing skips. `-m "not needs_native"` hides the kernel tests too.
+
+CI runs a plain pytest on every pull request; the `accel (macOS arm64)` job
+of `.github/workflows/accel.yml` builds the kernel and runs the full suite with
+it loaded, so every `needs_native` test runs there. No CI job has the
+licensed data, and CI does not set `PB_PERF`.
 
 Every pytest run ends with a skip summary that groups skips by reason with
 counts; `python3 -m pytest -q -rs --timeout=60` lists each skipped test.

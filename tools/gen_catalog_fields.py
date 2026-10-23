@@ -102,6 +102,8 @@ NUMERIC_INTRINSICS = {
 # Files under tests/ that only list catalog names (they would make every keyword
 # look exercised) and are therefore not evidence.
 _NOT_EVIDENCE = {"test_catalog.py", "coverage_report.py", "test_catalog_fields.py"}
+# Frozen el_emit output: a copy of ground_truth/, not independent evidence.
+_NOT_EVIDENCE_DIRS = {os.path.join(TESTS, "fixtures", "emitted")}
 
 FIELD_ORDER = ("keyword", "kind", "returns", "min_arity", "zero_arg_property",
                "arg_types", "max_arity", "verification", "verified_by")
@@ -201,7 +203,8 @@ def test_corpus():
     """[(relative_path, EL-ish text)] for every evidence file under tests/, sorted."""
     corpus = []
     for root, dirs, files in os.walk(TESTS):
-        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__"
+                         and os.path.join(root, d) not in _NOT_EVIDENCE_DIRS)
         for name in sorted(files):
             if name in _NOT_EVIDENCE or not name.endswith((".py", ".el", ".txt", ".json")):
                 continue

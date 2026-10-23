@@ -395,6 +395,7 @@ def _assert_native_matches(case_id, bars, data2, tape):
     return native
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize("case_id", _native_params())
 def test_native_drawings_match_python_on_synthetic_bars(case_id):
     """The kernel records the same objects as Python. producer.kind is the
@@ -405,6 +406,7 @@ def test_native_drawings_match_python_on_synthetic_bars(case_id):
     _assert_native_matches(case_id, bars, data2, _TAPE)
 
 
+@pytest.mark.needs_native
 def test_native_drawings_match_python_off_the_float32_grid():
     """Prices like 4000.01 are not exact in float32; both paths must round
     them the same way."""
