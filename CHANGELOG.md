@@ -7,18 +7,18 @@
 - The native kernel runs `CurrentSession` (the bar date's weekday, as the
   Python bar loop computes it) and the session-template words `SessionCount`,
   `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS`, so these programs
-  no longer fall back (#1).
+  no longer fall back (#113).
 - The native kernel runs `SessionEndTime(...)`, `SessionStartTime(...)` and
   the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
   `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
-  the Python path's values, so these programs no longer fall back (#1).
+  the Python path's values, so these programs no longer fall back (#109).
 - `pl_oracle --explain-native FILE` lists every construct the native kernel
   would refuse, one `kind name line` per line, instead of only the first one a
   run reports. It needs no bars and runs nothing; it exits 0, or 2 when the
   kernel is not installed. The Python API is
   `pl_transpiler.runtime.accel.explain_native(el_source)`. The kernel's
   compile pass gains a collecting mode for this; a normal native run still
-  stops at the first refusal exactly as before.
+  stops at the first refusal exactly as before (#110, #111).
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
 - `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section; the README
@@ -40,9 +40,9 @@
   results as the Python path: reversed-list indexing (truncated, wrapping
   negative indexes, out-of-range fails the run), `Array_SetMaxIndex` growth and
   the common `Array_*` functions. String arrays, the remaining array functions,
-  `while` / `repeat` and array trace columns are still refused.
+  `while` / `repeat` and array trace columns are still refused (#100).
 - The native kernel runs the undeclared predeclared variables `Value0`..`Value99`
-  (numeric) and `Condition0`..`Condition99` (boolean) (#1). As in EasyLanguage
+  (numeric) and `Condition0`..`Condition99` (boolean) (#103, #104). As in EasyLanguage
   they start at 0 / false and keep their value from bar to bar, exactly like
   `Vars: Value1(0), Condition1(false);`: history references (`Value1[1]`),
   series arguments and trace columns work as for a declared variable, and the
