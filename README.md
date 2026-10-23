@@ -117,7 +117,7 @@ If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
 It buys a 10-bar breakout when flat and sells five bars later:
 
 ```bash
-pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11
 ```
 
 ```
@@ -128,11 +128,11 @@ sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
 ```
 
 ```bash
-pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto -o out/breakout_trace.csv
+pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11 -o out/breakout_trace.csv
 ```
 
 ```
-[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns, max-bars-back 11 (auto) [python] -> out/breakout_trace.csv
+[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns [python] -> out/breakout_trace.csv
 ```
 
 A round turn is an exit fill, so a strategy that only adds entries reports
@@ -140,10 +140,10 @@ A round turn is an exit fill, so a strategy that only adds entries reports
 add another contract: same-direction entries pyramid by default
 (`--max-entries-per-direction 1` caps them).
 
-`--max-bars-back auto` skips the longest lookback the strategy reads (here
-`Highest(High, 10)[1]` reads 11 bars; without it the run gives 8 fills, not 6).
-If `auto` cannot work the number out it stops and asks for one
-([details](docs/USAGE.md#warm-up-and-maxbarsback)). Use `--config ES` or
+Set `--max-bars-back` to the longest lookback your strategy reads (here
+`Highest(High, 10)[1]` reads 11 bars; without it the run gives 8 fills, not
+6). The next release adds `--max-bars-back auto`, which works this number out
+for you ([details](docs/USAGE.md#warm-up-and-maxbarsback)). Use `--config ES` or
 `--config my_instrument.json` for an instrument other than NQ
 ([other instruments](docs/USAGE.md#other-instruments)).
 
