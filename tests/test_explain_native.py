@@ -161,15 +161,19 @@ def test_cli_lists_refusals_sorted_by_line(tmp_path, capsys):
     el = tmp_path / "three.el"
     el.write_text(THREE, encoding="utf-8")
     assert pl_oracle.main(["--explain-native", str(el)]) == 0
-    assert capsys.readouterr().out == (
+    captured = capsys.readouterr()
+    assert captured.out == (
         "statement while 3\nstatement switch 8\nfunction xaverage 11\n")
+    assert "compile-time check only" in captured.err
 
 
 @pytest.mark.needs_native
 def test_cli_says_when_native_can_run_it(capsys):
     _require_accel()
     assert pl_oracle.main(["--explain-native", MA_CROSS]) == 0
-    assert capsys.readouterr().out == "native kernel can run this program\n"
+    assert capsys.readouterr().out == (
+        "native kernel can run this program (compile-time check only; "
+        "a native run can still be refused at run time)\n")
 
 
 def test_not_installed_is_a_clear_error(monkeypatch, capsys):
