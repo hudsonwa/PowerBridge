@@ -17,23 +17,23 @@ reported, not approximated ([status and scope](docs/USAGE.md#status-and-scope),
 
 Python 3.9 or newer. In a fresh virtual environment (on Windows activate with
 `.venv\Scripts\activate`), install the wheel attached to the
-[v0.8.1 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.8.1):
+[v0.9.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.9.0):
 
 <!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.8.1/powerbridge-0.8.1-py3-none-any.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.9.0/powerbridge-0.9.0-py3-none-any.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.8.1"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.9.0"
 ```
 
 The optional native fast path is a separate wheel per platform,
-`powerbridge_accel-0.8.1-cp39-abi3-<platform>.whl` on the same release page;
+`powerbridge_accel-0.9.0-cp39-abi3-<platform>.whl` on the same release page;
 see [the platform table](docs/ACCEL.md#install). PyPI publishing is coming in a
 later release.
 
@@ -117,7 +117,7 @@ If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
 It buys a 10-bar breakout when flat and sells five bars later:
 
 ```bash
-pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto
 ```
 
 ```
@@ -128,11 +128,11 @@ sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
 ```
 
 ```bash
-pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11 -o out/breakout_trace.csv
+pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto -o out/breakout_trace.csv
 ```
 
 ```
-[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns [python] -> out/breakout_trace.csv
+[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns, max-bars-back 11 (auto) [python] -> out/breakout_trace.csv
 ```
 
 A round turn is an exit fill, so a strategy that only adds entries reports
@@ -140,10 +140,11 @@ A round turn is an exit fill, so a strategy that only adds entries reports
 add another contract: same-direction entries pyramid by default
 (`--max-entries-per-direction 1` caps them).
 
-Set `--max-bars-back` to the longest lookback your strategy reads (here
-`Highest(High, 10)[1]` reads 11 bars; without it the run gives 8 fills, not
-6). The next release adds `--max-bars-back auto`, which works this number out
-for you ([details](docs/USAGE.md#warm-up-and-maxbarsback)). Use `--config ES` or
+`--max-bars-back auto` skips the bars the strategy needs before its first
+signal: the longest lookback it reads, here 11 for `Highest(High, 10)[1]`
+(without it the run gives 8 fills, not 6). The status line shows the value it
+chose; pass a number instead to match your chart
+([details](docs/USAGE.md#warm-up-and-maxbarsback)). Use `--config ES` or
 `--config my_instrument.json` for an instrument other than NQ
 ([other instruments](docs/USAGE.md#other-instruments)).
 

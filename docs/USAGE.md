@@ -428,8 +428,7 @@ In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
 prints no note. The default is 0; pass your chart's value (the MultiCharts
 default is 50) to match MultiCharts.
 
-`--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`;
-new in the next release, not yet in the v0.8.1 wheel) uses the longest lookback PowerBridge finds in the strategy source, the same
+`--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`) uses the longest lookback PowerBridge finds in the strategy source, the same
 number the warm-up note reports. `X[k]` counts k bars plus whatever `X` reads,
 and a windowed builtin counts the bars the runtime needs before its window is
 full, taken by argument position: `StdDev(Close, 20, 1)` counts 20,
