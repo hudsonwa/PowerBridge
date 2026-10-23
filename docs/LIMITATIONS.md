@@ -68,8 +68,9 @@ trust a backtest from partial output.
 - `Sell` / `BuyToCover ... from entry("A")` that would fill while more than
   one entry is open in that direction **stops** the run (both engines).
   EasyLanguage documents it as closing only entry A, but no MultiCharts capture
-  confirms the fills (#24). `PL_STRICT=0` / `--lenient` keeps the old
-  behaviour (the whole position closes) with a warning. With one entry open,
+  confirms the fills ([#24](https://github.com/hudsonwa/PowerBridge/issues/24)).
+  `PL_STRICT=0` / `--lenient` keeps the old behaviour (the whole position
+  closes, on the Python engine) with a `WARNING` naming `from entry`. With one entry open,
   a named exit fills as before.
 - Fail-loud assumes valid EasyLanguage. A residual gap: assigning to a
   read-only report keyword that is not in the bundled catalog can be treated as

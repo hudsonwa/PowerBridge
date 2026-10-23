@@ -4,11 +4,17 @@
 
 ### Added
 
+- A `[dev]` extra (`pip install -e '.[dev]'`) installs the test, lint and wheel-build tools (#140).
 - The native kernel runs `StrLen`, `FormatDate`, `NewLine`, `Text_SetColor` and the `FileAppend` / `FileDelete` no-op stubs, and refuses a string mixed with a number instead of converting it (#138).
 
 ### Changed
 
+- The README's own-strategy example now enters and exits, and pins its digest and status line (#140).
 - The README quickstart explains the stderr status line and adds a "Your own strategy" section; CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
+
+### Fixed
+
+- `pl_run`, `tools/gt_sweep.py` and `tools/accel_gate.py` count round turns from exit records, like `pl_oracle`, instead of `fills // 2` (#140).
 
 ## 0.8.0 — 2026-10-23
 

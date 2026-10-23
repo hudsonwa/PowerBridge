@@ -55,6 +55,9 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 # it to PyPI; keep this pin equal to `version`.
 accel = ["powerbridge-accel==0.8.0"]
 
+# Development tools only (tests, lint, type check, wheel build); never imported by the package.
+dev = ["pytest", "pytest-timeout", "build", "setuptools>=77", "ruff", "mypy"]
+
 [project.scripts]
 # `python3 -m pl_transpiler.tools.el_emit` / `.pl_run` / `.pl_transpile` / `.pl_oracle`
 # still work as modules; these give the same entrypoints as installed console

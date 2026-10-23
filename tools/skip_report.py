@@ -51,7 +51,7 @@ GROUPS = {
         "the native kernel; `tools/build_accel.sh`, then a plain run",
         "yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml)"),
     "needs the 'build' module": (
-        "`pip install build 'setuptools>=77'`", "no (the pytest job installs neither)"),
+        "`pip install -e '.[dev]'`", "no (the pytest job installs neither)"),
     "input name is an engine kwargs key": (
         "nothing: a parametrized case that does not apply (by design)", "n/a"),
     "no round trip": (

@@ -24,9 +24,10 @@ CI runs these on every pull request. The tools are for development only;
 the library itself still needs nothing beyond the standard library.
 
 ```sh
-python3 -m pip install pytest pytest-timeout ruff
+python3 -m pip install -e '.[dev]'  # pytest, pytest-timeout, build, ruff, mypy
 python3 -m pytest -q --timeout=60  # everything, including the public tier
 ruff check .                       # lint (rules in pyproject.toml)
+mypy                               # type check (settings in pyproject.toml)
 ```
 
 `pytest -m public_tier` runs only the portable public tier. The same tier
@@ -56,7 +57,7 @@ variables) does not run, by reason:
 | input name is an engine kwargs key | 2 | skipped | nothing: a parametrized case that does not apply (by design) | n/a |
 | no round trip: PyFrontError | 2 | skipped | nothing: a ground-truth file outside the mirror dialect (by design) | n/a |
 | `perf` | 1 | deselected | a quiet machine; `PB_PERF=1 pytest -m perf` | no |
-| needs the 'build' module and setuptools>=77 to build the wheel offline | 1 | skipped | `pip install build 'setuptools>=77'` | no (the pytest job installs neither) |
+| needs the 'build' module and setuptools>=77 to build the wheel offline | 1 | skipped | `pip install -e '.[dev]'` | no (the pytest job installs neither) |
 
 Generated with Python 3.9 on Darwin, no native kernel.
 
