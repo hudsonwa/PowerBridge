@@ -255,7 +255,7 @@ impl ArrayOp {
 
 /// The Python type of a value written into an array element, as far as the
 /// compiler can tell. Python 3.12+ `sum()` adds floats with compensation and
-/// ints without, so `Array_Sum` needs it; every other operation ignores it.
+/// ints without, so `Array_Sum` and `Average` need it; nothing else reads it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ElemKind {
     /// `int` or `bool`.
@@ -330,7 +330,12 @@ pub(crate) enum Instr {
     Unary(Unary),
     Call(CallOp, u8),
 
-    Average(SeriesSrc),
+    /// `kind` is the Python type of the series' elements: Python 3.12+
+    /// `sum()` compensates floats.
+    Average {
+        src: SeriesSrc,
+        kind: ElemKind,
+    },
     Crosses {
         above: bool,
         a: SeriesSrc,
@@ -424,6 +429,7 @@ pub(crate) enum Instr {
     AverageConst {
         src: SeriesSrc,
         length: f64,
+        kind: ElemKind,
     },
     /// Bar-ref with a baked index.
     BarRefSeriesConst {
@@ -1958,8 +1964,9 @@ impl Compiler {
                     return Err(KernelError::unsupported("average requires 2 args"));
                 }
                 let src = self.series_src(&args[0])?;
+                let kind = self.series_kind(&args[0]);
                 self.compile_expr(&args[1], true)?;
-                self.instrs.push(Instr::Average(src));
+                self.instrs.push(Instr::Average { src, kind });
                 return Ok(());
             }
             "crossesabove" | "crossesbelow" => {
@@ -2095,6 +2102,17 @@ impl Compiler {
         }
         self.instrs.push(Instr::ArrayCopy { src, dst });
         Ok(())
+    }
+
+    /// The Python type of every element of the series named by `node`.
+    /// Price columns hold floats and date/time ints; a variable with a
+    /// known type holds that type on every bar (a numeric seed goes through
+    /// `f32()`); anything else is `Unknown`.
+    fn series_kind(&self, node: &Json) -> ElemKind {
+        match self.elem_kind(node) {
+            ElemKind::Read => ElemKind::Unknown,
+            kind => kind,
+        }
     }
 
     /// Resolve a series-function argument (must be a bare ident naming a data

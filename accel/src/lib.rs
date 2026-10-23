@@ -826,8 +826,10 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("MAX_BARS_BACK", true)?;
     // Capability flag: `run_program` honours `config["max_entries_per_direction"]`.
     m.add("MAX_ENTRIES_PER_DIRECTION", true)?;
-    // Array_Sum must add like this interpreter's `sum()` (compensated from 3.12).
-    strategy::set_python_sum_compensated(m.py().version_info() >= (3, 12));
+    // Array_Sum must add like this interpreter's `sum()` (compensated from 3.12,
+    // ints too from 3.14), read at import from the running interpreter.
+    let version = m.py().version_info();
+    strategy::set_python_sum(strategy::PySum::for_version(version.major, version.minor));
     m.add_function(wrap_pyfunction!(ping, m)?)?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(run_program, m)?)?;

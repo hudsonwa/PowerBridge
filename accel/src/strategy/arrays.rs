@@ -25,24 +25,49 @@
 //! `_rt_builtins_az.py` / `_rt_datetime.py`; each method names its source.
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::types::KernelError;
 
 use super::compile::{ArrayDecl, ArrayOp, ElemKind, MAX_ARRAY_INDEX};
 use super::value::Value;
 
-/// Python 3.12+ `sum()` adds floats with Neumaier compensation; earlier
-/// versions add them plainly. Set once from the importing interpreter.
-static PY_SUM_COMPENSATED: AtomicBool = AtomicBool::new(false);
-
-/// Record whether the calling Python's `sum()` is compensated (3.12+).
-pub(crate) fn set_python_sum_compensated(on: bool) {
-    PY_SUM_COMPENSATED.store(on, Ordering::Relaxed);
+/// How the running Python's `sum()` adds numbers once its total is a float.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PySum {
+    /// Before 3.12: every element is added plainly.
+    Plain,
+    /// 3.12 and 3.13: floats use Neumaier compensation, ints are added plainly.
+    CompensatedFloats,
+    /// 3.14+: ints are converted to float and compensated like floats.
+    CompensatedAll,
 }
 
-fn python_sum_compensated() -> bool {
-    PY_SUM_COMPENSATED.load(Ordering::Relaxed)
+impl PySum {
+    /// The `sum()` flavour of Python `major.minor`.
+    pub(crate) fn for_version(major: u8, minor: u8) -> Self {
+        match (major, minor) {
+            (3, ..=11) => Self::Plain,
+            (3, 12 | 13) => Self::CompensatedFloats,
+            _ => Self::CompensatedAll,
+        }
+    }
+}
+
+/// The importing interpreter's `PySum`, stored as its discriminant.
+static PY_SUM: AtomicU8 = AtomicU8::new(PySum::Plain as u8);
+
+/// Record how the calling Python's `sum()` adds (set once at import).
+pub(crate) fn set_python_sum(mode: PySum) {
+    PY_SUM.store(mode as u8, Ordering::Relaxed);
+}
+
+pub(crate) fn python_sum() -> PySum {
+    match PY_SUM.load(Ordering::Relaxed) {
+        0 => PySum::Plain,
+        1 => PySum::CompensatedFloats,
+        _ => PySum::CompensatedAll,
+    }
 }
 
 /// Elements `pl_array_copy` writes into the destination, starting at `at`.
@@ -146,45 +171,77 @@ fn num(value: &Value, what: &str) -> Result<f64, KernelError> {
 }
 
 /// Python `sum(items)` with its start value `0`.
-///
-/// Before 3.12 every element is added in order. From 3.12 (CPython
-/// `builtin_sum_impl`) leading ints are summed exactly, the first float is
-/// added plainly, and later floats use Neumaier compensation while later ints
-/// are added plainly; the compensation is applied at the end when finite.
 fn py_sum(
     items: &[Value],
     kinds: &[ElemKind],
     name: &str,
-    compensated: bool,
+    mode: PySum,
 ) -> Result<f64, KernelError> {
     let what = "Array_Sum";
-    if !compensated {
+    py_sum_by(
+        items.len(),
+        |i| num(&items[i], what),
+        |i| kinds[i],
+        what,
+        name,
+        mode,
+    )
+}
+
+/// Python `sum()` with its start value `0` over `len` numbers, the `i`th
+/// read by `value_at` with the Python type `kind_at` (`name` is the summed
+/// thing, for errors).
+///
+/// Before 3.12 every element is added in order. From 3.12 (CPython
+/// `builtin_sum_impl`) leading ints are summed exactly, the first float is
+/// added plainly, and later floats use Neumaier compensation; the
+/// compensation is applied at the end when finite. Later ints are added
+/// plainly in 3.12 and 3.13 (or, past a C long, end the float fast path,
+/// which is refused here) and compensated like floats from 3.14.
+pub(crate) fn py_sum_by(
+    len: usize,
+    value_at: impl Fn(usize) -> Result<f64, KernelError>,
+    kind_at: impl Fn(usize) -> ElemKind,
+    what: &str,
+    name: &str,
+    mode: PySum,
+) -> Result<f64, KernelError> {
+    if mode == PySum::Plain {
         let mut total = 0.0;
-        for item in items {
-            total += num(item, what)?;
+        for i in 0..len {
+            total += value_at(i)?;
         }
         return Ok(total);
     }
-    if kinds.contains(&ElemKind::Unknown) {
+    if (0..len).any(|i| !matches!(kind_at(i), ElemKind::Int | ElemKind::Float)) {
         return Err(KernelError::unsupported(format!(
-            "Array_Sum over {name}: an element's Python int/float type is not known \
+            "{what} over {name}: an element's Python int/float type is not known \
              natively, and Python 3.12+ sums floats with compensation"
         )));
     }
     let mut k = 0;
     let mut f = 0.0;
-    while k < items.len() && kinds[k] == ElemKind::Int {
-        f += num(&items[k], what)?;
+    while k < len && kind_at(k) == ElemKind::Int {
+        f += value_at(k)?;
         k += 1;
     }
-    if k == items.len() {
+    if k == len {
         return Ok(f);
     }
-    f += num(&items[k], what)?;
+    f += value_at(k)?;
     let mut c = 0.0f64;
-    for (item, kind) in items.iter().zip(kinds).skip(k + 1) {
-        let x = num(item, what)?;
-        if *kind == ElemKind::Float {
+    for i in k + 1..len {
+        let x = value_at(i)?;
+        if kind_at(i) == ElemKind::Int && mode == PySum::CompensatedFloats {
+            // CPython 3.12/3.13 add an int that fits a C long plainly.
+            if x.is_nan() || x.abs() >= 9_223_372_036_854_775_808.0 {
+                return Err(KernelError::unsupported(format!(
+                    "{what} over {name}: an int past the C long range ends \
+                     Python's float fast path"
+                )));
+            }
+            f += x;
+        } else {
             let t = f + x;
             if f.abs() >= x.abs() {
                 c += (f - t) + x;
@@ -192,8 +249,6 @@ fn py_sum(
                 c += (x - t) + f;
             }
             f = t;
-        } else {
-            f += x;
         }
     }
     if c != 0.0 && c.is_finite() {
@@ -326,7 +381,7 @@ impl ElArray {
                     &self.items[lo..hi],
                     &self.kinds[lo..hi],
                     &self.name,
-                    python_sum_compensated(),
+                    python_sum(),
                 )
                 .map(Value::Num)
             }
@@ -528,20 +583,41 @@ mod tests {
 
     #[test]
     fn compensated_sum_matches_cpython_312() {
+        let (fl, all) = (PySum::CompensatedFloats, PySum::CompensatedAll);
         let items = [Value::Num(1e16), Value::Num(1.0), Value::Num(-1e16)];
         let floats = [ElemKind::Float; 3];
-        assert_eq!(py_sum(&items, &floats, "a", true), Ok(1.0));
-        // A later int is added without compensation.
+        assert_eq!(py_sum(&items, &floats, "a", fl), Ok(1.0));
+        assert_eq!(py_sum(&items, &floats, "a", all), Ok(1.0));
+        // A later int is added without compensation in 3.12/3.13, with it
+        // from 3.14: sum([1e16, 1, -1e16]) is 0.0 then 1.0.
         let mixed = [ElemKind::Float, ElemKind::Int, ElemKind::Float];
-        assert_eq!(py_sum(&items, &mixed, "a", true), Ok(0.0));
+        assert_eq!(py_sum(&items, &mixed, "a", fl), Ok(0.0));
+        assert_eq!(py_sum(&items, &mixed, "a", all), Ok(1.0));
         let tenths = vec![Value::Num(0.1); 10];
-        assert_eq!(py_sum(&tenths, &[ElemKind::Float; 10], "a", true), Ok(1.0));
-        assert!(py_sum(&items, &[ElemKind::Unknown; 3], "a", true).is_err());
-        assert_eq!(py_sum(&items, &floats, "a", false), Ok(0.0));
+        assert_eq!(py_sum(&tenths, &[ElemKind::Float; 10], "a", fl), Ok(1.0));
+        assert!(py_sum(&items, &[ElemKind::Unknown; 3], "a", fl).is_err());
+        assert!(py_sum(&items, &[ElemKind::Unknown; 3], "a", all).is_err());
+        assert_eq!(py_sum(&items, &floats, "a", PySum::Plain), Ok(0.0));
+        assert_eq!(py_sum(&items, &mixed, "a", PySum::Plain), Ok(0.0));
         assert_eq!(
-            py_sum(&tenths, &[ElemKind::Float; 10], "a", false),
+            py_sum(&tenths, &[ElemKind::Float; 10], "a", PySum::Plain),
             Ok(0.9999999999999999)
         );
+        // 3.12/3.13 leave the float fast path at an int past a C long.
+        let huge = [Value::Num(0.5), Value::Num(2f64.powi(70))];
+        let fi = [ElemKind::Float, ElemKind::Int];
+        assert!(py_sum(&huge, &fi, "a", fl).is_err());
+        assert_eq!(py_sum(&huge, &fi, "a", all), Ok(0.5 + 2f64.powi(70)));
+    }
+
+    #[test]
+    fn sum_mode_follows_the_python_version() {
+        assert_eq!(PySum::for_version(3, 9), PySum::Plain);
+        assert_eq!(PySum::for_version(3, 11), PySum::Plain);
+        assert_eq!(PySum::for_version(3, 12), PySum::CompensatedFloats);
+        assert_eq!(PySum::for_version(3, 13), PySum::CompensatedFloats);
+        assert_eq!(PySum::for_version(3, 14), PySum::CompensatedAll);
+        assert_eq!(PySum::for_version(3, 15), PySum::CompensatedAll);
     }
 
     #[test]

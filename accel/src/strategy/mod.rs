@@ -45,7 +45,7 @@ mod compile;
 mod drawing;
 mod skip;
 mod specialize;
-pub(crate) use arrays::set_python_sum_compensated;
+pub(crate) use arrays::{set_python_sum, PySum};
 use compile::{compile, resolve_inputs};
 use interp::{align_data2, Data2Aligned, Interpreter};
 use ir::{ast_uses_data2, load_program_ir};

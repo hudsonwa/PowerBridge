@@ -264,7 +264,7 @@ fn series_lookback(program: &Program) -> Result<usize, &'static str> {
                     .and_then(|v| v.as_f64().ok())
                     .and_then(whole_i64),
             ),
-            Instr::Average(_) => {
+            Instr::Average { .. } => {
                 let length = stack.pop().flatten();
                 match length {
                     Some(n) if n >= 0 => max_lb = max_lb.max(n as usize),
@@ -794,7 +794,7 @@ fn interpret_bar(
                 stack.push(Abs::Top);
                 succs.push((pc + 1, Frame { stack, vars }));
             }
-            Instr::Average(_) => {
+            Instr::Average { .. } => {
                 stack.pop();
                 stack.push(Abs::Top);
                 succs.push((pc + 1, Frame { stack, vars }));

@@ -52,7 +52,10 @@ nothing skips. `-m "not needs_native"` hides the kernel tests too.
 
 CI runs a plain pytest on every pull request; the `accel (macOS arm64)` job
 of `.github/workflows/accel.yml` builds the kernel and runs the full suite with
-it loaded, so every `needs_native` test runs there. No CI job has the
+it loaded, so every `needs_native` test runs there. The `accel-parity` job
+of `.github/workflows/ci.yml` builds the kernel for Python 3.9, 3.12 and 3.14
+and runs the `tests/test_accel_*.py` parity tests and the `needs_native` tests
+on each, since some native behaviour follows the Python version. No CI job has the
 licensed data, and CI does not set `PB_PERF`.
 
 Every pytest run ends with a skip summary that groups skips by reason with
