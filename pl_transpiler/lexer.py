@@ -19,6 +19,7 @@ every token (1-based) so the parser/semantic pass can produce EL-aware error
 messages an LLM can self-correct from. See PLSyntaxError for the rendered format.
 """
 import re
+from bisect import bisect_left
 
 # Token types
 TT_KEYWORD   = 'KEYWORD'
@@ -91,6 +92,12 @@ def _line_col(source, offset):
     return line, col
 
 
+# Precompiled token patterns. None uses ^, \A, $ or lookbehind, so
+# pattern.match(src, i) matches exactly what re.match(pattern, src[i:]) did.
+_NUMBER_RE = re.compile(r'\d+(\.\d+)?')
+_WORD_RE = re.compile(r'[A-Za-z_#][A-Za-z0-9_.]*')
+
+
 def tokenise(source: str):
     """Tokenise PL source. PL is case-insensitive — all tokens lowercased.
 
@@ -104,17 +111,25 @@ def tokenise(source: str):
     comments = []
     i = 0
     src = source
+    # Offsets of every '\n', computed once, so each position lookup is a bisect
+    # instead of a scan from the start of the source (keeps tokenise linear).
+    newlines = [m.start() for m in re.finditer('\n', src)]
+
+    def _pos(offset):
+        # Same result as _line_col(src, offset).
+        n = bisect_left(newlines, offset)
+        return n + 1, offset - (newlines[n - 1] if n else -1)
 
     def emit(tok, start):
         tokens.append(tok)
-        positions.append(_line_col(src, start))
+        positions.append(_pos(start))
 
     def _add_comment(start, end):
         # Collect a stripped comment verbatim (delimiters included) into the side
         # channel. `trailing` iff the comment is preceded by non-whitespace on its
         # own line. This never touches `tokens`/`positions`.
-        line, col = _line_col(src, start)
-        line_start = src.rfind('\n', 0, start) + 1
+        line, col = _pos(start)
+        line_start = start - col + 1
         comments.append({
             'text': src[start:end],
             'line': line,
@@ -176,14 +191,14 @@ def tokenise(source: str):
             continue
 
         # Numbers
-        m = re.match(r'\d+(\.\d+)?', src[i:])
+        m = _NUMBER_RE.match(src, i)
         if m:
             emit((TT_NUMBER, m.group()), i)
-            i += m.end()
+            i = m.end()
             continue
 
         # Identifiers and keywords
-        m = re.match(r'[A-Za-z_#][A-Za-z0-9_.]*', src[i:])
+        m = _WORD_RE.match(src, i)
         if m:
             start = i
             word = m.group().lower()
@@ -192,25 +207,25 @@ def tokenise(source: str):
             elif word == 'crosses':
                 # Two-word keyword: "crosses above" / "crosses below";
                 # "over" / "under" are synonyms for "above" / "below".
-                j = i + m.end()
+                j = m.end()
                 while j < len(src) and src[j] in ' \t\r\n':
                     j += 1
-                m2 = re.match(r'[A-Za-z_#][A-Za-z0-9_.]*', src[j:])
+                m2 = _WORD_RE.match(src, j)
                 if m2:
                     next_word = m2.group().lower()
                     if next_word in ('above', 'over'):
                         emit((TT_KEYWORD, 'crossesabove'), start)
-                        i = j + m2.end()
+                        i = m2.end()
                         continue
                     elif next_word in ('below', 'under'):
                         emit((TT_KEYWORD, 'crossesbelow'), start)
-                        i = j + m2.end()
+                        i = m2.end()
                         continue
                 # Not followed by above/below/over/under; emit as regular ident
                 emit((TT_IDENT, word), start)
             else:
                 emit((TT_IDENT, word), start)
-            i += m.end()
+            i = m.end()
             continue
 
         # Operators and punctuation
@@ -249,7 +264,7 @@ def tokenise(source: str):
         i += 1
 
     tokens.append((TT_EOF, ''))
-    positions.append(_line_col(src, len(src)))
+    positions.append(_pos(len(src)))
     # Expose the collected comments on the side channel; the return value stays
     # exactly (tokens, positions).
     last_comments.clear()
