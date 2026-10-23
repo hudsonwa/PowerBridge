@@ -1193,6 +1193,23 @@ impl Compiler {
         Ok(())
     }
 
+    /// Read input `name`. Python codegen reads an input as
+    /// `kwargs.get(name, default)`, so an input named like a bar-loop kwarg or
+    /// a key a runner adds per bar reads the runtime value, not the input.
+    /// Such a read is refused, so the run falls back to Python.
+    fn push_input(&mut self, name: &str, slot: usize) -> Result<(), KernelError> {
+        if trace_types::BAR_LOOP_KWARGS.contains(&name)
+            || trace_types::PER_BAR_EXTRA_KEYS.contains(&name)
+        {
+            return Err(KernelError::unsupported(format!(
+                "input '{name}' collides with the runtime keyword {name}; \
+                 Python reads the runtime value, not the input"
+            )));
+        }
+        self.instrs.push(Instr::PushInput(slot));
+        Ok(())
+    }
+
     /// A block-declared variable has no history: Python cannot read it as a
     /// series or with a lookback.
     fn refuse_block_series(&self, name: &str) -> Result<(), KernelError> {
@@ -2009,9 +2026,8 @@ impl Compiler {
             }
             return Ok(());
         }
-        if let Some(slot) = self.input_slots.get(name) {
-            self.instrs.push(Instr::PushInput(*slot));
-            return Ok(());
+        if let Some(slot) = self.input_slots.get(name).copied() {
+            return self.push_input(name, slot);
         }
         // TickID and ExecOffset matches MultiCharts backtests: 0 on every
         // historical bar (checked against a MultiCharts capture).
@@ -2192,6 +2208,27 @@ impl Compiler {
                 self.instrs.push(Instr::ArrayGet(slot));
                 return Ok(());
             }
+            // Input[n]: an input is constant for the run, so Python codegen
+            // emits its value and drops the index. The index is still compiled
+            // (then discarded) so a construct the kernel cannot run is refused.
+            // This is also how an input named like a position keyword
+            // (`Inputs: ExitTime(1555)`) shadows it in bracket form.
+            // `OutPath[n]` keeps the generic refusal below: Python reads
+            // `OutPath` as "" (its sandbox), not the input.
+            if let Some(slot) = self
+                .input_slots
+                .get(name)
+                .copied()
+                .filter(|_| name != trace_types::BLANKED_INPUT)
+            {
+                let mark = self.instrs.len();
+                self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
+                // Dropping the index's instructions is safe: compiling it only
+                // records compiler bookkeeping (slots, history and string
+                // flags), never a side effect the run depends on.
+                self.instrs.truncate(mark);
+                return self.push_input(name, slot);
+            }
         }
         self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
         if node_type(series) == Some("position_kw") {
@@ -2293,6 +2330,20 @@ impl Compiler {
                     a,
                     b,
                 });
+                return Ok(());
+            }
+            // EntryName(n) / ExitName(n): Python codegen emits
+            // kwargs.get('entry_name' / 'exit_name', ''), a run value no runner
+            // sets, so the result is always "". The index is compiled (then
+            // discarded) only so a construct the kernel cannot run is refused.
+            "entryname" | "exitname" if !args.is_empty() => {
+                let mark = self.instrs.len();
+                for arg in args {
+                    self.compile_expr(arg, false)?;
+                }
+                self.instrs.truncate(mark);
+                self.uses_strings = true;
+                self.instrs.push(Instr::PushStr(String::new()));
                 return Ok(());
             }
             _ => {}

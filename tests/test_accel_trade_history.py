@@ -129,3 +129,84 @@ def test_history_drives_the_orders(name, sample_bars):
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_native_trace_equals_python(name, sample_bars):
     assert_trace_parity(PROGRAMS[name], sample_bars)
+
+
+# #153: every positions-ago keyword in each form Python accepts, read in a
+# For loop bounded by TotalTrades at every bar (so also the last one) with the sum feeding an
+# order condition, so a wrong value changes the digest.
+NUMERIC_KWS = ("EntryDate", "EntryTime", "EntryPrice", "ExitDate", "ExitTime",
+               "ExitPrice", "MaxShares")
+KW_FORMS = [(kw, form) for kw in NUMERIC_KWS for form in ("({})", "[{}]")]
+# Python reads EntryName(n) / ExitName(n) from a run value no runner sets, so
+# both are "" at every index; the bracket form is not EL Python accepts.
+NAME_FORMS = [("EntryName", "({})"), ("ExitName", "({})")]
+
+
+def _kw_loop_program(kw, form):
+    read = kw + form.format("K")
+    return """
+Vars: K(0), Acc(0);
+Acc = 0.0;
+For K = 1 To 60 Begin
+  If K <= TotalTrades + 1 Then Acc = Acc + %s * K;
+End;
+If MarketPosition = 0 and Mod(IntPortion(Acc), 3) = 1 Then Buy ("A") next bar at market;
+""" % read + ENTRIES
+
+
+def _name_loop_program(kw, form):
+    read = kw + form.format("K")
+    return """
+Vars: K(0), N(0), Nm("");
+N = 0;
+For K = 0 To 60 Begin
+  If K <= TotalTrades + 1 Then Begin
+    Nm = %s;
+    If Nm = "" Then N = N + 1;
+  End;
+End;
+If MarketPosition = 0 and Mod(N, 3) = 1 Then Buy ("A") next bar at market;
+""" % read + ENTRIES
+
+
+# An input named like a position keyword shadows it in bracket form
+# (Python reads the input); the call form stays the keyword.
+SHADOWED = """
+Inputs: ExitTime(1555), EntryDate(3);
+Vars: K(0), Acc(0);
+Acc = 0.0;
+For K = 1 To 60 Begin
+  If K <= TotalTrades Then Acc = Acc + ExitTime[K] + ExitTime(K) + EntryDate[K + 1] + EntryTime[K];
+End;
+If MarketPosition = 0 and Mod(IntPortion(Acc), 3) = 1 Then Buy ("A") next bar at market;
+""" + ENTRIES
+
+FORM_PROGRAMS = {f"{kw}{form.format('n')}": _kw_loop_program(kw, form) for kw, form in KW_FORMS}
+FORM_PROGRAMS.update({f"{kw}{form.format('n')}": _name_loop_program(kw, form)
+                      for kw, form in NAME_FORMS})
+FORM_PROGRAMS["input-shadows-keyword"] = SHADOWED
+
+
+@pytest.mark.parametrize("name", sorted(FORM_PROGRAMS))
+def test_keyword_form_is_native(name):
+    assert explain_native(FORM_PROGRAMS[name]) == []
+
+
+@pytest.mark.parametrize("name", sorted(FORM_PROGRAMS))
+def test_keyword_form_digest_equals_python(name, sample_bars):
+    want = run_oracle(FORM_PROGRAMS[name], sample_bars, NQ)
+    assert want["closed_positions"] >= 5
+    assert fills_sha256(run_native(FORM_PROGRAMS[name], sample_bars, NQ)) == want["sha256"]
+
+
+@pytest.mark.parametrize("name", sorted(FORM_PROGRAMS))
+def test_keyword_form_trace_equals_python(name, sample_bars):
+    assert_trace_parity(FORM_PROGRAMS[name], sample_bars)
+
+
+@pytest.mark.parametrize("kw,form", KW_FORMS)
+def test_keyword_form_drives_the_orders(kw, form, sample_bars):
+    program = _kw_loop_program(kw, form)
+    plain = program.replace("TotalTrades + 1", "-1")
+    assert run_oracle(plain, sample_bars, NQ)["sha256"] != run_oracle(
+        program, sample_bars, NQ)["sha256"]
