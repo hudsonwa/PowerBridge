@@ -37,7 +37,7 @@ def debug_enabled():
 
 
 def add_version(ap, prog):
-    """Add ``--version`` (prints e.g. ``pl_run 0.8.0``)."""
+    """Add ``--version`` (prints e.g. ``pl_run 0.8.1``)."""
     from pl_transpiler import __version__
     ap.add_argument("--version", action="version", version="%s %s" % (prog, __version__))
 

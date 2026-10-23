@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 
 # Let `import pl_transpiler._accel` (the optional Rust module) find an installed
 # copy even when this source checkout shadows site-packages on sys.path, e.g.

@@ -2,24 +2,27 @@
 
 ## Unreleased
 
+## 0.8.1 — 2026-10-23
+
 ### Added
 
-- The native kernel runs the positions-ago trade history `EntryDate(n)`, `EntryTime(n)`, `EntryPrice(n)`, `ExitDate(n)`, `ExitTime(n)`, `ExitPrice(n)` and `MaxShares(n)`, in call and bracket form, with the Python runtime's index rules (n = 0 is the current position, n >= 1 the n-th most recently closed one, 0 past the oldest), plus the bare `EntryDate`, `EntryTime`, `ExitDate`, `ExitTime` and `MaxShares` (#149).
-- `pl_examples` writes the README quickstart's example strategy and synthetic bars into `./examples/` (never overwriting), so the quickstart runs after a wheel install without a clone; the files ship as package data (#147).
-- The native kernel runs `Floor`, `ELDateToDateTime` and the computer-clock words `CurrentTime_s`, `CurrentDate_s` and `ComputerDateTime`, reading the same clock as the Python runtime (#145).
+- `pl_examples` writes the quickstart's example strategy and synthetic bars into `./examples/` (never overwriting), so the README quickstart works straight after a wheel install (#147).
+- The native kernel runs the positions-ago trade history `EntryDate(n)`, `EntryTime(n)`, `EntryPrice(n)`, `ExitDate(n)`, `ExitTime(n)`, `ExitPrice(n)` and `MaxShares(n)`, in call and bracket form, plus their bare forms (#149).
+- The native kernel runs `Floor`, `ELDateToDateTime` and the computer-clock words `CurrentTime_s`, `CurrentDate_s` and `ComputerDateTime` (#145).
+- The native kernel runs `StrLen`, `FormatDate`, `NewLine`, `Text_SetColor` and the `FileAppend` / `FileDelete` no-op stubs (#138).
 - A `[dev]` extra (`pip install -e '.[dev]'`) installs the test, lint and wheel-build tools (#140).
-- The native kernel runs `StrLen`, `FormatDate`, `NewLine`, `Text_SetColor` and the `FileAppend` / `FileDelete` no-op stubs, and refuses a string mixed with a number instead of converting it (#138).
 
 ### Changed
 
-- `pl_run` writes its per-bar rows with the Rust kernel when it is installed and the run is full-tape, `--max-bars-back` and `--max-entries-per-direction` included (byte-identical CSV; `--native` / `--python` as in `pl_oracle`, a loud note on fallback, and `[native]` / `[python]` on the status line) (#3).
+- `pl_run` writes its per-bar rows with the Rust kernel when it is installed and the run is full-tape (byte-identical CSV; `--native` / `--python` as in `pl_oracle`, and `[native]` / `[python]` on the status line) (#3).
+- The native kernel refuses a string mixed with a number instead of converting it (#138).
+- The README quickstart starts from the wheel install, explains the stderr status line and adds a tested "Your own strategy" section (#136, #140, #151).
 - LIMITATIONS notes that `el_emit` does not check the argument types of multi-argument functions (#7).
-- The README's own-strategy example now enters and exits, and pins its digest and status line (#140).
-- The README quickstart explains the stderr status line and adds a "Your own strategy" section; CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
+- CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
 
 ### Fixed
 
-- `--explain-native` names a refused keyword by its EasyLanguage spelling (`MaxPositionProfit`) instead of the internal name (`max_position_profit`) (#149).
+- `--explain-native` names a refused keyword by its EasyLanguage spelling (`MaxPositionProfit`) instead of the internal name (#149).
 - `pl_run`, `tools/gt_sweep.py` and `tools/accel_gate.py` count round turns from exit records, like `pl_oracle`, instead of `fills // 2` (#140).
 
 ## 0.8.0 — 2026-10-23
