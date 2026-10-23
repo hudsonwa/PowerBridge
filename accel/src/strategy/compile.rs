@@ -1194,17 +1194,13 @@ impl Compiler {
     }
 
     /// Read input `name`. Python codegen reads an input as
-    /// `kwargs.get(name, default)`, so an input named like a bar-loop kwarg
-    /// reads the runtime value, not the input: `OutPath` is always `""` (the
-    /// bar loop's sandbox) and any other such read is refused, so the run
-    /// falls back to Python.
+    /// `kwargs.get(name, default)`, so an input named like a bar-loop kwarg or
+    /// a key a runner adds per bar reads the runtime value, not the input.
+    /// Such a read is refused, so the run falls back to Python.
     fn push_input(&mut self, name: &str, slot: usize) -> Result<(), KernelError> {
-        if name == trace_types::BLANKED_INPUT {
-            self.uses_strings = true;
-            self.instrs.push(Instr::PushStr(String::new()));
-            return Ok(());
-        }
-        if trace_types::BAR_LOOP_KWARGS.contains(&name) {
+        if trace_types::BAR_LOOP_KWARGS.contains(&name)
+            || trace_types::PER_BAR_EXTRA_KEYS.contains(&name)
+        {
             return Err(KernelError::unsupported(format!(
                 "input '{name}' collides with the runtime keyword {name}; \
                  Python reads the runtime value, not the input"
@@ -2217,7 +2213,14 @@ impl Compiler {
             // (then discarded) so a construct the kernel cannot run is refused.
             // This is also how an input named like a position keyword
             // (`Inputs: ExitTime(1555)`) shadows it in bracket form.
-            if let Some(slot) = self.input_slots.get(name).copied() {
+            // `OutPath[n]` keeps the generic refusal below: Python reads
+            // `OutPath` as "" (its sandbox), not the input.
+            if let Some(slot) = self
+                .input_slots
+                .get(name)
+                .copied()
+                .filter(|_| name != trace_types::BLANKED_INPUT)
+            {
                 let mark = self.instrs.len();
                 self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
                 // Dropping the index's instructions is safe: compiling it only

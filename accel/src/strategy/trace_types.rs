@@ -270,6 +270,22 @@ pub(crate) const BAR_LOOP_KWARGS: [&str; 68] = [
     "tradedate",
 ];
 
+/// Keys a runner adds to the kwargs on every bar through `per_bar_extra`
+/// (`pl_oracle` with Data2, the GT harness with tick fields and Data2). An
+/// input with one of these names reads the runner's value, so the kernel
+/// refuses reading it. `tests/test_accel_input_runtime_key.py` checks this
+/// list against the hooks.
+pub(crate) const PER_BAR_EXTRA_KEYS: [&str; 8] = [
+    "data2_close",
+    "data2_high",
+    "data2_low",
+    "data2_open",
+    "downticks",
+    "openint",
+    "ticks",
+    "upticks",
+];
+
 /// Input name the Python bar loop always binds to `''` (its sandbox for
 /// `Print(File(OutPath))`); the trace entry point overrides it the same way.
 pub(crate) const BLANKED_INPUT: &str = "outpath";
