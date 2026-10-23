@@ -103,16 +103,16 @@ date,time,open,high,low,close,volume
 
 `date` is an EL integer (`1240102` is 2 Jan 2024) or `D/M/YYYY` / `YYYY-MM-DD`
 (`--date-format mdy` for US month-first dates); `time` is `HHMM` or `HH:MM`.
-The [full rules](docs/USAGE.md#your-own-data) cover the edge cases. For example:
+The [full rules](docs/USAGE.md#your-own-data) cover the edge cases.
 
-```python
-import os
-os.makedirs("out", exist_ok=True)
-with open("out/breakout.el", "w") as f:
-    f.write("Inputs: Len(10);\n"
-            "If MarketPosition = 0 and Close > Highest(High, Len)[1] Then\n"
-            "    Buy (\"BO\") Next Bar At Market;\n"
-            "If BarsSinceEntry >= 5 Then Sell (\"BX\") Next Bar At Market;\n")
+For example, save this as `out/breakout.el` (run `mkdir -p out` first):
+
+<!-- readme-test: write out/breakout.el -->
+```
+Inputs: Len(10);
+If MarketPosition = 0 and Close > Highest(High, Len)[1] Then
+    Buy ("BO") Next Bar At Market;
+If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
 ```
 
 It buys a 10-bar breakout when flat and sells five bars later:

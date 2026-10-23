@@ -154,6 +154,9 @@ def main():
     print(f"PUBLIC TIER: {n_pass} pass, {n_skip} skip, {n_fail} fail  "
           f"-> {'GREEN' if n_fail == 0 else 'FAIL'}")
     print("=" * 74)
+    if n_skip:
+        print("Skipped checks need optional tools or licensed data. "
+              "pip install -e '.[dev]' adds the tools (see CONTRIBUTING.md).")
     return 0 if n_fail == 0 else 1
 
 

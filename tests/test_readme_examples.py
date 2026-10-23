@@ -24,6 +24,7 @@ Markers (HTML comments, invisible on GitHub), on the line(s) before a block:
 
   <!-- readme-test: skip (reason) -->   do not run the next block
   <!-- readme-test: file NAME -->       the next plain block is NAME's content
+  <!-- readme-test: write NAME -->      the next plain block is saved as NAME
 
 A plain ``` block directly after a runnable block (blank lines only between)
 is that block's documented output. Documented lines must appear in the actual
@@ -54,7 +55,7 @@ COMMANDS = {
     "pl_oracle": "pl_transpiler.tools.pl_oracle",
     "el_emit": "pl_transpiler.tools.el_emit",
 }
-MARKER = re.compile(r"<!--\s*readme-test:\s*(skip|file)\b\s*(.*?)\s*-->")
+MARKER = re.compile(r"<!--\s*readme-test:\s*(skip|file|write)\b\s*(.*?)\s*-->")
 FENCE = re.compile(r"^```(\w*)\s*$")
 
 
@@ -85,6 +86,7 @@ def parse_readme(text):
         blocks.append({"lang": f.group(1), "body": body, "line": start + 1,
                        "section": section,
                        "skip": pending.get("skip"), "file": pending.get("file"),
+                       "write": pending.get("write"),
                        "output": None})
         pending = {}
         # remember whether only blank lines separate this block from the next
@@ -98,7 +100,7 @@ def parse_readme(text):
             if k + 1 < len(blocks) and b["next_adjacent"] and blocks[k + 1]["lang"] == "":
                 b["output"] = blocks[k + 1]["body"]
             runnable.append(b)
-        elif b["lang"] == "" and b["file"]:
+        elif b["lang"] == "" and (b["file"] or b["write"]):
             runnable.append(b)
     return runnable
 
@@ -195,6 +197,11 @@ def test_readme_examples(workdir):
         if b["skip"]:
             continue
         where = f"{doc}:{b['line']}"
+        if b["lang"] == "" and b["write"]:
+            path = workdir / b["write"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(b["body"]) + "\n")
+            continue
         if b["lang"] == "":
             path = workdir / b["file"]
             if not path.exists() or not matches(b["body"], path.read_text().splitlines()):
