@@ -4,155 +4,48 @@
 
 ### Added
 
-- The native kernel runs variables declared inside a block (`Vars:` inside
-  `begin ... end`) with the Python path's semantics: a local of the bar,
-  re-initialised each time the declaration runs, never traced and not kept
-  between bars; redeclaring a top-level variable there is a no-op. Uses the
-  Python path cannot match (before the declaration or outside its block, as a
-  series or lookback, a name shared with an input) are refused at compile
-  time. These programs no longer fall back (#128).
-- `--explain-native` / `explain_native` now lists the Python 3.12+ refusal of
-  an `Average` over a series whose int/float type is not known natively
-  (`function Average`): it is decided at compile time instead of while the
-  program runs. Runs are refused as before (#128).
-- The native kernel runs the `total` order modifier and
-  `Sell` / `BuyToCover ... from entry ("X")` named exits with a literal label,
-  with the Python path's fills. A named exit that would fill while more than
-  one entry is open on its side refuses the run, so it falls back to Python
-  loudly (#24). A computed `from entry` label is still refused, and
-  `--explain-native` names the modifier (`order from entry`) rather than the
-  message text (#125).
-- The native kernel runs `Round(value, precision)` (half away from zero,
-  negative precision included, raising where the Python path raises),
-  `MinMove` and `PriceScale` (from the run's instrument config) and
-  `LastBarOnChart_s`, with the Python path's values, so these programs no
-  longer fall back (#122).
-- The native kernel runs `CurrentSession` (the bar date's weekday, as the
-  Python bar loop computes it) and the session-template words `SessionCount`,
-  `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS`, so these programs
-  no longer fall back (#113).
-- The native kernel runs `SessionEndTime(...)`, `SessionStartTime(...)` and
-  the sibling session-time words (`SessionEndTimeMS`, `SessionStartTimeMS`,
-  `Sess1/Sess2 EndTime`, `Sess2StartTime`, `Sess1/Sess2 FirstBarTime`) with
-  the Python path's values, so these programs no longer fall back (#109).
-- `pl_oracle --explain-native FILE` lists every construct the native kernel
-  would refuse, one `kind name line` per line, instead of only the first one a
-  run reports. It needs no bars and runs nothing; it exits 0, or 2 when the
-  kernel is not installed. The Python API is
-  `pl_transpiler.runtime.accel.explain_native(el_source)`. The kernel's
-  compile pass gains a collecting mode for this; a normal native run still
-  stops at the first refusal exactly as before (#111).
-- A pytest run that skips tests now ends with a skip summary grouping the
-  skips by reason with counts; CONTRIBUTING says which CI job runs each group.
-- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section.
-- `docs/PYTHON_STRATEGIES.md` teaches the mirror dialect `el_emit` reads, from
-  scratch, with a hand-written example (`examples/hand_written.py`) that is
-  tested through `el_emit`, `pl_oracle` and an EL round trip.
-- `pl_run` and `pl_oracle` print one `note:` on stderr when a strategy reads past
-  bars and `--max-bars-back` is not set: warm-up fills may differ from
-  MultiCharts. It is skipped when the existing short-history warning already
-  fires. New `-q` / `--quiet` hides only this note. Defaults and digests are
-  unchanged; the library API stays silent.
-- `el_emit` / `mc_ground_check` check argument types (#7): a string or
-  true/false argument where the catalog declares a verified `numeric` parameter
-  is reported as ARG-TYPE-BAD with the function, argument position, expected
-  and found type, and line. `documented-unverified` records are skipped.
-- The native kernel runs numeric and true/false arrays (static and dynamic,
-  kept across bars) and `for` loops with `break` / `continue`, with the same
-  results as the Python path: reversed-list indexing (truncated, wrapping
-  negative indexes, out-of-range fails the run), `Array_SetMaxIndex` growth and
-  the common `Array_*` functions. String arrays, the remaining array functions,
-  `while` / `repeat` and array trace columns are still refused (#100).
-- The native kernel runs the undeclared predeclared variables `Value0`..`Value99`
-  (numeric) and `Condition0`..`Condition99` (boolean) (#104). As in EasyLanguage
-  they start at 0 / false and keep their value from bar to bar, exactly like
-  `Vars: Value1(0), Condition1(false);`: history references (`Value1[1]`),
-  series arguments and trace columns work as for a declared variable, and the
-  native fill digest matches the Python one.
+- The native kernel runs variables declared inside a block (`Vars:` inside `begin ... end`), so these programs no longer fall back to Python (#128).
+- `--explain-native` lists the Python 3.12+ refusal of an `Average` over a series of unknown int/float type (#128).
+- The native kernel runs the `total` order modifier and `from entry ("X")` named exits with a literal label (#125).
+- The native kernel runs `Round(value, precision)`, `MinMove`, `PriceScale` and `LastBarOnChart_s` (#122).
+- The native kernel runs `CurrentSession`, `SessionCount`, `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS` (#113).
+- The native kernel runs `SessionEndTime`, `SessionStartTime` and the sibling session-time words (#109).
+- `pl_oracle --explain-native FILE` (and `explain_native()`) lists every construct the native kernel would refuse (#111).
+- A pytest run that skips tests ends with a summary of skips grouped by reason (#106).
+- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section (#106).
+- `docs/PYTHON_STRATEGIES.md` teaches the mirror dialect from scratch, with a tested example in `examples/hand_written.py` (#102).
+- `pl_run` and `pl_oracle` print a warm-up `note:` when a strategy reads past bars without `--max-bars-back`; `-q` hides it (#102).
+- `el_emit` reports string or true/false arguments passed to verified numeric parameters as ARG-TYPE-BAD (#87).
+- The native kernel runs numeric and true/false arrays, the common `Array_*` functions and `for` loops with `break` / `continue` (#100).
+- The native kernel runs the predeclared `Value0`..`Value99` and `Condition0`..`Condition99` variables (#104).
 
 ### Changed
 
-- CI builds the native kernel for Python 3.9, 3.12 and 3.14 (`accel-parity`
-  in `ci.yml`) and runs the native-vs-Python accel tests and every
-  `needs_native` test with it loaded, so a parity drift on one interpreter
-  fails the build (#124).
-
-- The frozen `el_emit` output used as extra parser corpus moved from
-  `emitted/` to `tests/fixtures/emitted/`, with a README saying what it is.
-- The README quickstart passes `--max-bars-back 21` (`ma_cross.el`'s own
-  lookback) to `pl_oracle` and `pl_run`, so the demo prints no warm-up
-  `note:`; a test keeps it that way. Defaults are unchanged.
-- Tests carry `needs_native`, `needs_captures` and `perf` markers. A plain
-  pytest run deselects `needs_captures` (licensed MultiCharts data) and `perf`
-  (`PB_PERF=1`); select them with `-m`. Kernel tests stay collected and show
-  as one `needs_native` line in the skip summary until the kernel is built.
-- README states the Python to EasyLanguage direction accepts only the mirror
-  dialect, and calls out the MaxBarsBack warm-up difference in the quickstart.
-- README quickstart now shows the Python to EasyLanguage direction (`el_emit`);
-  dropped the licence comment from README.md; CONTRIBUTING.md explains default skips.
-- Repository recreated on 2026-10-22; pull-request pages from before then are not available.
-- `pl_oracle -v` stays user-facing; the kernel's `[accel]` internals (such as
-  the skip-region plan) now need `-vv` (or `PB_DEBUG=1`).
-- The installed package no longer adds the checkout root to `sys.path` on
-  import (`el_emit` did so unconditionally); run the tools as console scripts
-  or with `python -m pl_transpiler.tools.<name>`.
-- Docs: CONTRIBUTING.md describes the default skips by category instead of a
-  stale count; LIMITATIONS.md and ACCEL.md mention the prebuilt accel wheels and
-  how to tell which path ran.
-- Internal refactor with byte-identical output: `parser.py` and `py_front.py`
-  are split into smaller modules (`_parser_stmts.py`, `_parser_expr.py`,
-  `_py_front_common.py`, `_py_front_expr.py`).
-- Internal refactor with byte-identical output: `engine.py`, `codegen_el.py`
-  and `runtime/_rt_indicators.py` are split into smaller modules
-  (`_engine_stops.py`, `_engine_report.py`, `_codegen_el_layout.py`,
-  `runtime/_rt_trend.py`).
-- ruff also checks import sorting (`I`), pyupgrade (`UP`) and bugbear (`B`);
-  imports are sorted and typing uses the Python 3.9 builtin generics. Re-raised
-  errors in `py_to_ast`, `get_config` and `load_bars_csv` now chain their cause
-  (`raise ... from err`); the messages are unchanged.
-- CI's mypy job now type-checks the whole `pl_transpiler` package instead of
-  five public modules (annotation-only changes; byte-identical output).
+- CI builds the native kernel for Python 3.9, 3.12 and 3.14 and runs the native-vs-Python parity tests on each (#124).
+- The frozen `el_emit` parser corpus moved from `emitted/` to `tests/fixtures/emitted/` (#115).
+- The README quickstart passes `--max-bars-back 21`, so the demo prints no warm-up note (#115).
+- Tests carry `needs_native`, `needs_captures` and `perf` markers; a plain pytest run deselects captures and perf tests (#115).
+- The README says the Python to EasyLanguage direction accepts only the mirror dialect and explains the warm-up difference (#102).
+- The README quickstart shows the Python to EasyLanguage direction (`el_emit`) (#89).
+- The repository was recreated on 2026-10-22; pull-request pages from before then are not available (#89).
+- `pl_oracle -v` stays user-facing; the kernel's `[accel]` internals now need `-vv` or `PB_DEBUG=1` (#99).
+- The installed package no longer adds the checkout root to `sys.path` on import (#99).
+- CONTRIBUTING, LIMITATIONS and ACCEL docs describe default test skips, the prebuilt accel wheels and how to tell which path ran (#99).
+- `parser.py` and `py_front.py` are split into smaller modules, with byte-identical output (#108).
+- `engine.py`, `codegen_el.py` and `runtime/_rt_indicators.py` are split into smaller modules, with byte-identical output (#112).
+- ruff also checks import sorting, pyupgrade and bugbear rules; re-raised errors now chain their cause (#117).
+- CI's mypy job type-checks the whole `pl_transpiler` package (#119).
 
 ### Fixed
 
-- Names like `max` or `str`, and blocks holding only a redeclaration, now transpile to valid Python. In generated Python, an EL name that clashes with a Python name gets an `_el_` prefix (`Len` becomes `_el_len`); trace columns and input keys keep the EL name (#130).
-- Native `Array_Sum` now adds like the running Python's `sum()` on 3.14 too:
-  from 3.14, ints after the first float are compensated like floats, so
-  `sum([1e16, 1, -1e16])` is `1.0` there but `0.0` on 3.12 and 3.13. The
-  kernel used the 3.12 rule on 3.14, and the `sum_precision` parity test
-  failed whenever the extension was built for 3.14. An int past the C long
-  range in that position is refused natively on 3.12 and 3.13. Native
-  `Average` now sums its window with the same rule (it added plainly, so an
-  `Average` over values of very different sizes differed from Python on 3.12+),
-  and an `Average` over a variable whose int/float type is not known natively
-  is refused on 3.12+ (#124).
-
-- `explain_native` / `pl_oracle --explain-native` no longer crashes the native
-  kernel ("no entry found for key") on a `Vars:` declared inside a block; the
-  declaration is listed as a refusal, and a kernel panic would now surface as
-  a clear `RuntimeError` (#111).
-- The Python engine treated an undeclared `ValueN` / `ConditionN` as a plain
-  per-bar local, so reading one before writing it (`Value1 = Value1 + 1`)
-  raised `UnboundLocalError`, it never kept its value between bars, and
-  `Value1[1]` failed. They are now variables initialised to 0 / false that
-  persist across bars (#103).
-- Without `-o`, `el_emit`'s check report names the input file instead of a
-  temporary file.
-- The native typed trace (`run_native_trace`) now prints exactly what the
-  Python trace prints for every program the kernel runs: inputs are columns,
-  variables nothing reads keep their values, and ints print as ints. A program
-  whose int/float/bool types depend on the run is refused instead.
-- The native kernel's `Mod` now matches the Python path for negative operands
-  (`Mod(-3, 4)` is 1, not -3; the result takes the divisor's sign). A zero
-  divisor in `/` or `Mod`, `IntPortion` of a non-finite value, a `Square`
-  overflow and a one-value `MaxList`/`MinList` now make the kernel refuse, so
-  the Python path runs and reports the error, instead of the kernel trading on
-  `inf`/`NaN`. Such an operation is no longer skipped as dead code or by the
-  date-prefix skip. `MaxList`/`MinList` follow Python `max`/`min` for NaN and
-  signed zeros.
-- The native kernel no longer rounds bar lookbacks (`Open/High/Low/Close/Volume[n]`)
-  to f32. It now reads them unrounded, as the pure-Python runtime does, so a strategy
-  comparing `Close - Close[1]` near a threshold fills the same on both paths.
+- EL names that clash with Python names (such as `max` or `str`) and blocks holding only a redeclaration now transpile to valid Python (#130).
+- Native `Array_Sum` and `Average` now add exactly like the running Python's `sum()`, including the 3.14 rule (#124).
+- `--explain-native` no longer crashes the native kernel on a `Vars:` declared inside a block (#111).
+- An undeclared `ValueN` / `ConditionN` read before it is written no longer raises `UnboundLocalError` in the Python engine, and keeps its value across bars (#103).
+- Without `-o`, `el_emit`'s check report names the input file instead of a temporary file (#102).
+- The native typed trace prints exactly what the Python trace prints (#93).
+- The native kernel's `Mod`, division by zero and other numeric edge cases now match the Python path instead of trading on `inf`/`NaN` (#95).
+- The native kernel reads bar lookbacks (`Close[n]` and so on) unrounded, as the Python runtime does (#97).
 
 ## 0.7.0 — 2026-10-22
 
