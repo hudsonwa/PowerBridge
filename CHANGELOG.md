@@ -18,7 +18,7 @@
   kernel is not installed. The Python API is
   `pl_transpiler.runtime.accel.explain_native(el_source)`. The kernel's
   compile pass gains a collecting mode for this; a normal native run still
-  stops at the first refusal exactly as before (#110, #111).
+  stops at the first refusal exactly as before (#111).
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
 - `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section.
@@ -41,7 +41,7 @@
   the common `Array_*` functions. String arrays, the remaining array functions,
   `while` / `repeat` and array trace columns are still refused (#100).
 - The native kernel runs the undeclared predeclared variables `Value0`..`Value99`
-  (numeric) and `Condition0`..`Condition99` (boolean) (#103, #104). As in EasyLanguage
+  (numeric) and `Condition0`..`Condition99` (boolean) (#104). As in EasyLanguage
   they start at 0 / false and keep their value from bar to bar, exactly like
   `Vars: Value1(0), Condition1(false);`: history references (`Value1[1]`),
   series arguments and trace columns work as for a declared variable, and the
