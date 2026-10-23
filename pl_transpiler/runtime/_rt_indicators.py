@@ -535,6 +535,13 @@ def pl_linear_reg_value(series, length, tgt_bar=0):
         window2, n2 = _linreg_window(series, length + tgt)
         if window2 is None:
             return 0.0
+        if tgt < 0:
+            # A negative TgtBar projects the line into the future; its exact
+            # MultiCharts result is unverified, so stop instead of guessing.
+            from pl_transpiler.errors import UnimplementedKeywordError
+            raise UnimplementedKeywordError(
+                f"LinearRegValue with a negative TgtBar ({tgt_bar}) is not "
+                f"supported yet")
         window = window2[:length] if tgt > 0 else window2[-length:]
     sum_x = n * (n - 1) / 2
     sum_y = sum(window)
@@ -564,8 +571,22 @@ def pl_linear_reg_slope(series, length):
     return f32((n * sum_xy - sum_x * sum_y) / denom)
 
 
-def pl_variance(series, length):
-    """Variance of last `length` values."""
+def pl_variance(series, length, data_type=None):
+    """Variance of last `length` values.
+
+    EL's ``Variance(Price, Length, DataType)``: DataType 1 = population
+    (divide by N), 2 = sample (divide by N - 1), the same convention and
+    arithmetic as ``pl_std_dev`` (whose result is this one's square root).
+    Without DataType, the original two-argument form."""
+    if data_type is not None:
+        window, n = _valid_window(series, length)
+        if n < length or n == 0:
+            return 0.0
+        mean = f32(sum(window) / length)
+        variance = f32(sum(f32((x - mean) ** 2) for x in window) / length)
+        if data_type == 2 and length > 1:
+            return f32(variance * length / (length - 1))
+        return variance
     if not series or len(series) < length:
         return 0.0
     window = series[-length:]

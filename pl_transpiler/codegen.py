@@ -17,7 +17,7 @@
 
 # Re-exported so existing `from pl_transpiler.codegen import UnimplementedKeywordError`
 # imports keep working; the class itself now lives in pl_transpiler.errors.
-from .codegen_expr import _ExprMixin
+from .codegen_expr import _BARE_COMPUTED_PRICES, _ExprMixin
 from .codegen_stmt import _StmtMixin
 
 # Tables, helpers and the statement/expression mixins live in sibling modules;
@@ -249,10 +249,13 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # offset like Close[3]) gets a hidden per-site history, filled at the
         # top of every bar exactly as if it were assigned to a variable there.
         self._cross_sites = {}
+        self._arg_sites = {}
         if self.persist:
             self._collect_cross_sites(node['body'])
+            self._collect_arg_sites(node['body'])
         if self.persist and (self._stateful_vars or self._input_inits
-                             or self._array_vars or self._cross_sites):
+                             or self._array_vars or self._cross_sites
+                             or self._arg_sites):
             self._slot_vars = [
                 n for n in sorted(self._stateful_vars, key=self._el_name)
                 if n not in self._history_vars
@@ -275,6 +278,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 self.emit(f"_state['{name}'] = [{seed}]")
             for k, _ in self._cross_sites.values():
                 self.emit(f"_state['__pb_x{k}'] = [f32(0)]")
+            for k, _ in self._arg_sites.values():
+                self.emit(f"_state['__pb_a{k}'] = [f32(0)]")
             if self._slot_vars:
                 seeds = ", ".join(self._persist_var_seed(n) for n in self._slot_vars)
                 self.emit(f"_state['__pb_slots'] = [{seeds}]")
@@ -304,6 +309,12 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     self.emit(f"{packed}, = _pb_slots")
                 else:
                     self.emit(f"{packed} = _pb_slots")
+            # Price-argument histories first (numbered inner before outer), so
+            # a crosses operand that calls Average((High + Low) / 2, 10) sees
+            # this bar's value.
+            for k, arg in self._arg_sites.values():
+                self._cur_stmt_line = arg.get('_line')
+                self.emit(f"_state['__pb_a{k}'].append(f32({self.gen_expr(arg)}))")
             for k, arg in self._cross_sites.values():
                 self._cur_stmt_line = arg.get('_line')
                 self.emit(f"_state['__pb_x{k}'].append(f32({self.gen_expr(arg)}))")
@@ -554,7 +565,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 and (node.get('name') in _SERIES_PARAMS
                      or node.get('name') in self._stateful_vars))
 
-    def _is_bar_pure(self, node):
+    def _is_bar_pure(self, node, computed=False):
         """True if an expression's value depends only on bar data and inputs,
         so evaluating it at the top of the bar gives the value it has where it
         is written. Variables, position state and the like can change within
@@ -564,20 +575,24 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return True
         if t == 'ident':
             name = node.get('name')
+            if (computed and name in _BARE_COMPUTED_PRICES
+                    and not self._is_user_name(name)):
+                return True
             return (name in _SERIES_PARAMS
                     or name in {n for n, _ in self._input_inits})
         if t == 'binop' or t == 'compare':
-            return self._is_bar_pure(node['left']) and self._is_bar_pure(node['right'])
+            return (self._is_bar_pure(node['left'], computed)
+                    and self._is_bar_pure(node['right'], computed))
         if t == 'unaryop':
-            return self._is_bar_pure(node['operand'])
+            return self._is_bar_pure(node['operand'], computed)
         if t == 'bar_ref':
-            return (self._is_bar_pure(node['series'])
-                    and self._is_bar_pure(node['index']))
+            return (self._is_bar_pure(node['series'], computed)
+                    and self._is_bar_pure(node['index'], computed))
         if t == 'call':
             name = node.get('name')
             return (name not in ('crossesabove', 'crossesbelow')
                     and (name in BUILTIN_FUNC_MAP or name in self._SERIES_FUNCS)
-                    and all(self._is_bar_pure(a) for a in node.get('args') or []))
+                    and all(self._is_bar_pure(a, computed) for a in node.get('args') or []))
         return False
 
     def _collect_cross_sites(self, node, line='?'):
@@ -606,6 +621,27 @@ class CodeGen(_ExprMixin, _StmtMixin):
         for v in node.values():
             if isinstance(v, (dict, list)):
                 self._collect_cross_sites(v, line)
+
+    def _collect_arg_sites(self, node):
+        """Number every price argument of a series function that needs a
+        hidden history (see ``_needs_arg_site``) and whose value depends only
+        on bar data. Children are numbered first, so a nested site is filled
+        before the site that reads it. Any other such argument is reported
+        when the call is generated."""
+        if isinstance(node, list):
+            for n in node:
+                self._collect_arg_sites(n)
+            return
+        if not isinstance(node, dict):
+            return
+        for v in node.values():
+            if isinstance(v, (dict, list)):
+                self._collect_arg_sites(v)
+        if node.get('type') == 'call' and node.get('name') in self._PRICE_ARG_FUNCS:
+            args = node.get('args') or []
+            if (args and isinstance(args[0], dict) and self._needs_arg_site(args[0])
+                    and self._is_bar_pure(args[0], computed=True)):
+                self._arg_sites[id(args[0])] = (len(self._arg_sites) + 1, args[0])
 
     def _persist_var_seed(self, name):
         """First-bar seed expression for one persist var (scalar slot or list)."""
