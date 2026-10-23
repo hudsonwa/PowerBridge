@@ -194,7 +194,7 @@ def sha256(dump: dict) -> str:
 
 
 def blank_object(type_: str, seq: int) -> dict:
-    obj = {key: None for key in OBJ_KEYS}
+    obj: dict = {key: None for key in OBJ_KEYS}
     obj["type"] = type_
     obj["seq"] = seq
     obj["anchors"] = []

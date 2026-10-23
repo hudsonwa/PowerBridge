@@ -82,7 +82,7 @@ class SeriesView:
         eq = self.__eq__(other)
         return eq if eq is NotImplemented else not eq
 
-    __hash__ = None
+    __hash__ = None  # type: ignore[assignment]
 
     def __add__(self, other):
         return self.tolist() + other

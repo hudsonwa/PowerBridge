@@ -92,7 +92,7 @@ def _strict_from_env(environ=None):
 
 
 _PL_STRICT = _strict_from_env()
-_UNIMPL_CALLS = {}
+_UNIMPL_CALLS: dict[str, int] = {}
 # Builtins whose correct value is a constant 0, so their bodies look like stubs;
 # they are not wrapped as loud stubs. Keep this minimal and explicit so nothing
 # is hidden. TickID and ExecOffset matches MultiCharts backtests: 0 on every

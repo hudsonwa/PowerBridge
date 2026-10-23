@@ -256,7 +256,7 @@ def _series_dict(bars):
 # never part of the key — a sweep of N variants over one tape marshals once.
 # Bounded so a long process does not pin every tape it has ever seen.
 _MAX_CACHED_TAPES = 4
-_series_cache = OrderedDict()  # id(bars) -> (bars, series_dict)
+_series_cache: OrderedDict = OrderedDict()  # id(bars) -> (bars, series_dict)
 _marshal_count = 0
 
 
