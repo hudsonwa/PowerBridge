@@ -419,6 +419,10 @@ reads past bars (or the `lookback past available history` warning instead,
 when that applies); `-q` hides only the note. The note never changes the
 output on stdout.
 
+On the bars before MaxBarsBack history exists, a price lookback past the
+start of the tape (`Close[5]` on bar 1) reads the current bar's Open, and
+`Date[n]` / `Time[n]` read 0, for any `n`.
+
 In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
 (a 21-bar average, compared with its previous value by `crosses`), so the demo
 prints no note. The default is 0; pass your chart's value (the MultiCharts

@@ -142,6 +142,11 @@ class CodeGen(_ExprMixin, _StmtMixin):
                             continue
                         # Determine if numeric: init is a number AST node
                         init = d.get('init', {})
+                        # `Vars: X(-1)` parses as unary minus over a number.
+                        if (init.get('type') == 'unaryop' and init.get('op') == '-'
+                                and init['operand'].get('type') == 'number'):
+                            init = {'type': 'number',
+                                    'value': '-' + init['operand']['value']}
                         if init.get('type') == 'number':
                             self._numeric_vars.add(name)
                             self._state_inits[name] = init['value']

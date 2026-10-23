@@ -759,10 +759,16 @@ class _ExprMixin:
                 # EL: on first bar(s), historical refs fall back to current bar's Open
                 # Runner pads 1 element; check if index hits padding region
                 return f"({series_expr}[-({n_str} + 1)] if __builtin_len({series_expr}) > 1 + {n} else open[-1])"
+            if n > 0 and series_expr in ('date', 'time'):
+                # Past the start of the tape Date/Time read 0, like the
+                # leading pad (Date[1] on bar 1) and the native kernel.
+                return f"({series_expr}[-({n_str} + 1)] if __builtin_len({series_expr}) > {n} else 0)"
             return f"{series_expr}[-({n_str} + 1)]"
 
         idx_expr = self.gen_expr(index)
         idx_int = f"int({idx_expr})"
         if series_expr in ('close', 'high', 'low', 'open', 'volume', 'ticks', 'upticks', 'downticks'):
             return f"({series_expr}[-({idx_int} + 1)] if __builtin_len({series_expr}) > 1 + ({idx_expr}) else open[-1])"
+        if series_expr in ('date', 'time'):
+            return f"({series_expr}[-({idx_int} + 1)] if __builtin_len({series_expr}) > {idx_int} else 0)"
         return f"{series_expr}[-({idx_int} + 1)]"
