@@ -27,24 +27,37 @@ import struct
 
 import pytest
 
+from pl_transpiler import transpile
 from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.parser_tables import COLOR_CONSTANTS, STYLE_CONSTANTS
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
 from pl_transpiler.runtime._rt_drawing import DrawingRecorder
 from pl_transpiler.runtime.drawing_dump import (
-    DumpError, barkey, canonical, validate,
+    DumpError,
+    barkey,
+    canonical,
+    validate,
 )
-from pl_transpiler.runtime.pl_runtime import (
-    pl_gradientcolor, pl_legacycolortorgb, pl_rgb, pl_tl_getbeginval,
-    pl_tl_getcolor, pl_tl_getvalue, pl_tl_new, pl_tl_setcolor,
-)
-from pl_transpiler.tools.pl_run import run_el
-from pl_transpiler import transpile
 from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler.runtime.pl_runtime import (
+    pl_gradientcolor,
+    pl_legacycolortorgb,
+    pl_rgb,
+    pl_tl_getbeginval,
+    pl_tl_getcolor,
+    pl_tl_getvalue,
+    pl_tl_new,
+    pl_tl_setcolor,
+)
 from pl_transpiler.tools.pl_oracle import run_oracle
-from pl_transpiler.tools.pl_run import load_bars_csv
+from pl_transpiler.tools.pl_run import load_bars_csv, run_el
 from tests._drawing_diff import (
-    CORPUS, CORPUS_SKIP, TAPES, DiffRefused, case_ids, diff,
+    CORPUS,
+    CORPUS_SKIP,
+    TAPES,
+    DiffRefused,
+    case_ids,
+    diff,
     drawing_corpus_present,
 )
 

@@ -6,7 +6,12 @@ import pytest
 
 from pl_transpiler.runtime import accel
 from pl_transpiler.runtime.instrument_config import (
-    ES, NQ, ConfigFileError, get_config, load_config_file)
+    ES,
+    NQ,
+    ConfigFileError,
+    get_config,
+    load_config_file,
+)
 from tests.test_cli_errors import BARS, EL, _assert_one_line, _run
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

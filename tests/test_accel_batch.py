@@ -37,7 +37,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.ir import serialise_ir  # noqa: E402
 from pl_transpiler.lexer import tokenise  # noqa: E402
 from pl_transpiler.parser import parse  # noqa: E402
@@ -49,6 +48,7 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import fills_sha256  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 SAMPLES = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
@@ -186,7 +186,11 @@ def test_source_spelling_override_changes_trade_list():
     Before the fix every variant returned the default digest.
     """
     _require_accel()
-    from pl_transpiler.runtime.accel import run_native, run_native_inputs, run_native_sweep
+    from pl_transpiler.runtime.accel import (
+        run_native,
+        run_native_inputs,
+        run_native_sweep,
+    )
 
     bars = load_bars_csv(SAMPLES)
     default = run_native(_MYPARAM_EL, bars, NQ)
@@ -213,7 +217,11 @@ def test_source_spelling_override_changes_trade_list():
 def test_gt2_fastlen_source_spelling_matches_folded_and_batch():
     """GT2 writes ``FastLen``; override maps using that spelling must apply."""
     _require_accel()
-    from pl_transpiler.runtime.accel import run_native, run_native_inputs, run_native_sweep
+    from pl_transpiler.runtime.accel import (
+        run_native,
+        run_native_inputs,
+        run_native_sweep,
+    )
 
     el = open(GT2, encoding="utf-8").read()
     bars = load_bars_csv(SAMPLES)

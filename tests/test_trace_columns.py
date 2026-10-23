@@ -8,7 +8,12 @@ import pytest
 
 from pl_transpiler.runtime.instrument_config import get_config
 from pl_transpiler.tools.pl_run import (
-    UnknownTraceColumnError, load_bars_csv, main, resolve_trace_columns, run_el)
+    UnknownTraceColumnError,
+    load_bars_csv,
+    main,
+    resolve_trace_columns,
+    run_el,
+)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EL = os.path.join(ROOT, "examples", "ma_cross.el")

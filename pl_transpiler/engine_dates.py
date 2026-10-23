@@ -17,7 +17,6 @@ import calendar
 import functools
 import re
 
-
 # Field orders for slash/dash dates. MultiCharts' ASCII export writes the date
 # in the Windows regional format; the exports this project was built against
 # are day-first (D/MM/YYYY), so that stays the default.

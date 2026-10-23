@@ -39,8 +39,8 @@ from dataclasses import replace
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tests.run_gt import FillEngine
 from pl_transpiler.runtime.instrument_config import NQ, get_config
+from tests.run_gt import FillEngine
 
 
 def _run_round_trip(config):

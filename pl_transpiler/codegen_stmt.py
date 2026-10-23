@@ -17,9 +17,9 @@
 from . import catalog as _catalog
 from .codegen_util import (
     _expr_already_f32,
-    call_arity_problem,
-    _is_numeric_literal_node,
     _f32_literal_const,
+    _is_numeric_literal_node,
+    call_arity_problem,
 )
 
 # EasyLanguage strategy-performance reserved words missing from the keyword

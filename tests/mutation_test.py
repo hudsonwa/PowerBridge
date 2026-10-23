@@ -55,8 +55,8 @@ Usage:
 Exit code 0 iff EVERY mutation was caught AND the final full verify_all is GREEN.
 """
 import os
-import sys
 import subprocess
+import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNTIME = os.path.join(REPO, "pl_transpiler", "runtime", "_rt_indicators.py")
@@ -142,10 +142,10 @@ def preflight():
     think it does. Needs NO captures / subprocess gate, so the public tier runs it
     directly. Returns (ok, list_of_problem_strings); ok is False iff any old_string
     occurs a number of times other than exactly once (a stale/ambiguous pattern)."""
-    with open(RUNTIME, "r", encoding="utf-8") as f:
+    with open(RUNTIME, encoding="utf-8") as f:
         source = f.read()
     problems = []
-    for mid, desc, fn, old, new in MUTATIONS:
+    for mid, _desc, fn, old, _new in MUTATIONS:
         cnt = source.count(old)
         if cnt != 1:
             problems.append(f"mutation '{mid}' ({fn}) old_string occurs {cnt} times "
@@ -154,7 +154,7 @@ def preflight():
 
 
 def main():
-    with open(RUNTIME, "r", encoding="utf-8") as f:
+    with open(RUNTIME, encoding="utf-8") as f:
         original = f.read()
 
     # Pre-flight: every old_string must be uniquely locatable, so a mutation
@@ -205,7 +205,7 @@ def main():
             f.write(original)
 
     # Confirm the on-disk source is byte-exact to the pristine original.
-    with open(RUNTIME, "r", encoding="utf-8") as f:
+    with open(RUNTIME, encoding="utf-8") as f:
         restored = f.read()
     clean_revert = (restored == original)
 
@@ -214,7 +214,7 @@ def main():
     print("\n" + "=" * 74)
     print("MUTATION SCOREBOARD")
     print("=" * 74)
-    for mid, desc, fn, caught, detail in results:
+    for mid, _desc, fn, caught, detail in results:
         mark = "CAUGHT" if caught else "MISSED"
         print(f"  [{mark}] {mid:26s} {fn:18s} {detail}")
     print(f"\n  caught {len(results) - len(missed)}/{len(results)} mutations; "

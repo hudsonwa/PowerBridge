@@ -16,9 +16,17 @@
 """Statement-level recursive-descent methods of `parser.Parser` (a mixin)."""
 
 from .lexer import (
-    TT_KEYWORD, TT_IDENT, TT_NUMBER, TT_OP,
-    TT_LBRACKET, TT_RBRACKET, TT_LPAREN, TT_RPAREN,
-    TT_SEMICOLON, TT_COMMA, TT_EOF,
+    TT_COMMA,
+    TT_EOF,
+    TT_IDENT,
+    TT_KEYWORD,
+    TT_LBRACKET,
+    TT_LPAREN,
+    TT_NUMBER,
+    TT_OP,
+    TT_RBRACKET,
+    TT_RPAREN,
+    TT_SEMICOLON,
 )
 
 

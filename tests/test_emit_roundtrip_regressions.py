@@ -33,9 +33,8 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from pl_transpiler import transpile
+from pl_transpiler import reverse, transpile
 from pl_transpiler.codegen import UnimplementedKeywordError
-from pl_transpiler import reverse
 
 
 def group_unimplemented_keyword():

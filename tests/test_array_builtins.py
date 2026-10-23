@@ -28,9 +28,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler.runtime import pl_runtime as rt                   # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config       # noqa: E402
-from pl_transpiler.tools.pl_oracle import run_oracle                 # noqa: E402
+from pl_transpiler.runtime import pl_runtime as rt  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
 
 NQ = get_config("NQ")
 BARS = [{"date": 1240102, "time": 930 + i, "open": 100.0 + i, "high": 101.0 + i,

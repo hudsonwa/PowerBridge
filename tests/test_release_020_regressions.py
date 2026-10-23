@@ -21,12 +21,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.runtime import _rt_core, accel  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.runtime.pl_runtime import pl_datetojulian, pl_formatdate  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars_csv, run_el  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 BARS = load_bars_csv(os.path.join(REPO, "examples", "NQ_sample_bars.csv"))

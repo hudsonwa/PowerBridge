@@ -45,9 +45,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-import pl_transpiler.runtime.pl_runtime as rt
-import pl_transpiler.runtime._rt_core as rt_core
 import importlib.util
+
+import pl_transpiler.runtime._rt_core as rt_core
+import pl_transpiler.runtime.pl_runtime as rt
 
 _spec = importlib.util.spec_from_file_location(
     "gen_loud_stubs", os.path.join(REPO, "tools", "gen_loud_stubs.py"))
@@ -85,7 +86,7 @@ def test_all_loud_stubs_install():
 def test_static_list_in_sync():
     """(b) The generated _loud_stub_names module matches the runtime sources."""
     path = os.path.join(REPO, "pl_transpiler", "runtime", "_loud_stub_names.py")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         current = f.read()
     assert current == gen_loud_stubs.render(gen_loud_stubs.scan()), (
         "pl_transpiler/runtime/_loud_stub_names.py is out of date; "

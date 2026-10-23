@@ -38,7 +38,7 @@ audited non-circular sourcing.
 import json
 import os
 from dataclasses import MISSING, dataclass, fields
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 
 @dataclass(frozen=True)
@@ -105,7 +105,7 @@ ES = InstrumentConfig(
 )
 
 
-_CONFIGS: Dict[str, InstrumentConfig] = {
+_CONFIGS: dict[str, InstrumentConfig] = {
     "NQ": NQ,
     "ES": ES,
 }
@@ -168,7 +168,7 @@ def get_config(name: str = "NQ") -> InstrumentConfig:
         return load_config_file(name)
     try:
         return _CONFIGS[name]
-    except KeyError:
+    except KeyError as err:
         raise KeyError(
             f"unknown instrument config {name!r}; known: {sorted(_CONFIGS)} "
-            "or a path to a JSON config file")
+            "or a path to a JSON config file") from err

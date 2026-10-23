@@ -32,6 +32,7 @@ if TOOLS not in sys.path:
     sys.path.insert(0, TOOLS)
 
 import gen_catalog_fields  # noqa: E402
+
 from pl_transpiler import catalog  # noqa: E402
 
 _SIG_PATH = os.path.join(REPO, "pl_transpiler", "tools", "pl_signatures.jsonl")

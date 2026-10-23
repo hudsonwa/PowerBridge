@@ -196,7 +196,7 @@ def test_readme_examples(workdir):
             results = [run([sys.executable, str(script)], workdir)]
         else:
             results = [run(to_argv(a), workdir) for a in shell_commands(b["body"])]
-        for rc, out, err in results:
+        for rc, _out, err in results:
             if rc != 0:
                 failures.append(f"{where}: exit {rc}\n" + "\n".join(err[-10:]))
         if b["output"] is not None and not any(

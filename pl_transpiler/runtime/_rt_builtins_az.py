@@ -16,7 +16,7 @@
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import f32, el_array_items, el_array_pos, el_array_store
+from ._rt_core import el_array_items, el_array_pos, el_array_store, f32
 
 # ============================================================
 # Auto-generated runtime stubs for all PL built-in functions

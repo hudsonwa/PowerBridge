@@ -17,7 +17,7 @@ reserved words and daily session data.
 
 Re-exported by pl_runtime; see that module."""
 
-from ._rt_core import f32, el_array_items, el_array_store, pl_bar_column
+from ._rt_core import el_array_items, el_array_store, f32, pl_bar_column
 
 # EL built-in constants
 newline = "\n"

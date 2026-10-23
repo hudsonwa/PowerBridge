@@ -46,10 +46,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler import ir
+from pl_transpiler.codegen import generate
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.parser import parse
-from pl_transpiler.codegen import generate
-from pl_transpiler import ir
 
 
 def _parse(src):

@@ -49,29 +49,43 @@ import math
 import os
 import re
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from collections.abc import Mapping, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Union,
+)
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.bar_tape import BarTape
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
 
 from pl_transpiler import transpile
-from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
-from pl_transpiler.runtime.accel import warn_python_path
 
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
 from pl_transpiler.engine import (
-    FillEngine, run_bar_loop, _parse_el_date, _parse_el_time,
+    FillEngine,
+    _parse_el_date,
+    _parse_el_time,
+    run_bar_loop,
 )
-from pl_transpiler.runtime.bar_tape import ohlcv_columns
-from pl_transpiler.tools import _cli
+from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
 from pl_transpiler.lookback import (
-    check_max_bars_back, check_max_entries_per_direction, note_warmup, warn_short_history)
+    check_max_bars_back,
+    check_max_entries_per_direction,
+    note_warmup,
+    warn_short_history,
+)
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.runtime.accel import warn_python_path
+from pl_transpiler.runtime.bar_tape import ohlcv_columns
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.tools import _cli
 
 # A bar series: a list of bar dicts (date, time, open, high, low, close, volume)
 # or a column-contiguous BarTape holding the same values.
@@ -95,8 +109,8 @@ def unimplemented_stop_message(prog, exc, el_file):
     return "%s: error%s: %s" % (prog, where, exc)
 
 
-def load_bars_csv(path: Union[str, "os.PathLike[str]"],
-                  date_format: Optional[str] = None) -> List[Dict[str, Any]]:
+def load_bars_csv(path: Union[str, os.PathLike[str]],
+                  date_format: Optional[str] = None) -> list[dict[str, Any]]:
     """Load a plain OHLCV CSV into the bar list run_el expects.
 
     Header must contain: date,time,open,high,low,close,volume (case-insensitive).
@@ -111,8 +125,8 @@ def load_bars_csv(path: Union[str, "os.PathLike[str]"],
         reader = csv.reader(f)
         try:
             header = [h.strip().lower() for h in next(reader)]
-        except StopIteration:
-            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS))
+        except StopIteration as err:
+            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS)) from err
         missing = [name for name in _CSV_COLUMNS if name not in header]
         if missing:
             raise ValueError("header is missing column(s) %s (want: %s)"
@@ -143,12 +157,12 @@ def _csv_bar(row, idx, date_format=None):
     }
 
 
-def pbar_for(path: Union[str, "os.PathLike[str]"]) -> str:
+def pbar_for(path: Union[str, os.PathLike[str]]) -> str:
     """Sibling ``.pbar`` path for a CSV path (same stem, ``.pbar`` extension)."""
     return os.path.splitext(str(path))[0] + ".pbar"
 
 
-def load_bars(path: Union[str, "os.PathLike[str]"], prefer_pbar: bool = True,
+def load_bars(path: Union[str, os.PathLike[str]], prefer_pbar: bool = True,
               date_format: Optional[str] = None) -> Bars:
     """Load OHLCV from a CSV or a ``.pbar``.
 
@@ -180,8 +194,8 @@ def load_bars(path: Union[str, "os.PathLike[str]"], prefer_pbar: bool = True,
     return load_bars_csv(p, date_format)
 
 
-def csv_to_pbar(csv_path: Union[str, "os.PathLike[str]"],
-                pbar_path: Union[str, "os.PathLike[str]"],
+def csv_to_pbar(csv_path: Union[str, os.PathLike[str]],
+                pbar_path: Union[str, os.PathLike[str]],
                 date_format: Optional[str] = None) -> Any:
     """Write a ``.pbar`` from an OHLCV CSV using the same parse as load_bars_csv."""
     from pl_transpiler.runtime.bar_tape import write_pbar
@@ -381,15 +395,15 @@ def resolve_trade_from(bars, *, from_date=None, from_bar=None):
 
 def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            trace_columns: Optional[Sequence[str]] = None, partial: bool = False,
-           row_sink: Optional[Callable[[List[str]], Any]] = None,
-           header_sink: Optional[Callable[[List[str]], Any]] = None,
+           row_sink: Optional[Callable[[list[str]], Any]] = None,
+           header_sink: Optional[Callable[[list[str]], Any]] = None,
            retain_rows: Optional[bool] = None,
            from_date: Optional[int] = None, from_bar: Optional[int] = None,
            seed_warmup: bool = True, max_bars_back: int = 0,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
-           drawing_tape: Optional[Dict[str, Any]] = None,
-           _python_path_notify: Optional[Callable[..., Any]] = None) -> Dict[str, Any]:
+           drawing_tape: Optional[dict[str, Any]] = None,
+           _python_path_notify: Optional[Callable[..., Any]] = None) -> dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -457,7 +471,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         py_code = transpile(el_source, trace=True, partial=True)
     else:
         py_code = transpile(el_source, trace=True)
-    ns: Dict[str, Any] = {}
+    ns: dict[str, Any] = {}
     exec(py_code, ns)
     strategy_fn = ns['strategy']
 
@@ -516,8 +530,11 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     # the runtime cannot reproduce must RAISE (strict) rather than be silently
     # counted. The transpiled strategy's own Print(File(...)) lands on stdout; we
     # discard it here so it can never corrupt the returned data or the CLI's stdout.
-    from pl_transpiler.runtime.pl_runtime import pl_unimplemented_reset, pl_unimplemented_warn
     from pl_transpiler.runtime.accel import accel_available, python_path_note
+    from pl_transpiler.runtime.pl_runtime import (
+        pl_unimplemented_reset,
+        pl_unimplemented_warn,
+    )
     # The library logs the "Python path" note; the CLI passes warn_python_path
     # to print it on stderr instead.
     notify = _python_path_notify or (lambda r=None: _log.info(python_path_note(r)))
@@ -527,11 +544,13 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         notify()
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
-    drawing_meta: Tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
+    drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     recorder = None
     if drawings:
         from pl_transpiler.runtime._rt_drawing import (
-            DrawingRecorder, make_dump, resolve_drawing_request,
+            DrawingRecorder,
+            make_dump,
+            resolve_drawing_request,
         )
         drawing_meta = resolve_drawing_request(
             drawing_case_id, drawing_tape, config.tick)

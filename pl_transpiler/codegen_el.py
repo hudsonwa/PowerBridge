@@ -44,25 +44,25 @@ import json
 import os
 
 from pl_transpiler._codegen_el_layout import (  # noqa: F401  (re-export)
-    _TAB,
     _DECL_STMT_TYPES,
+    _TAB,
     _WRAP_WIDTH,
-    _ind,
-    _max_line,
-    _blank_between,
-    _emit_decl_block,
-    _split_atoms,
-    _wrap_line,
-    _comment_start,
-    _wrap_all,
-    _collect_line_stmts,
     _anchor_comments,
+    _blank_between,
+    _collect_line_stmts,
     _comment_lines,
+    _comment_start,
     _dangles,
-    _is_comment_line,
-    _then_compact,
     _else_compact,
+    _emit_decl_block,
+    _ind,
+    _is_comment_line,
     _loop_compact,
+    _max_line,
+    _split_atoms,
+    _then_compact,
+    _wrap_all,
+    _wrap_line,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

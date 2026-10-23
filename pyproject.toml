@@ -90,20 +90,26 @@ follow_imports = "silent"
 warn_unused_ignores = true
 
 [tool.ruff]
-# Lint only; no formatter is enforced. tests/fixtures/emitted/ and tests/generated/ hold
-# machine-generated output, so they are not linted.
+# Lint only. ruff format is deliberately not adopted: it would rewrite most
+# lines of the engine and runtime for no behaviour gain. tests/fixtures/emitted/
+# and tests/generated/ hold machine-generated output, so they are not linted.
 target-version = "py39"
 extend-exclude = ["tests/fixtures/emitted", "tests/generated", "accel/target", "out"]
 
 [tool.ruff.lint]
 # pycodestyle errors (imports E4, statements E7, syntax E9), warnings (W) and
 # pyflakes (F). Line length (E501) is not enforced: there is no formatter.
-# B, UP and I were tried: they need hand edits (B904 changes tracebacks, UP
-# rewrites the py39 typing in the public API) or reorder ~100 import blocks,
-# so they are left out.
-select = ["E4", "E7", "E9", "W", "F"]
+# Also import sorting (I), pyupgrade (UP) and bugbear (B).
+select = ["E4", "E7", "E9", "W", "F", "I", "UP", "B"]
 # E701/E702/E731/E741: established style in the engine and runtime.
-ignore = ["E701", "E702", "E731", "E741"]
+# UP007/UP045: `X | None` needs Python 3.10 at runtime; the target is 3.9 and
+# the public API annotations are evaluated.
+# UP031: printf-style formatting is mostly report/CLI text; rewriting it risks
+# output-format drift for no gain.
+ignore = ["E701", "E702", "E731", "E741", "UP007", "UP045", "UP031"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pl_transpiler"]
 
 [tool.ruff.lint.per-file-ignores]
 # Checkout-only scripts (not installed) put the repo on sys.path before importing
@@ -113,8 +119,11 @@ ignore = ["E701", "E702", "E731", "E741"]
 "scripts/**" = ["E402"]
 # Populated at import time from the runtime's pl_* functions via globals().
 "pl_transpiler/builtins.py" = ["F821"]
-# Package re-export of the runtime's public names.
-"pl_transpiler/runtime/__init__.py" = ["F401", "F403"]
+# Package re-export of the runtime's public names. Import order is behaviour
+# here and in pl_runtime.py (star-import precedence, loud stubs last), so
+# neither is import-sorted.
+"pl_transpiler/runtime/__init__.py" = ["F401", "F403", "I001"]
+"pl_transpiler/runtime/pl_runtime.py" = ["I001"]
 # Mirror-dialect source: the star import and _orders/_risk names are the dialect.
 "examples/hand_written.py" = ["F403", "F405"]
 # Trailing whitespace inside string literals is content, not style.

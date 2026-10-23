@@ -38,13 +38,17 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime.accel import accel_available  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import (  # noqa: E402
-    fill_trade_types, main as oracle_main, run_oracle,
+    fill_trade_types,
+    run_oracle,
+)
+from pl_transpiler.tools.pl_oracle import (
+    main as oracle_main,
 )
 from pl_transpiler.tools.pl_run import load_bars_csv, run_el  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 SAMPLE = os.path.join(REPO, "examples", "NQ_sample_bars.csv")

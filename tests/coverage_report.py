@@ -55,8 +55,8 @@ Three sections (mirrors the unit spec):
 import argparse
 import json
 import os
-import subprocess
 import re
+import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,11 +64,11 @@ sys.path.insert(0, REPO)
 
 from pl_transpiler import builtins as _builtins  # noqa: E402
 from pl_transpiler.runtime import pl_runtime as _rt  # noqa: E402
-from tests.repoint import new_scratch  # noqa: E402
 from tests import run_gt  # noqa: E402, F401
-from tests.golden_diff import GT_FILES, CAP, GT  # noqa: E402
-from tests.verify_all import GT_EXPECT  # noqa: E402
 from tests import verify_full_range as vfr  # noqa: E402
+from tests.golden_diff import CAP, GT, GT_FILES  # noqa: E402
+from tests.repoint import new_scratch  # noqa: E402
+from tests.verify_all import GT_EXPECT  # noqa: E402
 
 SIG_PATH = os.path.join(REPO, "pl_transpiler", "tools", "pl_signatures.jsonl")
 COVERAGE_MD = os.path.join(REPO, "COVERAGE.md")
@@ -139,7 +139,7 @@ def gt_source_tokens():
     EL source referenced by GT_FILES (deduped by source filename)."""
     out = {}
     seen = set()
-    for label, (src_name, _csv) in GT_FILES.items():
+    for _label, (src_name, _csv) in GT_FILES.items():
         if src_name in seen:
             continue
         seen.add(src_name)

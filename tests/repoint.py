@@ -88,8 +88,7 @@ def repoint_files(dirname, texts_by_label, name=None):
 
     Yields the list of repointed labels. Patches EXISTING label keys only — a new
     label name would silently lose the per-label data feed keyed by that name."""
-    from tests import run_gt
-    from tests import golden_diff
+    from tests import golden_diff, run_gt
     if name is None:
         name = lambda label: f"{label}.txt"
 

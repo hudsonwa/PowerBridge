@@ -31,8 +31,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler import transpile
-from pl_transpiler import py_front
+from pl_transpiler import py_front, transpile
 from pl_transpiler.codegen import DIALECT_VERSION
 from pl_transpiler.runtime.pl_runtime import f32
 

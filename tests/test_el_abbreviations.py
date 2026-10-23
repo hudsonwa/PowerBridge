@@ -32,15 +32,15 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler import transpile                                       # noqa: E402
-from pl_transpiler.lexer import tokenise                                 # noqa: E402
-from pl_transpiler.parser import parse                                   # noqa: E402
-import pytest                                                            # noqa: E402
+import pytest  # noqa: E402
 
-from tests.skip_messages import ACCEL_SKIP                               # noqa: E402
-from pl_transpiler.runtime.accel import accel_available                  # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config           # noqa: E402
-from pl_transpiler.tools.pl_oracle import run_oracle                     # noqa: E402
+from pl_transpiler import transpile  # noqa: E402
+from pl_transpiler.lexer import tokenise  # noqa: E402
+from pl_transpiler.parser import parse  # noqa: E402
+from pl_transpiler.runtime.accel import accel_available  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 

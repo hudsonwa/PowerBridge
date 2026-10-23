@@ -16,10 +16,16 @@
 
 from .lexer import PLSyntaxError, _source_line
 from .parser_tables import (
-    ORDER_ACTIONS, RISK_FUNCS, PLOT_NAMES, DATA_SERIES, COLOR_CONSTANTS,
-    STYLE_CONSTANTS, PERIOD_FUNCS, BUILTIN_ARITY, BUILTIN_FUNC_MAP,
+    BUILTIN_ARITY,
+    BUILTIN_FUNC_MAP,
+    COLOR_CONSTANTS,
+    DATA_SERIES,
+    ORDER_ACTIONS,
+    PERIOD_FUNCS,
+    PLOT_NAMES,
+    RISK_FUNCS,
+    STYLE_CONSTANTS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Semantic validation (post-parse)

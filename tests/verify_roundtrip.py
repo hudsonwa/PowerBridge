@@ -67,19 +67,23 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tests import run_gt
-from tests import capture_gate
+from pl_transpiler.codegen_el import emit_el
+from pl_transpiler.lexer import tokenise
+from pl_transpiler.parser import parse
+from tests import capture_gate, run_gt
+
+# Shared scratch-dir + GT_FILES repoint plumbing (unified across the reverse gates).
+from tests.repoint import emit_texts, new_scratch, repoint_files
+
 # run_gt_checks/run_order_fullrange_checks are imported VERBATIM: this gate adds
 # ZERO comparison logic (they own the deferral / warmup / throw-sidecar policy;
 # re-implementing any of it is how a laxer rule sneaks in).
 from tests.verify_all import (
-    GT_EXPECT, DEFAULT_GT_BARS, run_gt_checks, run_order_fullrange_checks,
+    DEFAULT_GT_BARS,
+    GT_EXPECT,
+    run_gt_checks,
+    run_order_fullrange_checks,
 )
-# Shared scratch-dir + GT_FILES repoint plumbing (unified across the reverse gates).
-from tests.repoint import new_scratch, repoint_files, emit_texts
-from pl_transpiler.lexer import tokenise
-from pl_transpiler.parser import parse
-from pl_transpiler.codegen_el import emit_el
 
 # Emitted EL is written here; run_gt resolves a source name against run_gt.GT
 # (ground_truth/), so the patched source name is RELATIVE to that dir.
@@ -376,8 +380,8 @@ def run_mutation_reflect(scratch):
         # base/mut emitted files never overwrite each other.
         with repoint_files(ROUNDTRIP_DIRNAME, {label: emitted},
                            name=lambda lbl, t=tag: f"{lbl}_{t}.txt"):
-            import io
             import contextlib
+            import io
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 run_gt.run_gt(label, max_bars=max_bars, output_path=csv_path,

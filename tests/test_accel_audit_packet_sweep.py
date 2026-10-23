@@ -30,14 +30,14 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
+from pl_transpiler.ir import serialise_ir  # noqa: E402
+from pl_transpiler.lexer import tokenise  # noqa: E402
+from pl_transpiler.parser import parse  # noqa: E402
 from pl_transpiler.runtime import accel  # noqa: E402
 from pl_transpiler.runtime.audit_packet import decode, write_trades_csv  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
-from pl_transpiler.ir import serialise_ir  # noqa: E402
-from pl_transpiler.lexer import tokenise  # noqa: E402
-from pl_transpiler.parser import parse  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 # Private fixture (not shipped): point these at a local copy to run the sweep.
 FIXTURE_DIR = os.environ.get("PB_AUDIT_FIXTURE_DIR", "")

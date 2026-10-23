@@ -37,7 +37,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler.lexer import tokenise, PLSyntaxError
+from pl_transpiler.lexer import PLSyntaxError, tokenise
 
 
 def test_unknown_char_raises():

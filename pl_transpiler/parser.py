@@ -16,26 +16,47 @@
 
 import re
 
+from ._parser_expr import _ExpressionsMixin
+from ._parser_stmts import _reconstruct_tokens, _StatementsMixin  # noqa: F401  (re-exported)
 from .lexer import (  # noqa: F401  (re-exported)
-    TT_KEYWORD, TT_IDENT, TT_NUMBER, TT_STRING, TT_OP,
-    TT_LBRACKET, TT_RBRACKET, TT_LPAREN, TT_RPAREN,
-    TT_SEMICOLON, TT_COMMA, TT_EOF,
-    PLSyntaxError, _source_line, collect_comments,
+    TT_COMMA,
+    TT_EOF,
+    TT_IDENT,
+    TT_KEYWORD,
+    TT_LBRACKET,
+    TT_LPAREN,
+    TT_NUMBER,
+    TT_OP,
+    TT_RBRACKET,
+    TT_RPAREN,
+    TT_SEMICOLON,
+    TT_STRING,
+    PLSyntaxError,
+    _source_line,
+    collect_comments,
 )
-
 from .parser_tables import (  # noqa: F401  (re-exported)
-    ORDER_ACTIONS, RISK_FUNCS, PLOT_NAMES, DATA_SERIES, COLOR_CONSTANTS,
-    STYLE_CONSTANTS, PERIOD_FUNCS, BUILTIN_ARITY, BUILTIN_FUNC_MAP,
-    _PRICE_ABBREVIATIONS, _SYMBOL_INFO_KEYWORDS,
+    _PRICE_ABBREVIATIONS,
+    _SYMBOL_INFO_KEYWORDS,
+    BUILTIN_ARITY,
+    BUILTIN_FUNC_MAP,
+    COLOR_CONSTANTS,
+    DATA_SERIES,
+    ORDER_ACTIONS,
+    PERIOD_FUNCS,
+    PLOT_NAMES,
+    RISK_FUNCS,
+    STYLE_CONSTANTS,
 )
 from .semantic import (  # noqa: F401  (re-exported)
-    _SERIES_PARAMS, _BARE_COMPUTED, _SCRATCH_VARS, _RESERVED_IDENTS,
-    _collect_declared, _is_known_name, semantic_check,
+    _BARE_COMPUTED,
+    _RESERVED_IDENTS,
+    _SCRATCH_VARS,
+    _SERIES_PARAMS,
+    _collect_declared,
+    _is_known_name,
+    semantic_check,
 )
-
-from ._parser_stmts import _StatementsMixin, _reconstruct_tokens  # noqa: F401  (re-exported)
-from ._parser_expr import _ExpressionsMixin
-
 
 _DECL_KEYWORDS = frozenset(('inputs', 'input', 'variables', 'variable', 'vars',
                             'var', 'arrays', 'array'))

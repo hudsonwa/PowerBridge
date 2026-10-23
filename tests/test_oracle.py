@@ -33,18 +33,28 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests import capture_gate  # noqa: E402
-from tests.skip_messages import AUDIT_TAPE_SKIP  # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
-from pl_transpiler.tools.pl_oracle import (  # noqa: E402
-    canonical_fill_line, fills_sha256, format_digest, fill_trade_types,
-    write_fills_csv,
-    run_oracle, window_bars, main as oracle_main,
-    AUDIT_REF_3_DIGEST, AUDIT_REF_3_FILLS, AUDIT_REF_3_ROUND_TURNS, AUDIT_REF_3_SHA256,
-)
 from pl_transpiler.runtime.accel import accel_available  # noqa: E402
 from pl_transpiler.runtime.bar_tape import ohlcv_columns  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_oracle import (  # noqa: E402
+    AUDIT_REF_3_DIGEST,
+    AUDIT_REF_3_FILLS,
+    AUDIT_REF_3_ROUND_TURNS,
+    AUDIT_REF_3_SHA256,
+    canonical_fill_line,
+    fill_trade_types,
+    fills_sha256,
+    format_digest,
+    run_oracle,
+    window_bars,
+    write_fills_csv,
+)
+from pl_transpiler.tools.pl_oracle import (
+    main as oracle_main,
+)
 from pl_transpiler.tools.pl_run import load_bars, load_bars_csv, run_el  # noqa: E402
+from tests import capture_gate  # noqa: E402
+from tests.skip_messages import AUDIT_TAPE_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 GT2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")

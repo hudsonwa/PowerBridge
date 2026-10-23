@@ -24,11 +24,10 @@ import argparse
 import datetime
 import json
 import os
-from pathlib import Path
 import signal
 import subprocess
 import sys
-
+from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 GROUND_TRUTH = REPO / "ground_truth"
@@ -227,8 +226,8 @@ def _resolve_source(value):
     candidate = candidate.resolve()
     try:
         candidate.relative_to(GROUND_TRUTH.resolve())
-    except ValueError:
-        raise ValueError("source is outside ground_truth/: %s" % value)
+    except ValueError as err:
+        raise ValueError("source is outside ground_truth/: %s" % value) from err
     if not candidate.is_file():
         raise ValueError("source does not exist: %s" % value)
     if candidate.suffix.lower() not in SOURCE_SUFFIXES:

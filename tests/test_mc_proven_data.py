@@ -34,7 +34,8 @@ REPO = os.path.dirname(HERE)
 sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile  # noqa: E402
-from pl_transpiler.tools import el_emit, mc_ground_check as g  # noqa: E402
+from pl_transpiler.tools import el_emit  # noqa: E402
+from pl_transpiler.tools import mc_ground_check as g
 
 GT1 = os.path.join(REPO, 'ground_truth', 'GT1_functions_indicators.txt')
 GT2 = os.path.join(REPO, 'ground_truth', 'GT2_strategy_orders_position.txt')

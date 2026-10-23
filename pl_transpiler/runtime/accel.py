@@ -110,11 +110,10 @@ Public surface:
 import json
 from collections import OrderedDict, namedtuple
 
+from pl_transpiler.ir import serialise_ir
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.parser import parse
-from pl_transpiler.ir import serialise_ir
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
-
 
 # The FFI config requires a session `end` and the v2-required commission /
 # slippage / MaxBarsBack / warmup-seed fields, none of which the Python

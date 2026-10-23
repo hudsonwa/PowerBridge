@@ -30,7 +30,7 @@ import os
 import sys
 import tempfile
 
-from pl_transpiler.reverse import py_to_el, el_roundtrip
+from pl_transpiler.reverse import el_roundtrip, py_to_el
 from pl_transpiler.tools import _cli, mc_ground_check
 
 

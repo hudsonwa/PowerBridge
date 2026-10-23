@@ -33,6 +33,7 @@ if TOOLS not in sys.path:
     sys.path.insert(0, TOOLS)
 
 import gen_reference  # noqa: E402
+
 from pl_transpiler import get_config, load_bars_csv, transpile  # noqa: E402
 
 _NOTES = gen_reference.load_notes()["entries"]
@@ -68,7 +69,7 @@ def test_pages_up_to_date(capsys):
 def test_stops_status_is_described():
     # An entry whose run stops must say so in its own description.
     pages = gen_reference.build()
-    for fname, text in pages.items():
+    for _fname, text in pages.items():
         for block in text.split("\n### ")[1:]:
             if gen_reference.STATUS_STOPS in block:
                 assert "stops with an error" in block, block.splitlines()[0]

@@ -18,8 +18,7 @@ ADXR, DMI, Bollinger bands, Stochastic).
 Re-exported by pl_runtime (and by _rt_indicators); see that module."""
 
 from ._rt_core import f32
-from ._rt_indicators import _ind_cache, _find_first_valid, _valid_window
-
+from ._rt_indicators import _find_first_valid, _ind_cache, _valid_window
 
 # ---- Regression / Trend Indicators ----
 

@@ -38,8 +38,8 @@ sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile
 from pl_transpiler.errors import UnimplementedKeywordError
-from pl_transpiler.tools.pl_run import run_el, load_bars_csv
 from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler.tools.pl_run import load_bars_csv, run_el
 
 BARS_CSV = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
 
@@ -211,7 +211,7 @@ def group_f_argless_stub_raises_unimplemented_not_typeerror():
     except UnimplementedKeywordError as e:
         assert "partial-mode stub executed" in str(e), repr(str(e))
     except TypeError as e:  # the exact bug this guards
-        raise AssertionError(f"Regression: TypeError not UnimplementedKeywordError: {e!r}")
+        raise AssertionError(f"Regression: TypeError not UnimplementedKeywordError: {e!r}") from e
 
     # Nested unknowns: BOTH named in the watermark, argless stub, still raises.
     nested = "Value1 = FakeOuter(FakeInner(Close));\n"

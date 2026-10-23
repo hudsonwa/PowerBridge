@@ -17,28 +17,29 @@
 
 # Re-exported so existing `from pl_transpiler.codegen import UnimplementedKeywordError`
 # imports keep working; the class itself now lives in pl_transpiler.errors.
-from .errors import UnimplementedKeywordError  # noqa: F401
+from .codegen_expr import _ExprMixin
+from .codegen_stmt import _StmtMixin
 
 # Tables, helpers and the statement/expression mixins live in sibling modules;
 # they are re-exported here so `from pl_transpiler.codegen import ...` finds them.
 from .codegen_tables import (  # noqa: F401
-    DIALECT_VERSION,
+    _SERIES_PARAMS,
     BUILTIN_FUNC_MAP,
     COMPARE_OPS,
-    _SERIES_PARAMS,
+    DIALECT_VERSION,
 )
 from .codegen_util import (  # noqa: F401
-    _available_pl_targets,
-    _runtime_bound_bare_names,
-    _OHLCV_F32_NAMES,
     _OHLCV_F32_LOCALS,
+    _OHLCV_F32_NAMES,
+    _available_pl_targets,
     _expr_already_f32,
-    _is_numeric_literal_node,
     _f32_literal_const,
+    _is_numeric_literal_node,
+    _runtime_bound_bare_names,
 )
-from .codegen_expr import _ExprMixin
+from .errors import UnimplementedKeywordError  # noqa: F401
 from .semantic import add_scratch_decls
-from .codegen_stmt import _StmtMixin
+
 
 class CodeGen(_ExprMixin, _StmtMixin):
     def __init__(self, trace=False, partial=False, persist=None):
@@ -748,8 +749,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         `x = 0; ...; y = x`."""
         if not assigned_and_read:
             return set()
-        from pl_transpiler.parser import _is_known_name, BUILTIN_FUNC_MAP  # noqa: F811
         from pl_transpiler import catalog
+        from pl_transpiler.parser import BUILTIN_FUNC_MAP, _is_known_name  # noqa: F811
         candidates = set()
         for name in assigned_and_read:
             # FAIL-CLOSED: a name that is a RECOGNIZED EL keyword

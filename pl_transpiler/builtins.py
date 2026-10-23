@@ -16,8 +16,9 @@
 Maps PowerLanguage built-in function names (lowercase) to their
 Python runtime equivalents in pl_runtime.
 """
-from .runtime import pl_runtime as _rt
 import inspect as _inspect
+
+from .runtime import pl_runtime as _rt
 
 # Auto-import all pl_* functions from runtime into this module's namespace
 for _name, _obj in _inspect.getmembers(_rt):

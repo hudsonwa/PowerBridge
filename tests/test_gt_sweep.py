@@ -21,7 +21,6 @@ import subprocess
 import sys
 import tempfile
 
-
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PYTHON = sys.executable
 SWEEP = os.path.join(REPO, "tools", "gt_sweep.py")

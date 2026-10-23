@@ -17,9 +17,9 @@ math/string leftovers).
 
 Re-exported by pl_runtime; see that module."""
 
+from ._rt_color import UnmeasuredColorError  # noqa: F401  (re-export)
 from ._rt_core import f32
 from ._rt_indicators import pl_roc
-from ._rt_color import UnmeasuredColorError  # noqa: F401  (re-export)
 
 
 # --- DateTime helpers (GTA6 date/time conversion family) --------------------
@@ -56,8 +56,8 @@ def _decode_dt_yyyymmdd(dt):
     return ip // 10000, (ip // 100) % 100, ip % 100, tot // 3600, (tot % 3600) // 60, tot % 60
 
 def _fmt_dt(fmt, y, mo, d, h, mi, s, ms):
-    import re as _re
     import calendar as _cal
+    import re as _re
     h12 = h % 12 or 12
     tt = 'AM' if h < 12 else 'PM'
     wd = _cal.weekday(y, mo, d)  # Mon=0..Sun=6
@@ -292,8 +292,8 @@ def pl_incmonth(*args, **kwargs):
     # being truncated to the last valid day.
     if len(args) < 2:
         return 0
-    import datetime as _dt
     import calendar as _cal
+    import datetime as _dt
     y, mo, d = _ymd_from_ole(args[0])
     total = y * 12 + (mo - 1) + int(args[1])
     ny, nmo = total // 12, total % 12 + 1

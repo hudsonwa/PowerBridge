@@ -32,8 +32,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
-
 from pl_transpiler import catalog  # noqa: E402
 from pl_transpiler.parser import BUILTIN_ARITY  # noqa: E402
 from pl_transpiler.reverse import emit_el, parse_el  # noqa: E402
@@ -45,7 +43,7 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
 from pl_transpiler.tools.pl_run import run_el  # noqa: E402
-
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 DEFAULT_SEED = 20260920
 DEFAULT_RANDOM_PROGRAMS = 6
@@ -153,10 +151,10 @@ def canonical_trade(trade):
             )
         try:
             normalized = int(value)
-        except (TypeError, ValueError, OverflowError):
+        except (TypeError, ValueError, OverflowError) as err:
             raise ValueError(
                 f"trade record field {field!r} is not an integer: {value!r}"
-            )
+            ) from err
         if value != normalized:
             raise ValueError(
                 f"trade record field {field!r} is not an integer: {value!r}"
@@ -584,7 +582,7 @@ def minimize_counterexample(python_runner, accel_runner, el_source, bars,
         )
         minimal_bars = _ddmin(
             minimal_bars,
-            lambda candidate: _is_mismatch(
+            lambda candidate, source=source: _is_mismatch(
                 python_runner, accel_runner, source, candidate,
                 mismatch_signature,
             ),
