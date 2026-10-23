@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.0 — 2026-10-23
+
 ### Added
 
 - The native kernel runs variables declared inside a block (`Vars:` inside `begin ... end`), so these programs no longer fall back to Python (#128).
