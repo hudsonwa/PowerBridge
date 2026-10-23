@@ -689,6 +689,9 @@ impl Cx<'_, '_> {
             "tickid" | "execoffset" => Ty::of(INT),
             n if super::compile::bare_session_time(n).is_some() => Ty::of(INT),
             "lastbaronchart_s" => Ty::of(BOOL),
+            // pl_currenttime_s() / pl_currentdate_s(): ints; ComputerDateTime a float.
+            "currenttime_s" | "currentdate_s" => Ty::of(INT),
+            "computerdatetime" => Ty::of(FLOAT),
             "newline" => Ty::of(STR),
             _ => Ty::bad("identifier unknown to the trace typer"),
         }
@@ -764,6 +767,19 @@ impl Cx<'_, '_> {
             },
             // int(x)
             "intportion" => with_bad(Ty::of(INT)),
+            // math.floor(x) and pl_datetojulian(d) return ints.
+            "floor" => match tys.as_slice() {
+                [t] if !t.has(STR) => with_bad(Ty::of(INT)),
+                _ => Ty::bad("Floor argument type"),
+            },
+            "eldatetodatetime" => match tys.as_slice() {
+                [t] if !t.has(STR) => with_bad(Ty::of(INT)),
+                // `(d * 10000 + t)`
+                [d, t] => binop_ty("+", binop_ty("*", *d, Ty::of(INT)), *t),
+                _ => Ty::bad("ELDateToDateTime argument count"),
+            },
+            "currenttime_s" | "currentdate_s" => with_bad(Ty::of(INT)),
+            "computerdatetime" => with_bad(Ty::of(FLOAT)),
             // `1 if x > 0 else (-1 if x < 0 else 0)`
             "sign" => with_bad(Ty::of(INT)),
             // `x ** 2`

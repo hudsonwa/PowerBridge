@@ -162,6 +162,14 @@ pub(crate) enum CallOp {
     Square,
     /// `Round(x, n)` (`el_round`) or `Round(x)` (`el_round0`).
     Round,
+    /// `Floor(x)`: Python `math.floor(x)`.
+    Floor,
+    /// One-argument `ELDateToDateTime(d)`: `pl_datetojulian(d)`. The
+    /// two-argument form is compiled as its `d * 10000 + t` expression.
+    ElDateToDateTime,
+    /// A computer-clock word (see [`ClockWord`]); the arguments are evaluated
+    /// and ignored, as the Python functions take `*args`.
+    Clock(ClockWord),
     MaxList,
     MinList,
     TlNew,
@@ -188,6 +196,28 @@ pub(crate) enum CallOp {
     /// `FileAppend` / `FileDelete`: Python's stubs write nothing and return 0.
     /// The arguments are still evaluated.
     FileNoop,
+}
+
+/// A built-in that reads the computer clock on every call, as the runtime's
+/// `pl_currenttime_s` & co. do through `_rt_datetime._clock_now()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ClockWord {
+    /// `CurrentTime_s`: HHMMSS, an int.
+    TimeS,
+    /// `CurrentDate_s`: YYYMMDD (year - 1900), an int.
+    DateS,
+    /// `ComputerDateTime`: days since 1899-12-30 plus the day fraction.
+    ComputerDateTime,
+}
+
+/// The clock word `name` names (the bare word or a call).
+pub(crate) fn clock_word(name: &str) -> Option<ClockWord> {
+    match name {
+        "currenttime_s" => Some(ClockWord::TimeS),
+        "currentdate_s" => Some(ClockWord::DateS),
+        "computerdatetime" => Some(ClockWord::ComputerDateTime),
+        _ => None,
+    }
 }
 
 /// The constant a session-time word returns on the Python path, copied from
@@ -1603,6 +1633,15 @@ impl Compiler {
             Some("call") => match node.get("name").and_then(Json::as_str).unwrap_or("") {
                 // pl_array_getmaxindex: len - 1; pl_array_indexof: an index.
                 "intportion" | "sign" | "array_getmaxindex" | "array_indexof" => Int,
+                "floor" | "currenttime_s" | "currentdate_s" => Int,
+                "computerdatetime" => Float,
+                "eldatetodatetime" => {
+                    match node.get("args").and_then(Json::as_array).map(Vec::as_slice) {
+                        Some([_]) => Int,
+                        Some([a, b]) => numeric(numeric(self.elem_kind(a), Int), self.elem_kind(b)),
+                        _ => Unknown,
+                    }
+                }
                 "average" | "averagefc" | "averagetfc" => Float,
                 // el_round0 returns math.floor's int; el_round divides to a float.
                 "round" => match node.get("args").and_then(Json::as_array).map(Vec::len) {
@@ -1931,6 +1970,11 @@ impl Compiler {
             self.instrs.push(Instr::PushNum(f64::from(hhmm)));
             return Ok(());
         }
+        // Bare clock words are emitted as calls (`pl_currenttime_s()`).
+        if let Some(word) = clock_word(name) {
+            self.instrs.push(Instr::Call(CallOp::Clock(word), 0));
+            return Ok(());
+        }
         // The runtime's module constant `lastbaronchart_s = True`.
         if name == "lastbaronchart_s" {
             self.instrs.push(Instr::PushBool(true));
@@ -2217,6 +2261,24 @@ impl Compiler {
             "sign" => (CallOp::Sign, false),
             "square" => (CallOp::Square, false),
             "round" => (CallOp::Round, false),
+            "floor" => (CallOp::Floor, false),
+            "eldatetodatetime" if args.len() == 1 => (CallOp::ElDateToDateTime, false),
+            // Emitted as `(d * 10000 + t)`.
+            "eldatetodatetime" if args.len() == 2 => {
+                let product = serde_json::json!({
+                    "type": "binop",
+                    "op": "*",
+                    "left": args[0],
+                    "right": {"type": "number", "value": "10000"},
+                });
+                let sum = serde_json::json!({
+                    "type": "binop",
+                    "op": "+",
+                    "left": product,
+                    "right": args[1],
+                });
+                return self.compile_binop(&sum);
+            }
             "maxlist" => (CallOp::MaxList, false),
             "minlist" => (CallOp::MinList, false),
             // Drawing and measured colour calls. Not folded: drawing calls
@@ -2237,9 +2299,10 @@ impl Compiler {
             "strlen" => (CallOp::StrLen, false),
             "formatdate" => (CallOp::FormatDate, false),
             "fileappend" | "filedelete" => (CallOp::FileNoop, false),
-            other => match session_time(other) {
-                Some(hhmm) => (CallOp::SessionTime(hhmm), false),
-                None => {
+            other => match (session_time(other), clock_word(other)) {
+                (Some(hhmm), _) => (CallOp::SessionTime(hhmm), false),
+                (None, Some(word)) => (CallOp::Clock(word), false),
+                (None, None) => {
                     return Err(KernelError::unsupported(format!("function {other:?}")));
                 }
             },
