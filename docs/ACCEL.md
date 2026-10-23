@@ -125,6 +125,16 @@ does not change the result. `SessionCount(...)` and `SessionCountMS` return
 without parentheses. `SessionStartDay(...)`, whose result depends on its
 session-number argument, is still refused.
 
+`Round(x, n)` runs natively with the Python path's `el_round`: half away from
+zero on `x * 10 ** n`, so `Round(-2.5, 0)` is -3 and a negative `n` rounds to
+tens, hundreds and so on (`Round(1234.5, -2)` is 1200). Where Python raises
+(a NaN or infinite value, or `10 ** n` overflowing or underflowing to zero)
+the kernel stops the run too. An integral `n` above 22 is refused, because
+Python's exact integer `10 ** n` cannot be matched in floating point.
+`MinMove` and `PriceScale` read the run's instrument config (`minmove`,
+`pricescale`), the values the Python bar loop passes in, and
+`LastBarOnChart_s` is `True`, the runtime's constant.
+
 ## Fallback and platforms
 
 **Absent extra = identical behaviour.** Without the module, the auditable

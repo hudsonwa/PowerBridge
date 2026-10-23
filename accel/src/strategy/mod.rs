@@ -88,6 +88,7 @@ pub(crate) fn run_program_inputs(
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
     strategy.set_drawing_tick(config.tick);
+    strategy.set_price_units(config.minmove, config.pricescale);
     run_with_max_bars_back(series, config, &mut strategy)
 }
 
@@ -126,6 +127,7 @@ pub(crate) fn run_program_drawings(
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
     strategy.set_drawing_tick(config.tick);
+    strategy.set_price_units(config.minmove, config.pricescale);
     let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
     Ok((outcome.fills, strategy.drawings_json().to_string()))
 }
@@ -194,6 +196,7 @@ pub(crate) fn run_program_trace(
     // Every bar is evaluated (no skip plan) and every store is kept, so the
     // trace sees each variable's end-of-bar value the way Python does.
     let mut strategy = Interpreter::from_program_with(program, data2_aligned, true)?;
+    strategy.set_price_units(config.minmove, config.pricescale);
     let instrument: Instrument = config.into();
     let outcome = run_native_from_offset(
         series,
@@ -222,6 +225,7 @@ pub(crate) fn run_program_audit_packet(
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2_aligned)?;
+    strategy.set_price_units(config.minmove, config.pricescale);
     let instrument: Instrument = config.into();
     let mut collector = AuditCollector::bind(
         &strategy,
@@ -298,6 +302,7 @@ pub(crate) fn run_program_audit_packet_sliced(
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2_aligned)?;
+    strategy.set_price_units(config.minmove, config.pricescale);
     let instrument: Instrument = config.into();
     let mut collector = AuditCollector::bind(
         &strategy,
@@ -355,6 +360,7 @@ pub(crate) fn run_program_audit_packet_batch(
         let mut program = base.clone();
         program.inputs = resolve_inputs(&ast, overrides)?;
         let mut strategy = Interpreter::from_program(program, data2.clone())?;
+        strategy.set_price_units(config.minmove, config.pricescale);
         let mut collector = AuditCollector::bind(
             &strategy,
             instrument.tick,
@@ -411,6 +417,7 @@ pub(crate) fn run_program_batch(
         let mut program = base.clone();
         program.inputs = resolve_inputs(&ast, overrides)?;
         let mut interp = Interpreter::from_program(program, data2.clone())?;
+        interp.set_price_units(config.minmove, config.pricescale);
         let outcome = run_native(series, instrument, &mut interp)?;
         out.push(outcome.fills);
     }
@@ -456,6 +463,7 @@ pub(crate) fn run_program_batch_parallel(
     let data2 = prepare_data2(&ast, series, data2)?;
     let base = compile(&ast, &HashMap::new())?;
     let instrument = config.into();
+    let (minmove, pricescale) = (config.minmove, config.pricescale);
     let inputs: Vec<Vec<Value>> = variants
         .iter()
         .map(|o| resolve_inputs(&ast, o))
@@ -477,6 +485,7 @@ pub(crate) fn run_program_batch_parallel(
                 program.inputs = inputs[i].clone();
                 let result =
                     Interpreter::from_program(program, data2.clone()).and_then(|mut interp| {
+                        interp.set_price_units(minmove, pricescale);
                         run_native(series, instrument, &mut interp).map(|o| o.fills)
                     });
                 slots.lock().unwrap()[i] = Some(result);

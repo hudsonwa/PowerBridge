@@ -661,6 +661,7 @@ impl Cx<'_, '_> {
             // pl_tickid() / pl_execoffset() return the int 0.
             "tickid" | "execoffset" => Ty::of(INT),
             n if super::compile::bare_session_time(n).is_some() => Ty::of(INT),
+            "lastbaronchart_s" => Ty::of(BOOL),
             _ => Ty::bad("identifier unknown to the trace typer"),
         }
     }
@@ -742,6 +743,12 @@ impl Cx<'_, '_> {
                 Some(t) if !t.has(STR) => with_bad(Ty::of(t.numeric_bits())),
                 _ => Ty::bad("Square argument type"),
             },
+            // el_round0: math.floor's int; el_round: that int / 10 ** n.
+            "round" => match tys.as_slice() {
+                [x] if !x.has(STR) => with_bad(Ty::of(INT)),
+                [x, n] if !x.has(STR) && !n.has(STR) => with_bad(Ty::of(FLOAT)),
+                _ => Ty::bad("Round argument types"),
+            },
             // max()/min() return one of the arguments.
             "maxlist" | "minlist" => {
                 if tys.iter().any(|t| t.has(STR)) {
@@ -797,7 +804,9 @@ fn position_kw_ty(kw: &str) -> Ty {
     match kw {
         "barnumber" | "currentbar" | "market_position" | "current_contracts"
         | "bars_since_entry" | "bars_since_exit" | "totaltrades" | "maxcontractsheld"
-        | "current_date" | "current_time" | "currentsession" => Ty::of(INT),
+        | "current_date" | "current_time" | "currentsession" | "minmove" | "pricescale" => {
+            Ty::of(INT)
+        }
         "entry_price"
         | "avgentryprice"
         | "exit_price"
