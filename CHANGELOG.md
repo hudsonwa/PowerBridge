@@ -1,5 +1,12 @@
 # Changelog
 
+## About the early releases
+
+Versions 0.1 to 0.9 were the first public releases of a tool that had been
+developed privately. They were cut over a few days, one as each batch of
+verified features landed. From here, releases are spaced out and made when
+there is enough new content to justify one.
+
 ## Unreleased
 
 ### Added
