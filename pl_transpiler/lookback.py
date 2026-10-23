@@ -412,7 +412,8 @@ class _Scan:
                                 f"{self.name(node)}() reads its past values")
                 return n + inner
             if not _is_builtin(name):
-                raise self.unknown(f"it calls the user function {self.name(node)}()")
+                raise self.unknown(f"it calls {self.name(node)}(), which is a user "
+                                  f"function or a keyword PowerBridge does not run")
             return inner
         if kind == 'ident':
             if name in _LOOKBACK_IDENTS:
@@ -450,7 +451,7 @@ def infer_max_bars_back(el_source):
 
     A read of ``X[k]`` counts k bars plus what X itself reads; a windowed
     builtin (``Highest(High, Len)``) counts the bars the runtime needs for a
-    full window (_LENGTH_ARGS, by argument position). An index or length may
+    full window of price data (_LENGTH_ARGS, by argument position). An index or length may
     be a number or an input's default, so ``Highest(High, 10)[1]`` and
     ``Inputs: Len(10); ... Close[Len]`` give 11 and 10. Raises
     LookbackUnknown, naming the construct and its line, when the scan cannot
@@ -458,7 +459,9 @@ def infer_max_bars_back(el_source):
     function, a builtin PowerBridge does not run, or ``X[k]`` on a variable X
     that itself reads past bars (its history starts on the first evaluated
     bar, so no MaxBarsBack fills it). This is an estimate from the source, not
-    MultiCharts' run-time auto-detect."""
+    MultiCharts' run-time auto-detect. A plain variable passed to a
+    windowed builtin (``Average(Mid, 10)``) counts the window, but the
+    variable's own history still starts on the first evaluated bar."""
     n = _scan(el_source)
     if isinstance(n, LookbackUnknown):
         raise n

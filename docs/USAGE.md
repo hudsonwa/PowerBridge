@@ -451,13 +451,17 @@ expression, `of N bars ago`, a call to your own function, a function
 PowerBridge does not run (such as `ParabolicSAR` or `Median`), and a variable
 that reads past bars and is then read back itself (`X = Close[3]; ... X[2]`,
 or `Average(X, 5)`). A variable's history starts on the first evaluated bar,
-so no MaxBarsBack fills those reads. Builtins such as `File`, `NumToStr` and
-the string functions read no past bars and never stop `auto`.
+so no MaxBarsBack fills those reads. A plain variable passed to a windowed
+builtin (`Mid = (High + Low) / 2; ... Average(Mid, 10)`) counts the window
+length, but the variable's own history still starts on the first evaluated
+bar, so that average is not full on the first bars. Builtins such as `File`,
+`NumToStr` and the string functions read no past bars and never stop `auto`.
 
 Without `--max-bars-back auto` nothing changes: stdout, trade digests and
 traces are the same as before. Only the stderr warm-up note reads
 differently: it names the number of past bars found and suggests
-`--max-bars-back auto`.
+`--max-bars-back auto`. It is also no longer printed for a program whose
+only "lookback" was a call such as `File` or `NumToStr`.
 
 `auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
 time, raising it and restarting the calculation when a study reads further back

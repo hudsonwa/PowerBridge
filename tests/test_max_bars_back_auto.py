@@ -93,6 +93,8 @@ def test_oracle_auto_equals_explicit(engine, capsys):
 
 
 def test_oracle_native_and_python_agree_on_auto(capsys):
+    if not accel_available():
+        pytest.skip("native kernel not built")
     outs = []
     for engine in ("--native", "--python"):
         assert pl_oracle.main([MA_CROSS, SAMPLE, "--max-bars-back", "auto", engine]) == 0
@@ -314,7 +316,7 @@ def test_infer_more(src, expected):
     ("Vars: Fast(0);\nFast = Average(Close, 9);\nValue1 = Average(Fast, 5);",
      "the variable Fast reads past bars and Average() reads its past values on line 3"),
     ("\nValue1 = MyIndexingFunc(Close);",
-     "it calls the user function MyIndexingFunc() on line 2"),
+     "it calls MyIndexingFunc(), which is a user function or a keyword PowerBridge does not run on line 2"),
     ("Value1 = Median(Close, 5);", "Median() is not implemented in PowerBridge on line 1"),
     ("Value1 = LinearRegValue(Close, 10, Value2);",
      "the TgtBar of LinearRegValue() is not a number or input on line 1"),
