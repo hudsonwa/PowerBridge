@@ -127,6 +127,19 @@ def test_first_entry_is_the_run_native_refusal(source):
 
 
 @pytest.mark.needs_native
+def test_keyword_refusals_use_the_el_spelling():
+    # #149: the kernel's refusal names parser-internal kwargs (max_position_profit);
+    # explain_native reports the EL keyword.
+    _require_accel()
+    source = "Vars: x(0);\nx = MaxPositionProfit;\nx = OpenEntriesCount;\n"
+    got = [(r.kind, r.name, r.line) for r in explain_native(source)]
+    assert got == [
+        ("expression", "MaxPositionProfit", 2),
+        ("expression", "OpenEntriesCount", 3),
+    ]
+
+
+@pytest.mark.needs_native
 def test_refused_variable_is_reported_once():
     _require_accel()
     source = "Vars: v(Close);\nv = v + 1;\nPlot1(v);\n"

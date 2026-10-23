@@ -268,6 +268,15 @@ _INV_MCKW = _invert_first_wins(_MC_KEYWORDS)
 # (a plain re-emit of the internal name would reparse to a different node).
 _IDENT_REVERSE = {'_market_position': 'MarketPosition'}
 
+
+def el_keyword(name):
+    """EL spelling of a parser-internal keyword name (``entry_time`` ->
+    ``EntryTime``), or None when ``name`` is not one."""
+    if name in _IDENT_REVERSE:
+        return _IDENT_REVERSE[name]
+    el = _INV_POSKW.get(name) or _INV_MCKW.get(name)
+    return None if el is None else _canon(el)
+
 # order verb canonical spellings
 _ORDER_ACTION = {
     'buy': 'Buy', 'sell': 'Sell',

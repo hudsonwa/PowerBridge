@@ -431,7 +431,11 @@ def explain_native(el_source):
         raise RuntimeError(
             f"native kernel crashed while explaining this program ({exc}); "
             "please report it with the EL source") from exc
-    return [NativeRefusal(kind, name, line, message)
+    # The kernel names keywords by their parser-internal kwarg (entry_time);
+    # report the EL keyword (EntryTime) instead.
+    from pl_transpiler.codegen_el import el_keyword
+    return [NativeRefusal(kind, (kind == "expression" and el_keyword(name)) or name,
+                          line, message)
             for kind, name, line, message in refusals]
 
 

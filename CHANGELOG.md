@@ -4,6 +4,7 @@
 
 ### Added
 
+- The native kernel runs the positions-ago trade history `EntryDate(n)`, `EntryTime(n)`, `EntryPrice(n)`, `ExitDate(n)`, `ExitTime(n)`, `ExitPrice(n)` and `MaxShares(n)`, in call and bracket form, with the Python runtime's index rules (n = 0 is the current position, n >= 1 the n-th most recently closed one, 0 past the oldest), plus the bare `EntryDate`, `EntryTime`, `ExitDate`, `ExitTime` and `MaxShares` (#149).
 - `pl_examples` writes the README quickstart's example strategy and synthetic bars into `./examples/` (never overwriting), so the quickstart runs after a wheel install without a clone; the files ship as package data (#147).
 - The native kernel runs `Floor`, `ELDateToDateTime` and the computer-clock words `CurrentTime_s`, `CurrentDate_s` and `ComputerDateTime`, reading the same clock as the Python runtime (#145).
 - A `[dev]` extra (`pip install -e '.[dev]'`) installs the test, lint and wheel-build tools (#140).
@@ -18,6 +19,7 @@
 
 ### Fixed
 
+- `--explain-native` names a refused keyword by its EasyLanguage spelling (`MaxPositionProfit`) instead of the internal name (`max_position_profit`) (#149).
 - `pl_run`, `tools/gt_sweep.py` and `tools/accel_gate.py` count round turns from exit records, like `pl_oracle`, instead of `fills // 2` (#140).
 
 ## 0.8.0 — 2026-10-23
