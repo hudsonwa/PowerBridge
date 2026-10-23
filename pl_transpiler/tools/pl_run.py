@@ -399,7 +399,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            header_sink: Optional[Callable[[list[str]], Any]] = None,
            retain_rows: Optional[bool] = None,
            from_date: Optional[int] = None, from_bar: Optional[int] = None,
-           seed_warmup: bool = True, max_bars_back: int = 0,
+           seed_warmup: bool = True, max_bars_back: Union[int, str] = 0,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
            drawing_tape: Optional[dict[str, Any]] = None,
@@ -440,8 +440,10 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back : skip the first N bars as history only (MultiCharts
                     MaxBarsBack): no evaluation, no orders, no rows, and
                     BarNumber starts at 1 on bar N+1. Default 0 evaluates every
-                    bar. With too little history for a ``Close[n]`` read, one
-                    warning is printed on stderr; values are unchanged.
+                    bar. ``"auto"`` uses lookback.infer_max_bars_back(el_source)
+                    (ValueError if it cannot be inferred). With too little
+                    history for a ``Close[n]`` read, one warning is printed on
+                    stderr; values are unchanged.
     max_entries_per_direction : None/0 (default): every Buy/SellShort adds
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is
@@ -467,7 +469,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     n_rows is still the emit count. n_warmup is the seeded-prefix length (0
     when the tape is sliced or no window is set).
     """
-    max_bars_back = check_max_bars_back(max_bars_back)
+    max_bars_back = check_max_bars_back(max_bars_back, el_source)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     fallback_reason = None
     if use_native:
@@ -780,6 +782,7 @@ def _main(ap, args):
                if args.columns else None)
 
     el_source = open(args.el_file, encoding="utf-8").read()
+    mbb_note = _cli.check_max_bars_back(args, el_source)
     bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
     config = _cli.config_or_error(args.config)
     out_path = _cli.output_path(args.output)
@@ -845,7 +848,7 @@ def _main(ap, args):
     from pl_transpiler.tools.pl_oracle import count_round_turns
     print(f"[pl_run] {len(bars)} bars{warmup_note}, {result['n_rows']} rows, "
           f"{len(result['trades'])} fills, {count_round_turns(result['trades'])} round-turns"
-          f" [{'native' if result.get('native') else 'python'}]"
+          f"{mbb_note} [{'native' if result.get('native') else 'python'}]"
           + (f" -> {out_path}" if out_path else ""), file=sys.stderr)
     return 0
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `--max-bars-back auto` on `pl_oracle` and `pl_run` (and `max_bars_back="auto"` in `run_oracle` / `run_el`) uses the strategy's lookback inferred from the source, shows the chosen value in the stderr status line (`max-bars-back 11 (auto)`) and stops with an error naming the construct and its line when the lookback cannot be inferred. Each windowed builtin counts the bars the runtime needs for a full window (`LinearRegValue(Close, 10, 5)` counts 15, `ADX(7)` 14). Without the flag, stdout, trade digests and traces are unchanged; only the stderr warm-up note's text changes: it now names the inferred number of past bars and suggests `--max-bars-back auto`, and is no longer printed for a program that only calls `File` or `NumToStr` (#163).
+
 ### Fixed
 
 - `crosses above` / `crosses below` work when MaxBarsBack skips bars. Under `--max-bars-back N` a price series also holds the skipped bars, while a variable's history starts on the first evaluated bar, so `Close crosses above AvgC` raised `IndexError` on the Python path (GT1 at `--max-bars-back 50`). The native kernel had the same misalignment. Both paths now compare the two histories right-aligned. The prior relation comes from the previous bar both operands hold, so when an operand is a variable the first evaluated bar never crosses. Behaviour change on both paths: a cross between a variable and a price series or function result (`AvgC crosses Close`, `Close crosses Average(Close, 4)`, `High crosses Highest(High, 5)[1]`) under MaxBarsBack above 0 compared the wrong bars before, even where both paths ran and agreed, and now gives a different, correct result. Crosses between two price series, two variables or two functions, and every run with MaxBarsBack 0, are unchanged (#161).

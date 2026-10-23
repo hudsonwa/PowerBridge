@@ -428,6 +428,53 @@ In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
 prints no note. The default is 0; pass your chart's value (the MultiCharts
 default is 50) to match MultiCharts.
 
+`--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`)
+uses the longest lookback PowerBridge finds in the strategy source, the same
+number the warm-up note reports. `X[k]` counts k bars plus whatever `X` reads,
+and a windowed builtin counts the bars the runtime needs before its window is
+full, taken by argument position: `StdDev(Close, 20, 1)` counts 20,
+`LinearRegValue(Close, 10, 5)` counts 15 (its target bar reads 5 bars
+further back), and `ADX(7)` counts 14 (its smoothing gives 0 and then 50
+until then). An index or length may be a number or an input's default, so
+`Close[Len]` and `Average(Close, Len)` with `Inputs: Len(10)` both count 10.
+An array element such as `Buf[Idx]` is not a past-bar read: it counts only
+what its index reads (`Buf[Close[3]]` counts 3) and what was stored in the
+array, and an assignment's target never counts.
+`Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
+stderr shows the value it chose (`max-bars-back 21 (auto)`).
+
+When the scan cannot bound the lookback, `auto` stops with an error that
+names the construct and its line, and asks for a number instead of guessing
+(a silent 0 would give the warm-up fills `auto` exists to avoid). It does so
+for a non-constant index such as `Close[Value2]`, a length that is an
+expression, `of N bars ago`, a call to your own function, a function
+PowerBridge does not run (such as `ParabolicSAR` or `Median`), and a variable
+that reads past bars and is then read back itself (`X = Close[3]; ... X[2]`,
+or `Average(X, 5)`). A variable's history starts on the first evaluated bar,
+so no MaxBarsBack fills those reads. A plain variable passed to a windowed
+builtin (`Mid = (High + Low) / 2; ... Average(Mid, 10)`) counts the window
+length, but the variable's own history still starts on the first evaluated
+bar, so that average is not full on the first bars. Builtins such as `File`,
+`NumToStr` and the string functions read no past bars and never stop `auto`.
+
+Without `--max-bars-back auto` nothing changes: stdout, trade digests and
+traces are the same as before. Only the stderr warm-up note reads
+differently: it names the number of past bars found and suggests
+`--max-bars-back auto`. It is also no longer printed for a program whose
+only "lookback" was a call such as `File` or `NumToStr`.
+
+`auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
+time, raising it and restarting the calculation when a study reads further back
+than it has; `auto` is a static estimate made before the run, and it can differ
+(it may count one bar more than the strict minimum, and a recursive average
+such as `XAverage` never stops changing with more history). To match a
+MultiCharts chart exactly, pass the MaxBarsBack shown in its strategy
+properties.
+
+The default stays 0 rather than `auto` so that a run means exactly what its
+flags say: every existing command, digest and test keeps its output, and a
+strategy whose lookback cannot be inferred still runs.
+
 ## What the engine assumes
 
 These hold whatever the config:

@@ -68,7 +68,7 @@ import hashlib
 import os
 import sys
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -352,7 +352,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                from_date: Optional[int] = None, to_date: Optional[int] = None,
                from_bar: Optional[int] = None, seed_warmup: bool = False,
                use_native: bool = False, digest_version: int = 2,
-               max_bars_back: int = 0,
+               max_bars_back: Union[int, str] = 0,
                max_entries_per_direction: Optional[int] = None,
                drawings: bool = False, drawing_case_id: Optional[str] = None,
                drawing_tape: Optional[dict[str, Any]] = None) -> dict[str, Any]:
@@ -394,6 +394,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back : skip the first N bars (after any window) as history only:
                     no evaluation, no orders, BarNumber starts at 1 on bar N+1
                     (MultiCharts MaxBarsBack). Default 0 evaluates every bar.
+                    ``"auto"`` uses lookback.infer_max_bars_back(el_source)
+                    (ValueError if it cannot be inferred).
     max_entries_per_direction : None/0 (default): every Buy/SellShort adds
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is
@@ -422,7 +424,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     ``closed_positions`` is ``None`` (the FFI returns fills, not the
     closed-position ledger — neither is in the digest text).
     """
-    max_bars_back = check_max_bars_back(max_bars_back)
+    max_bars_back = check_max_bars_back(max_bars_back, el_source)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
     drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
@@ -738,6 +740,7 @@ def _main(ap, args):
         ap.error("--drawing-case is required with --drawings-json")
 
     el_source = open(args.el_file, encoding="utf-8").read()
+    mbb_note = _cli.check_max_bars_back(args, el_source)
     bars = _cli.bars_or_error(load_bars, args.bars_csv, args.date_format)
     data2_bars = _cli.bars_or_error(load_bars, args.data2, args.date_format) if args.data2 else None
     data2_closes = ([float(b["close"]) for b in data2_bars]
@@ -797,7 +800,7 @@ def _main(ap, args):
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")
     print(f"[pl_oracle] {result['n_bars']} bars{warmup_note}, {result['fills']} fills, "
-          f"{result['round_turns']} round-turns [{path_note}]"
+          f"{result['round_turns']} round-turns{mbb_note} [{path_note}]"
           + (f" -> {output}" if output else ""), file=sys.stderr)
     if args.verbose and result.get("fast_path_hits") is not None:
         print(f"[pl_oracle] {result['fast_path_hits']} bars had no pending orders, "
