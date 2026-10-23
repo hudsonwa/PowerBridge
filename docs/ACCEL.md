@@ -180,7 +180,8 @@ it, so an order with `total` fills exactly like the same order without it.
 `Sell` / `BuyToCover ... from entry ("X")` also runs natively and closes its
 side as an untagged exit does. The label must be a string literal; a computed
 label is refused (`order from entry` in `--explain-native`). When the named
-exit would fill while more than one entry is open on its side, the Python
+exit would fill while more than one entry is open on its side and one of
+them has a different label, the Python
 engine stops (strict) or warns and closes the whole side (lenient, #24). The
 kernel refuses the run at that fill, so the caller falls back to Python and
 gets the same result (#125).

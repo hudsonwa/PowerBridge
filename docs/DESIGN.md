@@ -234,8 +234,8 @@ capture is labelled "documented behaviour, unverified" wherever it appears.
   warm-up is opt-in (`--max-bars-back`, default 0).
 - **Entries.** Same-direction entries add by default; `--max-entries-per-direction 1`
   matches MultiCharts' documented default (unverified). `Sell from entry("A")` with
-  two entries open closes the whole position; the documented EL meaning differs and
-  is tracked as unverified (#47) until a capture exists.
+  another named entry open stops the run; the documented EL meaning (close only
+  entry A) is unverified (#24) until a capture exists.
 - **Unimplemented builtins** stop the run rather than return a guess.
 - **Kernel coverage.** Arrays fall back to Python; `pl_run` trace rows use Python
   for windowed and `--partial` runs.
