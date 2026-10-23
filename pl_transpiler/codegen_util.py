@@ -14,6 +14,7 @@
 
 """Module-level helpers for the PowerLanguage code generator (re-exported by codegen)."""
 
+from .codegen_tables import _SERIES_PARAMS
 
 _PL_TARGETS_CACHE = None
 
@@ -163,3 +164,83 @@ def _f32_literal_const(node):
     else:
         raw = '-' + str(node['operand']['value'])
     return repr(f32(float(raw)))
+
+
+# ---------------------------------------------------------------------------
+# Reserved Python names. EL identifiers are emitted as Python names, so a user
+# variable called `max`, `str`, `f32` or `pl_average` would rebind a builtin or a
+# runtime helper the generated module relies on. Such names are mangled with
+# _MANGLE_PREFIX. Every name starting with `_` is reserved too (codegen's own
+# locals: `_state`, `_pb_slots`, `_stoch_result`, ...), which also makes the
+# mapping one-to-one: an unmangled name never starts with the prefix.
+_MANGLE_PREFIX = '_el_'
+# Ident names the parser itself produces for EL built-ins (bar data, and
+# MarketPosition as `_market_position`). Declaring one cannot be told apart
+# from the built-in in the AST, so these are never renamed.
+_AST_BUILTIN_IDENTS = frozenset(_SERIES_PARAMS) | {'_market_position'}
+_RESERVED_CACHE = None
+
+
+def reserved_python_names():
+    """Lowercase names a user identifier must not take in generated code."""
+    global _RESERVED_CACHE
+    if _RESERVED_CACHE is None:
+        import builtins
+        import keyword
+
+        from .runtime import pl_runtime as _rt
+        names = set(keyword.kwlist) | set(keyword.softkwlist)
+        names |= set(dir(builtins)) | set(dir(_rt))
+        # Soft keywords and builtins added after Python 3.9, so every supported
+        # interpreter renames the same names and emits the same Python.
+        names |= {'match', 'case', 'type', 'aiter', 'anext', 'EncodingWarning',
+                  'BaseExceptionGroup', 'ExceptionGroup',
+                  'PythonFinalizationError'}
+        names |= _runtime_bound_bare_names()
+        # Bound by generate()'s module prelude and the wrapper itself.
+        names |= {'math', 'f32', 'el_round0', 'el_round', 'pl_file',
+                  'pl_partial_stub', 'strategy'}
+        _RESERVED_CACHE = frozenset(n.lower() for n in names)
+    return _RESERVED_CACHE
+
+
+def mangle_name(name):
+    """The Python name codegen emits for EL identifier `name`."""
+    if name.startswith('_') or name in reserved_python_names():
+        return _MANGLE_PREFIX + name
+    return name
+
+
+def demangle_name(name):
+    """Inverse of mangle_name (used when reading generated Python back)."""
+    if name.startswith(_MANGLE_PREFIX):
+        return name[len(_MANGLE_PREFIX):]
+    return name
+
+
+def mangle_user_names(ast, declared):
+    """Return (ast, originals): `ast` with every declared name that collides with
+    a reserved Python name renamed (idents, declarations, for-loop vars), and a
+    {mangled: original} map. Returns `ast` itself when nothing collides."""
+    rename = {n: mangle_name(n) for n in declared
+              if n not in _AST_BUILTIN_IDENTS and mangle_name(n) != n}
+    if not rename:
+        return ast, {}
+
+    def walk(n):
+        if isinstance(n, list):
+            return [walk(x) for x in n]
+        if not isinstance(n, dict):
+            return n
+        out = {k: walk(v) for k, v in n.items()}
+        t = n.get('type')
+        if t == 'ident' and n.get('name') in rename:
+            out['name'] = rename[n['name']]
+        elif t == 'for' and n.get('var') in rename:
+            out['var'] = rename[n['var']]
+        elif t in ('var_decl', 'input_decl', 'array_decl'):
+            out['decls'] = [{**d, 'name': rename.get(d['name'], d['name'])}
+                            for d in out['decls']]
+        return out
+
+    return walk(ast), {v: k for k, v in rename.items()}

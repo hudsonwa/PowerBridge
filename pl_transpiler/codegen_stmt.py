@@ -109,31 +109,36 @@ class _StmtMixin:
                 # Persist/trace: Inputs were bound from `_state['__pb_inputs']`
                 # in the first-bar prologue. Trace still snapshots the value.
                 if self.trace and name in self._trace_vars:
-                    self.emit(f"_trace['{name}'] = {name}")
+                    self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
                 continue
             default_val = self.gen_expr(d['default'])
-            val = f"kwargs.get({name!r}, {default_val})"
+            val = f"kwargs.get({self._el_name(name)!r}, {default_val})"
             self.emit(f"{name} = {val}")
             if self.trace and name in self._trace_vars:
-                self.emit(f"_trace['{name}'] = {name}")
+                self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
+
+    def _gen_block(self, stmts):
+        """Emit an indented statement body, or `pass` when it produced no code.
+        A body can be non-empty yet emit nothing (e.g. only a redeclaration of a
+        top-level variable), and comment lines alone are not a Python block."""
+        start = len(self.lines)
+        for s in stmts:
+            self.gen_stmt(s)
+        if not any(not ln.lstrip().startswith('#') for ln in self.lines[start:]):
+            self.emit('pass')
 
     # ---- If Statement ----
     def gen_if(self, node):
         cond = self.gen_expr(node['cond'])
         self.emit(f"if {cond}:")
         self.indent += 1
-        if node['body']:
-            for s in node['body']:
-                self.gen_stmt(s)
-        else:
-            self.emit('pass')
+        self._gen_block(node['body'])
         self.indent -= 1
 
         if node.get('else_body'):
             self.emit('else:')
             self.indent += 1
-            for s in node['else_body']:
-                self.gen_stmt(s)
+            self._gen_block(node['else_body'])
             self.indent -= 1
 
     # ---- For Loop ----
@@ -147,11 +152,7 @@ class _StmtMixin:
         else:
             self.emit(f"for {var} in range(int({start}), int({end}) + 1):")
         self.indent += 1
-        if node['body']:
-            for s in node['body']:
-                self.gen_stmt(s)
-        else:
-            self.emit('pass')
+        self._gen_block(node['body'])
         self.indent -= 1
 
     # ---- While Loop ----
@@ -159,11 +160,7 @@ class _StmtMixin:
         cond = self.gen_expr(node['cond'])
         self.emit(f"while {cond}:")
         self.indent += 1
-        if node['body']:
-            for s in node['body']:
-                self.gen_stmt(s)
-        else:
-            self.emit('pass')
+        self._gen_block(node['body'])
         self.indent -= 1
 
     # ---- Repeat..Until ----
@@ -215,17 +212,12 @@ class _StmtMixin:
             keyword = 'if' if i == 0 else 'elif'
             self.emit(f"{keyword} {expr} == {val}:")
             self.indent += 1
-            if case['body']:
-                for s in case['body']:
-                    self.gen_stmt(s)
-            else:
-                self.emit('pass')
+            self._gen_block(case['body'])
             self.indent -= 1
         if node.get('default'):
             self.emit('else:')
             self.indent += 1
-            for s in node['default']:
-                self.gen_stmt(s)
+            self._gen_block(node['default'])
             self.indent -= 1
 
     # ---- Array Declaration ----
@@ -246,7 +238,7 @@ class _StmtMixin:
             else:
                 self.emit(f"{name} = {default}")
             if self.trace and name in self._trace_vars:
-                self.emit(f"_trace['{name}'] = {name}")
+                self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
     # ---- Commentary ----
     def gen_commentary(self, node):
@@ -342,7 +334,7 @@ class _StmtMixin:
         if self.trace and node['target']['type'] == 'ident':
             vname = node['target']['name']
             if vname in self._trace_vars:
-                self.emit(f"_trace['{vname}'] = {vname}")
+                self.emit(f"_trace[{self._el_name(vname)!r}] = {vname}")
 
     def _gen_stochastic_assign(self, target, call_node):
         """Generate multi-statement unpacking for Stochastic's (status, FastK, FastD, SlowK, SlowD) tuple."""
@@ -371,7 +363,7 @@ class _StmtMixin:
         else:
             self.emit(f"{target} = {result_var}[0]")
         if self.trace and target in self._trace_vars:
-            self.emit(f"_trace['{target}'] = {target}")
+            self.emit(f"_trace[{self._el_name(target)!r}] = {target}")
         # Output vars get elements [1]..[4]
         for i, name in enumerate(output_names):
             if name in self._numeric_vars:
@@ -380,7 +372,7 @@ class _StmtMixin:
             else:
                 self.emit(f"{name} = {result_var}[{i + 1}]")
             if self.trace and name in self._trace_vars:
-                self.emit(f"_trace['{name}'] = {name}")
+                self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
     # ---- Expression Statement ----
     def gen_expr_stmt(self, node):

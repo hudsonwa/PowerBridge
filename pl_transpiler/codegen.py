@@ -36,9 +36,10 @@ from .codegen_util import (  # noqa: F401
     _f32_literal_const,
     _is_numeric_literal_node,
     _runtime_bound_bare_names,
+    mangle_user_names,
 )
 from .errors import UnimplementedKeywordError  # noqa: F401
-from .semantic import add_scratch_decls
+from .semantic import _collect_declared, add_scratch_decls
 
 
 class CodeGen(_ExprMixin, _StmtMixin):
@@ -75,6 +76,11 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self._unimpl_errors = []  # collect-all: {'name','line'} for every unimplemented keyword
         self._partial = partial  # opt-in partial mode (unimplemented -> exec-time stubs)
         self._declared_all = set()  # EVERY var/input/array/for name at ANY depth (bare-keyword flagging)
+        self._el_names = {}  # mangled Python name -> original EL name (see mangle_user_names)
+
+    def _el_name(self, name):
+        """The user-visible EL name (trace column, input key) for Python `name`."""
+        return self._el_names.get(name, name)
 
     def emit(self, line):
         self.lines.append('    ' * self.indent + line)
@@ -243,7 +249,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self.persist and (self._stateful_vars or self._input_inits
                              or self._array_vars or self._cross_sites):
             self._slot_vars = [
-                n for n in sorted(self._stateful_vars)
+                n for n in sorted(self._stateful_vars, key=self._el_name)
                 if n not in self._history_vars
             ]
             # Runnable output keeps lookback lists in a SeriesState so the
@@ -257,7 +263,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 self.emit("_state = kwargs.setdefault('_state', {})")
             self.emit("if '__pb_seeded' not in _state:")
             self.indent += 1
-            for name in sorted(self._history_vars):
+            for name in sorted(self._history_vars, key=self._el_name):
                 if name not in self._stateful_vars:
                     continue
                 seed = self._persist_var_seed(name)
@@ -271,7 +277,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 parts = []
                 for iname, default_node in self._input_inits:
                     default_val = self.gen_expr(default_node)
-                    parts.append(f"kwargs.get({iname!r}, {default_val})")
+                    parts.append(f"kwargs.get({self._el_name(iname)!r}, {default_val})")
                 inner = ", ".join(parts)
                 if len(parts) == 1:
                     inner += ","
@@ -326,7 +332,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # traced name into `_trace` (skipped in the runnable no-trace dialect —
         # that saves ~111 stores/bar).
         if self.persist:
-            for name in sorted(self._history_vars):
+            for name in sorted(self._history_vars, key=self._el_name):
                 if name in self._stateful_vars:
                     self.emit(f"_state['{name}'].append({name})")
             if self._slot_vars:
@@ -335,11 +341,11 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     packed += ","
                 self.emit(f"_pb_slots[:] = ({packed})")
             # Save arrays directly (not appending — they are mutable lists mutated in place)
-            for name in sorted(self._array_vars):
+            for name in sorted(self._array_vars, key=self._el_name):
                 self.emit(f"_state['{name}'] = {name}")
         if self.trace:
-            for name in sorted(self._trace_vars):
-                self.emit(f"_trace['{name}'] = {name}")
+            for name in sorted(self._trace_vars, key=self._el_name):
+                self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
         # Collect-all fail-loud: if any unimplemented keyword was recorded during the
         # walk, discard the emitted text and raise ONE complete report (no Python is
@@ -796,4 +802,6 @@ def generate(ast, trace=False, partial=False, persist=None):
     stubs (pl_partial_stub) under a NOT-FAITHFUL watermark instead of raising at
     transpile time; the strict default (partial=False) raises."""
     cg = CodeGen(trace=trace, partial=partial, persist=persist)
-    return cg.gen_program(add_scratch_decls(ast))
+    ast = add_scratch_decls(ast)
+    ast, cg._el_names = mangle_user_names(ast, _collect_declared(ast))
+    return cg.gen_program(ast)
