@@ -11,6 +11,8 @@ there is enough new content to justify one.
 
 ### Added
 
+- `tools/dev_setup.sh` sets up a full development environment in the active virtual environment: it upgrades pip, installs `.[dev]` in editable mode, builds the native kernel when `cargo` is available (or says why it skipped it), and ends with the kernel status. CONTRIBUTING leads with it and lists what a default `pytest` run still skips after it; CI runs it in a fresh venv (#188).
+
 - CONTRIBUTING now upgrades pip before the editable install, so contributor setup works on Python 3.9's bundled pip, and CI runs that setup on Python 3.9 (#175).
 - `--version` on the command-line tools also says whether the native kernel is available and, if not, why, and `native_status()` gives the same check from Python (#173).
 

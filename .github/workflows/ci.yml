@@ -244,3 +244,10 @@ jobs:
         run: python -m pytest -q --timeout=60 tests/test_accel_*.py
       - name: Other tests that need the native kernel
         run: python -m pytest -q --timeout=60 -m needs_native
+      - name: tools/dev_setup.sh sets up a fresh venv with the kernel
+        if: matrix.python == '3.14'
+        run: |
+          python -m venv "$RUNNER_TEMP/dev-venv"
+          . "$RUNNER_TEMP/dev-venv/bin/activate"
+          tools/dev_setup.sh
+          python -c 'import pl_transpiler._accel as a; assert a.ping() == 42'
