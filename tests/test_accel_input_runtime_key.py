@@ -49,7 +49,7 @@ from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 BARS_CSV = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
-COMPILE_RS = os.path.join(REPO, "accel", "src", "strategy", "compile.rs")
+TRACE_TYPES_RS = os.path.join(REPO, "accel", "src", "strategy", "trace_types.rs")
 
 
 def _runtime_kwargs():
@@ -81,17 +81,19 @@ PARSED_AS_KEYWORD = {
     "expirationdate", "minmove", "pointvalue", "pricescale", "sess1starttime",
     "symbol", "symbolcurrencycode", "symbolname",
 }
-COLLIDING = [k for k in INPUT_KEYS if k not in PARSED_AS_KEYWORD]
+# OutPath is always "" in Python (its sandbox); the kernel reads "" too.
+COLLIDING = [k for k in INPUT_KEYS if k not in PARSED_AS_KEYWORD | {"outpath"}]
 
 
 def _kernel_keys():
-    src = open(COMPILE_RS, encoding="utf-8").read()
-    body = re.search(r"RUNTIME_KWARG_KEYS: &\[&str\] = &\[(.*?)\];", src, re.S)
+    src = open(TRACE_TYPES_RS, encoding="utf-8").read()
+    body = re.search(r"BAR_LOOP_KWARGS: \[&str; \d+\] = \[(.*?)\];", src, re.S)
     return sorted(re.findall(r'"([^"]+)"', body.group(1)))
 
 
 def test_kernel_list_matches_runtime_keys():
-    assert _kernel_keys() == RUNTIME_KEYS
+    # OutPath is the kernel's BLANKED_INPUT: it reads "" like Python.
+    assert _kernel_keys() == [k for k in RUNTIME_KEYS if k != "outpath"]
 
 
 def _program(key, form):
@@ -153,6 +155,23 @@ If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
     want = run_oracle(program, sample_bars, NQ)
     got = run_oracle(program, sample_bars, NQ, use_native=True)
     assert not got["native"]
+    assert got["sha256"] == want["sha256"]
+
+
+@native
+@pytest.mark.parametrize("form", FORMS)
+def test_outpath_input_reads_blank_natively(form, sample_bars):
+    read = "OutPath" + ("[1]" if form == "bracket" else "")
+    program = """
+Inputs: OutPath("x");
+If MarketPosition = 0 and %s = "" Then Buy 1 contracts next bar at market;
+If MarketPosition = 0 and %s <> "" Then SellShort 1 contracts next bar at market;
+If MarketPosition <> 0 and BarsSinceEntry >= 3 Then Begin Sell next bar at market; BuyToCover next bar at market; End;
+""" % (read, read)
+    assert explain_native(program) == []
+    want = run_oracle(program, sample_bars, NQ)
+    got = run_oracle(program, sample_bars, NQ, use_native=True)
+    assert got["native"]
     assert got["sha256"] == want["sha256"]
 
 

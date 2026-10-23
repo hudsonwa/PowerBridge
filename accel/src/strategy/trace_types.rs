@@ -196,8 +196,10 @@ pub(crate) fn infer(
 
 /// Keys of the Python bar loop's `kwargs` (`bar_loop.run_bar_loop`). The
 /// codegen binds an input as `kwargs.get(name, default)`, so an input with one
-/// of these names takes the engine's value instead of its default.
-const BAR_LOOP_KWARGS: [&str; 62] = [
+/// of these names takes the engine's value instead of its default. `OutPath`
+/// is [`BLANKED_INPUT`]. `tests/test_accel_input_runtime_key.py` checks this
+/// list against the keys a Python run really passes.
+pub(crate) const BAR_LOOP_KWARGS: [&str; 68] = [
     "_first_bar",
     "_state",
     "_closed_trades",
@@ -231,6 +233,11 @@ const BAR_LOOP_KWARGS: [&str; 62] = [
     "highd_0",
     "largestlostrade",
     "largestwintrade",
+    "lastcalcdatetime",
+    "lastcalcjdate",
+    "lastcalcmmtime",
+    "lastcalcmstime",
+    "lastcalcsstime",
     "lowd_0",
     "market_position",
     "maxconseclosers",
@@ -260,6 +267,7 @@ const BAR_LOOP_KWARGS: [&str; 62] = [
     "totalbarslostrades",
     "totalbarswintrades",
     "totaltrades",
+    "tradedate",
 ];
 
 /// Input name the Python bar loop always binds to `''` (its sandbox for

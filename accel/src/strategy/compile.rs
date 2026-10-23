@@ -819,96 +819,6 @@ pub(crate) fn trace_types(
     Ok(trace_types::infer(body, &vars, &inputs, &double_accum))
 }
 
-/// Keys the Python runtime passes in the strategy's kwargs on every bar
-/// (`call_kwargs` and the position/performance keys in `bar_loop.py`, plus
-/// the LastCalc* constants). Python codegen reads an input as
-/// `kwargs.get(name, default)`, so an input whose name is one of these reads
-/// the runtime value instead of its default. The kernel refuses such a read
-/// so the run falls back to Python. `tests/test_accel_input_runtime_key.py`
-/// checks this list against the keys the runtime really passes.
-pub(crate) const RUNTIME_KWARG_KEYS: &[&str] = &[
-    "_closed_trades",
-    "_first_bar",
-    "_state",
-    "avgbarseventrade",
-    "avgbarslostrade",
-    "avgbarswintrade",
-    "avgentryprice",
-    "barinterval",
-    "barnumber",
-    "bars_since_entry",
-    "bars_since_exit",
-    "bartype",
-    "bigpointvalue",
-    "category",
-    "closed_0",
-    "closed_1",
-    "current_contracts",
-    "current_date",
-    "current_time",
-    "currentbar",
-    "currentsession",
-    "datetime",
-    "description",
-    "entry_date",
-    "entry_price",
-    "entry_time",
-    "exit_price",
-    "expirationdate",
-    "gross_loss",
-    "gross_profit",
-    "highd_0",
-    "largestlostrade",
-    "largestwintrade",
-    "lastcalcdatetime",
-    "lastcalcjdate",
-    "lastcalcmmtime",
-    "lastcalcmstime",
-    "lastcalcsstime",
-    "lowd_0",
-    "market_position",
-    "maxconseclosers",
-    "maxconsecwinners",
-    "maxcontractsheld",
-    "maxiddrawdown",
-    "maxshares",
-    "minmove",
-    "net_profit",
-    "numeventrades",
-    "numlostrades",
-    "numwintrades",
-    "open_position_profit",
-    "opend_0",
-    "openentriescount",
-    "outpath",
-    "percentprofit",
-    "pointvalue",
-    "position_profit",
-    "pricescale",
-    "session_last_bar",
-    "sess1starttime",
-    "symbol",
-    "symbolcurrencycode",
-    "symbolname",
-    "time_s",
-    "totalbarseventrades",
-    "totalbarslostrades",
-    "totalbarswintrades",
-    "totaltrades",
-    "tradedate",
-];
-
-/// Refuse reading an input that collides with a runtime kwarg key.
-fn refuse_runtime_key_input(name: &str) -> Result<(), KernelError> {
-    if RUNTIME_KWARG_KEYS.contains(&name) {
-        return Err(KernelError::unsupported(format!(
-            "input '{name}' collides with the runtime keyword {name}; \
-             Python reads the runtime value, not the input"
-        )));
-    }
-    Ok(())
-}
-
 struct Compiler {
     instrs: Vec<Instr>,
     var_slots: HashMap<String, usize>,
@@ -1280,6 +1190,27 @@ impl Compiler {
                 "var {name} used outside the block that declares it"
             )));
         }
+        Ok(())
+    }
+
+    /// Read input `name`. Python codegen reads an input as
+    /// `kwargs.get(name, default)`, so an input named like a bar-loop kwarg
+    /// reads the runtime value, not the input: `OutPath` is always `""` (the
+    /// bar loop's sandbox) and any other such read is refused, so the run
+    /// falls back to Python.
+    fn push_input(&mut self, name: &str, slot: usize) -> Result<(), KernelError> {
+        if name == trace_types::BLANKED_INPUT {
+            self.uses_strings = true;
+            self.instrs.push(Instr::PushStr(String::new()));
+            return Ok(());
+        }
+        if trace_types::BAR_LOOP_KWARGS.contains(&name) {
+            return Err(KernelError::unsupported(format!(
+                "input '{name}' collides with the runtime keyword {name}; \
+                 Python reads the runtime value, not the input"
+            )));
+        }
+        self.instrs.push(Instr::PushInput(slot));
         Ok(())
     }
 
@@ -2100,9 +2031,7 @@ impl Compiler {
             return Ok(());
         }
         if let Some(slot) = self.input_slots.get(name).copied() {
-            refuse_runtime_key_input(name)?;
-            self.instrs.push(Instr::PushInput(slot));
-            return Ok(());
+            return self.push_input(name, slot);
         }
         // TickID and ExecOffset matches MultiCharts backtests: 0 on every
         // historical bar (checked against a MultiCharts capture).
@@ -2289,15 +2218,13 @@ impl Compiler {
             // This is also how an input named like a position keyword
             // (`Inputs: ExitTime(1555)`) shadows it in bracket form.
             if let Some(slot) = self.input_slots.get(name).copied() {
-                refuse_runtime_key_input(name)?;
                 let mark = self.instrs.len();
                 self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
                 // Dropping the index's instructions is safe: compiling it only
                 // records compiler bookkeeping (slots, history and string
                 // flags), never a side effect the run depends on.
                 self.instrs.truncate(mark);
-                self.instrs.push(Instr::PushInput(slot));
-                return Ok(());
+                return self.push_input(name, slot);
             }
         }
         self.compile_expr(node.get("index").unwrap_or(&Json::Null), false)?;
