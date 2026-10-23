@@ -4,6 +4,11 @@
 
 ### Added
 
+- The native kernel runs `Round(value, precision)` (half away from zero,
+  negative precision included, raising where the Python path raises),
+  `MinMove` and `PriceScale` (from the run's instrument config) and
+  `LastBarOnChart_s`, with the Python path's values, so these programs no
+  longer fall back (#122).
 - The native kernel runs `CurrentSession` (the bar date's weekday, as the
   Python bar loop computes it) and the session-template words `SessionCount`,
   `SessionCountMS`, `SessionEndDay` and `SessionEndDayMS`, so these programs
