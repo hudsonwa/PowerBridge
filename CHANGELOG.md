@@ -4,7 +4,8 @@
 
 ### Fixed
 
-- The native kernel runs `EntryName(n)` / `ExitName(n)` (always `""`, as in the Python runtime) and the bracket form of an input (`Len[1]`), so an input named like a position keyword (`Inputs: ExitTime(1555)`, then `ExitTime[1]`) no longer refuses with "bar_ref series" (#153).
+- The native kernel runs `EntryName(n)` / `ExitName(n)` (always `""`, as in the Python runtime) and the bracket form of an input (`Len[1]`), so an input named like a position keyword whose runtime key differs (`Inputs: ExitTime(1555)`, then `ExitTime[1]`) no longer refuses with "bar_ref series" (#153).
+- The native kernel refuses a program that reads an input whose name is a key the Python runtime passes on every bar (`Inputs: MaxShares(2)`, then `MaxShares` or `MaxShares[1]`). Python reads the runtime value for such an input, so the native run gave different trades; the run now falls back to Python and `--explain-native` names the collision (#153).
 
 ## 0.8.1 — 2026-10-23
 
