@@ -241,24 +241,69 @@ If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
     assert got["sha256"] == want["sha256"]
 
 
-# OutPath is always "" in Python, so `OutPath[1] > 2` raises TypeError there.
-# The kernel refuses the bracket form, so the native run falls back and raises
-# the same error instead of running with the input's value.
+# OutPath is always "" in Python (its sandbox), never the input's value (#155).
+# The kernel refuses every read outside a file path, bare or in bracket form,
+# so the native run falls back and fails or runs exactly as Python does.
+OUTPATH_NUMERIC = {
+    "compare": "If MarketPosition = 0 and {o} > 2 Then Buy 1 contracts next bar at market;",
+    "string_compare": 'If MarketPosition = 0 and {o} = "" Then Buy 1 contracts next bar at market;',
+    "arithmetic": "Value1 = {o} + 1;",
+    "condition": "If MarketPosition = 0 and {o} Then Buy 1 contracts next bar at market;",
+    "quantity": "If MarketPosition = 0 Then Buy {o} contracts next bar at market;",
+}
+
+
+def _oracle_outcome(program, bars, **kw):
+    try:
+        return run_oracle(program, bars, NQ, **kw)["sha256"]
+    except Exception as exc:  # noqa: BLE001 - parity of the exception itself
+        return (type(exc), str(exc))
+
+
 @native
-def test_outpath_bracket_input_is_refused(sample_bars):
-    program = """
-Inputs: OutPath(5);
-If MarketPosition = 0 and OutPath[1] > 2 Then Buy 1 contracts next bar at market;
+@pytest.mark.parametrize("form", FORMS)
+@pytest.mark.parametrize("default", ["5", '"x.csv"'])
+@pytest.mark.parametrize("use", sorted(OUTPATH_NUMERIC))
+def test_outpath_non_string_read_is_refused(use, default, form, sample_bars):
+    read = "OutPath" if form == "bare" else "OutPath[1]"
+    program = f"""
+Inputs: OutPath({default});
+{OUTPATH_NUMERIC[use].format(o=read)}
 If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
 """
     assert explain_native(program)
     with pytest.raises(AccelRefused):
         run_native(program, sample_bars, NQ)
+    want = _oracle_outcome(program, sample_bars)
+    assert _oracle_outcome(program, sample_bars, use_native=True) == want
+
+
+@native
+def test_outpath_numeric_compare_raises_like_python(sample_bars):
+    program = "Inputs: OutPath(5);\nIf OutPath > 2 then Buy next bar at market;\n"
     with pytest.raises(TypeError) as want:
         run_oracle(program, sample_bars, NQ)
     with pytest.raises(TypeError) as got:
         run_oracle(program, sample_bars, NQ, use_native=True)
     assert str(got.value) == str(want.value)
+
+
+# A string use of OutPath in a file sink is a no-op in both modes: still native.
+@native
+def test_outpath_file_path_stays_native(sample_bars):
+    program = """
+Inputs: OutPath("x.csv");
+Vars: Line("");
+Line = NumToStr(Close, 2) + ",";
+If MarketPosition = 0 and Close > Close[1] Then Buy 1 contracts next bar at market;
+If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
+Print(File(OutPath), Line);
+Value1 = FileAppend(OutPath + "_log.csv", Line + NumToStr(Close, 2));
+"""
+    assert explain_native(program) == []
+    got = run_oracle(program, sample_bars, NQ, use_native=True)
+    assert got["native"]
+    assert got["sha256"] == run_oracle(program, sample_bars, NQ)["sha256"]
 
 
 # Inputs named like a keyword whose kwarg key differs still run natively.
