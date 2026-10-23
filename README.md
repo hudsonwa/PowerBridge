@@ -15,41 +15,40 @@ reported, not approximated ([status and scope](docs/USAGE.md#status-and-scope),
 
 ## Install
 
-Python 3.9 or newer. Install the wheel attached to the
-[v0.8.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.8.0):
+Python 3.9 or newer. In a fresh virtual environment (on Windows activate with
+`.venv\Scripts\activate`), install the wheel attached to the
+[v0.8.1 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.8.1):
 
-<!-- readme-test: skip (installs over the network) -->
+<!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.8.0/powerbridge-0.8.0-py3-none-any.whl
+python3 -m venv .venv && . .venv/bin/activate
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.8.1/powerbridge-0.8.1-py3-none-any.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.8.0"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.8.1"
 ```
 
 The optional native fast path is a separate wheel per platform,
-`powerbridge_accel-0.8.0-cp39-abi3-<platform>.whl` on the same release page;
+`powerbridge_accel-0.8.1-cp39-abi3-<platform>.whl` on the same release page;
 see [the platform table](docs/ACCEL.md#install). PyPI publishing is coming in a
 later release.
 
 ## Quickstart
 
-From a fresh clone (on Windows activate with `.venv\Scripts\activate`):
+The `powerbridge` distribution (import name `pl_transpiler`) installs five
+commands: `pl_transpile`, `pl_run`, `pl_oracle`, `el_emit` and `pl_examples`.
+Write the bundled example strategy and synthetic bars into `./examples/`
+(it never overwrites; in a clone of this repository they are already there):
 
-<!-- readme-test: skip (clones, creates a venv and installs) -->
 ```bash
-git clone https://github.com/hudsonwa/PowerBridge && cd PowerBridge
-python3 -m venv .venv && . .venv/bin/activate
-python -m pip install -U pip && pip install .
+pl_examples
 ```
 
-That installs the `powerbridge` distribution (import name `pl_transpiler`) and
-four commands: `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`. Backtest
-the bundled example strategy on the bundled synthetic bars and print its trade
-digest:
+Backtest the example strategy on the synthetic bars and print its trade digest:
 
 ```bash
 pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21
