@@ -88,7 +88,7 @@ def test_parse_source_matches_parse():
 
 
 def test_parse_source_returns_private_copies():
-    source = open(EL).read()
+    source = "Vars: X(0);\n// note\nX = Close[1];\n"
     first = parser.parse_source(source)
     first["body"].clear()
     first["_comments"].clear()
@@ -128,3 +128,35 @@ def test_source_cache_is_bounded(counts):
     assert len(parser._source_cache) == parser._SOURCE_CACHE_SIZE
     parser.parse_source(sources[0])  # evicted: lexed and parsed again
     assert counts == {"tokenise": len(sources) + 1, "parse": len(sources) + 1}
+
+
+def _corpus():
+    import glob
+    paths = [os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")]
+    paths += sorted(glob.glob(os.path.join(REPO, "examples", "*.el")))
+    paths += sorted(glob.glob(os.path.join(REPO, "ground_truth", "drawing", "*", "source.el")))
+    return paths
+
+
+@pytest.mark.parametrize("path", _corpus(), ids=os.path.basename)
+def test_parse_source_matches_parse_on_corpus(path):
+    with open(path, encoding="utf-8") as f:
+        source = f.read()
+    tokens, positions = lexer.tokenise(source)
+    expected = parser.parse(tokens, positions=positions, source=source)
+    assert parser.parse_source(source) == expected
+    assert parser.parse_source(source) == expected  # cache hit
+    assert parser.tokenise_source(source) == (tokens, positions)
+
+
+@pytest.mark.parametrize("source", [
+    "Vars: x(0);\nx = Close @ 2;\n",                                # lexer error
+    "Vars: x(0);\nif Close > 0 then begin\n Buy next bar at market;\n",  # end of input
+])
+def test_errors_match_uncached_path(source):
+    with pytest.raises(PLSyntaxError) as want:
+        parser.parse(*lexer.tokenise(source), source=source)
+    for _ in range(2):
+        with pytest.raises(PLSyntaxError) as got:
+            parser.parse_source(source)
+        assert str(got.value) == str(want.value)
