@@ -1344,6 +1344,44 @@ fn align_hashmap(series: &BarTape, data2: &BarTape, index: &mut [u32]) {
     }
 }
 
+/// ISO weekday (1 = Monday .. 7 = Sunday) of an EL date (`YYYMMDD`, year
+/// counted from 1900), as `engine_dates._el_date_to_day_of_week` computes it.
+/// `None` where Python's `datetime.date` would raise.
+pub(crate) fn iso_weekday(el_date: i64) -> Option<u8> {
+    let y = 1900 + el_date.div_euclid(10_000);
+    let m = el_date.div_euclid(100).rem_euclid(100);
+    let d = el_date.rem_euclid(100);
+    if !(1..=9999).contains(&y) || !(1..=12).contains(&m) || d < 1 {
+        return None;
+    }
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days_in_month = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if d > days_in_month[(m - 1) as usize] {
+        return None;
+    }
+    // Days since 1970-01-01 (a Thursday), Howard Hinnant's days_from_civil.
+    let (yy, mm) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
+    let era = yy.div_euclid(400);
+    let yoe = yy - era * 400;
+    let doy = (153 * mm + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(((days + 3).rem_euclid(7) + 1) as u8)
+}
+
 #[cfg(test)]
 mod align_tests {
     use super::*;
@@ -1655,42 +1693,4 @@ mod align_tests {
             assert_parity(&format!("unsorted d1 seed {seed}"), &shuf1, &mono2, false);
         }
     }
-}
-
-/// ISO weekday (1 = Monday .. 7 = Sunday) of an EL date (`YYYMMDD`, year
-/// counted from 1900), as `engine_dates._el_date_to_day_of_week` computes it.
-/// `None` where Python's `datetime.date` would raise.
-pub(crate) fn iso_weekday(el_date: i64) -> Option<u8> {
-    let y = 1900 + el_date.div_euclid(10_000);
-    let m = el_date.div_euclid(100).rem_euclid(100);
-    let d = el_date.rem_euclid(100);
-    if !(1..=9999).contains(&y) || !(1..=12).contains(&m) || d < 1 {
-        return None;
-    }
-    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-    let days_in_month = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    if d > days_in_month[(m - 1) as usize] {
-        return None;
-    }
-    // Days since 1970-01-01 (a Thursday), Howard Hinnant's days_from_civil.
-    let (yy, mm) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
-    let era = yy.div_euclid(400);
-    let yoe = yy - era * 400;
-    let doy = (153 * mm + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    Some(((days + 3).rem_euclid(7) + 1) as u8)
 }
