@@ -78,6 +78,10 @@
   and `runtime/_rt_indicators.py` are split into smaller modules
   (`_engine_stops.py`, `_engine_report.py`, `_codegen_el_layout.py`,
   `runtime/_rt_trend.py`).
+- ruff also checks import sorting (`I`), pyupgrade (`UP`) and bugbear (`B`);
+  imports are sorted and typing uses the Python 3.9 builtin generics. Re-raised
+  errors in `py_to_ast`, `get_config` and `load_bars_csv` now chain their cause
+  (`raise ... from err`); the messages are unchanged.
 
 ### Fixed
 
