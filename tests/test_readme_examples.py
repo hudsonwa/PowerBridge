@@ -224,3 +224,17 @@ def test_no_dead_relative_links():
                         not os.path.exists(os.path.join(root, target)):
                     dead.append(f"{os.path.relpath(path, REPO)}: {m.group(1)}")
     assert not dead, "\n".join(dead)
+
+
+def test_readme_quickstart_prints_no_warmup_note(workdir):
+    """The canonical demo passes ma_cross's own lookback, so stderr stays clean."""
+    readme = os.path.join(REPO, "README.md")
+    cmds = [a for b in parse_readme(open(readme, encoding="utf-8").read())
+            if b["lang"] == "bash" and not b["skip"]
+            for a in shell_commands(b["body"])
+            if a[0] in ("pl_oracle", "pl_run") and "examples/ma_cross.el" in a]
+    assert len(cmds) >= 2
+    for argv in cmds:
+        rc, _, err = run(to_argv(argv), workdir)
+        assert rc == 0, err
+        assert not [l for l in err if l.startswith("note:") and "warm-up" in l], (argv, err)

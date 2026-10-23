@@ -21,8 +21,7 @@
   stops at the first refusal exactly as before (#110, #111).
 - A pytest run that skips tests now ends with a skip summary grouping the
   skips by reason with counts; CONTRIBUTING says which CI job runs each group.
-- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section; the README
-  quickstart shows `pl_oracle`'s warm-up `note:` as a real run prints it.
+- `docs/USAGE.md` has a "Warm-up and MaxBarsBack" section.
 - `docs/PYTHON_STRATEGIES.md` teaches the mirror dialect `el_emit` reads, from
   scratch, with a hand-written example (`examples/hand_written.py`) that is
   tested through `el_emit`, `pl_oracle` and an EL round trip.
@@ -50,6 +49,9 @@
 
 ### Changed
 
+- The README quickstart passes `--max-bars-back 21` (`ma_cross.el`'s own
+  lookback) to `pl_oracle` and `pl_run`, so the demo prints no warm-up
+  `note:`; a test keeps it that way. Defaults are unchanged.
 - Tests carry `needs_native`, `needs_captures` and `perf` markers. A plain
   pytest run deselects `needs_captures` (licensed MultiCharts data) and `perf`
   (`PB_PERF=1`); select them with `-m`. Kernel tests stay collected and show
