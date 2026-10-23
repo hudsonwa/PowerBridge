@@ -4,6 +4,7 @@
 
 ### Added
 
+- `pl_examples` writes the README quickstart's example strategy and synthetic bars into `./examples/` (never overwriting), so the quickstart runs after a wheel install without a clone; the files ship as package data (#147).
 - The native kernel runs `Floor`, `ELDateToDateTime` and the computer-clock words `CurrentTime_s`, `CurrentDate_s` and `ComputerDateTime`, reading the same clock as the Python runtime (#145).
 - A `[dev]` extra (`pip install -e '.[dev]'`) installs the test, lint and wheel-build tools (#140).
 - The native kernel runs `StrLen`, `FormatDate`, `NewLine`, `Text_SetColor` and the `FileAppend` / `FileDelete` no-op stubs, and refuses a string mixed with a number instead of converting it (#138).

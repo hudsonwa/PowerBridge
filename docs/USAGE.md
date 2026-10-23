@@ -54,7 +54,8 @@ pip install .
 ```
 
 That installs the `powerbridge` distribution (import name `pl_transpiler`) and
-four commands: `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`.
+five commands: `pl_transpile`, `pl_run`, `pl_oracle`, `el_emit` and
+`pl_examples` (writes the quickstart's example files into `./examples/`).
 
 **2. Transpile an example** to Python. The examples below write their files
 into `out/`, which git and ruff ignore:

@@ -37,21 +37,21 @@ later release.
 
 ## Quickstart
 
-From a fresh clone (on Windows activate with `.venv\Scripts\activate`):
+In a fresh venv (on Windows: `.venv\Scripts\activate`), install the wheel (or `pip install .` in a clone):
 
-<!-- readme-test: skip (clones, creates a venv and installs) -->
+<!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
-git clone https://github.com/hudsonwa/PowerBridge && cd PowerBridge
 python3 -m venv .venv && . .venv/bin/activate
-python -m pip install -U pip && pip install .
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.8.0/powerbridge-0.8.0-py3-none-any.whl
 ```
 
 That installs the `powerbridge` distribution (import name `pl_transpiler`) and
-four commands: `pl_transpile`, `pl_run`, `pl_oracle` and `el_emit`. Backtest
-the bundled example strategy on the bundled synthetic bars and print its trade
-digest:
+five commands: `pl_transpile`, `pl_run`, `pl_oracle`, `el_emit` and
+`pl_examples`, which writes the example strategy and synthetic bars into
+`./examples/` (never overwriting). Backtest them and print the trade digest:
 
 ```bash
+pl_examples
 pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21
 ```
 
