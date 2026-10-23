@@ -191,6 +191,11 @@ def reserved_python_names():
         from .runtime import pl_runtime as _rt
         names = set(keyword.kwlist) | set(keyword.softkwlist)
         names |= set(dir(builtins)) | set(dir(_rt))
+        # Soft keywords and builtins added after Python 3.9, so every supported
+        # interpreter renames the same names and emits the same Python.
+        names |= {'match', 'case', 'type', 'aiter', 'anext', 'EncodingWarning',
+                  'BaseExceptionGroup', 'ExceptionGroup',
+                  'PythonFinalizationError'}
         names |= _runtime_bound_bare_names()
         # Bound by generate()'s module prelude and the wrapper itself.
         names |= {'math', 'f32', 'el_round0', 'el_round', 'pl_file',
