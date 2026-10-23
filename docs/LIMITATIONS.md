@@ -70,13 +70,15 @@ trust a backtest from partial output.
   'allow multiple entries' setting). MultiCharts' default setting refuses
   them; that default is documented behaviour, not verified against a capture.
   Pass `--max-entries-per-direction 1` to get it.
-- `Sell` / `BuyToCover ... from entry("A")` that would fill while more than
-  one entry is open in that direction **stops** the run (both engines).
+- `Sell` / `BuyToCover ... from entry("A")` that would fill while an entry
+  with another name is open in that direction **stops** the run (both
+  engines): per-entry exits with several named entries open are not supported
+  yet. Drop `from entry` to close the whole position.
   EasyLanguage documents it as closing only entry A, but no MultiCharts capture
   confirms the fills ([#24](https://github.com/hudsonwa/PowerBridge/issues/24)).
   `PL_STRICT=0` / `--lenient` keeps the old behaviour (the whole position
   closes, on the Python engine) with a `WARNING` naming `from entry`. With one entry open,
-  a named exit fills as before.
+  or only entry A open (pyramided), a named exit fills as before.
 - Fail-loud assumes valid EasyLanguage. A residual gap: assigning to a
   read-only report keyword that is not in the bundled catalog can be treated as
   a local. Catalog-known names are still caught.
