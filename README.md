@@ -22,6 +22,7 @@ Python 3.9 or newer. In a fresh virtual environment (on Windows activate with
 <!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
+python -m pip install -U pip
 pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.9.0/powerbridge-0.9.0-py3-none-any.whl
 ```
 
@@ -153,6 +154,34 @@ command prints `error: unimplemented EL keyword '...' at line N` and exits
 with code 2. Check [limitations](docs/LIMITATIONS.md#unsupported-keywords) and
 the [keyword reference](docs/reference/README.md), rewrite that line with
 supported keywords, or open an issue naming the keyword.
+
+## How it works
+
+```text
+EL source ─► lexer ─► parser ─► semantic ─► codegen ─► Python strategy ─► runtime (bar loop + fills)
+                                    │                                                │
+                                    └─► ir.serialise_ir ─► native Rust kernel (accel/) ┴─► trade digest
+```
+
+Each stage is a module in `pl_transpiler/`; `runtime/` holds the bar loop and
+the fill engine, and `accel/` the optional Rust kernel. The kernel either
+reproduces the Python trade list exactly or hands the run back to Python with
+a visible note.
+
+**Verification.** `pl_oracle` prints a digest of the exact trade list. Digests
+on the shipped sample bars (for example the GT2 program in `ground_truth/`) are
+pinned in the tests, so anyone can rerun them on a fresh clone and check native
+against Python with no extra data. Parity with MultiCharts itself is checked against per-bar captures from
+MultiCharts, which are licensed and cannot ship in this repository; those
+tests skip here. See [docs/verification.md](docs/verification.md).
+
+**Speed.** On the GT2 sample strategy the native kernel runs about 5x faster
+than Python with identical fills (0.42 s vs 2.34 s on 100,000 synthetic bars,
+median of 3 runs with `tools/bench_native.py`, Apple M4); see
+[docs/ACCEL.md](docs/ACCEL.md#speed). Measure your own strategy before relying
+on a ratio.
+
+Start reading the code at [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Next steps
 
