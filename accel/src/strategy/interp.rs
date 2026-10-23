@@ -380,10 +380,10 @@ impl<'a> Interpreter<'a> {
                     let value = self.call(*op, *nargs)?;
                     self.stack.push(value);
                 }
-                Instr::Average(src) => {
+                Instr::Average { src, kind } => {
                     let length = self.stack.pop().unwrap().as_f64()?;
                     let view = self.series_view_for(*src)?;
-                    let value = pl_average(&view, length, narrow_f32)?;
+                    let value = pl_average(&view, length, *kind, narrow_f32)?;
                     self.stack.push(Value::Num(value));
                 }
                 Instr::Crosses { above, a, b } => {
@@ -627,9 +627,9 @@ impl<'a> Interpreter<'a> {
                     self.stack
                         .push(Value::Bool(eval_cmp_num(*cmp, *lhs, right)));
                 }
-                Instr::AverageConst { src, length } => {
+                Instr::AverageConst { src, length, kind } => {
                     let view = self.series_view_for(*src)?;
-                    let value = pl_average(&view, *length, narrow_f32)?;
+                    let value = pl_average(&view, *length, *kind, narrow_f32)?;
                     self.stack.push(Value::Num(value));
                 }
                 Instr::BarRefSeriesConst { series, index } => {

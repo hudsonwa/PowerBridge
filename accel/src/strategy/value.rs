@@ -14,6 +14,8 @@
 
 //! Runtime values for the IR interpreter.
 
+use super::arrays::{py_sum_by, python_sum};
+use super::compile::ElemKind;
 use crate::types::{Fill, KernelError};
 
 /// A flat runtime value: a bare `f64` scalar (and a one-byte boolean) in the
@@ -233,6 +235,7 @@ impl SeriesView<'_> {
 pub(crate) fn pl_average(
     series: &SeriesView,
     length: f64,
+    kind: ElemKind,
     narrow: fn(f64) -> f64,
 ) -> Result<f64, KernelError> {
     if series.len() == 0 || length <= 0.0 {
@@ -251,10 +254,16 @@ pub(crate) fn pl_average(
         )));
     }
     let length_n = length as usize;
-    let mut sum: f64 = 0.0;
-    for i in (series.len() - length_n)..series.len() {
-        sum += series.at(i);
-    }
+    let first = series.len() - length_n;
+    // Python: `sum(window)`, whose rounding depends on the interpreter.
+    let sum = py_sum_by(
+        length_n,
+        |i| Ok(series.at(first + i)),
+        |_| kind,
+        "Average",
+        "a series",
+        python_sum(),
+    )?;
     Ok(narrow(sum / length_n as f64))
 }
 

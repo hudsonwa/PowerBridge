@@ -457,7 +457,7 @@ pub(crate) fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
         | Instr::EmitOrderAll { .. } => (0, 0),
         Instr::Binop(_) | Instr::Compare(_) => (2, 1),
         Instr::Unary(_)
-        | Instr::Average(_)
+        | Instr::Average { .. }
         | Instr::BarRefSeries(_)
         | Instr::BarRefVar(_)
         | Instr::BarRefPositionKw(_)
@@ -593,7 +593,7 @@ fn live_slots(instrs: &[Instr]) -> HashSet<usize> {
             | Instr::VarCompareCLhs { slot: s, .. } => {
                 live.insert(*s);
             }
-            Instr::Average(src) | Instr::AverageConst { src, .. } => {
+            Instr::Average { src, .. } | Instr::AverageConst { src, .. } => {
                 mark_src(&mut live, *src);
             }
             Instr::Crosses { a, b, .. } => {
@@ -636,10 +636,11 @@ fn fuse(instrs: Vec<Instr>) -> Vec<Instr> {
     while i < out.len() {
         // PushNum, Average
         if i + 1 < out.len() && !crosses_target(&targets, i, i + 2) {
-            if let (Instr::PushNum(n), Instr::Average(src)) = (&out[i], &out[i + 1]) {
+            if let (Instr::PushNum(n), Instr::Average { src, kind }) = (&out[i], &out[i + 1]) {
                 out[i] = Instr::AverageConst {
                     src: *src,
                     length: *n,
+                    kind: *kind,
                 };
                 out[i + 1] = Instr::Nop;
                 i += 2;

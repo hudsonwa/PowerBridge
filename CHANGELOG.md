@@ -109,7 +109,11 @@
   `sum([1e16, 1, -1e16])` is `1.0` there but `0.0` on 3.12 and 3.13. The
   kernel used the 3.12 rule on 3.14, and the `sum_precision` parity test
   failed whenever the extension was built for 3.14. An int past the C long
-  range in that position is refused natively on 3.12 and 3.13 (#124).
+  range in that position is refused natively on 3.12 and 3.13. Native
+  `Average` now sums its window with the same rule (it added plainly, so an
+  `Average` over values of very different sizes differed from Python on 3.12+),
+  and an `Average` over a variable whose int/float type is not known natively
+  is refused on 3.12+ (#124).
 
 - `explain_native` / `pl_oracle --explain-native` no longer crashes the native
   kernel ("no entry found for key") on a `Vars:` declared inside a block; the

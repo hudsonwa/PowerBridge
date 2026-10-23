@@ -272,6 +272,47 @@ if S > 4 then Buy next bar at market else Sell next bar at market;
         assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ)["sha256"]
 
 
+# x cycles 1e16, 1, -1e16, 1, so every Average(x, 4) window sums to 2 when
+# compensated (3.12+) and to 0 or 1 when added plainly (#124). Warm-up
+# bars average to 0.
+AVERAGE_PRECISION = """
+Vars: n(0), x(0), A(0);
+n = n + 1;
+if Mod(n, 4) = 0 then x = 10000000000000000.0
+else if Mod(n, 4) = 2 then x = -10000000000000000.0
+else x = 1;
+A = Average(x, 4);
+if Mod(n, 2) = 0 then Buy ("A" + NumToStr(A, 2)) next bar at market
+else Sell next bar at market;
+"""
+
+
+def test_average_precision_follows_the_running_python(bars):
+    """Regression for #124: native Average sums its window like this Python's sum()."""
+    fills, sha = native_sha(AVERAGE_PRECISION, bars)
+    assert sha == run_oracle(AVERAGE_PRECISION, bars, NQ)["sha256"]
+    signals = {fill["signal"] for fill in fills if fill["signal"].startswith("A")}
+    if sys.version_info >= (3, 12):
+        assert signals == {"A0.00", "A0.50"}
+    else:
+        assert signals == {"A0.00", "A0.25"}
+
+
+def test_average_of_a_series_of_unknown_type_needs_python_before_312(bars):
+    """An accumulator seeded with an int turns float: 3.12+ refuses."""
+    source = """
+Vars: x(0), A(0);
+x = x + 0.5;
+A = Average(x, 3);
+if A > 4 then Buy next bar at market else Sell next bar at market;
+"""
+    if sys.version_info >= (3, 12):
+        with pytest.raises(AccelRefused, match="Average over a series"):
+            run_native(source, bars, NQ)
+    else:
+        assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ)["sha256"]
+
+
 def test_out_of_range_index_fails_both_paths(bars):
     source = fixture("arrays_oob.txt")
     with pytest.raises(AccelRefused, match="array index 6 out of range for buf"):

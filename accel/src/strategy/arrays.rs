@@ -62,7 +62,7 @@ pub(crate) fn set_python_sum(mode: PySum) {
     PY_SUM.store(mode as u8, Ordering::Relaxed);
 }
 
-fn python_sum() -> PySum {
+pub(crate) fn python_sum() -> PySum {
     match PY_SUM.load(Ordering::Relaxed) {
         0 => PySum::Plain,
         1 => PySum::CompensatedFloats,
@@ -171,13 +171,6 @@ fn num(value: &Value, what: &str) -> Result<f64, KernelError> {
 }
 
 /// Python `sum(items)` with its start value `0`.
-///
-/// Before 3.12 every element is added in order. From 3.12 (CPython
-/// `builtin_sum_impl`) leading ints are summed exactly, the first float is
-/// added plainly, and later floats use Neumaier compensation; the
-/// compensation is applied at the end when finite. Later ints are added
-/// plainly in 3.12 and 3.13 (or, past a C long, end the float fast path,
-/// which is refused here) and compensated like floats from 3.14.
 fn py_sum(
     items: &[Value],
     kinds: &[ElemKind],
@@ -185,37 +178,65 @@ fn py_sum(
     mode: PySum,
 ) -> Result<f64, KernelError> {
     let what = "Array_Sum";
+    py_sum_by(
+        items.len(),
+        |i| num(&items[i], what),
+        |i| kinds[i],
+        what,
+        name,
+        mode,
+    )
+}
+
+/// Python `sum()` with its start value `0` over `len` numbers, the `i`th
+/// read by `value_at` with the Python type `kind_at` (`name` is the summed
+/// thing, for errors).
+///
+/// Before 3.12 every element is added in order. From 3.12 (CPython
+/// `builtin_sum_impl`) leading ints are summed exactly, the first float is
+/// added plainly, and later floats use Neumaier compensation; the
+/// compensation is applied at the end when finite. Later ints are added
+/// plainly in 3.12 and 3.13 (or, past a C long, end the float fast path,
+/// which is refused here) and compensated like floats from 3.14.
+pub(crate) fn py_sum_by(
+    len: usize,
+    value_at: impl Fn(usize) -> Result<f64, KernelError>,
+    kind_at: impl Fn(usize) -> ElemKind,
+    what: &str,
+    name: &str,
+    mode: PySum,
+) -> Result<f64, KernelError> {
     if mode == PySum::Plain {
         let mut total = 0.0;
-        for item in items {
-            total += num(item, what)?;
+        for i in 0..len {
+            total += value_at(i)?;
         }
         return Ok(total);
     }
-    if kinds.contains(&ElemKind::Unknown) {
+    if (0..len).any(|i| !matches!(kind_at(i), ElemKind::Int | ElemKind::Float)) {
         return Err(KernelError::unsupported(format!(
-            "Array_Sum over {name}: an element's Python int/float type is not known \
+            "{what} over {name}: an element's Python int/float type is not known \
              natively, and Python 3.12+ sums floats with compensation"
         )));
     }
     let mut k = 0;
     let mut f = 0.0;
-    while k < items.len() && kinds[k] == ElemKind::Int {
-        f += num(&items[k], what)?;
+    while k < len && kind_at(k) == ElemKind::Int {
+        f += value_at(k)?;
         k += 1;
     }
-    if k == items.len() {
+    if k == len {
         return Ok(f);
     }
-    f += num(&items[k], what)?;
+    f += value_at(k)?;
     let mut c = 0.0f64;
-    for (item, kind) in items.iter().zip(kinds).skip(k + 1) {
-        let x = num(item, what)?;
-        if *kind == ElemKind::Int && mode == PySum::CompensatedFloats {
+    for i in k + 1..len {
+        let x = value_at(i)?;
+        if kind_at(i) == ElemKind::Int && mode == PySum::CompensatedFloats {
             // CPython 3.12/3.13 add an int that fits a C long plainly.
             if x.is_nan() || x.abs() >= 9_223_372_036_854_775_808.0 {
                 return Err(KernelError::unsupported(format!(
-                    "Array_Sum over {name}: an int past the C long range ends \
+                    "{what} over {name}: an int past the C long range ends \
                      Python's float fast path"
                 )));
             }
