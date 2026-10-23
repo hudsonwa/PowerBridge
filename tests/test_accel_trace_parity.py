@@ -219,3 +219,15 @@ def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, caps
     assert ("[pl_run] native path refused: synthetic refusal; "
             "using the pure-Python engine (slower)") in err
     assert "[python]" in err
+
+
+def test_run_el_native_result_matches_python(bars):
+    """run_el(use_native=True) returns the same trades, columns and rows as Python."""
+    el = open(os.path.join(REPO, "examples", "ma_cross.el"), encoding="utf-8").read()
+    config = get_config("NQ")
+    py = run_el(el, bars, config, max_bars_back=21)
+    nat = run_el(el, bars, config, max_bars_back=21, use_native=True)
+    assert nat["trades"] == py["trades"]
+    assert [list(t) for t in nat["trades"]] == [list(t) for t in py["trades"]]
+    assert nat["columns"] == py["columns"]
+    assert nat["rows"] == py["rows"]

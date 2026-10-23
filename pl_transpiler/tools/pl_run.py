@@ -689,7 +689,8 @@ def _run_el_native(el_source, bars, config, *, max_bars_back,
     return {
         'columns': columns,
         'rows': rows,
-        'trades': fills,
+        # Same shape as FillEngine.get_mc_trades(): order_no first, from 1.
+        'trades': [{'order_no': i + 1, **fill} for i, fill in enumerate(fills)],
         'n_rows': len(native_rows),
         'n_warmup': 0,
         'unimplemented': {},
