@@ -120,6 +120,13 @@ pub(crate) struct FillEngine {
     // engine; the `accel/engine` module fills it via
     // `SessionEngine::record_closed_trade` and it feeds `KernelOutcome`.
     closed_positions: Vec<ClosedPosition>,
+    // Open position's entry bar date/time and most contracts held (Python
+    // `entry_date` / `entry_time` / `_pos_max_contracts`), plus the closed
+    // positions the positions-ago keywords read (`closed_trades`).
+    entry_date: i64,
+    entry_time: i64,
+    pos_max_contracts: isize,
+    closed_trades: Vec<ClosedTrade>,
     // Fast-path instrumentation: flat, no-work bars whose before_bar
     // lifecycle was skipped. Mirrors the Python engine's `fast_path_hits`.
     fast_path_hits: usize,
@@ -154,6 +161,10 @@ impl FillEngine {
             risk: RiskSettings::default(),
             fills: Vec::new(),
             closed_positions: Vec::new(),
+            entry_date: 0,
+            entry_time: 0,
+            pos_max_contracts: 0,
+            closed_trades: Vec::new(),
             fast_path_hits: 0,
         }
     }
@@ -176,6 +187,36 @@ impl FillEngine {
             max_contracts_held: self.max_contracts_held,
             max_id_drawdown: self.max_id_drawdown,
         }
+    }
+
+    /// What the positions-ago keywords (`EntryDate(n)`, `ExitPrice(n)`, ...)
+    /// read this bar.
+    pub(crate) fn trade_history(&self) -> TradeHistory<'_> {
+        TradeHistory {
+            entry_date: self.entry_date,
+            entry_time: self.entry_time,
+            // Python `max_shares`: 0 when flat.
+            max_shares: if self.market_position != 0 {
+                self.pos_max_contracts
+            } else {
+                0
+            },
+            closed: &self.closed_trades,
+        }
+    }
+
+    /// Python `_record_closed_trade`, reduced to the fields the
+    /// positions-ago keywords read. Called before the flat reset.
+    fn record_closed_trade(&mut self, exit_price: f64, exit_date: i64, exit_time: i64) {
+        self.closed_trades.push(ClosedTrade {
+            entry_date: self.entry_date,
+            entry_time: self.entry_time,
+            entry_price: self.entry_price,
+            exit_date,
+            exit_time,
+            exit_price: narrow_f32(exit_price),
+            contracts: self.pos_max_contracts,
+        });
     }
 
     fn no_work_state(&self) -> bool {
@@ -256,6 +297,8 @@ impl FillEngine {
                 quantity,
                 queued.price,
                 queued.bar_number,
+                queued.date,
+                queued.time,
             )?;
             self.record_action_fills(
                 queued.order.action.is_buy_side(),
@@ -374,7 +417,7 @@ impl FillEngine {
         self.check_named_exit(&order)?;
         let quantity = self.resolve_fill_quantity(order.action, order.quantity)?;
         let previous = self.signed_position();
-        self.apply_action(order.action, quantity, fill_price, bar)?;
+        self.apply_action(order.action, quantity, fill_price, bar, date, time)?;
         self.record_action_fills(
             order.action.is_buy_side(),
             &order.signal,
@@ -476,35 +519,44 @@ impl FillEngine {
         quantity: isize,
         fill_price: f64,
         bar: usize,
+        date: i64,
+        time: i64,
     ) -> Result<(), KernelError> {
         match action {
             Action::Buy => {
                 if self.market_position < 0 {
-                    self.close_short(fill_price);
+                    self.close_short(fill_price, date, time);
                 }
-                self.open_or_add_long(quantity, fill_price, bar);
+                self.open_or_add_long(quantity, fill_price, bar, date, time);
             }
             Action::SellShort => {
                 if self.market_position > 0 {
-                    self.close_long_fifo(self.contracts, fill_price);
+                    self.close_long_fifo(self.contracts, fill_price, date, time);
                 }
-                self.open_or_add_short(quantity, fill_price, bar)?;
+                self.open_or_add_short(quantity, fill_price, bar, date, time)?;
             }
             Action::Sell => {
                 if self.market_position > 0 {
-                    self.close_long_fifo(quantity, fill_price);
+                    self.close_long_fifo(quantity, fill_price, date, time);
                 }
             }
             Action::BuyToCover => {
                 if self.market_position < 0 {
-                    self.close_short(fill_price);
+                    self.close_short(fill_price, date, time);
                 }
             }
         }
         Ok(())
     }
 
-    fn open_or_add_long(&mut self, quantity: isize, fill_price: f64, bar: usize) {
+    fn open_or_add_long(
+        &mut self,
+        quantity: isize,
+        fill_price: f64,
+        bar: usize,
+        date: i64,
+        time: i64,
+    ) {
         // Python `_open_or_add_long` rounding points:
         //   fill = f32(fill)
         //   old_value = f32(entry * contracts)
@@ -529,9 +581,12 @@ impl FillEngine {
             self.entry_bar = bar;
             self.position_profit = 0.0;
             self.reset_position_stats();
+            self.entry_date = date;
+            self.entry_time = time;
             self.entry_qtys.clear();
         }
         self.entry_qtys.push_back(quantity);
+        self.pos_max_contracts = self.pos_max_contracts.max(self.contracts);
         self.bars_since_entry = 0;
         self.peak_profit = 0.0;
         self.max_contracts_held = self.max_contracts_held.max(self.contracts);
@@ -542,6 +597,8 @@ impl FillEngine {
         quantity: isize,
         fill_price: f64,
         bar: usize,
+        date: i64,
+        time: i64,
     ) -> Result<(), KernelError> {
         // Same explicit f32 sites as Python `_open_or_add_short`, including its
         // `abs(contracts)` for the old size (short size is stored positive).
@@ -566,9 +623,12 @@ impl FillEngine {
         if old_contracts == 0 {
             self.entry_bar = bar;
             self.reset_position_stats();
+            self.entry_date = date;
+            self.entry_time = time;
             self.entry_qtys.clear();
         }
         self.entry_qtys.push_back(quantity);
+        self.pos_max_contracts = self.pos_max_contracts.max(self.contracts);
         self.bars_since_entry = 0;
         self.position_profit = 0.0;
         self.peak_profit = 0.0;
@@ -576,7 +636,7 @@ impl FillEngine {
         Ok(())
     }
 
-    fn close_long_fifo(&mut self, quantity: isize, fill_price: f64) {
+    fn close_long_fifo(&mut self, quantity: isize, fill_price: f64, date: i64, time: i64) {
         let closed = quantity.min(self.contracts);
         let pnl = (fill_price - self.entry_price) * self.instrument.point_value * closed as f64;
         self.record_realized_pnl(pnl);
@@ -591,16 +651,18 @@ impl FillEngine {
             self.entry_price = narrow_f32(total / self.entry_prices.len() as f64);
             self.avg_entry_price = self.entry_price;
         } else {
+            self.record_closed_trade(fill_price, date, time);
             self.reset_flat();
         }
     }
 
-    fn close_short(&mut self, fill_price: f64) {
+    fn close_short(&mut self, fill_price: f64, date: i64, time: i64) {
         // Python `_close_short` explicitly narrows the fill before PnL.
         let fill_price = narrow_f32(fill_price);
         let pnl =
             (self.entry_price - fill_price) * self.instrument.point_value * self.contracts as f64;
         self.record_realized_pnl(pnl);
+        self.record_closed_trade(fill_price, date, time);
         self.reset_flat();
     }
 
@@ -618,6 +680,7 @@ impl FillEngine {
     fn reset_position_stats(&mut self) {
         self.position_mfe_per_contract = 0.0;
         self.position_mae_per_contract = 0.0;
+        self.pos_max_contracts = 0;
     }
 
     fn reset_flat(&mut self) {
@@ -632,6 +695,8 @@ impl FillEngine {
         self.peak_profit = 0.0;
         self.entry_prices.clear();
         self.entry_qtys.clear();
+        self.entry_date = 0;
+        self.entry_time = 0;
     }
 
     fn compute_pnl(&mut self, close: f64) {
@@ -809,7 +874,7 @@ impl FillEngine {
             (level.moves_up && open >= level.price - epsilon)
                 || (!level.moves_up && open <= level.price + epsilon)
         }) {
-            self.close_at_stop(open, level.reason, date, time);
+            self.close_at_stop(open, level.reason, date, time, None);
             return;
         }
 
@@ -835,7 +900,7 @@ impl FillEngine {
             if !reachable.is_empty() {
                 let selected = select_extreme_index(&reachable, moving_up);
                 let level = &reachable[selected];
-                self.close_at_stop(level.price, level.reason, date, time);
+                self.close_at_stop(level.price, level.reason, date, time, None);
                 return;
             }
             if (end - favorable_price).abs() < epsilon {
@@ -849,7 +914,18 @@ impl FillEngine {
 
     /// Flatten at `price` (money-management exit or SetExitOnClose) and log
     /// the exit under `signal`, like Python `_close_at_stop`.
-    fn close_at_stop(&mut self, price: f64, signal: &str, date: i64, time: i64) {
+    ///
+    /// `ledger_exit` is the exit date/time Python stores in the closed-trade
+    /// ledger: the session close passes its bar, money-management stops pass
+    /// none (Python logs the fill at the bar but records exit date/time 0).
+    fn close_at_stop(
+        &mut self,
+        price: f64,
+        signal: &str,
+        date: i64,
+        time: i64,
+        ledger_exit: Option<(i64, i64)>,
+    ) {
         let previous = self.signed_position();
         let buy_side = previous < 0;
         let pnl = if self.market_position > 0 {
@@ -858,6 +934,8 @@ impl FillEngine {
             (self.entry_price - price) * self.instrument.point_value * self.contracts as f64
         };
         self.record_realized_pnl(pnl);
+        let (exit_date, exit_time) = ledger_exit.unwrap_or((0, 0));
+        self.record_closed_trade(price, exit_date, exit_time);
         self.reset_flat();
         self.record_action_fills(buy_side, signal, date, time, price, previous);
     }
@@ -1052,11 +1130,13 @@ where
                     "End of Day Exit",
                     previous_date.unwrap_or_default(),
                     previous_time,
+                    Some((previous_date.unwrap_or_default(), previous_time)),
                 );
             }
         }
 
         engine.before_bar(bar, bar_number)?;
+        strategy.observe_trade_history(engine.trade_history());
         let output = strategy
             .on_bar(bar, bar_number, engine.position())
             .map_err(|error| KernelError::strategy(format!("bar {bar_number}: {error}")))?;
@@ -1123,11 +1203,13 @@ where
                     "End of Day Exit",
                     previous_date.unwrap_or_default(),
                     previous_time,
+                    Some((previous_date.unwrap_or_default(), previous_time)),
                 );
             }
         }
 
         engine.before_bar(bar, bar_number)?;
+        strategy.observe_trade_history(engine.trade_history());
         let output = strategy
             .on_bar(bar, bar_number, engine.position())
             .map_err(|error| KernelError::strategy(format!("bar {bar_number}: {error}")))?;
@@ -1222,8 +1304,8 @@ mod tests {
         assert_eq!(narrow_f32(16_777_217.0), 16_777_216.0);
 
         let mut engine = FillEngine::new(Instrument::default());
-        engine.open_or_add_long(25, 13_436_425.0, 1);
-        engine.open_or_add_long(3, 84_743_376.0, 2);
+        engine.open_or_add_long(25, 13_436_425.0, 1, 0, 0);
+        engine.open_or_add_long(3, 84_743_376.0, 2, 0, 0);
 
         // Python's exact f32 call-site sequence yields 21076456. A naive f32
         // multiply/add/divide pipeline yields 21076454 instead.
@@ -1943,5 +2025,72 @@ mod tests {
         assert_eq!(result.fast_path_hits, 2);
         assert_eq!(result.fills.len(), 2);
         assert_eq!(result.position.market_position, 0);
+    }
+
+    #[test]
+    fn closed_trade_ledger_matches_python_record_closed_trade() {
+        let mut engine = FillEngine::new(Instrument::default());
+        // Long 2 then 1 more: one position, MaxShares 3, entry context of the
+        // first fill.
+        enter_long(&mut engine);
+        let signal = bar(101.0, 101.0, 101.0, 101.0, 1240102, 931);
+        queue(
+            &mut engine,
+            vec![Order::market(Action::Buy, 2.0, "L2")],
+            RiskUpdate::default(),
+            signal,
+            2,
+        );
+        engine
+            .before_bar(bar(102.0, 102.0, 102.0, 102.0, 1240102, 932), 3)
+            .unwrap();
+        let history = engine.trade_history();
+        assert_eq!(
+            (history.entry_date, history.entry_time, history.max_shares),
+            (1240102, 931, 3)
+        );
+        // A reversal closes it at the fill bar and opens a short.
+        queue(
+            &mut engine,
+            vec![Order::market(Action::SellShort, 1.0, "S")],
+            RiskUpdate::default(),
+            bar(102.0, 102.0, 102.0, 102.0, 1240102, 932),
+            3,
+        );
+        engine
+            .before_bar(bar(103.25, 103.25, 103.25, 103.25, 1240102, 933), 4)
+            .unwrap();
+        // A money-management stop closes the short: Python stores exit
+        // date/time 0 for it.
+        engine.risk.stop_loss = Some(10.0);
+        engine
+            .before_bar(bar(110.0, 110.0, 110.0, 110.0, 1240102, 934), 5)
+            .unwrap();
+        let history = engine.trade_history();
+        assert_eq!((history.entry_date, history.entry_time), (0, 0));
+        assert_eq!(history.max_shares, 0);
+        assert_eq!(
+            history.closed,
+            &[
+                ClosedTrade {
+                    entry_date: 1240102,
+                    entry_time: 931,
+                    entry_price: engine.closed_trades[0].entry_price,
+                    exit_date: 1240102,
+                    exit_time: 933,
+                    exit_price: 103.25,
+                    contracts: 3,
+                },
+                ClosedTrade {
+                    entry_date: 1240102,
+                    entry_time: 933,
+                    entry_price: 103.25,
+                    exit_date: 0,
+                    exit_time: 0,
+                    exit_price: 110.0,
+                    contracts: 1,
+                },
+            ]
+        );
     }
 }
