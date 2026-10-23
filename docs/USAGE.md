@@ -22,6 +22,24 @@ EasyLanguage direction, the library API, your own bar data and other
 instruments. Every `bash` and `python` block here is run by
 `tests/test_readme_examples.py`, from the repository root, after the README's.
 
+## Status and scope
+
+**Beta.** Trade lists match MultiCharts fill-for-fill on the 1-minute @NQ
+ground-truth suite and on 1-minute @ES (four configurations of a multi-entry
+strategy, 4,278 of 4,278 fills identical). The optional Rust kernel runs the
+same backtest about 5x faster with identical fills
+([measured](ACCEL.md#speed) with `tools/bench_native.py`).
+
+Two directions are supported. Take existing EL and run it bar by bar in
+Python. Or write a strategy in PowerBridge's small Python "mirror dialect"
+(not general Python) and emit EasyLanguage that passes name, argument-count and
+return-type checks for MultiCharts or TradeStation, then backtest that EL here.
+The import name is `pl_transpiler`. Everything is the Python standard library:
+no PyPI deps, no network.
+
+It would rather stop than guess. Unsupported keywords are reported in one pass
+(see [Limitations](LIMITATIONS.md)).
+
 ## Walkthrough
 
 Python 3.9 or newer, no other dependencies. Run these from the repository root.
@@ -48,6 +66,27 @@ pl_transpile examples/ma_cross.el -o out/ma_cross.py
 
 ```
 [pl_transpile] wrote out/ma_cross.py
+```
+
+`examples/ma_cross.el`, the strategy used throughout:
+
+```
+Inputs: FastLen(9), SlowLen(21);
+Vars: Fast(0), Slow(0);
+Fast = Average(Close, FastLen);
+Slow = Average(Close, SlowLen);
+If Fast crosses above Slow Then Buy ("LE") Next Bar At Market;
+If Fast crosses below Slow Then Sell ("LX") Next Bar At Market;
+```
+
+The generated Python is plain code (excerpt):
+
+<!-- readme-test: skip (excerpt of generated code) -->
+```python
+fast = f32(pl_average(close, fastlen))
+slow = f32(pl_average(close, slowlen))
+if pl_crosses_above((_state['fast'] + [fast]), (_state['slow'] + [slow])):
+    _orders.append(('buy', 'market', 0, 'next', 'LE'))
 ```
 
 `out/ma_cross.py` is runnable: it defines `strategy(open, high, low, close, volume,
@@ -153,6 +192,33 @@ What you can verify yourself, digest gating and captures are in
 [verification.md](verification.md).
 
 ## Python (mirror dialect) to EasyLanguage
+
+The round trip on the example: transpile to the mirror dialect, then emit
+checked EasyLanguage:
+
+```bash
+mkdir -p out
+pl_transpile examples/ma_cross.el --no-persist -o out/ma_mirror.py
+```
+
+```
+[pl_transpile] wrote out/ma_mirror.py
+```
+
+```bash
+el_emit out/ma_mirror.py -o out/ma_cross_back.el
+```
+
+```
+out/ma_cross_back.el: 3 builtins used | 3 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD
+OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
+NOTE: argument types are checked only where the catalog declares a verified numeric parameter and the argument is a literal or a string/true-false variable; compiling in the MultiCharts editor is the final check.
+```
+
+`el_emit` exits non-zero if any builtin is not known to compile in
+MultiCharts. To write a strategy by hand instead of transpiling one, see
+[Writing a strategy in Python](PYTHON_STRATEGIES.md). The same works for a
+larger strategy, from the library API:
 
 ```python
 import os
@@ -349,6 +415,11 @@ instead. Pass `--max-bars-back 50` (or your chart's value) to `pl_oracle` /
 reads past bars (or the `lookback past available history` warning instead,
 when that applies); `-q` hides only the note. The note never changes the
 output on stdout.
+
+In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
+(a 21-bar average, compared with its previous value by `crosses`), so the demo
+prints no note. The default is 0; pass your chart's value (the MultiCharts
+default is 50) to match MultiCharts.
 
 ## What the engine assumes
 
