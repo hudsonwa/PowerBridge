@@ -17,7 +17,7 @@
 Every ```bash / ```python block in README.md, then docs/USAGE.md, runs, in order, in one scratch
 directory that holds copies of examples/ and ground_truth/ (so the README's
 "run from the repository root" paths resolve). Console commands
-(pl_transpile, pl_run, pl_oracle, el_emit) run as `python -m` modules so the
+(pl_transpile, pl_run, pl_oracle, el_emit, pl_examples) run as `python -m` modules so the
 test does not need an installed distribution.
 
 Markers (HTML comments, invisible on GitHub), on the line(s) before a block:
@@ -54,6 +54,7 @@ COMMANDS = {
     "pl_run": "pl_transpiler.tools.pl_run",
     "pl_oracle": "pl_transpiler.tools.pl_oracle",
     "el_emit": "pl_transpiler.tools.el_emit",
+    "pl_examples": "pl_transpiler.tools.pl_examples",
 }
 MARKER = re.compile(r"<!--\s*readme-test:\s*(skip|file|write)\b\s*(.*?)\s*-->")
 FENCE = re.compile(r"^```(\w*)\s*$")

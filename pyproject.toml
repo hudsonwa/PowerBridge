@@ -66,15 +66,23 @@ el_emit = "pl_transpiler.tools.el_emit:main"
 pl_run = "pl_transpiler.tools.pl_run:main"
 pl_transpile = "pl_transpiler.tools.pl_transpile:main"
 pl_oracle = "pl_transpiler.tools.pl_oracle:main"
+pl_examples = "pl_transpiler.tools.pl_examples:main"
 
-[tool.setuptools.packages.find]
-# Only the library package (and its subpackages, e.g. pl_transpiler.runtime and
-# pl_transpiler.tools) ships in the wheel; tests/ and scripts/ are NOT packaged.
-include = ["pl_transpiler*"]
+[tool.setuptools]
+# Only the library package and its subpackages ship in the wheel; tests/ and
+# scripts/ are NOT packaged. pl_transpiler._examples is a data-only package
+# built straight from the repo's examples/ folder (the single source of truth),
+# so `pl_examples` can write the README quickstart files after a wheel install.
+packages = ["pl_transpiler", "pl_transpiler.runtime", "pl_transpiler.tools", "pl_transpiler._examples"]
+
+[tool.setuptools.package-dir]
+"pl_transpiler._examples" = "examples"
 
 [tool.setuptools.package-data]
 # py.typed marks the package as typed (PEP 561).
 "pl_transpiler" = ["py.typed"]
+# Exactly the two README quickstart files; nothing else from examples/ ships.
+"pl_transpiler._examples" = ["ma_cross.el", "NQ_sample_bars.csv"]
 # The keyword catalog, verified-builtins list and proven-token data load __file__-relative
 # from the tools subpackage, so they must ride along inside the wheel.
 "pl_transpiler.tools" = ["pl_signatures.jsonl", "pl_signatures.schema.json", "mc_verified_builtins.txt", "mc_proven.json"]
