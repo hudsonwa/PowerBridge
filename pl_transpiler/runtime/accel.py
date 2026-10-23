@@ -115,8 +115,7 @@ import json
 from collections import OrderedDict, namedtuple
 
 from pl_transpiler.ir import serialise_ir
-from pl_transpiler.lexer import tokenise
-from pl_transpiler.parser import parse
+from pl_transpiler.parser import parse_source
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
 
 # The FFI config requires a session `end` and the v2-required commission /
@@ -404,8 +403,7 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
         raise AccelRefused(
             "this accel build predates max_entries_per_direction; rebuild accel "
             "(tools/build_accel.sh) to run it natively")
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     series, data2 = marshalled_series(bars, data2_bars)
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
@@ -450,8 +448,7 @@ def explain_native(el_source):
         raise AccelUnavailable(
             "this accel build predates explain_native; rebuild accel "
             "(tools/build_accel.sh)")
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     try:
         refusals = accel.explain_program(serialise_ir(ast))
     except BaseException as exc:
@@ -493,8 +490,7 @@ def run_native_drawings(el_source, bars, config, *, data2_bars=None,
         raise AccelRefused(
             "this accel build predates max_entries_per_direction; rebuild accel "
             "(tools/build_accel.sh) to run it natively")
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     series, data2 = marshalled_series(bars, data2_bars)
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
@@ -554,8 +550,7 @@ def _serialise_and_marshal(el_source, bars, data2_bars):
     """The three FFI pre-amble steps shared by every native entry point:
     EL -> program_ir, bars -> cached series dicts, config -> FFI mapping."""
     accel = _import_accel()
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     series, data2 = marshalled_series(bars, data2_bars)
     return accel, program_ir, series, data2
@@ -632,8 +627,7 @@ def audit_skip_eval_from(el_source, dates, inputs=None):
     FFI. ``dates`` is the full Data1 EL-date column (int sequence).
     """
     accel = _import_accel()
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     try:
         return accel.audit_skip_eval_from(program_ir, dates, inputs or {})
@@ -730,8 +724,7 @@ def run_native_audit_packet_sweep(el_source, bars, config, variants, *, data2_ba
     ``(packets, eval_from, source_bar_count, skip_reason)``.
     """
     accel = _import_accel()
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     config_map = _config_dict(config)
 

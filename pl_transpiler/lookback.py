@@ -18,8 +18,7 @@ import sys
 
 from pl_transpiler import catalog
 from pl_transpiler.codegen_tables import BUILTIN_FUNC_MAP
-from pl_transpiler.lexer import tokenise
-from pl_transpiler.parser import parse
+from pl_transpiler.parser import parse_source, tokenise_source
 
 # Price series whose short-history reads fall back to the current bar's Open
 # (codegen_expr._gen_bar_ref; the native interpreter's history_or_open).
@@ -434,10 +433,10 @@ def _scan(el_source):
     """The one lookback scan behind the warm-up note and ``auto``: the
     longest lookback (an int, 0 if none) or the LookbackUnknown raised when
     it cannot be bounded."""
-    tokens, positions = tokenise(el_source)
+    tokens, _ = tokenise_source(el_source)
     if _bars_ago(tokens):
         return LookbackUnknown("it uses 'of N bars ago'")
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     try:
         scan = _Scan(ast, el_source)
         return scan.need(ast)
@@ -471,8 +470,7 @@ def infer_max_bars_back(el_source):
 def short_history_bar(el_source, max_bars_back):
     """BarNumber of the first evaluated bar whose price lookback runs past the
     available history (and silently reads Open), or None if none does."""
-    tokens, positions = tokenise(el_source)
-    ast = parse(tokens, positions=positions, source=el_source)
+    ast = parse_source(el_source)
     if max_price_lookback(ast) > max_bars_back:
         return 1
     return None
