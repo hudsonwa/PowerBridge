@@ -144,6 +144,7 @@ class NamedExitUnverifiedError(UnimplementedBuiltinError):
 
     def __init__(self, verb, entry):
         self.builtin = 'from entry'
+        self.verb = verb
         self.entry = entry
         NotImplementedError.__init__(
             self,
