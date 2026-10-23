@@ -61,7 +61,7 @@ Each stage is its own module in `pl_transpiler/`:
 | Validation | `semantic.py` | Post-parse checks, such as writes to read-only report words. |
 | Python codegen | `codegen.py`, `codegen_expr.py`, `codegen_stmt.py`, `codegen_util.py`, `codegen_tables.py` | Emits Python that calls `pl_transpiler.runtime`. |
 | IR | `ir.py` | `serialise_ir` checks the AST against a schema and encodes it deterministically for the kernel. |
-| Reverse | `py_front.py`, `_py_front_common.py`, `_py_front_expr.py`, `codegen_el.py`, `reverse.py` | Mirror-dialect Python → AST → EL (`el_emit`). |
+| Reverse | `py_front.py`, `_py_front_common.py`, `_py_front_expr.py`, `codegen_el.py`, `_codegen_el_layout.py`, `reverse.py` | Mirror-dialect Python → AST → EL (`el_emit`). |
 
 The AST is a plain dict on purpose. It is easy to diff, to serialise for the
 Rust kernel, and to round-trip.

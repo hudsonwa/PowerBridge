@@ -53,9 +53,9 @@ mirror Python -> py_front -> AST -> codegen_el -> EL (checked by mc_ground_check
 | Parser | `parser.py`, `_parser_stmts.py`, `_parser_expr.py`, `parser_tables.py` | Produces a plain-dict AST. Unknown keywords are collected across the whole file and reported together. |
 | Checks | `semantic.py` | Post-parse rules, such as writes to read-only report words. |
 | Codegen | `codegen.py`, `codegen_expr.py`, `codegen_stmt.py`, `codegen_tables.py` | Emits Python that calls `pl_transpiler.runtime`. |
-| Runtime | `pl_transpiler/runtime/` | Builtins, float32 narrowing (`_rt_core.f32`), history, indicators, bar tape. |
-| Engine | `bar_loop.py`, `engine.py` | Drives the strategy one bar at a time; `FillEngine` owns position, orders and P&L. |
-| Reverse | `py_front.py`, `_py_front_common.py`, `_py_front_expr.py`, `codegen_el.py`, `reverse.py` | Mirror-dialect Python to AST to EL. |
+| Runtime | `pl_transpiler/runtime/` | Builtins, float32 narrowing (`_rt_core.f32`), history, indicators (`_rt_indicators.py`, `_rt_trend.py`), bar tape. |
+| Engine | `bar_loop.py`, `engine.py`, `_engine_stops.py`, `_engine_report.py` | Drives the strategy one bar at a time; `FillEngine` owns position, orders and P&L. |
+| Reverse | `py_front.py`, `_py_front_common.py`, `_py_front_expr.py`, `codegen_el.py`, `_codegen_el_layout.py`, `reverse.py` | Mirror-dialect Python to AST to EL. |
 | Kernel | `accel/`, `ir.py`, `runtime/accel.py` | Optional Rust reimplementation of the loop and engine. |
 | Oracle | `pl_transpiler/tools/pl_oracle.py` | Runs a strategy and prints a SHA-256 over the canonical fill list. |
 
