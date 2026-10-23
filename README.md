@@ -62,6 +62,21 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
+To see the trades themselves, add `--fills-csv FILE`; it writes one row per fill:
+
+```bash
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --fills-csv fills.csv
+```
+
+`fills.csv`:
+
+```
+order_no,trade_type,side,signal,date,time,price,contracts,position_after
+1,EntryLong,buy,LE,1240102,1030,14961.08,1,1
+2,ExitLong,sell,LX,1240102,1105,15028.27,1,0
+3,EntryLong,buy,LE,1240102,1141,14972.51,1,1
+```
+
 The digest goes to stdout. A status line goes to stderr, so it shows in your
 terminal but not in a redirected file:
 `[pl_oracle] 140 bars, 3 fills, 1 round-turns [python]` (`[native]` when the
