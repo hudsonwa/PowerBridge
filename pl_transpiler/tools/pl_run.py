@@ -75,13 +75,20 @@ from pl_transpiler.engine import (
     run_bar_loop,
 )
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
+from pl_transpiler.lexer import tokenise
 from pl_transpiler.lookback import (
     check_max_bars_back,
     check_max_entries_per_direction,
     note_warmup,
     warn_short_history,
 )
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.parser import parse
+from pl_transpiler.runtime._rt_core import (
+    MissingBarColumnError,
+    NamedExitUnverifiedError,
+    UnimplementedBuiltinError,
+    set_strict_mode,
+)
 from pl_transpiler.runtime.accel import warn_python_path
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
@@ -94,18 +101,72 @@ Bars = Union[Sequence[Mapping[str, Any]], "BarTape"]
 _log = logging.getLogger(__name__)
 
 
+def _stop_matches(node, exc):
+    """True when AST ``node`` is the code that raised the strict-mode stop ``exc``."""
+    if isinstance(exc, NamedExitUnverifiedError):
+        entry = node.get('entry_label')
+        return (node.get('type') == 'order'
+                and node.get('action') == exc.verb.lower()
+                and isinstance(entry, dict) and entry.get('value') == exc.entry)
+    if isinstance(exc, MissingBarColumnError):
+        return node.get('type') == 'position_kw' and node.get('kwarg') == exc.column
+    name = node.get('name')
+    return (node.get('type') in ('call', 'ident') and isinstance(name, str)
+            and name.lower() == exc.builtin.lower())
+
+
+def _stop_line(source, exc):
+    """EL line of the first statement whose code raised ``exc``, or None.
+
+    Walks the parsed program, so comments, strings and other statements that
+    merely mention the word are skipped."""
+    try:
+        tokens, positions = tokenise(source)
+        ast = parse(tokens, positions=positions, source=source)
+    except Exception:  # noqa: BLE001 - fall back to the text search
+        return None
+
+    def walk(node, line):
+        if isinstance(node, list):
+            for item in node:
+                found = walk(item, line)
+                if found:
+                    return found
+            return None
+        if not isinstance(node, dict):
+            return None
+        line = node.get('_line') or line
+        if _stop_matches(node, exc):
+            return line
+        for key, value in node.items():
+            if key != '_comments' and isinstance(value, (dict, list)):
+                found = walk(value, line)
+                if found:
+                    return found
+        return None
+
+    return walk(ast, None)
+
+
 def unimplemented_stop_message(prog, exc, el_file):
     """One-line error for an unimplemented builtin that stopped a strict run,
-    naming the first source line that mentions it when one does."""
+    naming the source line of the statement that raised it (or, failing that,
+    the first source line that mentions it)."""
     where = ""
     try:
         with open(el_file, encoding="utf-8") as f:
-            for n, line in enumerate(f, 1):
-                if re.search(r"\b%s\b" % re.escape(exc.builtin), line, re.IGNORECASE):
-                    where = " (%s line %d)" % (os.path.basename(el_file), n)
-                    break
+            source = f.read()
     except OSError:
-        pass
+        source = None
+    if source is not None:
+        n = _stop_line(source, exc)
+        if n is None:
+            for i, line in enumerate(source.splitlines(), 1):
+                if re.search(r"\b%s\b" % re.escape(exc.builtin), line, re.IGNORECASE):
+                    n = i
+                    break
+        if n is not None:
+            where = " (%s line %d)" % (os.path.basename(el_file), n)
     return "%s: error%s: %s" % (prog, where, exc)
 
 
