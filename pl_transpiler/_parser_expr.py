@@ -16,12 +16,24 @@
 """Expression-level recursive-descent methods of `parser.Parser` (a mixin)."""
 
 from .lexer import (
-    TT_KEYWORD, TT_IDENT, TT_NUMBER, TT_STRING, TT_OP,
-    TT_LBRACKET, TT_RBRACKET, TT_LPAREN, TT_RPAREN, TT_COMMA,
+    TT_COMMA,
+    TT_IDENT,
+    TT_KEYWORD,
+    TT_LBRACKET,
+    TT_LPAREN,
+    TT_NUMBER,
+    TT_OP,
+    TT_RBRACKET,
+    TT_RPAREN,
+    TT_STRING,
 )
 from .parser_tables import (
-    BUILTIN_FUNC_MAP, COLOR_CONSTANTS, PERIOD_FUNCS, STYLE_CONSTANTS,
-    _PRICE_ABBREVIATIONS, _SYMBOL_INFO_KEYWORDS,
+    _PRICE_ABBREVIATIONS,
+    _SYMBOL_INFO_KEYWORDS,
+    BUILTIN_FUNC_MAP,
+    COLOR_CONSTANTS,
+    PERIOD_FUNCS,
+    STYLE_CONSTANTS,
 )
 
 

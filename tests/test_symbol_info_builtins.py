@@ -28,10 +28,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler.runtime import pl_runtime                             # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config           # noqa: E402
-from pl_transpiler.tools.pl_oracle import run_oracle                     # noqa: E402
-from pl_transpiler.tools.pl_run import run_el                            # noqa: E402
+from pl_transpiler.runtime import pl_runtime  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
+from pl_transpiler.tools.pl_run import run_el  # noqa: E402
 
 NQ = get_config("NQ")
 ES = get_config("ES")

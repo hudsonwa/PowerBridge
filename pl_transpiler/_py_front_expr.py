@@ -18,12 +18,24 @@ to AST expression dicts (see `py_front`)."""
 
 import ast
 
-from pl_transpiler.codegen_el import _INV_POSKW, _INV_MCKW
 from pl_transpiler._py_front_common import (
-    PyFrontError, _DIALECT_HINT, _ln, _PL_TO_EL, _HLC_INJECTED, _PERIOD_NAMES,
-    _BARE_COMPUTED_UNPARSE, _is_name, _is_call, _kwargs_get, _neg_one, _open_current,
-    _neg_one_index, _num, _const_to_num,
+    _BARE_COMPUTED_UNPARSE,
+    _DIALECT_HINT,
+    _HLC_INJECTED,
+    _PERIOD_NAMES,
+    _PL_TO_EL,
+    PyFrontError,
+    _const_to_num,
+    _is_call,
+    _is_name,
+    _kwargs_get,
+    _ln,
+    _neg_one,
+    _neg_one_index,
+    _num,
+    _open_current,
 )
+from pl_transpiler.codegen_el import _INV_MCKW, _INV_POSKW
 
 
 # --- expression inversion ---------------------------------------------------

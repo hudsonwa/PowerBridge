@@ -32,11 +32,11 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_run import load_bars_csv, run_el  # noqa: E402
 from tests import capture_gate  # noqa: E402
 from tests.repoint import new_scratch  # noqa: E402
-from tests.run_gt import run_gt, GT_FILES, CAP, _load_ohlcv  # noqa: E402
-from pl_transpiler.tools.pl_run import run_el, load_bars_csv  # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from tests.run_gt import CAP, GT_FILES, _load_ohlcv, run_gt  # noqa: E402
 
 GT = os.path.join(REPO, "ground_truth")
 

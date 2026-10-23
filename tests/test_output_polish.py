@@ -77,6 +77,7 @@ def test_native_refusal_reported_once(monkeypatch, capsys):
 
 def test_run_el_logs_python_path_note_instead_of_printing(monkeypatch, capsys, caplog):
     import logging
+
     from pl_transpiler.runtime.instrument_config import get_config
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     with open(EL, encoding="utf-8") as f:

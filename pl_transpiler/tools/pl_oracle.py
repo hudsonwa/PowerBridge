@@ -67,7 +67,8 @@ import gzip
 import hashlib
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -75,22 +76,30 @@ if TYPE_CHECKING:
 
 from pl_transpiler import transpile
 from pl_transpiler.engine import FillEngine, run_bar_loop
-from pl_transpiler.runtime.accel import accel_available, warn_python_path
+from pl_transpiler.lookback import (
+    check_max_bars_back,
+    check_max_entries_per_direction,
+    note_warmup,
+    warn_short_history,
+)
+from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
 from pl_transpiler.runtime.accel import (
     AccelRefused,
     AccelUnavailable,
+    accel_available,
     explain_native,
     run_native,
     run_native_drawings,
+    warn_python_path,
 )
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 from pl_transpiler.tools import _cli
-from pl_transpiler.lookback import (
-    check_max_bars_back, check_max_entries_per_direction, note_warmup, warn_short_history)
 from pl_transpiler.tools.pl_run import (
-    load_bars, resolve_trade_from, tick_decimals, unimplemented_stop_message,
+    load_bars,
+    resolve_trade_from,
+    tick_decimals,
+    unimplemented_stop_message,
 )
 
 DIGEST_VERSION = "v2"
@@ -346,7 +355,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                max_bars_back: int = 0,
                max_entries_per_direction: Optional[int] = None,
                drawings: bool = False, drawing_case_id: Optional[str] = None,
-               drawing_tape: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+               drawing_tape: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Transpile persist=True, run min-emit, return a digest dict.
 
     el_source     : EL/PowerLanguage source string.
@@ -416,10 +425,12 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back = check_max_bars_back(max_bars_back)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
-    drawing_meta: Tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
+    drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     if drawings:
         from pl_transpiler.runtime._rt_drawing import (
-            DrawingRecorder, make_dump, resolve_drawing_request,
+            DrawingRecorder,
+            make_dump,
+            resolve_drawing_request,
         )
         from pl_transpiler.runtime.drawing_dump import build_dump
         drawing_meta = resolve_drawing_request(
@@ -454,7 +465,10 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     if from_date is not None and from_bar is not None:
         raise ValueError("from_date and from_bar are mutually exclusive")
-    from pl_transpiler.runtime.pl_runtime import pl_unimplemented_reset, pl_unimplemented_warn
+    from pl_transpiler.runtime.pl_runtime import (
+        pl_unimplemented_reset,
+        pl_unimplemented_warn,
+    )
     pl_unimplemented_reset()
     trade_from = 0
     n_warmup = 0
@@ -482,7 +496,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     reset_indicator_caches()
     py_code = transpile(el_source, persist=True)
-    ns: Dict[str, Any] = {}
+    ns: dict[str, Any] = {}
     exec(compile(py_code, "<oracle>", "exec"), ns)
     strategy_fn = ns["strategy"]
 

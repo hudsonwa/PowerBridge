@@ -16,9 +16,9 @@
 """Reporting methods of `engine.FillEngine` (a mixin): position and
 performance kwargs, MultiCharts trade export and trace injection."""
 
-from pl_transpiler.runtime.instrument_config import NQ
-from pl_transpiler.engine_dates import _el_to_ole
 from pl_transpiler.bar_loop import _PERF_KWARGS
+from pl_transpiler.engine_dates import _el_to_ole
+from pl_transpiler.runtime.instrument_config import NQ
 
 
 class _ReportMixin:

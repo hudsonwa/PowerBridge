@@ -41,9 +41,9 @@ Usage:
   python tests/golden_diff.py diff <capture.csv> <predicted.csv> [--key bn] [--tol 1e-6]
 """
 import csv
+import os
 import struct
 import sys
-import os
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAP = os.path.join(REPO, "ground_truth", "captures")
@@ -58,6 +58,7 @@ sys.path.insert(0, REPO)
 # save/restore assumes two distinct objects (aliasing one shared dict would change
 # patch semantics).
 from tests import gt_manifest  # noqa: E402
+
 GT_FILES = dict(gt_manifest.GT_FILES)
 
 
@@ -126,7 +127,9 @@ def diff_csvs(capture_path, predicted_path, key="bn", rtol=1e-6, atol=1e-6, max_
 def probe_transpiler(gt_label):
     """Transpile a GT .txt source; report stage reached and first error."""
     sys.path.insert(0, REPO)
-    from pl_transpiler import transpile  # imported here so `diff`/`selftest` need no transpiler
+    from pl_transpiler import (
+        transpile,  # imported here so `diff`/`selftest` need no transpiler
+    )
     src_name, _ = GT_FILES[gt_label]
     src = open(os.path.join(GT, src_name), encoding="utf-8").read()
     try:

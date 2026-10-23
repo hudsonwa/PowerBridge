@@ -43,9 +43,14 @@ if REPO not in sys.path:
 
 from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
-from pl_transpiler.tools.pl_oracle import run_oracle, main as oracle_main  # noqa: E402
+from pl_transpiler.tools.pl_oracle import main as oracle_main
+from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
+from pl_transpiler.tools.pl_run import (
+    main as pl_run_main,
+)
 from pl_transpiler.tools.pl_run import (  # noqa: E402
-    resolve_trade_from, run_el, main as pl_run_main,
+    resolve_trade_from,
+    run_el,
 )
 
 NQ = get_config("NQ")

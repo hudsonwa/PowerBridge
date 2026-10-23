@@ -38,8 +38,8 @@ sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile
 from pl_transpiler.errors import UnimplementedKeywordError
-from pl_transpiler.tools.pl_run import run_el, load_bars_csv
 from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler.tools.pl_run import load_bars_csv, run_el
 
 BARS_CSV = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
 

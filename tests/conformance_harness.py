@@ -32,8 +32,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
-
 from pl_transpiler import catalog  # noqa: E402
 from pl_transpiler.parser import BUILTIN_ARITY  # noqa: E402
 from pl_transpiler.reverse import emit_el, parse_el  # noqa: E402
@@ -45,7 +43,7 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
 from pl_transpiler.tools.pl_run import run_el  # noqa: E402
-
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 DEFAULT_SEED = 20260920
 DEFAULT_RANDOM_PROGRAMS = 6

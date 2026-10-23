@@ -84,25 +84,58 @@ drift tripwire. Bumping the emitted dialect requires touching BOTH files.
 """
 import ast
 
+from pl_transpiler._py_front_common import (  # noqa: F401  (re-exported)
+    _BARE_COMPUTED_UNPARSE,
+    _DIALECT_HINT,
+    _HLC_INJECTED,
+    _ORDER_ACTIONS,
+    _PERIOD_NAMES,
+    _PL_TO_EL,
+    _PROLOGUE_TARGETS,
+    _PY_TO_EL_CMP,
+    _RISK_KEY_TO_FUNC,
+    PyFrontError,
+    _const_str,
+    _const_to_num,
+    _el,
+    _is_attr_call,
+    _is_call,
+    _is_name,
+    _kwargs_get,
+    _ln,
+    _neg_one,
+    _neg_one_index,
+    _num,
+    _open_current,
+    _py,
+)
+from pl_transpiler._py_front_expr import (  # noqa: F401  (re-exported)
+    _KWKEY_TO_IDENT,
+    _KWKEY_TO_NAMECALL,
+    _guard_index,
+    _inv_binop,
+    _inv_call,
+    _inv_joinedstr,
+    _inv_kwargs_get,
+    _inv_pl_call,
+    _inv_subscript,
+    _match_datetime_expansion,
+    _match_guard_barref,
+    _match_hist_funcref,
+    _match_sign,
+    _match_state_series,
+    _strip_int,
+    inv_expr,
+)
 from pl_transpiler.codegen import (
     BUILTIN_FUNC_MAP,  # noqa: F401  (re-exported)
     COMPARE_OPS,  # noqa: F401  (re-exported)
+)
+from pl_transpiler.codegen import (
     DIALECT_VERSION as _CODEGEN_DIALECT_VERSION,
 )
-from pl_transpiler.codegen_el import _INV_POSKW, _INV_MCKW  # noqa: F401  (re-exported)
+from pl_transpiler.codegen_el import _INV_MCKW, _INV_POSKW  # noqa: F401  (re-exported)
 from pl_transpiler.codegen_tables import CANONICAL_EL_NAME  # noqa: F401  (re-exported)
-from pl_transpiler._py_front_common import (  # noqa: F401  (re-exported)
-    PyFrontError, _DIALECT_HINT, _ln, _PY_TO_EL_CMP, _PL_TO_EL, _el, _py, _HLC_INJECTED,
-    _PERIOD_NAMES, _BARE_COMPUTED_UNPARSE, _PROLOGUE_TARGETS, _RISK_KEY_TO_FUNC,
-    _ORDER_ACTIONS, _is_name, _is_call, _is_attr_call, _kwargs_get, _const_str,
-    _neg_one, _open_current, _neg_one_index, _num, _const_to_num,
-)
-from pl_transpiler._py_front_expr import (  # noqa: F401  (re-exported)
-    inv_expr, _match_state_series, _strip_int, _guard_index, _match_guard_barref,
-    _match_sign, _inv_subscript, _inv_binop, _match_datetime_expansion, _inv_joinedstr,
-    _inv_call, _inv_kwargs_get, _KWKEY_TO_IDENT, _KWKEY_TO_NAMECALL, _inv_pl_call,
-    _match_hist_funcref,
-)
 
 # Must match transpiler.codegen.DIALECT_VERSION (the forward dialect this inverts).
 # v3: the forward codegen now emits a same-line trailing `#|` comment (was its own
@@ -626,8 +659,8 @@ def _recapture_comments(py_source):
 
     A multi-line `{...}` block was emitted as consecutive `#|` lines and re-forms as a
     contiguous brace block on re-emit (each physical line is one entry, in order)."""
-    import tokenize
     import io
+    import tokenize
     out = []
     code_rows = set()          # rows carrying a real (non-comment/-layout) token
     comments = []              # (row, col, text)

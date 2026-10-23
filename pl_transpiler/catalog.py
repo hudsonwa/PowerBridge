@@ -70,15 +70,15 @@ from __future__ import annotations
 import json
 import sys
 from importlib import resources
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Optional
 
 _TOOLS_PACKAGE = "pl_transpiler.tools"
 _SIGNATURES_RESOURCE = "pl_signatures.jsonl"
 _BUILTINS_RESOURCE = "mc_verified_builtins.txt"
 
 # Lazily populated caches (keyed by lower-cased name for case-insensitive lookup).
-_signatures: Optional[Dict[str, Dict[str, Any]]] = None          # dict: lower-name -> record dict (record['keyword'] is original case)
-_verified_builtins: Optional[FrozenSet[str]] = None   # frozenset of lower-cased verified builtin tokens
+_signatures: Optional[dict[str, dict[str, Any]]] = None          # dict: lower-name -> record dict (record['keyword'] is original case)
+_verified_builtins: Optional[frozenset[str]] = None   # frozenset of lower-cased verified builtin tokens
 
 
 def _read_resource(name: str) -> str:
@@ -86,7 +86,7 @@ def _read_resource(name: str) -> str:
     return resources.files(_TOOLS_PACKAGE).joinpath(name).read_text(encoding="utf-8")
 
 
-def _load_signatures() -> Dict[str, Dict[str, Any]]:
+def _load_signatures() -> dict[str, dict[str, Any]]:
     global _signatures
     if _signatures is None:
         recs = {}
@@ -100,7 +100,7 @@ def _load_signatures() -> Dict[str, Dict[str, Any]]:
     return _signatures
 
 
-def _load_verified_builtins() -> FrozenSet[str]:
+def _load_verified_builtins() -> frozenset[str]:
     global _verified_builtins
     if _verified_builtins is None:
         toks = set()
@@ -113,7 +113,7 @@ def _load_verified_builtins() -> FrozenSet[str]:
     return _verified_builtins
 
 
-def get(name: str) -> Optional[Dict[str, Any]]:
+def get(name: str) -> Optional[dict[str, Any]]:
     """Return the signature record dict for ``name`` (case-insensitive), or None.
 
     The returned dict is a copy of the shipped record augmented with a derived
@@ -131,7 +131,7 @@ VERIFICATION_LEVELS = ("verified:capture-strategy", "verified:test", "documented
 KINDS = ("syntax", "builtin")
 
 
-def arity(name: str) -> Tuple[int, bool]:
+def arity(name: str) -> tuple[int, bool]:
     """Return ``(min_arity, zero_arg_property)`` for ``name`` (case-insensitive).
 
     Raises KeyError with a helpful message if the keyword is not in the signature
@@ -140,7 +140,7 @@ def arity(name: str) -> Tuple[int, bool]:
     return (rec["min_arity"], rec["zero_arg_property"])
 
 
-def _record(name: str) -> Dict[str, Any]:
+def _record(name: str) -> dict[str, Any]:
     rec = _load_signatures().get(name.lower())
     if rec is None:
         raise KeyError(
@@ -158,7 +158,7 @@ def returns(name: str) -> str:
     return _record(name)["returns"]
 
 
-def arg_types(name: str) -> Optional[List[str]]:
+def arg_types(name: str) -> Optional[list[str]]:
     """Return the per-argument types of ``name`` (each numeric/any),
     or None when PowerBridge cannot establish them. Raises KeyError if unknown."""
     types = _record(name)["arg_types"]
@@ -192,14 +192,14 @@ def is_verified(name: str) -> bool:
     return name.lower() in _load_verified_builtins()
 
 
-def search(substring: str) -> List[str]:
+def search(substring: str) -> list[str]:
     """Return the sorted list of keyword names containing ``substring`` (case-insensitive)."""
     needle = substring.lower()
     sigs = _load_signatures()
     return sorted(rec["keyword"] for low, rec in sigs.items() if needle in low)
 
 
-def coverage() -> Dict[str, int]:
+def coverage() -> dict[str, int]:
     """Return derived catalog counts.
 
     Keys:

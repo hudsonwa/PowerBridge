@@ -34,14 +34,31 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from pl_transpiler.runtime.bar_tape import (  # noqa: E402
-    MAGIC, VERSION, HEADER_FMT, HEADER_SIZE, BYTES_PER_BAR,
-    BarTape, csv_to_pbar, load_pbar, write_pbar, ohlcv_columns, main as tape_main,
+    BYTES_PER_BAR,
+    HEADER_FMT,
+    HEADER_SIZE,
+    MAGIC,
+    VERSION,
+    BarTape,
+    csv_to_pbar,
+    load_pbar,
+    ohlcv_columns,
+    write_pbar,
 )
-from pl_transpiler.runtime.pl_runtime import f32  # noqa: E402
+from pl_transpiler.runtime.bar_tape import (
+    main as tape_main,
+)
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.runtime.pl_runtime import f32  # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle, window_bars  # noqa: E402
+from pl_transpiler.tools.pl_run import (
+    csv_to_pbar as run_csv_to_pbar,
+)
 from pl_transpiler.tools.pl_run import (  # noqa: E402
-    load_bars, load_bars_csv, resolve_trade_from, run_el, csv_to_pbar as run_csv_to_pbar,
+    load_bars,
+    load_bars_csv,
+    resolve_trade_from,
+    run_el,
 )
 
 NQ = get_config("NQ")

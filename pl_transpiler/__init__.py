@@ -20,6 +20,7 @@ __version__ = "0.7.0"
 from pkgutil import extend_path as _extend_path
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 from typing import Any as _Any
+
 __path__ = _extend_path(__path__, __name__)
 
 # The public names below are imported on first use rather than here, so
@@ -57,12 +58,12 @@ __all__ = [
 if _TYPE_CHECKING:
     from . import catalog as catalog
     from .errors import UnimplementedKeywordError as UnimplementedKeywordError
+    from .runtime.instrument_config import get_config as get_config
+    from .runtime.instrument_config import load_config_file as load_config_file
     from .tools.pl_oracle import run_oracle as run_oracle
     from .tools.pl_run import load_bars as load_bars
     from .tools.pl_run import load_bars_csv as load_bars_csv
     from .tools.pl_run import run_el as run_el
-    from .runtime.instrument_config import get_config as get_config
-    from .runtime.instrument_config import load_config_file as load_config_file
 
 
 def __getattr__(name: str) -> "_Any":
@@ -103,10 +104,14 @@ def transpile(pl_source: str, trace: bool = False, partial: bool = False,
         raise ValueError(f"unknown dialect {dialect!r}; expected 'runnable' or 'mirror'")
     elif persist is None and not trace:
         persist = True
+    from .codegen import generate
+    from .errors import (
+        UnimplementedKeywordError,
+        restore_spelling,
+        unimplemented_message,
+    )
     from .lexer import tokenise
     from .parser import parse
-    from .codegen import generate
-    from .errors import UnimplementedKeywordError, restore_spelling, unimplemented_message
     tokens, positions = tokenise(pl_source)
     ast = parse(tokens, positions=positions, source=pl_source)
     try:

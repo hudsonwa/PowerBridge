@@ -36,8 +36,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler.engine import FillEngine, run_bar_loop              # noqa: E402
-from pl_transpiler.runtime.instrument_config import get_config         # noqa: E402
+from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
+from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 
 NQ = get_config("NQ")
 

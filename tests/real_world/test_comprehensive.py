@@ -17,9 +17,11 @@ Comprehensive real-world PL transpiler tests.
 Each test transpiles a PL script, compiles the Python output, and executes
 it against synthetic bar data to verify runtime correctness.
 """
-import sys
 import os
+import sys
+
 import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 def fresh_transpile(pl_source):
@@ -36,7 +38,7 @@ def make_bars(n=100):
     random.seed(42)
     o, h, l, c, v = [], [], [], [], []
     price = 100.0
-    for i in range(n):
+    for _i in range(n):
         open_ = price + random.uniform(-1, 1)
         high_ = open_ + random.uniform(0, 3)
         low_ = open_ - random.uniform(0, 3)

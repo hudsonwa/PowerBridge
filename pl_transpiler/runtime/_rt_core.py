@@ -324,6 +324,7 @@ def _install_loud_stubs():
     submodule that holds the name, so calls from inside a submodule hit the loud
     version too, exactly as they did when all of this lived in one module."""
     import sys as _sys
+
     from ._loud_stub_names import LOUD_STUB_NAMES as names
     pkg = __name__.rpartition('.')[0]
     facade = _sys.modules[pkg + '.pl_runtime']

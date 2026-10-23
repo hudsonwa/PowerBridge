@@ -14,14 +14,14 @@
 
 """Expression generation for CodeGen (mixin; see codegen.py)."""
 
-from .errors import UnimplementedKeywordError, unimplemented_message
-from .codegen_tables import BUILTIN_FUNC_MAP, COMPARE_OPS, _SERIES_PARAMS
+from .codegen_tables import _SERIES_PARAMS, BUILTIN_FUNC_MAP, COMPARE_OPS
 from .codegen_util import (
-    _available_pl_targets,
-    call_arity_problem,
-    _runtime_bound_bare_names,
     _OHLCV_F32_NAMES,
+    _available_pl_targets,
+    _runtime_bound_bare_names,
+    call_arity_problem,
 )
+from .errors import UnimplementedKeywordError, unimplemented_message
 
 # Position keywords whose positions-ago form (EntryDate(n), ...) reads the
 # closed-position ledger via pl_pos_ago (keys of runtime _rt_core._POS_AGO_FIELDS).

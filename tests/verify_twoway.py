@@ -80,19 +80,20 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tests import run_gt
-from tests import capture_gate
-# run_gt_checks is imported VERBATIM (it owns the deferral / warmup / throw policy).
-from tests.verify_all import GT_EXPECT, DEFAULT_GT_BARS, run_gt_checks
-# The parse step, the diagnostic-key strip, and the structural diff are reused from
-# the round-trip gate — this gate forks NONE of them.
-from tests.verify_roundtrip import build_ast, _strip, _first_divergence
+from pl_transpiler import py_front, transpile
+from pl_transpiler.codegen import BUILTIN_FUNC_MAP
+from pl_transpiler.codegen_el import emit_el
+from tests import capture_gate, run_gt
+
 # Shared scratch-dir + GT_FILES repoint plumbing (unified across the reverse gates).
 from tests.repoint import new_scratch, repoint_files
-from pl_transpiler import transpile
-from pl_transpiler import py_front
-from pl_transpiler.codegen_el import emit_el
-from pl_transpiler.codegen import BUILTIN_FUNC_MAP
+
+# run_gt_checks is imported VERBATIM (it owns the deferral / warmup / throw policy).
+from tests.verify_all import DEFAULT_GT_BARS, GT_EXPECT, run_gt_checks
+
+# The parse step, the diagnostic-key strip, and the structural diff are reused from
+# the round-trip gate — this gate forks NONE of them.
+from tests.verify_roundtrip import _first_divergence, _strip, build_ast
 
 # EL'' is written here; run_gt resolves a source name relative to run_gt.GT.
 TWOWAY_DIRNAME = ".twoway"

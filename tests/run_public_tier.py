@@ -43,15 +43,14 @@ Exit code 0 iff no member FAILed.
 # CONVENTION: printed output must stay ASCII-safe (no raw emoji / non-ASCII in test
 # output) so it never crashes on a Windows legacy-codepage console (cp1252/cp437).
 import os
-import sys
 import subprocess
+import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tests import capture_gate
-
 
 PYTHON = sys.executable
 

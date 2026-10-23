@@ -25,16 +25,15 @@ exceptions:
 
 Exit 0 only if both hold.
 """
+import contextlib
+import io
 import os
 import sys
-import io
-import contextlib
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tests import run_gt
-from tests import capture_gate
+from tests import capture_gate, run_gt
 
 SCRATCH = os.path.join(REPO, ".scratch")
 os.makedirs(SCRATCH, exist_ok=True)

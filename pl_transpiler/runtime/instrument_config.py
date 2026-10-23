@@ -38,7 +38,7 @@ audited non-circular sourcing.
 import json
 import os
 from dataclasses import MISSING, dataclass, fields
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 
 @dataclass(frozen=True)
@@ -105,7 +105,7 @@ ES = InstrumentConfig(
 )
 
 
-_CONFIGS: Dict[str, InstrumentConfig] = {
+_CONFIGS: dict[str, InstrumentConfig] = {
     "NQ": NQ,
     "ES": ES,
 }

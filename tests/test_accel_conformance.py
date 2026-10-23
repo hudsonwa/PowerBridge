@@ -28,7 +28,6 @@ if REPO not in sys.path:
 from pl_transpiler import catalog  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_run import run_el  # noqa: E402
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from tests.conformance_harness import (  # noqa: E402
     DEFAULT_RANDOM_PROGRAMS,
     DEFAULT_RANDOM_TAPES,
@@ -47,6 +46,7 @@ from tests.conformance_harness import (  # noqa: E402
     tape_features,
     trade_difference,
 )
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 NQ = get_config("NQ")
 

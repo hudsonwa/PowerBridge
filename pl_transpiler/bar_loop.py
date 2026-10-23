@@ -20,7 +20,6 @@ from pl_transpiler.engine_dates import _el_date_to_day_of_week
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
 from pl_transpiler.runtime._rt_history import SeriesState
 
-
 # FillEngine.fill_pos_kwargs keys → attribute names. Persist 8-arg path
 # writes only the keys the strategy names; **kwargs still writes the full set.
 _POS_KWARGS = (

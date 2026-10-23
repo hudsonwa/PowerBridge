@@ -22,9 +22,9 @@ Usage:
     python tests/run_gt.py GT1 --output /tmp/predicted.csv [--max-bars N]
 """
 import csv
+import json
 import os
 import sys
-import json
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GT = os.path.join(REPO, "ground_truth")
@@ -32,8 +32,7 @@ CAP = os.path.join(GT, "captures")
 sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
-from pl_transpiler.runtime.instrument_config import get_config
+
 # The bar-by-bar engine (FillEngine + run_bar_loop) and the EL date/time parsers
 # live in the SHIPPED package (pl_transpiler.engine) so the installed pl_run
 # console script works from a bare wheel. They are re-imported here as a single
@@ -42,10 +41,12 @@ from pl_transpiler.runtime.instrument_config import get_config
 # existing caller and monkeypatcher keeps resolving them off this module.
 from pl_transpiler.engine import (  # noqa: E402  (re-export, not shadowing)
     FillEngine,
-    run_bar_loop,
     _parse_el_date,
     _parse_el_time,
+    run_bar_loop,
 )
+from pl_transpiler.runtime.instrument_config import get_config
+from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 
 # Map of GT label -> (source_file, capture_file). Single-sourced in
 # tests/gt_manifest.py; kept as an INDEPENDENT dict object (a copy) — the reverse
@@ -53,6 +54,7 @@ from pl_transpiler.engine import (  # noqa: E402  (re-export, not shadowing)
 # save/restore assumes two distinct objects (aliasing one shared dict would change
 # patch semantics).
 from tests import gt_manifest  # noqa: E402
+
 GT_FILES = dict(gt_manifest.GT_FILES)
 
 # GTA5-family multi-data scripts: label -> (Data1 file, Data2 file) under CAP.

@@ -32,7 +32,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 from pl_transpiler.runtime.accel import (  # noqa: E402
     AccelRefused,
     accel_available,
@@ -45,6 +44,7 @@ from pl_transpiler.tools.pl_run import (  # noqa: E402
     load_bars_csv,
     run_el,
 )
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not accel_available(), reason=ACCEL_SKIP)
 

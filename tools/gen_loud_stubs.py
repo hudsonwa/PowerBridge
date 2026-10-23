@@ -77,7 +77,7 @@ def scan():
     """Return the set of trivial pl_* stub names in the runtime sources."""
     names = set()
     for mod in SUBMODULES:
-        with open(os.path.join(RUNTIME, mod + '.py'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(RUNTIME, mod + '.py'), encoding='utf-8') as f:
             tree = ast.parse(f.read())
         names.update(n.name for n in ast.walk(tree)
                      if isinstance(n, ast.FunctionDef)
@@ -95,7 +95,7 @@ def render(names):
 def main(argv):
     text = render(scan())
     if '--check' in argv:
-        with open(OUT, 'r', encoding='utf-8') as f:
+        with open(OUT, encoding='utf-8') as f:
             current = f.read()
         if current != text:
             print(f"{os.path.relpath(OUT, REPO)} is out of date; "

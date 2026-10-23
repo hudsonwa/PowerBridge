@@ -45,18 +45,17 @@ Usage:
     python tests/verify_all.py --max-bars 5000 # faster GT runs (still exact)
     python tests/verify_all.py --gt-only
 """
+import argparse
 import os
 import sys
-import argparse
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 
-from tests import run_gt
-from tests.golden_diff import diff_csvs, GT_FILES, CAP
+from tests import capture_gate, run_gt
+from tests.golden_diff import CAP, GT_FILES, diff_csvs
 from tests.repoint import new_scratch
-from tests import capture_gate
 
 WARMUP = 300
 
@@ -122,8 +121,8 @@ ORDER_COLS = {
 
 def _silence(fn, *a, **kw):
     """Run fn with stdout suppressed (the runners are chatty)."""
-    import io
     import contextlib
+    import io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = fn(*a, **kw)

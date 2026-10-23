@@ -33,8 +33,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tests.skip_messages import ACCEL_SKIP  # noqa: E402
-from tests.test_accel_trace_parity import assert_trace_parity  # noqa: E402
 from pl_transpiler.runtime.accel import (  # noqa: E402
     accel_available,
     run_native,
@@ -42,6 +40,8 @@ from pl_transpiler.runtime.accel import (  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import fills_sha256, run_oracle  # noqa: E402
 from pl_transpiler.tools.pl_run import load_bars_csv  # noqa: E402
+from tests.skip_messages import ACCEL_SKIP  # noqa: E402
+from tests.test_accel_trace_parity import assert_trace_parity  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not accel_available(), reason=ACCEL_SKIP)
 

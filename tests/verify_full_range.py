@@ -55,18 +55,18 @@ Usage:
   python3 tests/verify_full_range.py                 # FULL set — the real criterion
   python3 tests/verify_full_range.py --labels GT2    # subset for iteration
 """
+import argparse
 import os
 import sys
 import time
-import argparse
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tests import run_gt
-from tests import capture_gate
+from tests import capture_gate, run_gt
+from tests.golden_diff import CAP, GT_FILES, diff_csvs
 from tests.repoint import new_scratch
-from tests.golden_diff import diff_csvs, GT_FILES, CAP
+
 # Reuse the canonical deferral/precision exemption sets and warmup so this script
 # CANNOT silently grow the deferral list or change the tolerance.
 from tests.verify_all import GT_EXPECT, WARMUP, _silence

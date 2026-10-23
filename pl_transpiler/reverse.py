@@ -25,11 +25,10 @@ components:
 
 The public entrypoint for the loop/tools is this module + tools/el_emit.py.
 """
-from pl_transpiler import transpile
+from pl_transpiler import py_front, transpile
+from pl_transpiler.codegen_el import emit_el as _emit_el
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.parser import parse
-from pl_transpiler.codegen_el import emit_el as _emit_el
-from pl_transpiler import py_front
 
 # Re-export: the emitter is the AST-only implementation, unchanged.
 emit_el = _emit_el

@@ -18,6 +18,7 @@ Re-exported by pl_runtime; see that module."""
 
 from ._rt_core import f32
 
+
 def _valid_window(series, length):
     """Return the last `length` values from series, skipping leading padding zeros.
     Returns (window, valid_count) where valid_count is the number of non-padding
@@ -642,16 +643,16 @@ def _find_first_valid(series):
 
 
 from ._rt_trend import (  # noqa: E402,F401  (re-export)
-    pl_linear_reg_angle,
+    _adx_engine,
+    _calc_dmi,
+    _compute_adx_series,
     _tr_rma,
     _true_range_for_adx,
-    _adx_engine,
     pl_adx,
     pl_adxr,
-    _compute_adx_series,
-    _calc_dmi,
-    pl_dmiplus,
-    pl_dmiminus,
     pl_bollinger_band,
+    pl_dmiminus,
+    pl_dmiplus,
+    pl_linear_reg_angle,
     pl_stochastic,
 )

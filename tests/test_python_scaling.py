@@ -36,7 +36,9 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from pl_transpiler.runtime._rt_history import (  # noqa: E402
-    SeriesHistory, SeriesState, SeriesView,
+    SeriesHistory,
+    SeriesState,
+    SeriesView,
 )
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402

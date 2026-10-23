@@ -15,7 +15,8 @@
 """Pass 4 of mc_ground_check: argument types checked against the catalog's arg_types."""
 import copy
 
-from pl_transpiler.tools import el_emit, mc_ground_check as gc
+from pl_transpiler.tools import el_emit
+from pl_transpiler.tools import mc_ground_check as gc
 
 HEADER = 'Inputs: Len(10);\nVars: Sym(""), Flag(false), Num(0), X(0);\n'
 

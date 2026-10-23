@@ -30,10 +30,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from pl_transpiler.tools.pl_run import (  # noqa: E402
-    format_trace_cell, format_trace_row, run_el,
-)
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
+from pl_transpiler.tools.pl_run import (  # noqa: E402
+    format_trace_cell,
+    format_trace_row,
+    run_el,
+)
 
 NQ = get_config('NQ')
 
@@ -135,6 +137,7 @@ def test_cli_stream_writes_csv():
     """pl_run CLI streams header+rows; cells match a retaining run_el call."""
     import csv
     import tempfile
+
     from pl_transpiler.tools.pl_run import main as pl_run_main
 
     bars = _bars(5)

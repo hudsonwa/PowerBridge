@@ -18,8 +18,7 @@ import datetime
 
 import pytest
 
-from pl_transpiler.runtime import _rt_core
-from pl_transpiler.runtime import _rt_datetime
+from pl_transpiler.runtime import _rt_core, _rt_datetime
 from pl_transpiler.runtime import pl_runtime as rt
 
 FIXED = datetime.datetime(2024, 3, 7, 9, 5, 4, 250000)

@@ -26,7 +26,6 @@ from pl_transpiler import transpile
 from pl_transpiler.engine import FillEngine, run_bar_loop
 from pl_transpiler.runtime.instrument_config import get_config
 
-
 _STATEFUL_GATE_EL = """
 Variables: gate(0);
 
