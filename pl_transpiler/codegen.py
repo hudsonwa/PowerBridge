@@ -659,7 +659,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
     def _is_conditional_part(self, node, t, key):
         """True if child ``key`` of ``node`` may be skipped or repeated in a
         bar: an If's branches, a loop, Once or Switch, the right side of
-        ``and`` / ``or`` and the value arguments of IFF."""
+        ``and`` / ``or`` and every argument of IFF (the condition too, to keep
+        the rule simple)."""
         if t == 'if':
             return key != 'cond'
         if t in self._CONDITIONAL_STMTS:
