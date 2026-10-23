@@ -440,10 +440,10 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     max_bars_back : skip the first N bars as history only (MultiCharts
                     MaxBarsBack): no evaluation, no orders, no rows, and
                     BarNumber starts at 1 on bar N+1. Default 0 evaluates every
-                    bar.
-                    ``"auto"`` uses lookback.infer_max_bars_back(el_source)
-                    (ValueError if it cannot be inferred). With too little history for a ``Close[n]`` read, one
-                    warning is printed on stderr; values are unchanged.
+                    bar. ``"auto"`` uses lookback.infer_max_bars_back(el_source)
+                    (ValueError if it cannot be inferred). With too little
+                    history for a ``Close[n]`` read, one warning is printed on
+                    stderr; values are unchanged.
     max_entries_per_direction : None/0 (default): every Buy/SellShort adds
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is

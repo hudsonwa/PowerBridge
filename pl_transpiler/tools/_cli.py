@@ -79,7 +79,10 @@ def _non_negative_int(text):
 def _max_bars_back(text):
     if text.strip().lower() == "auto":
         return "auto"
-    return _non_negative_int(text)
+    try:
+        return _non_negative_int(text)
+    except argparse.ArgumentTypeError as exc:
+        raise argparse.ArgumentTypeError(f"{exc} (expected N >= 0 or 'auto')") from None
 
 
 def add_max_bars_back_arg(ap):

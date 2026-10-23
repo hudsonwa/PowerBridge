@@ -25,6 +25,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler import lookback  # noqa: E402
 from pl_transpiler.lookback import LookbackUnknown, infer_max_bars_back  # noqa: E402
 from pl_transpiler.runtime.accel import accel_available  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
@@ -64,6 +65,7 @@ def test_infer_ma_cross_is_quickstart_value():
     "Vars: n(3); Value1 = Average(Close, n * 2);",
     "Value1 = Close of 2 bars ago;",
     "Value1 = MyIndexingFunc(Close);",
+    "Value1 = ParabolicSAR(0.02, 0.2, 0, Value2, Value3, Value4);",
 ])
 def test_infer_unknown_raises(src):
     with pytest.raises(LookbackUnknown):
@@ -142,7 +144,9 @@ def test_bad_values_rejected(tool, bad, capsys):
     with pytest.raises(SystemExit) as exc:
         tool.main([MA_CROSS, SAMPLE, "--max-bars-back", bad])
     assert exc.value.code == 2
-    assert "--max-bars-back" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "--max-bars-back" in err
+    assert "auto" in err
 
 
 def test_warmup_note_suggests_auto(capsys):
@@ -150,3 +154,51 @@ def test_warmup_note_suggests_auto(capsys):
     err = capsys.readouterr().err
     assert "reads up to 21 past bars" in err
     assert "--max-bars-back auto (= 21)" in err
+
+
+# Multi-argument builtins: the length is taken by position, not the last arg.
+@pytest.mark.parametrize("call,expected", [
+    ("StdDev(Close, 20, 1)", 20),
+    ("StandardDev(Close, 30, 2)", 30),
+    ("BollingerBand(Close, 20, 2)", 20),
+    ("LinearRegValue(Close, 20, 5)", 20),
+    ("MACDSignal(Close, 12, 26, 9)", 35),
+    ("MRO(Close > Open, 10, 1)", 10),
+    ("KeltnerChannel(Close, 15, 1.5)", 15),
+])
+def test_length_taken_by_position(call, expected):
+    assert infer_max_bars_back(f"Value1 = {call};") == expected
+
+
+def test_every_windowed_builtin_has_a_length_position():
+    known = set(lookback._LENGTH_ARGS) | lookback._LENGTH_UNKNOWN
+    missing = lookback._WINDOWED_CALLS - known - {"crossesabove", "crossesbelow"}
+    assert not missing
+
+
+@pytest.mark.parametrize("name", sorted(
+    n for n, spec in lookback._LENGTH_ARGS.items() if not isinstance(spec, int)))
+def test_each_table_entry_reads_its_length(name):
+    """A distinct length at each listed position, 1 elsewhere: the result
+    is exactly the table's sum of per-group maxima."""
+    spec = lookback._LENGTH_ARGS[name]
+    positions = [p for group in spec for p in group]
+    args = ["1"] * (max(positions) + 1)
+    lengths = {p: 7 + 3 * i for i, p in enumerate(positions)}
+    for p, n in lengths.items():
+        args[p] = str(n)
+    node = {"name": name}
+    parsed = [{"type": "number", "value": a} for a in args]
+    expected = sum(max(lengths[p] for p in group) for group in spec)
+    assert lookback._window(node, parsed, {}) == expected
+
+
+def test_auto_uses_stddev_length_not_its_data_type(tmp_path, capsys):
+    src = ("If MarketPosition = 0 and Close > StdDev(Close, 20, 1) + Close[1] Then\n"
+           "    Buy Next Bar At Market;\n")
+    path = _write(tmp_path, src)
+    assert pl_oracle.main([path, SAMPLE, "--python", "--max-bars-back", "auto"]) == 0
+    auto = capsys.readouterr()
+    assert "max-bars-back 20 (auto)" in auto.err
+    assert pl_oracle.main([path, SAMPLE, "--python", "--max-bars-back", "20"]) == 0
+    assert capsys.readouterr().out == auto.out

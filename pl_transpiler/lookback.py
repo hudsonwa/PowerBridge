@@ -85,6 +85,37 @@ def _windowed_calls():
 
 _WINDOWED_CALLS = _windowed_calls()
 
+# Where each windowed builtin takes its length(s): a tuple of groups of
+# 0-based argument positions. The past bars read are the sum over groups of
+# the largest length in the group, so ``MACDSignal(Price, Fast, Slow, Sig)``
+# (``((1, 2), (3,))``) counts max(Fast, Slow) + Sig. An int is a fixed count.
+# A windowed call missing here (or passed too few arguments) is refused by
+# ``--max-bars-back auto`` rather than guessed. MRO and KeltnerChannel are
+# MultiCharts functions PowerBridge does not run; they are listed so auto
+# reports their length instead of calling them user functions.
+_LENGTH_ARGS = {
+    **dict.fromkeys((
+        'average', 'averagefc', 'averagetfc', 'bollingerband', 'countif',
+        'highest', 'highestbar', 'keltnerchannel', 'linearregangle',
+        'linearregslope', 'linearregvalue', 'lowest', 'lowestbar', 'median',
+        'momentum', 'mro', 'rateofchange', 'roc', 'rsi', 'standarddev',
+        'stddev', 'summation', 'variance', 'waverage', 'weightedaverage',
+        'xaverage'), ((1,),)),
+    **dict.fromkeys((
+        'adx', 'adxr', 'atr', 'avgtruerange', 'cci', 'dmiminus', 'dmiplus',
+        'fastk', 'stochk'), ((0,),)),
+    **dict.fromkeys(('fastd', 'slowk'), ((0,), (1,))),
+    **dict.fromkeys(('slowd', 'stochd'), ((0,), (1,), (2,))),
+    **dict.fromkeys(('macd', 'macdvalue'), ((1, 2),)),
+    **dict.fromkeys(('macddiff', 'macdsignal'), ((1, 2), (3,))),
+    'correlation': ((2,),),
+    'stochastic': ((3,), (4,), (5,)),
+    'truerange': 1,
+}
+
+# Windowed builtins with no length argument to read (left out of the table).
+_LENGTH_UNKNOWN = frozenset(('parabolicsar', 'tsi'))
+
 # Bare reserved words that read the previous bar (TrueRange uses Close[1]).
 _LOOKBACK_IDENTS = frozenset(('truerange', 'truehigh', 'truelow'))
 
@@ -106,9 +137,16 @@ WARMUP_NOTE_AUTO = ("note: {tool}: strategy reads up to {n} past bars and "
                     "to hide this)")
 
 
+def _base_name(name):
+    """``name`` with a trailing ``FC`` dropped when that names a windowed call."""
+    if name not in _WINDOWED_CALLS and name not in _LENGTH_ARGS and name.endswith('fc'):
+        return name[:-2]
+    return name
+
+
 def _is_windowed(name):
-    return name in _WINDOWED_CALLS or (
-        name.endswith('fc') and name[:-2] in _WINDOWED_CALLS)
+    name = _base_name(name)
+    return name in _WINDOWED_CALLS or name in _LENGTH_ARGS
 
 
 def _is_number(node, pred):
@@ -136,32 +174,9 @@ def uses_lookback(el_source):
     with n not a literal 0, or ``x of n bars ago``), uses TrueRange, calls a
     windowed builtin (Average, Highest, an ``*FC`` variant, ...) with a length
     other than a literal 1, or calls a user function (which may index
-    internally)."""
-    tokens, positions = tokenise(el_source)
-    if _bars_ago(tokens):
-        return True
-    stack = [parse(tokens, positions=positions, source=el_source)]
-    while stack:
-        node = stack.pop()
-        if isinstance(node, dict):
-            kind = node.get('type')
-            name = str(node.get('name', '')).lower()
-            if kind == 'call':
-                args = node.get('args') or []
-                if _is_windowed(name):
-                    if not (name in _CURRENT_BAR_AT_1 and len(args) == 2
-                            and _is_number(args[1], lambda v: v <= 1)):
-                        return True
-                elif name not in BUILTIN_FUNC_MAP and catalog.get(name) is None:
-                    return True
-            elif kind == 'ident' and name in _LOOKBACK_IDENTS:
-                return True
-            elif kind == 'bar_ref' and not _is_number(node.get('index'), lambda v: v == 0):
-                return True
-            stack.extend(node.values())
-        elif isinstance(node, list):
-            stack.extend(node)
-    return False
+    internally). The same scan as ``infer_max_bars_back``: True when that
+    finds a lookback or cannot bound one."""
+    return _scan(el_source) != 0
 
 
 def note_warmup(el_source, max_bars_back, tool, quiet=False, n_bars=None):
@@ -170,15 +185,15 @@ def note_warmup(el_source, max_bars_back, tool, quiet=False, n_bars=None):
 
     Skipped when the run will print the short-history warning (same cause),
     so one run never prints both. ``quiet`` hides only this note."""
-    if quiet or max_bars_back or not uses_lookback(el_source):
+    if quiet or max_bars_back:
+        return False
+    n = _scan(el_source)
+    if not n:
         return False
     if (n_bars is not None and max_bars_back < n_bars
             and short_history_bar(el_source, max_bars_back) is not None):
         return False
-    try:
-        n = infer_max_bars_back(el_source)
-    except LookbackUnknown:
-        n = 0
+    n = n if isinstance(n, int) else 0
     note = WARMUP_NOTE_AUTO if n else WARMUP_NOTE
     print(note.format(tool=tool, n=n), file=sys.stderr)
     return True
@@ -200,6 +215,46 @@ def _input_defaults(ast):
     return out
 
 
+def _length(node, arg, inputs):
+    """A length argument's value: a number or an input's default."""
+    if _is_number(arg, lambda v: v >= 0):
+        return int(float(arg['value']))
+    if (isinstance(arg, dict) and arg.get('type') == 'ident'
+            and str(arg.get('name', '')).lower() in inputs):
+        return int(inputs[str(arg['name']).lower()])
+    raise LookbackUnknown(
+        f"the length of {node.get('name')}() is not a number or input")
+
+
+def _window(node, args, inputs):
+    """Past bars a windowed builtin call reads, from _LENGTH_ARGS."""
+    name = _base_name(str(node.get('name', '')).lower())
+    spec = _LENGTH_ARGS.get(name)
+    if isinstance(spec, int):
+        return spec
+    if spec is None or max(p for group in spec for p in group) >= len(args):
+        raise LookbackUnknown(
+            f"the length argument of {node.get('name')}() is not known")
+    lengths = [[_length(node, args[p], inputs) for p in group] for group in spec]
+    if name in _CURRENT_BAR_AT_1 and lengths[0][0] <= 1:
+        return 0
+    return sum(max(group) for group in lengths)
+
+
+def _scan(el_source):
+    """The one lookback scan behind the warm-up note and ``auto``: the
+    longest lookback (an int, 0 if none) or the LookbackUnknown raised when
+    it cannot be bounded."""
+    tokens, positions = tokenise(el_source)
+    if _bars_ago(tokens):
+        return LookbackUnknown("it uses 'of N bars ago'")
+    ast = parse(tokens, positions=positions, source=el_source)
+    try:
+        return _need(ast, _input_defaults(ast))
+    except LookbackUnknown as exc:
+        return exc
+
+
 def _need(node, inputs):
     """Past bars an expression reads (see infer_max_bars_back)."""
     if isinstance(node, list):
@@ -219,16 +274,7 @@ def _need(node, inputs):
         if name in ('crossesabove', 'crossesbelow', 'crossover', 'crossunder') and len(args) == 2:
             return 1 + inner
         if _is_windowed(name):
-            length = args[-1] if args else None
-            if _is_number(length, lambda v: v >= 0):
-                value = float(length['value'])
-            elif (isinstance(length, dict) and length.get('type') == 'ident'
-                    and str(length.get('name', '')).lower() in inputs):
-                value = inputs[str(length['name']).lower()]
-            else:
-                raise LookbackUnknown(
-                    f"the length of {node.get('name')}() is not a number or input")
-            return int(value) + inner
+            return _window(node, args, inputs) + inner
         if name not in BUILTIN_FUNC_MAP and catalog.get(name) is None:
             raise LookbackUnknown(f"it calls the user function {node.get('name')}()")
         return inner
@@ -242,18 +288,16 @@ def infer_max_bars_back(el_source):
     lookback found by a static scan, or 0 if ``uses_lookback`` is False.
 
     A read of ``X[k]`` counts k bars plus what X itself reads; a windowed
-    builtin (``Highest(High, Len)``) counts its length, a number or an input's
-    default. So ``Highest(High, 10)[1]`` gives 11. Raises LookbackUnknown when
+    builtin (``Highest(High, Len)``) counts its length argument (by position,
+    from _LENGTH_ARGS), a number or an input's default. So ``Highest(High, 10)[1]`` gives 11. Raises LookbackUnknown when
     the scan cannot bound it (a non-constant index or length, ``of N bars
-    ago``, a user function). This is an estimate from the source, not
+    ago``, a user function, a windowed builtin whose length position is
+    not known). This is an estimate from the source, not
     MultiCharts' run-time auto-detect."""
-    if not uses_lookback(el_source):
-        return 0
-    tokens, positions = tokenise(el_source)
-    if _bars_ago(tokens):
-        raise LookbackUnknown("it uses 'of N bars ago'")
-    ast = parse(tokens, positions=positions, source=el_source)
-    return _need(ast, _input_defaults(ast))
+    n = _scan(el_source)
+    if isinstance(n, LookbackUnknown):
+        raise n
+    return n
 
 
 def short_history_bar(el_source, max_bars_back):

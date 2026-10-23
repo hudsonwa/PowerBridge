@@ -431,11 +431,13 @@ default is 50) to match MultiCharts.
 `--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`)
 uses the longest lookback PowerBridge finds in the strategy source, the same
 number the warm-up note reports: `X[k]` counts k bars plus whatever `X` reads,
-and a windowed builtin counts its length (a number or an input's default), so
+and a windowed builtin counts its length argument, taken by position (so
+`StdDev(Close, 20, 1)` counts 20; a number or an input's default), so
 `Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
 stderr shows the value it chose (`max-bars-back 21 (auto)`). When the scan
 cannot bound the lookback (a non-constant index such as `Close[Len2]`, a length
-that is an expression, `of N bars ago`, or a call to your own function), `auto`
+that is an expression, `of N bars ago`, a call to your own function, or a
+windowed builtin such as `ParabolicSAR` with no length argument), `auto`
 stops with an error asking for a number instead of guessing: a silent 0 would
 give the warm-up fills `auto` exists to avoid.
 
