@@ -226,8 +226,33 @@ def test_array_programs_refuse_the_trace(bars):
 
 def test_sum_precision_follows_the_running_python(bars):
     fills, _ = native_sha(SUM_PRECISION, bars)
-    want = "S1.0T0.0" if sys.version_info >= (3, 12) else "S0.0T0.0"
+    # T sums [1e16, 1, -1e16]: the int is compensated only from 3.14 (#124).
+    if sys.version_info >= (3, 14):
+        want = "S1.0T1.0"
+    elif sys.version_info >= (3, 12):
+        want = "S1.0T0.0"
+    else:
+        want = "S0.0T0.0"
+    assert sum([1e16, 1, -1e16]) == float(want[-3:])
     assert {fill["signal"] for fill in fills if fill["signal"].startswith("S")} == {want}
+
+
+MIXED_INT_SUMS = """
+Arrays: A[4](0), B[4](0.0);
+Vars: n(0), S(0), T(0);
+n = n + 1;
+A[0] = 3; A[1] = 0.1; A[2] = 7; A[3] = 0.2;
+B[0] = 0.1; B[1] = 100000000000000000; B[2] = 0.7; B[3] = -100000000000000000;
+S = Array_Sum(A, 0, 3);
+T = Array_Sum(B, 0, 3);
+if Mod(n, 2) = 0 then Buy ("S" + NumToStr(S, 17) + "T" + NumToStr(T, 17)) next bar at market
+else Sell next bar at market;
+"""
+
+
+def test_sum_with_ints_after_a_float_matches_python(bars):
+    """Regression for #124: ints after the first float follow this Python's sum()."""
+    assert native_sha(MIXED_INT_SUMS, bars)[1] == run_oracle(MIXED_INT_SUMS, bars, NQ)["sha256"]
 
 
 def test_sum_of_elements_of_unknown_type_needs_python_before_312(bars):
