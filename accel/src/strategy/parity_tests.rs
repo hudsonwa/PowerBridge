@@ -605,6 +605,19 @@ fn for_loops_fixture_matches_python() {
     assert_python_native_parity("for-loop fixture", LOOPS_FIXTURE, 0, 140);
 }
 
+const STRINGS_LOG_FIXTURE: &str = include_str!("fixtures/strings_log.txt");
+
+#[test]
+fn strings_logging_fixture_matches_python() {
+    assert_python_native_parity("strings/logging fixture", STRINGS_LOG_FIXTURE, 0, 140);
+    assert_python_native_parity(
+        "strings/logging fixture, window",
+        STRINGS_LOG_FIXTURE,
+        30,
+        120,
+    );
+}
+
 /// `Buf[n] = Close` with n past the last index raises IndexError in Python
 /// (strict run fails); the native run must fail too, never clamp.
 #[test]

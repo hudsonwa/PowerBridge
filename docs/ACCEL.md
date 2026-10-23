@@ -161,6 +161,31 @@ engine stops (strict) or warns and closes the whole side (lenient, #24). The
 kernel refuses the run at that fill, so the caller falls back to Python and
 gets the same result (#125).
 
+A typical logging section runs natively (#138). `StrLen(s)` is Python's
+`len(s)`, a count of code points (`StrLen("été")` is 3). `NewLine` is `"\n"`
+(LF only) unless a variable or input of that name shadows it.
+`FormatDate(fmt, dt)` is an exact port of the Python formatter: a `dt` between
+-693594 and 10,000,000 is a serial date (days since 1899-12-30), anything else
+is `YYYYMMDD`, and the time of day is rounded to whole seconds half-to-even;
+`dddd` and `MMMM` are English names. `Text_SetColor` records the colour like
+`TL_SetColor`. `FileAppend` and `FileDelete` evaluate their arguments and
+return 0: the Python runtime's stubs write nothing, so neither path creates,
+changes or deletes a file. Python lists them as cosmetic, so they never
+appear in the run's `unimplemented` report and are not part of the digest.
+
+Python never converts a string to a number implicitly, so the kernel no
+longer does either. `"a" + 1`, `"5" * 2`, comparing a string with a number,
+`StrLen` of a number, `File` of a number, a `NumToStr` precision that is
+negative or fractional, a `FormatDate` whose format is not a string or whose
+datetime is not a number, and a datetime Python cannot decode (NaN, a serial
+outside years 1 to 9999, an invalid `YYYYMMDD` date) all make the kernel
+refuse the run, and the Python path runs instead. A program that uses strings
+keeps every instruction and evaluates every bar, so such an error is reached
+on the same bar on both paths. Still refused: string arrays, `StrToNum`,
+`InStr`, `MidStr`, `LeftStr` / `RightStr`, `UpperStr` / `LowerStr`,
+`FormatTime`, `Print`, `Text_SetString` and the other `Text_*` setters, and
+the drawing getters such as `TL_GetValue`.
+
 ## Fallback and platforms
 
 **Absent extra = identical behaviour.** Without the module, the auditable

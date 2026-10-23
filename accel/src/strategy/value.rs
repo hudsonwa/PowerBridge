@@ -87,9 +87,11 @@ impl Value {
             Self::Bool(true) => Ok(1.0),
             Self::Bool(false) => Ok(0.0),
             Self::NonNum(b) => match &**b {
-                NonNumeric::Str(s) => s.parse::<f64>().map_err(|_| {
-                    KernelError::unsupported(format!("cannot convert {s:?} to number"))
-                }),
+                // Python never converts a string operand implicitly: `s + 1`,
+                // `s * 2` and `s > 1` raise TypeError, and `s = 1` is False.
+                NonNumeric::Str(s) => Err(KernelError::unsupported(format!(
+                    "string {s:?} used as a number"
+                ))),
                 NonNumeric::Series(_) => Err(KernelError::unsupported(
                     "cannot convert a series to a scalar number",
                 )),
@@ -129,9 +131,21 @@ fn python_str_num(n: f64) -> String {
 }
 
 /// Python `f"{x:.{decimals}f}"` (used by codegen's NumToStr expansion).
-pub(crate) fn num_to_str(x: f64, decimals: i64) -> String {
-    let prec = decimals.max(0) as usize;
-    format!("{x:.prec$}")
+///
+/// Python raises on a negative or fractional precision, so those refuse.
+/// Rust and Python both print the exact binary value rounded half-even, and
+/// both print `-0.00` for `-0.0`; only NaN is spelled differently.
+pub(crate) fn num_to_str(x: f64, decimals: f64) -> Result<String, KernelError> {
+    if !(0.0..=1000.0).contains(&decimals) || decimals.fract() != 0.0 {
+        return Err(KernelError::unsupported(format!(
+            "NumToStr precision {decimals} (Python raises ValueError)"
+        )));
+    }
+    if x.is_nan() {
+        return Ok("nan".to_string());
+    }
+    let prec = decimals as usize;
+    Ok(format!("{x:.prec$}"))
 }
 
 /// CPython `float.hex()` for finite normals/zeros (the fill-digest format).
@@ -364,5 +378,48 @@ mod cross_tests {
             &SeriesView::Slice(&fast),
             &SeriesView::Slice(&slow)
         ));
+    }
+}
+
+#[cfg(test)]
+mod string_tests {
+    use super::*;
+    use crate::strategy::interp::str_len;
+
+    #[test]
+    fn num_to_str_matches_python_fstring() {
+        // Python: f"{x:.{n}f}" for each row.
+        let rows: [(f64, f64, &str); 9] = [
+            (-0.0, 2.0, "-0.00"),
+            (2.675, 2.0, "2.67"),
+            (0.125, 2.0, "0.12"),
+            (-1.005, 2.0, "-1.00"),
+            (f64::INFINITY, 1.0, "inf"),
+            (f64::NAN, 3.0, "nan"),
+            (123.0, 0.0, "123"),
+            (0.5, 0.0, "0"),
+            (-2.5, 0.0, "-2"),
+        ];
+        for (x, n, want) in rows {
+            assert_eq!(num_to_str(x, n).unwrap(), want, "{x} {n}");
+        }
+    }
+
+    #[test]
+    fn num_to_str_refuses_a_precision_python_rejects() {
+        assert!(num_to_str(1.0, -1.0).is_err());
+        assert!(num_to_str(1.0, 1.5).is_err());
+    }
+
+    #[test]
+    fn str_len_counts_code_points() {
+        assert_eq!(str_len(&Value::str("été€")).unwrap(), 4.0);
+        assert_eq!(str_len(&Value::str("")).unwrap(), 0.0);
+        assert!(str_len(&Value::Num(5.0)).is_err());
+    }
+
+    #[test]
+    fn a_string_is_never_read_as_a_number() {
+        assert!(Value::str("5").as_f64().is_err());
     }
 }

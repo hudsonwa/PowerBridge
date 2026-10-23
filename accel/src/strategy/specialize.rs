@@ -29,6 +29,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::compile::{Binop, CallOp, Cmp, Instr, Program, RiskOp, SeriesSrc, Unary};
+use super::interp::{format_date_call, str_len};
 use super::pynum::{binop_num, may_raise, py_extreme, py_int, py_round, py_sign, py_square};
 use super::value::{num_to_str, Value};
 
@@ -74,9 +75,13 @@ pub(crate) fn specialize_with(program: &Program, keep_stores: bool) -> Specializ
         let n = instrs.len();
         instrs = peephole(instrs);
         instrs = dce_unreachable(instrs);
-        instrs = dce_pure_drops(instrs);
-        if !keep_stores {
-            instrs = dce_dead_stores(instrs);
+        // A string operation can raise in Python (`s + 1`, StrLen of a
+        // number), so a program with strings keeps its unread values.
+        if !program.uses_strings {
+            instrs = dce_pure_drops(instrs);
+            if !keep_stores {
+                instrs = dce_dead_stores(instrs);
+            }
         }
         instrs = fuse(instrs);
         if instrs.len() == n {
@@ -230,7 +235,12 @@ fn as_const(ins: &Instr) -> Option<Value> {
 }
 
 fn fold_binop(op: Binop, left: &Value, right: &Value) -> Option<Instr> {
-    if op == Binop::Add && (left.is_str() || right.is_str()) {
+    if left.is_str() || right.is_str() {
+        // Python raises TypeError unless both sides are strings: leave it
+        // unfolded so the kernel refuses at run time.
+        if op != Binop::Add || !(left.is_str() && right.is_str()) {
+            return None;
+        }
         let mut s = left.clone().into_string();
         s.push_str(&right.clone().into_string());
         return Some(Instr::PushStr(s));
@@ -288,11 +298,14 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
         }
         CallOp::NumToStr if args.len() >= 2 => {
             let x = args[0].as_f64().ok()?;
-            let decimals = args[1].as_f64().ok()? as i64;
-            Some(Instr::PushStr(num_to_str(x, decimals)))
+            Some(Instr::PushStr(num_to_str(x, args[1].as_f64().ok()?).ok()?))
         }
+        CallOp::StrLen if args.len() == 1 => Some(Instr::PushNum(str_len(&args[0]).ok()?)),
+        CallOp::FormatDate => Some(Instr::PushStr(format_date_call(args).ok()?)),
         CallOp::SessionTime(hhmm) => Some(Instr::PushNum(f64::from(hhmm))),
-        CallOp::File if !args.is_empty() => Some(Instr::PushStr(args[0].clone().into_string())),
+        CallOp::File if args.first().is_some_and(Value::is_str) => {
+            Some(Instr::PushStr(args[0].clone().into_string()))
+        }
         _ => None,
     }
 }
@@ -496,6 +509,7 @@ fn call_is_pure(op: CallOp) -> bool {
             | CallOp::TlSetStyle
             | CallOp::ArwNew
             | CallOp::TextNew
+            | CallOp::TextSetColor
             | CallOp::Rgb
             | CallOp::LegacyColorToRgb
             | CallOp::GradientColor

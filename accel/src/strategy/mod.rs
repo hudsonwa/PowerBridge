@@ -42,6 +42,7 @@ mod trace_types;
 mod value;
 
 mod compile;
+mod datefmt;
 mod drawing;
 mod skip;
 mod specialize;

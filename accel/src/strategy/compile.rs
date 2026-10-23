@@ -169,6 +169,7 @@ pub(crate) enum CallOp {
     TlSetStyle,
     ArwNew,
     TextNew,
+    TextSetColor,
     Rgb,
     LegacyColorToRgb,
     GradientColor,
@@ -180,6 +181,13 @@ pub(crate) enum CallOp {
     /// the bar's date. `bar_loop` passes this as the `currentsession` run
     /// value; the arguments are evaluated and ignored, as in Python.
     CurrentSession,
+    /// `StrLen(s)`: Python `len(s)`, the code-point count of a string.
+    StrLen,
+    /// `FormatDate(fmt, dt)`: see [`super::datefmt`].
+    FormatDate,
+    /// `FileAppend` / `FileDelete`: Python's stubs write nothing and return 0.
+    /// The arguments are still evaluated.
+    FileNoop,
 }
 
 /// The constant a session-time word returns on the Python path, copied from
@@ -540,6 +548,11 @@ pub(crate) struct Program {
     pub(crate) arrays: Vec<ArrayDecl>,
     // Number of `for` loops (each owns one loop-counter slot).
     pub(crate) n_loops: usize,
+    // The program can hold a string value (a literal, NewLine, a string call,
+    // a string variable or input). Python raises TypeError where the kernel
+    // refuses a mixed string/number operation, so such a program keeps every
+    // instruction and every bar (no dead-code removal, no prefix skip).
+    pub(crate) uses_strings: bool,
 }
 
 /// Largest array index the kernel allocates (declared size or
@@ -739,6 +752,7 @@ struct Compiler {
     array_slots: HashMap<String, usize>,
     arrays: Vec<ArrayDecl>,
     n_loops: usize,
+    uses_strings: bool,
     /// Pending `break` / `continue` jumps of the enclosing `for` loops.
     loops: Vec<LoopJumps>,
     /// Variables assigned by any `for` statement (their Python type is `int`
@@ -797,6 +811,7 @@ impl Compiler {
             array_slots: HashMap::new(),
             arrays: Vec::new(),
             n_loops: 0,
+            uses_strings: false,
             loops: Vec::new(),
             for_vars: HashSet::new(),
             int_loop_vars: Vec::new(),
@@ -883,6 +898,9 @@ impl Compiler {
             .iter()
             .map(|name| self.var_slots[name])
             .collect();
+        let uses_strings = self.uses_strings
+            || self.var_inits.iter().any(Value::is_str)
+            || self.inputs.iter().any(Value::is_str);
         Program {
             instrs: self.instrs,
             var_names: self.var_names,
@@ -897,6 +915,7 @@ impl Compiler {
             input_names: self.input_names,
             arrays: self.arrays,
             n_loops: self.n_loops,
+            uses_strings,
         }
     }
 
@@ -1830,6 +1849,7 @@ impl Compiler {
                 Ok(())
             }
             Some("string") => {
+                self.uses_strings = true;
                 self.instrs.push(Instr::PushStr(
                     node.get("value")
                         .and_then(Json::as_str)
@@ -1914,6 +1934,13 @@ impl Compiler {
         // The runtime's module constant `lastbaronchart_s = True`.
         if name == "lastbaronchart_s" {
             self.instrs.push(Instr::PushBool(true));
+            return Ok(());
+        }
+        // The runtime's module constant `newline = "\n"` (LF only). A variable
+        // or input of that name was resolved above, as in Python.
+        if name == "newline" {
+            self.uses_strings = true;
+            self.instrs.push(Instr::PushStr("\n".to_string()));
             return Ok(());
         }
         Err(KernelError::unsupported(format!(
@@ -2200,10 +2227,16 @@ impl Compiler {
             "tl_setstyle" => (CallOp::TlSetStyle, false),
             "arw_new" => (CallOp::ArwNew, false),
             "text_new" => (CallOp::TextNew, false),
+            "text_setcolor" => (CallOp::TextSetColor, false),
             "rgb" => (CallOp::Rgb, false),
             "legacycolortorgb" => (CallOp::LegacyColorToRgb, false),
             "gradientcolor" => (CallOp::GradientColor, false),
             "currentsession" => (CallOp::CurrentSession, false),
+            // String helpers of a logging section. The file calls are the
+            // Python no-op stubs: nothing is written in either mode.
+            "strlen" => (CallOp::StrLen, false),
+            "formatdate" => (CallOp::FormatDate, false),
+            "fileappend" | "filedelete" => (CallOp::FileNoop, false),
             other => match session_time(other) {
                 Some(hhmm) => (CallOp::SessionTime(hhmm), false),
                 None => {
@@ -2211,6 +2244,12 @@ impl Compiler {
                 }
             },
         };
+        if matches!(
+            op,
+            CallOp::NumToStr | CallOp::File | CallOp::StrLen | CallOp::FormatDate
+        ) {
+            self.uses_strings = true;
+        }
         for arg in args {
             self.compile_expr(arg, false)?;
         }

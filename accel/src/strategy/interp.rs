@@ -36,6 +36,7 @@ use super::compile::{
     compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PositionKw, Program, RiskOp, Series,
     SeriesSrc, Unary,
 };
+use super::datefmt::format_date;
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
 use super::pynum::{binop_num, py_extreme, py_int, py_round, py_sign, py_square};
 use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
@@ -764,6 +765,12 @@ impl<'a> Interpreter<'a> {
 
     fn binop(&self, op: Binop, left: Value, right: Value) -> Result<Value, KernelError> {
         if op == Binop::Add && (left.is_str() || right.is_str()) {
+            // Python raises TypeError on `str + number`.
+            if !(left.is_str() && right.is_str()) {
+                return Err(KernelError::unsupported(
+                    "a string added to a non-string (Python raises TypeError)",
+                ));
+            }
             let mut s = left.into_string();
             s.push_str(&right.into_string());
             return Ok(Value::str(s));
@@ -810,14 +817,15 @@ impl<'a> Interpreter<'a> {
                     return Err(KernelError::unsupported("NumToStr requires 2 args"));
                 }
                 let x = args[0].as_f64()?;
-                let decimals = args[1].as_f64()? as i64;
-                Ok(Value::str(num_to_str(x, decimals)))
+                Ok(Value::str(num_to_str(x, args[1].as_f64()?)?))
             }
             CallOp::File => {
-                if args.is_empty() {
-                    return Err(KernelError::unsupported("File requires a path"));
+                // pl_file returns its argument unchanged; only a string path
+                // is the kernel's string.
+                match args.first() {
+                    Some(path) if path.is_str() => Ok(path.clone()),
+                    _ => Err(KernelError::unsupported("File of a non-string path")),
                 }
-                Ok(Value::str(args[0].clone().into_string()))
             }
             CallOp::AbsValue => {
                 if args.len() != 1 {
@@ -870,6 +878,18 @@ impl<'a> Interpreter<'a> {
             }
             CallOp::ArwNew => self.draw_arw_new(&args),
             CallOp::TextNew => self.draw_text_new(&args),
+            CallOp::TextSetColor => {
+                self.need(2, "Text_SetColor", &args)?;
+                self.drawings
+                    .text_set_color(args[0].as_f64()?, args[1].as_f64()?)
+                    .map(Value::Num)
+            }
+            CallOp::StrLen => {
+                self.need(1, "StrLen", &args)?;
+                str_len(&args[0]).map(Value::Num)
+            }
+            CallOp::FormatDate => format_date_call(&args).map(Value::str),
+            CallOp::FileNoop => Ok(Value::Num(0.0)),
             CallOp::Rgb => {
                 self.need(3, "RGB", &args)?;
                 rgb(args[0].as_f64()?, args[1].as_f64()?, args[2].as_f64()?).map(Value::Num)
@@ -1405,6 +1425,30 @@ pub(crate) fn iso_weekday(el_date: i64) -> Option<u8> {
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     let days = era * 146_097 + doe - 719_468;
     Some(((days + 3).rem_euclid(7) + 1) as u8)
+}
+
+/// Python `len(s)`: the code-point count. Python raises on a non-string.
+pub(crate) fn str_len(s: &Value) -> Result<f64, KernelError> {
+    s.as_str()
+        .map(|s| s.chars().count() as f64)
+        .ok_or_else(|| KernelError::unsupported("StrLen of a non-string"))
+}
+
+/// `pl_formatdate(*args)`: `''` with fewer than two arguments. A non-string
+/// format (Python takes `str()` of it) or a non-number datetime is refused.
+pub(crate) fn format_date_call(args: &[Value]) -> Result<String, KernelError> {
+    if args.len() < 2 {
+        return Ok(String::new());
+    }
+    let fmt = args[0]
+        .as_str()
+        .ok_or_else(|| KernelError::unsupported("FormatDate format that is not a string"))?;
+    let Value::Num(dt) = args[1] else {
+        return Err(KernelError::unsupported(
+            "FormatDate datetime that is not a number",
+        ));
+    };
+    format_date(fmt, dt)
 }
 
 #[cfg(test)]
