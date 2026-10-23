@@ -136,6 +136,7 @@ from pl_transpiler.codegen import (
 )
 from pl_transpiler.codegen_el import _INV_MCKW, _INV_POSKW  # noqa: F401  (re-exported)
 from pl_transpiler.codegen_tables import CANONICAL_EL_NAME  # noqa: F401  (re-exported)
+from pl_transpiler.codegen_util import demangle_name
 
 # Must match transpiler.codegen.DIALECT_VERSION (the forward dialect this inverts).
 # v3: the forward codegen now emits a same-line trailing `#|` comment (was its own
@@ -577,7 +578,7 @@ def _parse_inputs(body, i, out, declared):
                 and _is_name(stmt.targets[0])):
             break
         kg = _kwargs_get(stmt.value)
-        if kg is None or kg[0] != stmt.targets[0].id:
+        if kg is None or kg[0] != demangle_name(stmt.targets[0].id):
             break
         name = stmt.targets[0].id
         default = kg[1]
@@ -711,4 +712,23 @@ def py_to_ast(py_source):
     i = _parse_inputs(body, i, out, declared)
     i = _parse_decls(body, i, out, declared)
     out.extend(_inv_stmts(body[i:]))
-    return {'type': 'program', 'body': out, '_comments': _recapture_comments(py_source)}
+    return {'type': 'program', 'body': _demangle_names(out),
+            '_comments': _recapture_comments(py_source)}
+
+
+def _demangle_names(n):
+    """Restore EL names codegen mangled away from reserved Python names
+    (`_el_max` -> `max`) in idents, declarations and for-loop vars."""
+    if isinstance(n, list):
+        return [_demangle_names(x) for x in n]
+    if not isinstance(n, dict):
+        return n
+    out = {k: _demangle_names(v) for k, v in n.items()}
+    t = n.get('type')
+    if t == 'ident':
+        out['name'] = demangle_name(n['name'])
+    elif t == 'for':
+        out['var'] = demangle_name(n['var'])
+    elif t in ('var_decl', 'input_decl', 'array_decl'):
+        out['decls'] = [{**d, 'name': demangle_name(d['name'])} for d in out['decls']]
+    return out

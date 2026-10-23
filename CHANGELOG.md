@@ -115,6 +115,7 @@
 
 ### Fixed
 
+- Names like `max` or `str`, and blocks holding only a redeclaration, now transpile to valid Python (#130).
 - Native `Array_Sum` now adds like the running Python's `sum()` on 3.14 too:
   from 3.14, ints after the first float are compensated like floats, so
   `sum([1e16, 1, -1e16])` is `1.0` there but `0.0` on 3.12 and 3.13. The
