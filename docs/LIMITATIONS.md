@@ -32,9 +32,15 @@ trust a backtest from partial output.
 
 - The Python to EL direction only reads the **mirror dialect**: the clean Python
   this transpiler itself emits. Arbitrary hand-written Python is out of scope.
-- `el_emit` checks function names, argument counts and return types, but not
-  the argument types of multi-argument functions, so the MultiCharts editor is
-  still the final check (#7).
+- `el_emit` checks function names, argument counts and return types. It checks
+  argument types only where both sides are certain: the catalog record is
+  verified against MultiCharts and declares the parameter `numeric`, and the
+  argument is a string literal, `true`/`false`, or a variable declared with a
+  string or true/false initial value. It does not check arguments to
+  documented-unverified records, parameters typed `any` or untyped, or
+  arguments that are expressions or function calls. The MultiCharts editor is
+  still the final check (#7; details in
+  [USAGE](USAGE.md#python-mirror-dialect-to-easylanguage)).
 - Validated against MultiCharts on **1-minute @NQ** and **1-minute @ES**
   (@ES#C RTH, 2016: four configurations of a real-world multi-entry strategy,
   4,278 of 4,278 fills identical). The MultiCharts captures behind these
