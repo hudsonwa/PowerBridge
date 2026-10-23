@@ -32,6 +32,7 @@ use crate::types::{
 mod arrays;
 #[cfg(test)]
 mod bench;
+mod clock;
 mod interp;
 mod ir;
 #[cfg(test)]

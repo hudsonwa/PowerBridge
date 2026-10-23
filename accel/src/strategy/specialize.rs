@@ -30,7 +30,10 @@ use std::time::Instant;
 
 use super::compile::{Binop, CallOp, Cmp, Instr, Program, RiskOp, SeriesSrc, Unary};
 use super::interp::{format_date_call, str_len};
-use super::pynum::{binop_num, may_raise, py_extreme, py_int, py_round, py_sign, py_square};
+use super::pynum::{
+    binop_num, may_raise, py_datetojulian, py_extreme, py_floor, py_int, py_round, py_sign,
+    py_square,
+};
 use super::value::{num_to_str, Value};
 
 /// Specialised instruction stream for one frozen Input vector.
@@ -278,6 +281,12 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
         CallOp::Square if args.len() == 1 => {
             Some(Instr::PushNum(py_square(args[0].as_f64().ok()?).ok()?))
         }
+        CallOp::Floor if args.len() == 1 => {
+            Some(Instr::PushNum(py_floor(args[0].as_f64().ok()?).ok()?))
+        }
+        CallOp::ElDateToDateTime if args.len() == 1 => Some(Instr::PushNum(
+            py_datetojulian(args[0].as_f64().ok()?).ok()?,
+        )),
         CallOp::Round => {
             let x = args.first()?.as_f64().ok()?;
             let decimals = match args.len() {

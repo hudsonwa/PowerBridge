@@ -90,6 +90,41 @@ pub(crate) fn py_square(a: f64) -> Result<f64, KernelError> {
     Ok(r)
 }
 
+/// `Floor(x)`, emitted as Python `math.floor(x)`: an int, so no negative
+/// zero. Python raises on a NaN or an infinity.
+pub(crate) fn py_floor(a: f64) -> Result<f64, KernelError> {
+    if !a.is_finite() {
+        return Err(refuse("Floor of a non-finite value"));
+    }
+    Ok(a.floor() + 0.0)
+}
+
+/// `ELDateToDateTime(d)`, emitted as `pl_datetojulian(d)`: days since
+/// 1899-12-30 of the EL date `int(d)` (YYYMMDD), by the runtime's integer
+/// Julian-day formula with Python's floor division. An out-of-range month or
+/// day is not rejected; the formula runs on whatever `int(d)` holds. A value
+/// of 2**53 or more is refused (Python's exact int arithmetic there).
+pub(crate) fn py_datetojulian(a: f64) -> Result<f64, KernelError> {
+    if !a.is_finite() {
+        return Err(refuse("ELDateToDateTime of a non-finite value"));
+    }
+    let t = a.trunc();
+    if t.abs() >= 9_007_199_254_740_992.0 {
+        return Err(refuse("ELDateToDateTime of a date beyond 2**53"));
+    }
+    let el_date = t as i64;
+    let yy = el_date.div_euclid(10000);
+    let mm = el_date.div_euclid(100).rem_euclid(100);
+    let dd = el_date.rem_euclid(100);
+    let a = (14 - mm).div_euclid(12);
+    let y = 1900 + yy + 4800 - a;
+    let m = mm + 12 * a - 3;
+    let jdn = dd + (153 * m + 2).div_euclid(5) + 365 * y + y.div_euclid(4) - y.div_euclid(100)
+        + y.div_euclid(400)
+        - 32045;
+    Ok((jdn - 2415019) as f64)
+}
+
 /// Exact powers of ten that Python's `10 ** n` gives for an int `n` in 0..=22.
 const POW10: [f64; 23] = [
     1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
@@ -164,13 +199,21 @@ pub(crate) fn py_extreme(args: &[f64], max: bool) -> Result<f64, KernelError> {
 
 /// Whether `instr` can raise on the Python path for some operand values, so
 /// the kernel may refuse it at run time: a `/` or `mod` whose divisor is not a
-/// non-zero constant, `IntPortion`, `Square`, `Round`, or `MaxList`/`MinList` of fewer
+/// non-zero constant, `IntPortion`, `Square`, `Round`, `Floor`,
+/// `ELDateToDateTime`, or `MaxList`/`MinList` of fewer
 /// than two values. Such an instruction must run on every bar Python runs it:
 /// it is never deleted as dead code. `prev` is the preceding instruction (the
 /// divisor push for a plain `Binop`), when known.
 pub(crate) fn may_raise(instr: &Instr, prev: Option<&Instr>) -> bool {
     match instr {
-        Instr::Call(CallOp::IntPortion | CallOp::Square | CallOp::Round, _) => true,
+        Instr::Call(
+            CallOp::IntPortion
+            | CallOp::Square
+            | CallOp::Round
+            | CallOp::Floor
+            | CallOp::ElDateToDateTime,
+            _,
+        ) => true,
         _ => divides_unsafely(instr, prev, &[]),
     }
 }
@@ -239,7 +282,7 @@ fn operand_reads_var(instrs: &[Instr], pc: usize) -> bool {
 
 /// Whether any instruction of `instrs` can raise on the Python path for some
 /// bar, so a prefix skip would hide the error: an unsafe division (see
-/// [`divides_unsafely`]), `IntPortion`/`Square` of a value that may be
+/// [`divides_unsafely`]), `IntPortion`/`Square`/`Floor`/`ELDateToDateTime` of a value that may be
 /// non-finite or unbounded, i.e. one that reads a variable, or any `Round`. With no unsafe
 /// division, `IntPortion(Time / 100)` or `Square(Close - Open)` only see
 /// finite bar data and cannot raise.
@@ -247,9 +290,9 @@ pub(crate) fn program_may_raise(instrs: &[Instr], inputs: &[Value]) -> bool {
     instrs.iter().enumerate().any(|(pc, instr)| {
         let prev = pc.checked_sub(1).map(|p| &instrs[p]);
         divides_unsafely(instr, prev, inputs)
-            || (matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, 1))
+            || (matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square | CallOp::Floor | CallOp::ElDateToDateTime, 1))
                 && operand_reads_var(instrs, pc))
-            || matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, n) if *n != 1)
+            || matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square | CallOp::Floor | CallOp::ElDateToDateTime, n) if *n != 1)
             // The precision operand can overflow or underflow `10 ** n`.
             || matches!(instr, Instr::Call(CallOp::Round, _))
     })
@@ -300,6 +343,52 @@ mod tests {
             assert!(binop_num(Binop::Mod, -3.0, b).is_err());
         }
         assert_eq!(binop_num(Binop::Div, -3.0, 4.0).unwrap(), -0.75);
+    }
+
+    #[test]
+    fn floor_matches_math_floor() {
+        // Values from CPython math.floor.
+        let cases = [
+            (2.5_f64, 2.0_f64),
+            (-2.5, -3.0),
+            (-0.5, -1.0),
+            (3.0, 3.0),
+            (-3.0, -3.0),
+            (-1e-300, -1.0),
+            (1e16, 1e16),
+        ];
+        for (x, want) in cases {
+            assert_eq!(bits(py_floor(x)), want.to_bits(), "Floor({x})");
+        }
+        // math.floor(-0.0) is the int 0.
+        assert_eq!(bits(py_floor(-0.0)), 0f64.to_bits());
+        for x in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(py_floor(x).is_err());
+        }
+    }
+
+    #[test]
+    fn datetojulian_matches_runtime() {
+        // Values from the runtime's pl_datetojulian, invalid dates included.
+        let cases = [
+            (1_240_305.0, 45_356.0),
+            (1_240_305.9, 45_356.0),
+            (1_000_229.0, 36_585.0),
+            (991_231.0, 36_525.0),
+            (0.0, -30.0),
+            (-1.0, 2_715.0),
+            (1_241_399.0, 45_756.0),
+            (1_240_000.0, 45_260.0),
+            (1_241_332.0, 45_689.0),
+            (-1_240_305.7, -42_668.0),
+            (99_999_999.0, 3_655_140.0),
+        ];
+        for (d, want) in cases {
+            assert_eq!(py_datetojulian(d).unwrap(), want, "ELDateToDateTime({d})");
+        }
+        assert!(py_datetojulian(f64::NAN).is_err());
+        assert!(py_datetojulian(f64::INFINITY).is_err());
+        assert!(py_datetojulian(1e17).is_err());
     }
 
     #[test]

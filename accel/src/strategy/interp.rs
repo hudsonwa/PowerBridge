@@ -32,13 +32,16 @@ use crate::types::{
 };
 
 use super::arrays::{py_index_int, ElArray};
+use super::clock::{clock_value, python_clock, Clock};
 use super::compile::{
     compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PositionKw, Program, RiskOp, Series,
     SeriesSrc, Unary,
 };
 use super::datefmt::format_date;
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
-use super::pynum::{binop_num, py_extreme, py_int, py_round, py_sign, py_square};
+use super::pynum::{
+    binop_num, py_datetojulian, py_extreme, py_floor, py_int, py_round, py_sign, py_square,
+};
 use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
 use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
 
@@ -89,6 +92,8 @@ pub(crate) struct Interpreter<'a> {
     /// The run's `MinMove` and `PriceScale` (see [`Self::set_price_units`]).
     minmove: f64,
     pricescale: f64,
+    /// Time source of the computer-clock words (see [`super::clock`]).
+    clock: Clock,
 }
 
 /// Largest `for` bound the kernel runs. Python keeps the loop variable as an
@@ -177,6 +182,7 @@ impl<'a> Interpreter<'a> {
             last_read_kind: ElemKind::Unknown,
             minmove: 0.0,
             pricescale: 0.0,
+            clock: python_clock,
         };
         interp.seed_state();
         Ok(interp)
@@ -910,6 +916,15 @@ impl<'a> Interpreter<'a> {
                 .map(Value::Num)
             }
             CallOp::SessionTime(hhmm) => Ok(Value::Num(f64::from(hhmm))),
+            CallOp::Floor => {
+                self.need(1, "Floor", &args)?;
+                Ok(Value::Num(py_floor(args[0].as_f64()?)?))
+            }
+            CallOp::ElDateToDateTime => {
+                self.need(1, "ELDateToDateTime", &args)?;
+                Ok(Value::Num(py_datetojulian(args[0].as_f64()?)?))
+            }
+            CallOp::Clock(word) => Ok(Value::Num(clock_value(word, &(self.clock)()?))),
             CallOp::CurrentSession => iso_weekday(self.bar.date)
                 .map(|d| Value::Num(f64::from(d)))
                 .ok_or_else(|| KernelError::unsupported("CurrentSession on an invalid bar date")),
@@ -1098,6 +1113,12 @@ impl<'a> Interpreter<'a> {
     pub(crate) fn set_price_units(&mut self, minmove: i64, pricescale: i64) {
         self.minmove = minmove as f64;
         self.pricescale = pricescale as f64;
+    }
+
+    /// Replace the computer clock (tests pin the time with this).
+    #[cfg(test)]
+    pub(crate) fn set_clock(&mut self, clock: Clock) {
+        self.clock = clock;
     }
 
     pub(crate) fn drawings_json(&self) -> Json {
@@ -1761,5 +1782,140 @@ mod align_tests {
             let shuf1 = random_tape(n1, seed.wrapping_mul(41), false, 0);
             assert_parity(&format!("unsorted d1 seed {seed}"), &shuf1, &mono2, false);
         }
+    }
+}
+
+#[cfg(test)]
+mod builtin_tests {
+    use super::super::clock::ClockNow;
+    use super::super::compile::compile;
+    use super::*;
+    use crate::audit::AuditSlots;
+    use crate::types::{BarTape, Instrument};
+    use serde_json::json;
+
+    fn fixed_clock() -> Result<ClockNow, KernelError> {
+        Ok(ClockNow {
+            year: 2024,
+            month: 3,
+            day: 5,
+            hour: 9,
+            minute: 7,
+            second: 3,
+            microsecond: 250_000,
+        })
+    }
+
+    fn num(v: &str) -> Json {
+        json!({"type": "number", "value": v})
+    }
+
+    /// Runs `assigns` (name, expression) on two bars and returns each
+    /// variable's final value.
+    fn run(assigns: &[(&str, Json)]) -> Vec<Value> {
+        let decls: Vec<Json> = assigns
+            .iter()
+            .map(|(name, _)| json!({"name": name, "init": num("0")}))
+            .collect();
+        let mut body = vec![json!({"type": "var_decl", "decls": decls})];
+        for (name, value) in assigns {
+            body.push(json!({
+                "type": "assign",
+                "target": {"type": "ident", "name": name},
+                "value": value,
+            }));
+        }
+        let ast = json!({"type": "program", "body": body});
+        let program = compile(&ast, &HashMap::new()).unwrap();
+        let mut interp = Interpreter::from_program_with(program, None, true).unwrap();
+        interp.set_clock(fixed_clock);
+        let tape = BarTape::from_columns(
+            vec![100.0; 2],
+            vec![101.0; 2],
+            vec![99.0; 2],
+            vec![-2.5, 1240305.0],
+            vec![1.0; 2],
+            vec![1240304, 1240305],
+            vec![1000; 2],
+        )
+        .unwrap();
+        crate::kernel::run_native_from(&tape, Instrument::default(), &mut interp, 0).unwrap();
+        assigns
+            .iter()
+            .map(|(name, _)| {
+                let slot = interp.slot_index(name).unwrap();
+                interp.var_value(slot).cloned().unwrap()
+            })
+            .collect()
+    }
+
+    fn call(name: &str, args: Vec<Json>) -> Json {
+        json!({"type": "call", "name": name, "args": args})
+    }
+
+    fn ident(name: &str) -> Json {
+        json!({"type": "ident", "name": name})
+    }
+
+    #[test]
+    fn floor_eldate_and_clock_words_run_natively() {
+        let got = run(&[
+            (
+                "a",
+                call(
+                    "floor",
+                    vec![json!({"type": "unaryop", "op": "-", "operand": num("2.5")})],
+                ),
+            ),
+            ("b", call("floor", vec![ident("close")])),
+            ("c", call("eldatetodatetime", vec![ident("date")])),
+            ("d", call("eldatetodatetime", vec![num("124"), num("305")])),
+            ("e", ident("currenttime_s")),
+            ("f", call("currenttime_s", vec![])),
+            ("g", ident("currentdate_s")),
+            ("h", ident("computerdatetime")),
+        ]);
+        let want: [f64; 8] = [
+            -3.0,
+            1_240_305.0,
+            45_356.0,
+            1_240_305.0,
+            90_703.0,
+            90_703.0,
+            1_240_305.0,
+            // Variables hold float32, as on the Python path.
+            f64::from(45_356.379_898_726_85_f64 as f32),
+        ];
+        for (value, want) in got.iter().zip(want) {
+            assert_eq!(
+                value.as_f64().unwrap().to_bits(),
+                want.to_bits(),
+                "{value:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn floor_of_a_non_finite_value_refuses() {
+        let ast = json!({"type": "program", "body": [
+            {"type": "var_decl", "decls": [{"name": "a", "init": num("0")}]},
+            {"type": "assign", "target": ident("a"),
+             "value": call("floor", vec![json!({"type": "binop", "op": "*", "left": num("1e308"), "right": ident("close")})])},
+        ]});
+        let program = compile(&ast, &HashMap::new()).unwrap();
+        let mut interp = Interpreter::from_program_with(program, None, true).unwrap();
+        let tape = BarTape::from_columns(
+            vec![1.0],
+            vec![1.0],
+            vec![1.0],
+            vec![100.0],
+            vec![1.0],
+            vec![1240305],
+            vec![1000],
+        )
+        .unwrap();
+        assert!(
+            crate::kernel::run_native_from(&tape, Instrument::default(), &mut interp, 0).is_err()
+        );
     }
 }
