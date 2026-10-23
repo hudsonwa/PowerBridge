@@ -117,6 +117,14 @@ and `Sess1FirstBarTime` / `Sess2FirstBarTime` (831). Bare `SessionEndTime`,
 `SessionStartTime` and `Sess1StartTime` (no parentheses) read run values on
 the Python path instead and are refused.
 
+`CurrentSession` (with or without arguments) runs natively as the ISO
+weekday of the bar's date, 1 = Monday to 7 = Sunday: the value the Python bar
+loop passes in. Its arguments are evaluated and ignored, so a session number
+does not change the result. `SessionCount(...)` and `SessionCountMS` return
+5, and `SessionEndDay(...)` and `SessionEndDayMS(...)` return 1, also with or
+without parentheses. `SessionStartDay(...)`, whose result depends on its
+session-number argument, is still refused.
+
 ## Fallback and platforms
 
 **Absent extra = identical behaviour.** Without the module, the auditable
