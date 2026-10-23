@@ -49,6 +49,8 @@
 
 ### Changed
 
+- The frozen `el_emit` output used as extra parser corpus moved from
+  `emitted/` to `tests/fixtures/emitted/`, with a README saying what it is.
 - The README quickstart passes `--max-bars-back 21` (`ma_cross.el`'s own
   lookback) to `pl_oracle` and `pl_run`, so the demo prints no warm-up
   `note:`; a test keeps it that way. Defaults are unchanged.

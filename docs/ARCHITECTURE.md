@@ -37,7 +37,7 @@ list is worse than an error, because nobody notices it. So we:
 `pl_transpiler/` is the package (`runtime/` holds the bar loop and fill engine,
 `tools/` the console commands), `accel/` the optional Rust kernel, `tests/` the
 suite and gates, `tools/` maintainer scripts, `examples/` and `ground_truth/`
-the sample bars and the EL conformance corpus. `emitted/ground_truth/` holds
+the sample bars and the EL conformance corpus. `tests/fixtures/emitted/ground_truth/` holds
 EasyLanguage that `el_emit`'s emitter (`codegen_el.emit_el`) produced from the
 `ground_truth/` programs at the 0.2.0 export; no script in the tree regenerates
 it, and `tests/test_ir_roundtrip.py` parses it as extra corpus input.

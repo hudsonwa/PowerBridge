@@ -39,7 +39,7 @@ repository or on its tracker.
     compact bar tape (`bar_tape`: opt-in `.pbar` mmap loader), the native-kernel caller
     (`accel`: the `pl_transpiler._accel` FFI crossing).
 - `tests/` — the verification gates (shipped, not packaged into the wheel).
-- `ground_truth/`, `emitted/`, `examples/` — EL sources and sample data.
+- `ground_truth/`, `tests/fixtures/emitted/`, `examples/` — EL sources and sample data.
 
 The shared **intermediate representation (IR)** is the parser's **dict AST**: a plain
 `dict` with a `type`, a `body`, and retained metadata. Every public conversion is a

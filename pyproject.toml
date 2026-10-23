@@ -90,10 +90,10 @@ follow_imports = "silent"
 warn_unused_ignores = true
 
 [tool.ruff]
-# Lint only; no formatter is enforced. emitted/ and tests/generated/ hold
+# Lint only; no formatter is enforced. tests/fixtures/emitted/ and tests/generated/ hold
 # machine-generated output, so they are not linted.
 target-version = "py39"
-extend-exclude = ["emitted", "tests/generated", "accel/target", "out"]
+extend-exclude = ["tests/fixtures/emitted", "tests/generated", "accel/target", "out"]
 
 [tool.ruff.lint]
 # pycodestyle errors (imports E4, statements E7, syntax E9), warnings (W) and
