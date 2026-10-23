@@ -160,11 +160,20 @@ impl TraceCollector {
         let known = |name: &str, ty: TraceType| {
             ty.map_err(|why| KernelError::unsupported(format!("trace of {name}: {why}")))
         };
+        // A block-declared variable is a Python local: no column, so its
+        // type is never needed.
         let var_types = program
             .var_names
             .iter()
             .zip(var_types)
-            .map(|(name, ty)| known(name, ty))
+            .zip(&program.var_block)
+            .map(|((name, ty), block)| {
+                if *block {
+                    Ok(TraceKind::Float)
+                } else {
+                    known(name, ty)
+                }
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let mut input_cells = Vec::with_capacity(program.inputs.len());
         for ((name, ty), value) in program
@@ -190,7 +199,9 @@ impl TraceCollector {
             named.insert(name.clone(), Source::Input(slot));
         }
         for (slot, name) in program.var_names.iter().enumerate() {
-            named.insert(name.clone(), Source::Var(slot));
+            if !program.var_block[slot] {
+                named.insert(name.clone(), Source::Var(slot));
+            }
         }
         let (columns, sources) = named.into_iter().unzip();
         Ok(Self {

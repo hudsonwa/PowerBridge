@@ -175,12 +175,12 @@ def test_not_installed_is_a_clear_error(monkeypatch, capsys):
     assert "native kernel not installed" in capsys.readouterr().err
 
 
-# A refused declaration followed by uses of it, and declarations nested in a
-# block (which get no slot), must be listed, never crash the kernel (#111).
+# A refused declaration followed by uses of it, and a block-declared variable
+# used outside its block (#128), must be listed, never crash the kernel (#111).
 NO_PANIC = [
     'Arrays: S[3]("a");\nVars: x(0);\nx = 1;\nS[1] = "b";\n',
     "Vars: v(Average(Close, 3));\nv = 2;\nif v > 1 then Buy next bar at market;\n",
-    "if Close > Open then begin\n Vars: z(0);\n z = z + 1;\nend;\n",
+    "if Close > Open then begin\n Vars: z(0);\n z = z + 1;\nend;\nz = 2;\n",
     'if Close > Open then begin\n Arrays: A[2]("s");\n A[0] = "t";\nend;\n',
     "Vars: Value1(Close);\nValue1 = Value1 + 1;\nValue2 = Value1;\n",
     "Vars: d(0, data2);\nd = Close;\nif d > 0 then Buy next bar at market;\n",

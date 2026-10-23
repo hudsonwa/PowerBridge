@@ -107,7 +107,23 @@ index past the end stops the run). String arrays, `Array_Sort`,
 a typed trace of a program with arrays are refused and run on the Python path.
 On Python 3.12 and later `Array_Sum` adds floats the way that Python's `sum()`
 does; when the kernel cannot tell whether an element is an int or a float
-there, it refuses.
+there, it refuses. `Average` follows the same rule; that refusal is decided
+when the program is compiled, so `--explain-native` lists it as
+`function Average` (#128).
+
+A `Vars:` declared inside a `begin ... end` block (an `if` or `else` branch,
+`Once`, a `for` body) runs natively as the Python path runs it: the variable
+is a local of that bar, set to its initial value (which may be any
+expression) every time the declaration runs, with no float32 rounding, no
+trace column and nothing kept to the next bar. The same name may be declared
+in several blocks. Redeclaring a top-level variable inside a block changes
+nothing, as in Python. The kernel refuses, at compile time, the uses the
+Python path cannot run or runs differently: reading or assigning the
+variable before its declaration or outside the block that declares it, a
+lookback (`Z[1]`) or series use (`Average(Z, 3)`) of it, a block name that is
+also an input, array or price series, and redeclaring a top-level variable
+that is read as a series or with a lookback, or with an initial value that is
+not a literal (#128).
 
 The session-time words run natively with the Python path's template
 constants, whatever their arguments: `SessionEndTime(...)` (1600),
