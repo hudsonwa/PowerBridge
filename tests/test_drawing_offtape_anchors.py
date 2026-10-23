@@ -66,6 +66,21 @@ PROGRAMS = {
     ),
 }
 
+# Anchors on later bars: 1010 is bar 3 of the tape, 1012 is not a bar.
+FUTURE = {
+    "future_anchor_on_the_tape": (
+        "Vars: id(-1);\n"
+        "If BarNumber = 1 Then id = Arw_New(Date, 1010, Low, true);\n"
+        "If BarNumber = 1 Then id = TL_New(Date, Time, Low, Date, 1020, High);\n"
+        "If Close > Open Then Buy next bar at market;\n"
+    ),
+    "future_anchor_not_on_the_tape": (
+        "Vars: id(-1);\n"
+        "If BarNumber = 1 Then id = Arw_New(Date, 1012, Low, true);\n"
+        "If Close > Open Then Buy next bar at market;\n"
+    ),
+}
+
 # The native kernel refuses TL_SetBegin/TL_SetEnd and the getters at compile
 # time, so this runs on Python; the anchors still need no tape bar.
 SETTERS = (
@@ -130,6 +145,28 @@ def test_validator_still_checks_off_tape_anchors():
         validate(dump)
 
 
+def test_future_anchor_on_the_tape_gets_its_bn():
+    dump = validate(_run(FUTURE["future_anchor_on_the_tape"])["drawings"])
+    arrow, line = dump["objects"]
+    assert (arrow["anchors"][0]["bn"], arrow["anchors"][0]["time"]) == (3, 1010)
+    assert (line["anchors"][1]["bn"], line["anchors"][1]["time"]) == (5, 1020)
+    dump = validate(_run(FUTURE["future_anchor_not_on_the_tape"])["drawings"])
+    assert dump["objects"][0]["anchors"][0]["bn"] is None
+
+
+def test_validator_rejects_null_bn_on_a_known_tape_bar():
+    dump = _run(FUTURE["future_anchor_on_the_tape"])["drawings"]
+    dump["objects"][1]["anchors"][0]["bn"] = None
+    with pytest.raises(DumpError, match="is a tape bar"):
+        validate(dump)
+    dump = _run(FUTURE["future_anchor_on_the_tape"])["drawings"]
+    last = dump["tape"]["last"]
+    anchor = dump["objects"][0]["anchors"][0]
+    anchor.update(bn=None, date=last[0], time=last[1], time_s=last[1] * 100)
+    with pytest.raises(DumpError, match="is a tape bar"):
+        validate(dump)
+
+
 def _needs_native():
     from pl_transpiler.runtime.accel import accel_available
     if not accel_available():
@@ -137,11 +174,12 @@ def _needs_native():
 
 
 @pytest.mark.needs_native
-@pytest.mark.parametrize("name", sorted(PROGRAMS))
+@pytest.mark.parametrize("name", sorted(PROGRAMS) + sorted(FUTURE))
 def test_native_matches_python(name):
     _needs_native()
-    python = _run(PROGRAMS[name])
-    native = _run(PROGRAMS[name], use_native=True)
+    src = {**PROGRAMS, **FUTURE}[name]
+    python = _run(src)
+    native = _run(src, use_native=True)
     assert native["native"] is True, native.get("native_fallback_reason")
     assert native["sha256"] == python["sha256"]
     assert native["drawings"]["producer"]["kind"] == "pb-native"

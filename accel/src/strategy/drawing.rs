@@ -16,9 +16,13 @@
 //!
 //! The values are the MultiCharts measurements cited by the golden corpus
 //! (g-tl-001-new, g-arw-001-new, g-text-001-new, g-colour-001-hours). An
-//! unmeasured colour call is an error. An anchor need not be a bar on the
-//! tape: it keeps its raw (date, time) and has no `bn`, as on the Python side. `TL_GetValue` interpolation is not implemented here: the
-//! compiler still refuses that call.
+//! unmeasured colour call is an error. An anchor is looked up on the whole
+//! tape, including bars after the current one, as on the Python side. An
+//! anchor that is not a tape bar keeps its raw (date, time) and has no `bn`.
+//! `TL_GetValue` interpolation is not implemented here: the compiler still
+//! refuses that call.
+
+use std::collections::HashMap;
 
 use serde_json::{json, Value as Json};
 
@@ -324,9 +328,30 @@ fn opt_bool(value: Option<bool>) -> Json {
     value.map(Json::Bool).unwrap_or(Json::Null)
 }
 
+/// 1-based `bn` of each (date, time) on the whole run tape, like the Python
+/// recorder's `_bn_of`.
+#[derive(Default)]
+pub(crate) struct TapeIndex {
+    bn_of: HashMap<(i64, i64), i64>,
+}
+
+impl TapeIndex {
+    pub(crate) fn new(dates: &[i64], times: &[i64]) -> Result<Self, KernelError> {
+        let mut bn_of = HashMap::with_capacity(dates.len());
+        for (index, key) in dates.iter().copied().zip(times.iter().copied()).enumerate() {
+            if bn_of.insert(key, index as i64 + 1).is_some() {
+                return Err(KernelError::strategy(format!(
+                    "duplicate tape bar date={} time={}",
+                    key.0, key.1
+                )));
+            }
+        }
+        Ok(Self { bn_of })
+    }
+}
+
 pub(crate) fn find_anchor(
-    dates: &[i64],
-    times: &[i64],
+    tape: &TapeIndex,
     date: f64,
     time: f64,
     price: f64,
@@ -335,19 +360,8 @@ pub(crate) fn find_anchor(
     let time = whole("anchor time", time)?;
     // `None` when the anchor is not a tape bar, e.g. (0, 0) from an
     // out-of-history lookback or a session-end time.
-    let mut found = None;
-    for index in 1..dates.len() {
-        if dates[index] == date && times[index] == time {
-            if found.is_some() {
-                return Err(KernelError::strategy(format!(
-                    "duplicate tape bar date={date} time={time}"
-                )));
-            }
-            found = Some(index as i64);
-        }
-    }
     Ok(Anchor {
-        bn: found,
+        bn: tape.bn_of.get(&(date, time)).copied(),
         date,
         time,
         price,
@@ -452,10 +466,9 @@ mod tests {
     #[test]
     fn trendline_anchor_uses_the_tape_index() {
         let mut store = DrawingStore::new();
-        let dates = vec![0, 1260102, 1260102];
-        let times = vec![0, 1000, 1001];
-        let a1 = find_anchor(&dates, &times, 1260102.0, 1000.0, 10.0).unwrap();
-        let a2 = find_anchor(&dates, &times, 1260102.0, 1001.0, 14.0).unwrap();
+        let tape = TapeIndex::new(&[1260102, 1260102], &[1000, 1001]).unwrap();
+        let a1 = find_anchor(&tape, 1260102.0, 1000.0, 10.0).unwrap();
+        let a2 = find_anchor(&tape, 1260102.0, 1001.0, 14.0).unwrap();
         let id = store.tl_new((2, 1260102, 1001), a1, a2);
         assert_eq!(id, 1.0);
         let dumped = store.to_json();
@@ -483,11 +496,10 @@ mod tests {
     #[test]
     fn anchor_off_the_tape_keeps_its_date_and_time_with_null_bn() {
         let mut store = DrawingStore::new();
-        let dates = vec![0, 1260102, 1260102];
-        let times = vec![0, 1000, 1001];
+        let tape = TapeIndex::new(&[1260102, 1260102], &[1000, 1001]).unwrap();
         // Date[1], Time[1] out of history on bar 1, and a session-end time.
-        let a1 = find_anchor(&dates, &times, 0.0, 0.0, 10.0).unwrap();
-        let a2 = find_anchor(&dates, &times, 1260102.0, 1615.0, 14.0).unwrap();
+        let a1 = find_anchor(&tape, 0.0, 0.0, 10.0).unwrap();
+        let a2 = find_anchor(&tape, 1260102.0, 1615.0, 14.0).unwrap();
         store.tl_new((1, 1260102, 1000), a1, a2);
         let dumped = store.to_json();
         let anchors = &dumped[0]["anchors"];
@@ -499,9 +511,14 @@ mod tests {
         assert_eq!(anchors[1]["time_s"], 161500);
         assert_eq!(anchors[1]["price_ticks"], 56);
         // Between bars and in the future.
-        let between = find_anchor(&dates, &times, 1260102.0, 1030.0, 1.0).unwrap();
+        let between = find_anchor(&tape, 1260102.0, 1030.0, 1.0).unwrap();
         assert_eq!(between.bn, None);
-        let future = find_anchor(&dates, &times, 1301231.0, 930.0, 1.0).unwrap();
+        let future = find_anchor(&tape, 1301231.0, 930.0, 1.0).unwrap();
         assert_eq!(future.bn, None);
+    }
+
+    #[test]
+    fn tape_index_refuses_duplicate_bars() {
+        assert!(TapeIndex::new(&[1260102, 1260102], &[1000, 1000]).is_err());
     }
 }
