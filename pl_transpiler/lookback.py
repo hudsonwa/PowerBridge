@@ -240,15 +240,27 @@ class _Scan:
         # Variable -> past price bars its assignments read (0 if none).
         self.var_need = {}
         self.vars_pass = True
+        # Declared arrays (anywhere): ``Arr[i]`` parses to a bar_ref but is an
+        # element read, not a past-bar read.
+        self.arrays = set()
         assigns = []
         stack = [ast]
         while stack:
             node = stack.pop()
             if isinstance(node, dict):
-                target = node.get('target')
-                if (node.get('type') == 'assign' and isinstance(target, dict)
-                        and target.get('type') == 'ident'):
-                    assigns.append((str(target.get('name', '')).lower(), node))
+                if node.get('type') == 'array_decl':
+                    self.arrays.update(str(d.get('name', '')).lower()
+                                       for d in node.get('decls') or [])
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+        stack = [ast]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                target = self.assigned(node)
+                if target:
+                    assigns.append((target, node))
                 stack.extend(node.values())
             elif isinstance(node, list):
                 stack.extend(node)
@@ -266,6 +278,25 @@ class _Scan:
             if not changed:
                 break
         self.vars_pass = False
+
+    def array_series(self, node):
+        """The lower-cased array name when ``node`` is an ``Arr[i]`` element."""
+        if isinstance(node, dict) and node.get('type') == 'bar_ref':
+            series = node.get('series')
+            if isinstance(series, dict) and series.get('type') == 'ident':
+                name = str(series.get('name', '')).lower()
+                if name in self.arrays:
+                    return name
+        return None
+
+    def assigned(self, node):
+        """The lower-cased variable or array an ``assign`` node writes, else None."""
+        if not (isinstance(node, dict) and node.get('type') == 'assign'):
+            return None
+        target = node.get('target')
+        if isinstance(target, dict) and target.get('type') == 'ident':
+            return str(target.get('name', '')).lower()
+        return self.array_series(target)
 
     def name(self, node):
         """The identifier as written in the source (``FastD``, ``File``)."""
@@ -334,6 +365,18 @@ class _Scan:
             self.line = node['_line']
         kind = node.get('type')
         name = str(node.get('name', '')).lower()
+        if kind == 'assign':
+            # The target is written, not read; an array target's index is read.
+            target = node.get('target')
+            n = self.need(node.get('value'))
+            if self.array_series(target):
+                n = max(n, self.need(target.get('index')))
+            return n
+        if kind == 'bar_ref' and self.array_series(node):
+            # An element read: what the array holds plus what its index reads.
+            inner = self.need(node.get('index'))
+            held = self.var_need.get(self.array_series(node), 0)
+            return max(inner, held if self.vars_pass else 0)
         if kind == 'bar_ref':
             series = node.get('series')
             k = self.index(node.get('index'),

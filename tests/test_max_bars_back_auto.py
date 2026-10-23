@@ -336,3 +336,30 @@ def test_auto_uses_stddev_length_not_its_data_type(tmp_path, capsys):
     assert "max-bars-back 20 (auto)" in auto.err
     assert pl_oracle.main([path, SAMPLE, "--python", "--max-bars-back", "20"]) == 0
     assert capsys.readouterr().out == auto.out
+
+
+@pytest.mark.parametrize("src, expected", [
+    # Constant and loop-variable element reads read no past bars.
+    ("Arrays: Lvl[3](0);\nValue1 = Lvl[2] + Close[1];\n", 1),
+    ("Arrays: Lvl[3](0); Vars: K(0);\n"
+     "For K = 0 To 2 Begin\n"
+     "    If Close > Lvl[K] Then Buy Next Bar At Market;\n"
+     "End;\n", 0),
+    # An assignment target is written, not read.
+    ("Arrays: Hist[50](0);\nHist[49] = Close;\nValue1 = Average(Close, 5);\n", 5),
+    # The index expression itself is scanned, as a read or as a target.
+    ("Arrays: A[5](0);\nValue1 = A[Close[3]];\n", 3),
+    ("Arrays: A[5](0);\nA[Close[6]] = 1;\n", 6),
+    # An element counts what its assignments read.
+    ("Arrays: A[5](0);\nA[0] = Close[4];\nValue1 = A[0];\n", 4),
+])
+def test_array_elements_are_not_past_bars(src, expected):
+    assert infer_max_bars_back(src) == expected
+
+
+@pytest.mark.parametrize("name", ["GT1_functions_indicators.txt", "GT_master_strategy.txt"])
+def test_ground_truth_refused_at_the_series_read(name):
+    with open(os.path.join(REPO, "ground_truth", name)) as fh:
+        src = fh.read()
+    with pytest.raises(LookbackUnknown, match=r"non-constant \[n\] on line 93$"):
+        infer_max_bars_back(src)
