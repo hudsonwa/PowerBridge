@@ -22,9 +22,31 @@ _STDLIB_MARKS = {
 
 _NATIVE_MISSING = ("not built", "not installed", "No module named")
 
-_GROUP_REASONS = {
-    "needs_native": "needs_native: native kernel not built; run ./tools/build_accel.sh",
-}
+# Skip categories for the end-of-run summary: (label, needles). The first whose
+# needle appears in the reason wins; anything else is listed under "other".
+_SKIP_CATEGORIES = (
+    ("native extension not built (expected on a fresh clone): "
+     "pip install -e '.[dev]', then ./tools/build_accel.sh; see docs/ACCEL.md",
+     ("native kernel", "accel extension", "pl_transpiler._accel")),
+    ("licensed MultiCharts captures not shipped (expected on a fresh clone); "
+     "see docs/CAPTURES.md",
+     ("captures", "drawing corpus", "audit tape", "private fixture")),
+    ("optional tool missing (expected without the dev extras): "
+     "pip install -e '.[dev]'",
+     ("'build' module", "pip install")),
+    ("case does not apply (by design)",
+     ("engine kwargs key", "no round trip", "original is not proven")),
+)
+
+
+def skip_category(reason, native=False):
+    """Summary label for a skip `reason`; None means uncategorised ("other")."""
+    if native and any(n in reason for n in _NATIVE_MISSING):
+        return _SKIP_CATEGORIES[0][0]
+    for label, needles in _SKIP_CATEGORIES:
+        if any(n in reason for n in needles):
+            return label
+    return None
 
 
 # tryfirst: mark before pytest applies -m (including the default in pytest.ini).
@@ -49,7 +71,8 @@ def pytest_terminal_summary(terminalreporter):
     skipped = terminalreporter.stats.get("skipped", [])
     if not skipped:
         return
-    reasons = Counter()
+    groups = Counter()
+    other = Counter()
     for report in skipped:
         longrepr = report.longrepr
         if isinstance(longrepr, tuple) and len(longrepr) == 3:
@@ -59,15 +82,18 @@ def pytest_terminal_summary(terminalreporter):
         if reason.startswith("Skipped: "):
             reason = reason[len("Skipped: "):]
         reason = reason.strip()
-        # Collapse the many spellings of "kernel missing" into one line; other
-        # needs_native skips (a program the kernel refuses) keep their reason.
-        if "needs_native" in report.keywords and any(
-                n in reason for n in _NATIVE_MISSING):
-            reason = _GROUP_REASONS["needs_native"]
-        reasons[reason] += 1
+        label = skip_category(reason, "needs_native" in report.keywords)
+        if label is None:
+            other[reason] += 1
+        else:
+            groups[label] += 1
     terminalreporter.write_sep("-", f"skip summary ({len(skipped)} skipped)")
-    for reason, count in reasons.most_common():
-        terminalreporter.write_line(f"{count:5d}  {reason}")
+    for label, count in groups.most_common():
+        terminalreporter.write_line(f"{count:5d}  {label}")
+    if other:
+        terminalreporter.write_line(f"{sum(other.values()):5d}  other:")
+        for reason, count in other.most_common():
+            terminalreporter.write_line(f"{count:9d}  {reason}")
     terminalreporter.write_line(
         "Not run by default: -m needs_captures (licensed MultiCharts data), "
         "-m perf (PB_PERF=1). See CONTRIBUTING.md (Running checks locally)."
