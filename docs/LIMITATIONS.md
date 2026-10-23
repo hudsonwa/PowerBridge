@@ -32,6 +32,9 @@ trust a backtest from partial output.
 
 - The Python to EL direction only reads the **mirror dialect**: the clean Python
   this transpiler itself emits. Arbitrary hand-written Python is out of scope.
+- `el_emit` checks function names, argument counts and return types, but not
+  the argument types of multi-argument functions, so the MultiCharts editor is
+  still the final check (#7).
 - Validated against MultiCharts on **1-minute @NQ** and **1-minute @ES**
   (@ES#C RTH, 2016: four configurations of a real-world multi-entry strategy,
   4,278 of 4,278 fills identical). The MultiCharts captures behind these
@@ -60,7 +63,9 @@ trust a backtest from partial output.
   release (macOS, Linux and Windows) or build it from source; see
   [ACCEL.md](ACCEL.md). It does not yet
   run strategies that declare **arrays**; those fall back to Python, loudly.
-  `pl_run` (per-bar trace rows) always uses the Python path.
+  `pl_run` (per-bar trace rows) uses it only for full-tape runs without
+  `--partial` (`--max-bars-back` and `--max-entries-per-direction` are
+  supported); other runs use the Python path and say so on stderr.
 - Same-direction entries always add to the position (as with MultiCharts'
   'allow multiple entries' setting). MultiCharts' default setting refuses
   them; that default is documented behaviour, not verified against a capture.

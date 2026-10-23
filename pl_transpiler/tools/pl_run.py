@@ -403,6 +403,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
            drawing_tape: Optional[dict[str, Any]] = None,
+           use_native: bool = False,
            _python_path_notify: Optional[Callable[..., Any]] = None) -> dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
@@ -450,9 +451,17 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     and text the run created. Requires ``drawing_case_id`` and
                     ``drawing_tape`` ``{'name', 'sha256'}``. The default return
                     has no ``drawings`` key.
+    use_native    : False (default): the Python engine. True: try the optional
+                    native kernel's typed trace first; it serves full-tape runs
+                    (max_bars_back and an entry cap included) without partial
+                    mode or drawings, and its rows are byte-identical to the
+                    Python rows.
+                    Any other run, or a program the kernel refuses, runs on the
+                    Python path and ``native_fallback_reason`` says why.
 
     Returns {'columns': [...], 'rows': [[str, ...], ...], 'trades': [...],
-    'n_rows': int, 'n_warmup': int}, where rows are formatted exactly as the GT
+    'n_rows': int, 'n_warmup': int, 'native': bool,
+    'native_fallback_reason': str | None}, where rows are formatted exactly as the GT
     harness formats predicted CSV cells and trades come from
     FillEngine.get_mc_trades(). When retain_rows is False, 'rows' is [] and
     n_rows is still the emit count. n_warmup is the seeded-prefix length (0
@@ -460,6 +469,21 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     """
     max_bars_back = check_max_bars_back(max_bars_back)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
+    fallback_reason = None
+    if use_native:
+        reason = _native_shape_refusal(
+            partial=partial, from_date=from_date, from_bar=from_bar,
+            drawings=drawings)
+        if reason is None:
+            out, fallback_reason = _run_el_native(
+                el_source, bars, config, max_bars_back=max_bars_back,
+                max_entries_per_direction=max_entries_per_direction,
+                trace_columns=trace_columns,
+                row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows)
+            if out is not None:
+                return out
+        else:
+            fallback_reason = reason
     reset_indicator_caches()
     if partial:
         # Surface the manifest loudly before running. Detect the stubs via the
@@ -538,10 +562,6 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     # The library logs the "Python path" note; the CLI passes warn_python_path
     # to print it on stderr instead.
     notify = _python_path_notify or (lambda r=None: _log.info(python_path_note(r)))
-    if accel_available():
-        notify("per-bar trace rows need it; pl_oracle uses the Rust kernel")
-    else:
-        notify()
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
     drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
@@ -573,6 +593,14 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
             on_bar=None if recorder is None else recorder.set_bar,
         )
 
+    # Reported after the run, so a program that stops on a user error prints
+    # only that error.
+    if fallback_reason is not None:
+        notify(fallback_reason)
+    elif not use_native and accel_available():
+        notify("use_native=False (pl_run --native is the default when it is installed)")
+    elif not use_native:
+        notify()
     columns = cols_holder['cols']
     if columns is None:
         columns = list(trace_columns) if trace_columns is not None else []
@@ -586,6 +614,8 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         'n_warmup': n_warmup,
         # {keyword: calls} of unimplemented builtins this run used as 0/'' (warned on stderr).
         'unimplemented': pl_unimplemented_warn('pl_run'),
+        'native': False,
+        'native_fallback_reason': fallback_reason,
     }
     if drawings:
         out['drawings'] = make_dump(
@@ -595,6 +625,78 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
             producer_kind='pb-python',
         )
     return out
+
+
+def _native_shape_refusal(*, partial, from_date, from_bar, drawings):
+    """Why ``run_el(use_native=True)`` must take the Python path before asking
+    the kernel, or None. The typed trace serves the full-tape run only."""
+    if partial:
+        return "--partial is served by the Python path only"
+    if from_date is not None or from_bar is not None:
+        return "run is windowed (not the native shape)"
+    if drawings:
+        return "drawings are served by the Python path only"
+    return None
+
+
+def _run_el_native(el_source, bars, config, *, max_bars_back,
+                   max_entries_per_direction, trace_columns, row_sink,
+                   header_sink, retain_rows):
+    """The native typed trace, rendered the way ``emit_row`` renders it.
+
+    Returns ``(out, None)`` (``run_el``'s dict) or ``(None, reason)`` when the
+    kernel is missing or refuses the program. Nothing reaches the sinks before
+    the kernel has produced the whole trace, so a refusal never leaves a
+    partial CSV behind.
+    """
+    from pl_transpiler.runtime.accel import (
+        AccelRefused,
+        AccelUnavailable,
+        run_native_trace,
+    )
+    try:
+        native_cols, native_rows, fills = run_native_trace(
+            el_source, bars, config, max_bars_back=max_bars_back,
+            max_entries_per_direction=max_entries_per_direction)
+    except AccelUnavailable as exc:
+        return None, str(exc)
+    except AccelRefused as exc:
+        return None, f"native path refused: {exc}"
+    warn_short_history(el_source, max_bars_back, len(bars), 'pl_run')
+    if retain_rows is None:
+        retain_rows = row_sink is None
+    columns = list(trace_columns) if trace_columns is not None else []
+    rows = []
+    if native_rows:
+        # As emit_row: the first bar's keys define (or resolve) the columns;
+        # an unknown name raises only when there is a bar to emit.
+        if trace_columns is not None:
+            keys = resolve_trace_columns(columns, native_cols)
+        else:
+            columns = keys = list(native_cols)
+        index = {k: i for i, k in enumerate(native_cols)}
+        picks = [index[k] for k in keys]
+        if header_sink is not None:
+            header_sink(columns)
+        for typed in native_rows:
+            row = [format_trace_cell(typed[i]) for i in picks]
+            if retain_rows:
+                rows.append(row)
+            if row_sink is not None:
+                row_sink(row)
+    elif header_sink is not None:
+        header_sink(columns)
+    return {
+        'columns': columns,
+        'rows': rows,
+        # Same shape as FillEngine.get_mc_trades(): order_no first, from 1.
+        'trades': [{'order_no': i + 1, **fill} for i, fill in enumerate(fills)],
+        'n_rows': len(native_rows),
+        'n_warmup': 0,
+        'unimplemented': {},
+        'native': True,
+        'native_fallback_reason': None,
+    }, None
 
 
 def _build_parser():
@@ -647,6 +749,12 @@ def _build_parser():
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="also print the note that the optional native kernel "
                          "is not installed (other fallback notes always print).")
+    ap.add_argument("--native", dest="use_native", action="store_true", default=None,
+                    help="use the Rust kernel's per-bar trace (the DEFAULT when it is "
+                         "installed); falls back to Python loudly when it cannot "
+                         "serve the run. The CSV is byte-identical either way.")
+    ap.add_argument("--python", dest="use_native", action="store_false",
+                    help="force the pure-Python path (reference / debugging).")
     _cli.add_version(ap, "pl_run")
     return ap
 
@@ -676,10 +784,20 @@ def _main(ap, args):
     config = _cli.config_or_error(args.config)
     out_path = _cli.output_path(args.output)
 
+    from pl_transpiler.runtime.accel import accel_available
+    use_native = accel_available() if args.use_native is None else args.use_native
+
     def notify(reason: Optional[str] = None) -> None:
-        # "Not installed" (reason None) is the default install: -v only.
-        if reason is not None or args.verbose:
+        if args.use_native is False:
+            return  # --python: explicitly requested
+        if reason is not None and reason.startswith("native path refused"):
+            print(f"[pl_run] {reason}; using the pure-Python engine (slower)",
+                  file=sys.stderr)
+        elif reason is not None and (use_native or accel_available()):
             warn_python_path(reason)
+        elif args.verbose:
+            # Not installed is the default install: -v only.
+            warn_python_path()
 
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout
     writer = csv.writer(out_f)
@@ -700,7 +818,7 @@ def _main(ap, args):
                             seed_warmup=not args.slice_tape,
                             max_bars_back=args.max_bars_back,
                             max_entries_per_direction=args.max_entries_per_direction,
-                            _python_path_notify=notify)
+                            use_native=use_native, _python_path_notify=notify)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
@@ -715,7 +833,7 @@ def _main(ap, args):
                         seed_warmup=not args.slice_tape,
                         max_bars_back=args.max_bars_back,
                         max_entries_per_direction=args.max_entries_per_direction,
-                        _python_path_notify=notify)
+                        use_native=use_native, _python_path_notify=notify)
     if out_path:
         out_f.close()
 
@@ -727,6 +845,7 @@ def _main(ap, args):
     from pl_transpiler.tools.pl_oracle import count_round_turns
     print(f"[pl_run] {len(bars)} bars{warmup_note}, {result['n_rows']} rows, "
           f"{len(result['trades'])} fills, {count_round_turns(result['trades'])} round-turns"
+          f" [{'native' if result.get('native') else 'python'}]"
           + (f" -> {out_path}" if out_path else ""), file=sys.stderr)
     return 0
 

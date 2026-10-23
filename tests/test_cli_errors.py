@@ -125,7 +125,7 @@ def test_pl_run_round_turns_match_pl_oracle(tmp_path, program, want):
     oracle = _run("pl_oracle", *common, "--python")
     assert run.returncode == oracle.returncode == 0, run.stderr + oracle.stderr
     tail = "%d fills, %d round-turns" % want
-    assert run.stderr.strip().splitlines()[-1].endswith(tail), run.stderr
+    assert run.stderr.strip().splitlines()[-1].endswith(tail + " [python]"), run.stderr
     assert ("round_turns: %d" % want[1]) in oracle.stdout, oracle.stdout
     assert any(ln.startswith("[pl_oracle]") and tail in ln
                for ln in oracle.stderr.splitlines()), oracle.stderr

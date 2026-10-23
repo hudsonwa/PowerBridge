@@ -617,7 +617,7 @@ python3 -m pl_transpiler.tools.pl_run <el_file> <bars_csv> [--config NAME] [-o O
 
   stdout : the per-bar CSV (unless -o given). Streamed during the bar loop
            (not buffered as list[list[str]] first).
-  stderr : a one-line "[pl_run] N bars, M rows, K fills, R round-turns" status line.
+  stderr : a one-line "[pl_run] N bars, M rows, K fills, R round-turns [native|python]" status line.
   Exit code: 0 on success; 2 on a usage error (missing bars_csv, unknown flag).
   Ships as an installed console script: run `pl_run ...` from any directory after
   `pip install .` (or `python3 -m pl_transpiler.tools.pl_run ...`). No checkout needed.

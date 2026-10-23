@@ -137,12 +137,13 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 
 ```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/run_out.csv
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns [python] -> out/run_out.csv
 ```
 
-Without the optional [Rust fast path](ACCEL.md#install) the run uses the
-pure-Python engine; results are identical either way. Add `-v` to see a
-`note:` line on stderr saying so.
+That status line goes to stderr. With the optional
+[Rust fast path](ACCEL.md#install) installed it says `[native]` instead of
+`[python]`; the CSV is byte-identical either way. Add `-v` to see a `note:`
+line on stderr when the fast path is not installed.
 
 **4. Read the output.** `out/run_out.csv` has one row per bar with the columns you
 asked for. The strategy goes long, exits with a
@@ -392,7 +393,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 
 ```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns -> out/es_out.csv
+[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns [python] -> out/es_out.csv
 ```
 
 <!-- readme-test: file out/es_out.csv -->

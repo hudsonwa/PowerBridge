@@ -130,5 +130,8 @@ def test_pl_run_cli_prints_other_fallback_notes_without_verbose(monkeypatch, cap
                                                                 tmp_path):
     monkeypatch.setattr("pl_transpiler.runtime.accel.accel_available", lambda: True)
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
-    assert pl_run.main([EL, BARS, "-o", str(tmp_path / "out.csv")]) == 0
-    assert "note: using the pure-Python engine" in capsys.readouterr().err
+    # A windowed run is not the native trace's shape.
+    assert pl_run.main([EL, BARS, "--from-bar", "5", "-o", str(tmp_path / "out.csv")]) == 0
+    err = capsys.readouterr().err
+    assert "note: using the pure-Python engine (slower): run is windowed" in err
+    assert "[python]" in err

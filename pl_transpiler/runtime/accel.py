@@ -473,7 +473,8 @@ def run_native_drawings(el_source, bars, config, *, data2_bars=None,
     return fills, json.loads(raw)
 
 
-def run_native_trace(el_source, bars, config, *, data2_bars=None):
+def run_native_trace(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
+                     max_entries_per_direction=0):
     """Run ``el_source`` natively and return the typed per-bar trace + fills.
 
     The typed trace sink: one FFI crossing emits the kernel's
@@ -491,12 +492,23 @@ def run_native_trace(el_source, bars, config, *, data2_bars=None):
     ``str()`` of every cell equals ``run_el``'s cell. A program whose
     variable types (int, float, bool or str) depend on the run is refused.
 
+    ``max_bars_back`` / ``max_entries_per_direction`` behave as in
+    :func:`run_native`: the first N bars are history only (no row; the
+    ``_barnumber`` column starts at 1 after them). A kernel whose trace entry
+    predates them is refused for a non-zero value.
+
     Raises ``AccelUnavailable`` / ``AccelRefused`` — never a partial trace.
     """
     accel, program_ir, series, data2 = _serialise_and_marshal(
         el_source, bars, data2_bars
     )
-    config_map = _config_dict(config)
+    if ((max_bars_back or max_entries_per_direction)
+            and not getattr(accel, "TRACE_RUN_OPTIONS", False)):
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build's trace predates max_bars_back / "
+            "max_entries_per_direction; rebuild accel (tools/build_accel.sh)")
+    config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
         return accel.run_program_trace(program_ir, series, data2, config_map)
     except NotImplementedError as exc:

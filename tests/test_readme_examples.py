@@ -28,7 +28,9 @@ Markers (HTML comments, invisible on GitHub), on the line(s) before a block:
 A plain ``` block directly after a runnable block (blank lines only between)
 is that block's documented output. Documented lines must appear in the actual
 output in order; a `...` line stands for any lines. `note:` lines are about
-whether the optional native module is installed and are ignored.
+whether the optional native module is installed and are ignored, and so is
+the engine tag on a `[pl_run]` status line: a documented `[python]` also
+matches `[native]` (the CSV is byte-identical either way).
 
 `out/` is removed at the start of every `## ` section, so each section must
 create the directories it writes to, as a reader who jumps straight to it would.
@@ -130,10 +132,18 @@ def to_argv(argv):
         "<!-- readme-test: skip (reason) -->")
 
 
+ENGINE_TAG = re.compile(r"^(\[pl_run\] .*) \[native\]( -> .*)?$")
+
+
+def _fold_engine(line):
+    """A `[pl_run]` status line's `[native]` tag compared as `[python]`."""
+    return ENGINE_TAG.sub(lambda m: f"{m.group(1)} [python]{m.group(2) or ''}", line)
+
+
 def matches(doc, actual):
     """Documented lines appear in order in actual; '...' is a gap."""
     doc = [l.rstrip() for l in doc if not l.startswith("note:")]
-    actual = [l.rstrip() for l in actual if not l.startswith("note:")]
+    actual = [_fold_engine(l.rstrip()) for l in actual if not l.startswith("note:")]
     pos = 0
     for want in doc:
         if want == "...":
@@ -238,3 +248,12 @@ def test_readme_quickstart_prints_no_warmup_note(workdir):
         rc, _, err = run(to_argv(argv), workdir)
         assert rc == 0, err
         assert not [l for l in err if l.startswith("note:") and "warm-up" in l], (argv, err)
+
+
+def test_status_line_engine_tag_folds():
+    doc = ["[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns [python] -> out/t.csv"]
+    native = ["[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns [native] -> out/t.csv"]
+    assert matches(doc, native)
+    assert matches(doc, doc)
+    assert not matches(doc, ["[pl_run] 140 bars, 129 rows, 5 fills, 3 round-turns [native] -> out/t.csv"])
+    assert matches(["[pl_run] 140 bars, 119 rows [python]"], ["[pl_run] 140 bars, 119 rows [native]"])

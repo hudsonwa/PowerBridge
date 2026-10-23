@@ -826,6 +826,8 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("MAX_BARS_BACK", true)?;
     // Capability flag: `run_program` honours `config["max_entries_per_direction"]`.
     m.add("MAX_ENTRIES_PER_DIRECTION", true)?;
+    // Capability flag: `run_program_trace` honours both options above too.
+    m.add("TRACE_RUN_OPTIONS", true)?;
     // Array_Sum must add like this interpreter's `sum()` (compensated from 3.12,
     // ints too from 3.14), read at import from the running interpreter.
     let version = m.py().version_info();

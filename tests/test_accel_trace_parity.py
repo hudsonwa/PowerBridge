@@ -160,3 +160,74 @@ def test_synthetic_programs_trace_like_python(source, bars):
 def test_run_dependent_types_are_refused(kinds, bars):
     with pytest.raises(AccelRefused, match=f"depends on the run \\({kinds}\\)"):
         run_native_trace(AMBIGUOUS[kinds], bars, get_config("NQ"))
+
+
+# --- pl_run CLI: native trace by default, byte-identical CSV -----------------
+
+def _cli(argv, tmp_path, name, capsys):
+    from pl_transpiler.tools import pl_run
+    out = tmp_path / name
+    assert pl_run.main(argv + ["-o", str(out)]) == 0
+    return out.read_bytes(), capsys.readouterr().err
+
+
+@pytest.mark.parametrize("extra", [
+    [], ["--full-precision"],
+    ["--columns", "MarketPosition,NetProfit,TotalTrades"],
+    ["--columns", "Date,Time,Close,CurrentBar,Fast,Slow,FastLen"],
+    ["--max-bars-back", "21"],
+    ["--max-bars-back", "50", "--columns", "BarNumber,Date,Close,MarketPosition"],
+    ["--max-bars-back", "21", "--max-entries-per-direction", "1"],
+])
+def test_pl_run_cli_native_csv_is_byte_identical(extra, tmp_path, capsys):
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, err_py = _cli([el, BARS_CSV, "--python"] + extra, tmp_path, "py.csv", capsys)
+    got, err_nat = _cli([el, BARS_CSV] + extra, tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert "[python]" in err_py and "pure-Python" not in err_py
+    assert "round-turns [native]" in err_nat and "pure-Python" not in err_nat
+
+
+def test_pl_run_cli_unsupported_option_falls_back_loudly(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, _ = _cli([el, BARS_CSV, "--python", "--from-bar", "30"],
+                   tmp_path, "py.csv", capsys)
+    got, err = _cli([el, BARS_CSV, "--native", "--from-bar", "30"],
+                    tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert "using the pure-Python engine" in err and "windowed" in err
+    assert "[python]" in err
+
+
+def test_old_kernel_trace_refuses_max_bars_back(monkeypatch, bars):
+    import pl_transpiler._accel as accel
+    monkeypatch.delattr(accel, "TRACE_RUN_OPTIONS", raising=False)
+    el = open(os.path.join(REPO, "examples", "ma_cross.el"), encoding="utf-8").read()
+    with pytest.raises(AccelRefused, match="predates max_bars_back"):
+        run_native_trace(el, bars, get_config("NQ"), max_bars_back=21)
+
+
+def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, capsys):
+    def refuse(*_a, **_k):
+        raise AccelRefused("synthetic refusal")
+    monkeypatch.setattr("pl_transpiler.runtime.accel.run_native_trace", refuse)
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    want, _ = _cli([el, BARS_CSV, "--python"], tmp_path, "py.csv", capsys)
+    got, err = _cli([el, BARS_CSV], tmp_path, "nat.csv", capsys)
+    assert got == want
+    assert ("[pl_run] native path refused: synthetic refusal; "
+            "using the pure-Python engine (slower)") in err
+    assert "[python]" in err
+
+
+def test_run_el_native_result_matches_python(bars):
+    """run_el(use_native=True) returns the same trades, columns and rows as Python."""
+    el = open(os.path.join(REPO, "examples", "ma_cross.el"), encoding="utf-8").read()
+    config = get_config("NQ")
+    py = run_el(el, bars, config, max_bars_back=21)
+    nat = run_el(el, bars, config, max_bars_back=21, use_native=True)
+    assert nat["trades"] == py["trades"]
+    assert [list(t) for t in nat["trades"]] == [list(t) for t in py["trades"]]
+    assert nat["columns"] == py["columns"]
+    assert nat["rows"] == py["rows"]

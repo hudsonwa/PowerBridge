@@ -73,7 +73,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --col
 ```
 
 ```
-[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns
+[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns [python]
 MarketPosition,NetProfit,TotalTrades
 0,0.00,0
 ...
@@ -81,6 +81,9 @@ MarketPosition,NetProfit,TotalTrades
 ...
 1,1343.80,1
 ```
+
+The first line is the status line on stderr; it ends `[native]` instead
+when the Rust kernel wrote the rows (the CSV is byte-identical either way).
 
 `--max-bars-back 21` is the strategy's own lookback; why it matters is in
 [Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback).
@@ -130,7 +133,7 @@ pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11 -o out/bre
 ```
 
 ```
-[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns -> out/breakout_trace.csv
+[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns [python] -> out/breakout_trace.csv
 ```
 
 A round turn is an exit fill, so a strategy that only adds entries reports
