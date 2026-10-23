@@ -250,12 +250,13 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # top of every bar exactly as if it were assigned to a variable there.
         self._cross_sites = {}
         self._arg_sites = {}
+        self._call_sites = {}
         if self.persist:
             self._collect_cross_sites(node['body'])
             self._collect_arg_sites(node['body'])
         if self.persist and (self._stateful_vars or self._input_inits
                              or self._array_vars or self._cross_sites
-                             or self._arg_sites):
+                             or self._arg_sites or self._call_sites):
             self._slot_vars = [
                 n for n in sorted(self._stateful_vars, key=self._el_name)
                 if n not in self._history_vars
@@ -280,6 +281,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 self.emit(f"_state['__pb_x{k}'] = [f32(0)]")
             for k, _ in self._arg_sites.values():
                 self.emit(f"_state['__pb_a{k}'] = [f32(0)]")
+            for k in self._call_sites.values():
+                self.emit(f"_state['__pb_c{k}'] = [f32(0)]")
             if self._slot_vars:
                 seeds = ", ".join(self._persist_var_seed(n) for n in self._slot_vars)
                 self.emit(f"_state['__pb_slots'] = [{seeds}]")
@@ -622,26 +625,51 @@ class CodeGen(_ExprMixin, _StmtMixin):
             if isinstance(v, (dict, list)):
                 self._collect_cross_sites(v, line)
 
-    def _collect_arg_sites(self, node):
+    # Statements whose body may run zero times or more than once in a bar.
+    _CONDITIONAL_STMTS = frozenset((
+        'for', 'while', 'repeat_until', 'once', 'switch', 'commentary_block'))
+
+    def _collect_arg_sites(self, node, cond=False):
         """Number every price argument of a series function that needs a
-        hidden history (see ``_needs_arg_site``) and whose value depends only
-        on bar data. Children are numbered first, so a nested site is filled
-        before the site that reads it. Any other such argument is reported
-        when the call is generated."""
+        hidden history (see ``_needs_arg_site``). One whose value depends only
+        on bar data is filled at the top of the bar (``_arg_sites``). One that
+        reads a variable is filled where the call runs (``_call_sites``), as
+        if assigned to a variable just before the statement, but only when the
+        call runs exactly once on every bar (``cond`` is False). Children are
+        numbered first, so a nested site is filled before the site that reads
+        it. Any other such argument is reported when the call is generated."""
         if isinstance(node, list):
             for n in node:
-                self._collect_arg_sites(n)
+                self._collect_arg_sites(n, cond)
             return
         if not isinstance(node, dict):
             return
-        for v in node.values():
+        t = node.get('type')
+        for key, v in node.items():
             if isinstance(v, (dict, list)):
-                self._collect_arg_sites(v)
-        if node.get('type') == 'call' and node.get('name') in self._PRICE_ARG_FUNCS:
+                self._collect_arg_sites(v, cond or self._is_conditional_part(node, t, key))
+        if t == 'call' and node.get('name') in self._PRICE_ARG_FUNCS:
             args = node.get('args') or []
-            if (args and isinstance(args[0], dict) and self._needs_arg_site(args[0])
-                    and self._is_bar_pure(args[0], computed=True)):
-                self._arg_sites[id(args[0])] = (len(self._arg_sites) + 1, args[0])
+            if args and isinstance(args[0], dict) and self._needs_arg_site(args[0]):
+                if self._is_bar_pure(args[0], computed=True):
+                    self._arg_sites[id(args[0])] = (len(self._arg_sites) + 1, args[0])
+                elif not cond:
+                    self._call_sites[id(args[0])] = len(self._call_sites) + 1
+
+    def _is_conditional_part(self, node, t, key):
+        """True if child ``key`` of ``node`` may be skipped or repeated in a
+        bar: an If's branches, a loop, Once or Switch, the right side of
+        ``and`` / ``or`` and every argument of IFF (the condition too, to keep
+        the rule simple)."""
+        if t == 'if':
+            return key != 'cond'
+        if t in self._CONDITIONAL_STMTS:
+            return True
+        if t == 'binop' and node.get('op') in ('and', 'or'):
+            return key == 'right'
+        if t == 'call' and node.get('name') == 'iff':
+            return True
+        return False
 
     def _persist_var_seed(self, name):
         """First-bar seed expression for one persist var (scalar slot or list)."""

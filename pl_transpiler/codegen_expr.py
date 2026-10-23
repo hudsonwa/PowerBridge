@@ -285,46 +285,40 @@ class _ExprMixin:
         site = getattr(self, '_arg_sites', {}).get(id(arg))
         if site is not None:
             return f"_state['__pb_a{site[0]}']"
+        site = getattr(self, '_call_sites', {}).get(id(arg))
+        if site is not None:
+            # Append this bar's value where the call runs, then pass the
+            # history: the same as assigning the argument to a variable just
+            # before the statement and passing that variable.
+            old_ctx = self._series_context
+            self._series_context = False
+            value = self.gen_expr(arg)
+            self._series_context = old_ctx
+            self._need_f32_import = True
+            hist = f"_state['__pb_c{site}']"
+            return f"({hist}.append(f32({value})) or {hist})"
         if self._needs_arg_site(arg):
             from pl_transpiler.codegen_el import emit_expr
             line = call.get('_line') or self._cur_stmt_line
             self._unimpl_errors.append({
                 'name': name, 'line': line, 'kind': 'unsupported',
-                'detail': (f"price argument {emit_expr(arg)!r} can change within "
-                           f"the bar; assign it to a declared variable and pass "
-                           f"that variable instead")})
+                'detail': (f"price argument {emit_expr(arg)!r} reads a variable "
+                           f"and the call does not run exactly once on every bar; "
+                           f"assign it to a declared variable and pass that "
+                           f"variable instead")})
         return None
 
     def _needs_arg_site(self, node):
         """True if a price argument needs a hidden history: an offset, a
-        computed word or an expression whose generated form is not already a
-        series. Shapes that were already series-valued keep their old form."""
+        computed word, an expression or a nested call. Only a bare series
+        (``Close``, a variable) or a constant is passed as it is."""
         t = node.get('type')
         if t == 'bar_ref':
             return node['series'].get('type') != 'position_kw'
         if t == 'ident':
             return (node.get('name') in _BARE_COMPUTED_PRICES
                     and not self._is_user_name(node.get('name')))
-        if t in ('binop', 'unaryop', 'compare'):
-            return not self._emits_list(node)
-        return False
-
-    def _emits_list(self, node):
-        """True if the series-context form of ``node`` evaluates to a list
-        without raising (``High + Low`` and ``Close * N`` do)."""
-        t = node.get('type')
-        if t == 'ident':
-            return (node.get('name') in _SERIES_PARAMS
-                    or node.get('name') in self._stateful_vars)
-        if t != 'binop':
-            return False
-        left, right = self._emits_list(node['left']), self._emits_list(node['right'])
-        if node['op'] == '+':
-            return left and right
-        if node['op'] == '*' and left != right:
-            other = node['right'] if left else node['left']
-            return not (other.get('type') == 'number' and '.' in str(other.get('value')))
-        return False
+        return t in ('binop', 'unaryop', 'compare', 'call')
 
     def _gen_lagged_range(self, name, index):
         """``Range[n]`` = High[n] - Low[n]; ``TrueRange[n]`` also uses Close[n + 1]."""
