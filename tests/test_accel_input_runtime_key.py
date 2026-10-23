@@ -81,19 +81,60 @@ PARSED_AS_KEYWORD = {
     "expirationdate", "minmove", "pointvalue", "pricescale", "sess1starttime",
     "symbol", "symbolcurrencycode", "symbolname",
 }
-# OutPath is always "" in Python (its sandbox); the kernel reads "" too.
+# OutPath is always "" in Python (its sandbox); see the OutPath test below.
 COLLIDING = [k for k in INPUT_KEYS if k not in PARSED_AS_KEYWORD | {"outpath"}]
 
 
-def _kernel_keys():
+def _oracle_extra_keys():
+    """Keys pl_oracle's per_bar_extra hook adds (it only has one with Data2)."""
+    import pl_transpiler.tools.pl_oracle as oracle
+    seen = set()
+    real = oracle.run_bar_loop
+
+    def spy(*args, per_bar_extra=None, **kwargs):
+        if per_bar_extra is not None:
+            seen.update(per_bar_extra(0))
+        return real(*args, per_bar_extra=per_bar_extra, **kwargs)
+
+    bars = load_bars_csv(BARS_CSV)
+    oracle.run_bar_loop = spy
+    try:
+        run_oracle("Value1 = Close;", bars, NQ, data2_closes=[b["close"] for b in bars])
+    finally:
+        oracle.run_bar_loop = real
+    return seen
+
+
+def _gt_harness_extra_keys():
+    """Keys tests/run_gt.py's per-bar hook sets (`ex['key'] = ...`)."""
+    src = open(os.path.join(REPO, "tests", "run_gt.py"), encoding="utf-8").read()
+    hook = src[src.index("def _per_bar_extra"):src.index("return ex", src.index("def _per_bar_extra"))]
+    keys = set(re.findall(r"ex\['(\w+)'\]", hook))
+    keys |= set(re.findall(r"'\w+': '(\w+)'", hook))
+    return keys
+
+
+# Len/Prec are the GT1 capture's own per-bar input values: there the hook
+# feeds the input, it does not shadow it.
+GT_INPUT_FEEDS = {"len", "prec"}
+EXTRA_KEYS = sorted(
+    (_oracle_extra_keys() | _gt_harness_extra_keys()) - set(RUNTIME_KEYS) - GT_INPUT_FEEDS)
+
+
+def _kernel_keys(const="BAR_LOOP_KWARGS"):
     src = open(TRACE_TYPES_RS, encoding="utf-8").read()
-    body = re.search(r"BAR_LOOP_KWARGS: \[&str; \d+\] = \[(.*?)\];", src, re.S)
+    body = re.search(const + r": \[&str; \d+\] = \[(.*?)\];", src, re.S)
     return sorted(re.findall(r'"([^"]+)"', body.group(1)))
 
 
 def test_kernel_list_matches_runtime_keys():
-    # OutPath is the kernel's BLANKED_INPUT: it reads "" like Python.
+    # OutPath is the kernel's BLANKED_INPUT, handled on its own.
     assert _kernel_keys() == [k for k in RUNTIME_KEYS if k != "outpath"]
+
+
+def test_kernel_extra_list_matches_runner_hooks():
+    assert "data2_close" in EXTRA_KEYS
+    assert _kernel_keys("PER_BAR_EXTRA_KEYS") == EXTRA_KEYS
 
 
 def _program(key, form):
@@ -134,6 +175,48 @@ def test_colliding_input_is_refused(key, form, sample_bars):
     assert got["sha256"] == run_oracle(program, sample_bars, NQ)["sha256"]
 
 
+# Ticks/UpTicks/DownTicks/OpenInt parse as the keyword even when declared as
+# an input; the kernel refuses that keyword, so only the bare form is checked.
+EXTRA_PARSED_AS_KEYWORD = {"downticks", "openint", "ticks", "upticks"}
+
+
+@native
+@pytest.mark.parametrize("form", FORMS)
+@pytest.mark.parametrize("key", [k for k in EXTRA_KEYS if k not in EXTRA_PARSED_AS_KEYWORD])
+def test_runner_extra_key_input_is_refused(key, form):
+    messages = [r.message for r in explain_native(_program(key, form))]
+    assert any(f"input '{key}' collides with the runtime keyword {key}" in m
+               for m in messages), messages
+
+
+@native
+@pytest.mark.parametrize("key", sorted(EXTRA_PARSED_AS_KEYWORD))
+def test_runner_extra_keyword_input_is_refused(key):
+    assert explain_native(_program(key, "bare"))
+
+
+def _data2_tape(bars):
+    """A synthetic Data2 tape: the sample bars, shifted up by 5 points."""
+    return [dict(b, open=b["open"] + 5, high=b["high"] + 5,
+                 low=b["low"] + 5, close=b["close"] + 5) for b in bars]
+
+
+# With Data2, pl_oracle sets `data2_close` per bar, so Python reads Data2's
+# close for this input; the native run used the input's default.
+@native
+def test_data2_close_input_matches_python_with_data2(sample_bars):
+    program = """
+Inputs: Data2_Close(5);
+If MarketPosition = 0 and Close of data2 > Data2_Close Then Buy 1 contracts next bar at market;
+If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
+"""
+    d2 = _data2_tape(sample_bars)
+    want = run_oracle(program, sample_bars, NQ, data2_bars=d2)
+    got = run_oracle(program, sample_bars, NQ, data2_bars=d2, use_native=True)
+    assert not got["native"]
+    assert got["sha256"] == want["sha256"]
+
+
 @native
 @pytest.mark.parametrize("key", sorted(PARSED_AS_KEYWORD))
 def test_reserved_word_input_matches_python(key, sample_bars):
@@ -158,21 +241,24 @@ If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
     assert got["sha256"] == want["sha256"]
 
 
+# OutPath is always "" in Python, so `OutPath[1] > 2` raises TypeError there.
+# The kernel refuses the bracket form, so the native run falls back and raises
+# the same error instead of running with the input's value.
 @native
-@pytest.mark.parametrize("form", FORMS)
-def test_outpath_input_reads_blank_natively(form, sample_bars):
-    read = "OutPath" + ("[1]" if form == "bracket" else "")
+def test_outpath_bracket_input_is_refused(sample_bars):
     program = """
-Inputs: OutPath("x");
-If MarketPosition = 0 and %s = "" Then Buy 1 contracts next bar at market;
-If MarketPosition = 0 and %s <> "" Then SellShort 1 contracts next bar at market;
-If MarketPosition <> 0 and BarsSinceEntry >= 3 Then Begin Sell next bar at market; BuyToCover next bar at market; End;
-""" % (read, read)
-    assert explain_native(program) == []
-    want = run_oracle(program, sample_bars, NQ)
-    got = run_oracle(program, sample_bars, NQ, use_native=True)
-    assert got["native"]
-    assert got["sha256"] == want["sha256"]
+Inputs: OutPath(5);
+If MarketPosition = 0 and OutPath[1] > 2 Then Buy 1 contracts next bar at market;
+If MarketPosition = 1 and BarsSinceEntry >= 3 Then Sell next bar at market;
+"""
+    assert explain_native(program)
+    with pytest.raises(AccelRefused):
+        run_native(program, sample_bars, NQ)
+    with pytest.raises(TypeError) as want:
+        run_oracle(program, sample_bars, NQ)
+    with pytest.raises(TypeError) as got:
+        run_oracle(program, sample_bars, NQ, use_native=True)
+    assert str(got.value) == str(want.value)
 
 
 # Inputs named like a keyword whose kwarg key differs still run natively.
