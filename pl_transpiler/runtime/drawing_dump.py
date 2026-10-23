@@ -102,6 +102,35 @@ def _barkey(key, where: str, price: bool = False, tick: float = 0.25) -> None:
                 f"price_ticks must equal round(price/tick) at {where}.price_ticks")
 
 
+def _check_off_tape(dump: dict) -> None:
+    """Reject a null-``bn`` anchor whose (date, time) is a known tape bar.
+
+    The dump does not list every bar, so the known bars are the tape's first
+    and last bar and every bar key in the dump that has a ``bn``.
+    """
+    tape = dump["tape"]
+    on_tape = set()
+    for bar in (tape["first"], tape["last"]):
+        if isinstance(bar, list) and len(bar) == 2:
+            on_tape.add((bar[0], bar[1]))
+    nulls = []
+    for index, obj in enumerate(dump["objects"]):
+        keys = [(f"$.objects[{index}].{name}", obj[name])
+                for name in ("created", "deleted") if obj[name] is not None]
+        keys += [(f"$.objects[{index}].anchors[{anchor_i}]", anchor)
+                 for anchor_i, anchor in enumerate(obj["anchors"])]
+        for where, key in keys:
+            if key["bn"] is None:
+                nulls.append((where, key))
+            else:
+                on_tape.add((key["date"], key["time"]))
+    for where, key in nulls:
+        if (key["date"], key["time"]) in on_tape:
+            raise DumpError(
+                f"bn is null but date={key['date']} time={key['time']} is a "
+                f"tape bar at {where}.bn")
+
+
 def validate(dump: dict) -> dict:
     """Return ``dump`` if it is a v1 drawing dump; otherwise raise."""
     if not isinstance(dump, dict):
@@ -169,6 +198,7 @@ def validate(dump: dict) -> dict:
             _barkey(obj["deleted"], f"{where}.deleted")
         else:
             live[obj["type"]] += 1
+    _check_off_tape(dump)
     final = dump["final_count"]
     if (not isinstance(final, dict) or set(final) != set(TYPES)
             or any(not _is_int(value) for value in final.values())):
@@ -219,8 +249,8 @@ def barkey(bn: int | None, date: int, time: int, price: float | None = None,
     ``price`` is stored as a float32 value, the precision chart prices have,
     so the Python and native paths write the same bytes.
     """
-    key = {"bn": None if bn is None else int(bn), "date": int(date), "time": int(time),
-           "time_s": int(time) * 100}
+    key = {"bn": None if bn is None else int(bn), "date": int(date),
+           "time": int(time), "time_s": int(time) * 100}
     if price is not None:
         value = struct.unpack("<f", struct.pack("<f", float(price)))[0]
         key["price"] = value

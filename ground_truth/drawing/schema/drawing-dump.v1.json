@@ -219,7 +219,7 @@
       "null"
      ],
      "minimum": 1,
-     "description": "null when the anchor is not a bar on the tape"
+     "description": "null only when the anchor is not a bar on the tape (v1 extension)"
     },
     "date": {
      "type": "integer",
@@ -238,6 +238,33 @@
     },
     "price_ticks": {
      "type": "integer"
+    }
+   },
+   "if": {
+    "properties": {
+     "bn": {
+      "type": "null"
+     }
+    },
+    "required": [
+     "bn"
+    ]
+   },
+   "then": {
+    "description": "An anchor that is not a tape bar, e.g. (0, 0) from an out-of-history lookback: any non-negative date and time."
+   },
+   "else": {
+    "properties": {
+     "date": {
+      "minimum": 1000101,
+      "maximum": 1991231
+     },
+     "time": {
+      "maximum": 2359
+     },
+     "time_s": {
+      "maximum": 235959
+     }
     }
    }
   },
