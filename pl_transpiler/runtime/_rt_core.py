@@ -137,7 +137,7 @@ class MissingBarColumnError(UnimplementedBuiltinError):
 
 
 class NamedExitUnverifiedError(UnimplementedBuiltinError):
-    """A `from entry("X")` exit would fill while several entries are open.
+    """A `from entry("X")` exit would fill while another named entry is open.
 
     EasyLanguage documents it as closing only entry X, but no MultiCharts
     capture confirms the fills, so the run stops instead of guessing (#24)."""
@@ -148,11 +148,12 @@ class NamedExitUnverifiedError(UnimplementedBuiltinError):
         self.entry = entry
         NotImplementedError.__init__(
             self,
-            "EasyLanguage '%s ... from entry (\"%s\")' would fill while more than one "
-            "entry is open in that direction; closing only one entry is not verified "
-            "against MultiCharts (issue #24), so the run stopped instead of guessing; "
-            "rerun with PL_STRICT=0 (or --lenient) to close the whole position and "
-            "get a warning instead" % (verb, entry))
+            "EasyLanguage '%s ... from entry (\"%s\")' would fill while an entry "
+            "with another name is open in that direction; per-entry exits with several "
+            "named entries open are not yet supported (issue #24), so the run stopped "
+            "instead of guessing; drop 'from entry' to close the whole position, or "
+            "rerun with PL_STRICT=0 (or --lenient) to close it with a warning"
+            % (verb, entry))
 
 
 def pl_named_exit_unverified(verb, entry):

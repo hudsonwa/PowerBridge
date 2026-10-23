@@ -58,6 +58,14 @@ ONE_LONG = (
 # The same program with an untagged exit: the reference for "unchanged fills".
 ONE_LONG_UNTAGGED = ONE_LONG.replace(' from entry ("A")', '')
 NOT_OPEN = ONE_LONG.replace('entry ("A")', 'entry ("Z")')
+# Entry A pyramided: every open entry is the one the exit names.
+PYRAMID_A = (
+    'If BarNumber = 5 then Buy ("A") 1 contract next bar at market;\n'
+    'If BarNumber = 6 then Buy ("A") 1 contract next bar at market;\n'
+    'If BarNumber = 10 then Sell ("XA") from entry ("A") next bar at market;\n'
+)
+PYRAMID_A_TOTAL = PYRAMID_A.replace(
+    'Sell ("XA") from', 'Sell ("XA") 1 contract total from')
 
 PATHS = [False] + ([True] if accel_available() else [])
 
@@ -91,6 +99,17 @@ def test_single_entry_named_exit_unchanged(strict, src, native):
     got = run_oracle(src, BARS, NQ, use_native=native)
     ref = run_oracle(ONE_LONG_UNTAGGED, BARS, NQ)
     assert got["fills"] == 2
+    assert got["sha256"] == ref["sha256"]
+    if native:
+        assert got.get("native_fallback_reason") is None
+
+
+@pytest.mark.parametrize("native", PATHS)
+@pytest.mark.parametrize("src,fills", [(PYRAMID_A, 4), (PYRAMID_A_TOTAL, 3)])
+def test_pyramided_named_entry_exit_unchanged(strict, src, fills, native):
+    got = run_oracle(src, BARS, NQ, use_native=native)
+    ref = run_oracle(src.replace(' from entry ("A")', ''), BARS, NQ)
+    assert got["fills"] == fills
     assert got["sha256"] == ref["sha256"]
     if native:
         assert got.get("native_fallback_reason") is None

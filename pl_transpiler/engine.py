@@ -112,6 +112,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
         # Open quantity of each entry of the current position, in fill order. FIFO
         # exits consume it; OpenEntriesCount counts the entries still above zero.
         self._entry_qtys = []
+        # Label of each entry in `_entry_qtys`, kept in step with it (#24).
+        self._entry_labels = []
         # GTA6 File-2 strategy-performance stats: a per-closed-position ledger plus
         # the OPEN position's running excursions. Each closed-trade snapshot records
         # the realized pnl, bars-in-trade (exit_bar - entry_bar + 1), the max favorable
@@ -335,9 +337,10 @@ class FillEngine(_StopsMixin, _ReportMixin):
 
     def _check_named_exit(self, order, action):
         """Fail loud on `Sell` / `BuyToCover ... from entry("X")` while more than
-        one entry is open in the exit's direction (#24): the engine would close
-        the whole position, and the per-entry MultiCharts fills are unverified.
-        One open entry (or none) keeps today's behaviour."""
+        one entry is open in the exit's direction and one of them is not named
+        X (#24): the engine would close the whole position, and the per-entry
+        MultiCharts fills are unverified. One open entry (or none), or only
+        entry X open (pyramided), keeps today's behaviour."""
         if action not in ('sell', 'buytocover') or len(order) < 6:
             return
         extras = list(order[5:])
@@ -347,7 +350,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
         if entry is None:
             return
         side = 1 if action == 'sell' else -1
-        if self.market_position == side and self.open_entries_count > 1:
+        if (self.market_position == side and self.open_entries_count > 1
+                and any(name != entry for name in self._entry_labels)):
             _rt_core.pl_named_exit_unverified(
                 'Sell' if action == 'sell' else 'BuyToCover', entry)
 
@@ -563,9 +567,11 @@ class FillEngine(_StopsMixin, _ReportMixin):
             self.entry_name = name
             self.entry_cat = cat
             self._entry_qtys = [qty]
+            self._entry_labels = [name]
         else:
             self._pos_entries += 1
             self._entry_qtys.append(qty)
+            self._entry_labels.append(name)
         self._pos_max_contracts = max(self._pos_max_contracts, self.contracts)
         self.bars_since_entry = 0
         self._breakeven_triggered = False
@@ -589,9 +595,11 @@ class FillEngine(_StopsMixin, _ReportMixin):
             self.entry_name = name
             self.entry_cat = cat
             self._entry_qtys = [qty]
+            self._entry_labels = [name]
         else:
             self._pos_entries += 1
             self._entry_qtys.append(qty)
+            self._entry_labels.append(name)
         self._pos_max_contracts = max(self._pos_max_contracts, self.contracts)
         self.bars_since_entry = 0
         self.position_profit = 0.0  # Reset for new position
@@ -730,6 +738,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
             qty -= take
             if qtys[0] <= 0:
                 qtys.pop(0)
+                if self._entry_labels:
+                    self._entry_labels.pop(0)
 
     def _update_gross_pnl(self, pnl):
         """Track gross profit and loss (sum of winning/losing trades)."""

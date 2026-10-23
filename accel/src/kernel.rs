@@ -112,6 +112,9 @@ pub(crate) struct FillEngine {
     // (Python `_entry_qtys`). FIFO exits consume it; its length is
     // OpenEntriesCount, which `max_entries_per_direction` caps.
     entry_qtys: VecDeque<isize>,
+    // Signal label of each entry in `entry_qtys`, kept in step with it
+    // (Python `_entry_labels`, #24).
+    entry_labels: VecDeque<String>,
     pending_orders: Vec<Order>,
     on_close_pending: Vec<OnCloseOrder>,
     risk: RiskSettings,
@@ -156,6 +159,7 @@ impl FillEngine {
             position_mae_per_contract: 0.0,
             entry_prices: VecDeque::new(),
             entry_qtys: VecDeque::new(),
+            entry_labels: VecDeque::new(),
             pending_orders: Vec::new(),
             on_close_pending: Vec::new(),
             risk: RiskSettings::default(),
@@ -299,6 +303,7 @@ impl FillEngine {
                 queued.bar_number,
                 queued.date,
                 queued.time,
+                &queued.order.signal,
             )?;
             self.record_action_fills(
                 queued.order.action.is_buy_side(),
@@ -417,7 +422,15 @@ impl FillEngine {
         self.check_named_exit(&order)?;
         let quantity = self.resolve_fill_quantity(order.action, order.quantity)?;
         let previous = self.signed_position();
-        self.apply_action(order.action, quantity, fill_price, bar, date, time)?;
+        self.apply_action(
+            order.action,
+            quantity,
+            fill_price,
+            bar,
+            date,
+            time,
+            &order.signal,
+        )?;
         self.record_action_fills(
             order.action.is_buy_side(),
             &order.signal,
@@ -454,7 +467,10 @@ impl FillEngine {
             Action::BuyToCover => ("BuyToCover", -1),
             Action::Buy | Action::SellShort => return Ok(()),
         };
-        if self.market_position == side && self.entry_qtys.len() > 1 {
+        if self.market_position == side
+            && self.entry_qtys.len() > 1
+            && self.entry_labels.iter().any(|label| label != entry)
+        {
             return Err(KernelError::unsupported(format!(
                 "order modifier 'from entry' ({verb} from entry(\"{entry}\")) with more \
                  than one open entry is not in the native Order surface"
@@ -475,6 +491,7 @@ impl FillEngine {
             quantity -= take;
             if *front <= 0 {
                 self.entry_qtys.pop_front();
+                self.entry_labels.pop_front();
             }
         }
     }
@@ -513,6 +530,8 @@ impl FillEngine {
         }
     }
 
+    // Mirrors Python `_fill(action, qty, price, bar, date, time, label)`.
+    #[allow(clippy::too_many_arguments)]
     fn apply_action(
         &mut self,
         action: Action,
@@ -521,19 +540,20 @@ impl FillEngine {
         bar: usize,
         date: i64,
         time: i64,
+        signal: &str,
     ) -> Result<(), KernelError> {
         match action {
             Action::Buy => {
                 if self.market_position < 0 {
                     self.close_short(fill_price, date, time);
                 }
-                self.open_or_add_long(quantity, fill_price, bar, date, time);
+                self.open_or_add_long(quantity, fill_price, bar, date, time, signal);
             }
             Action::SellShort => {
                 if self.market_position > 0 {
                     self.close_long_fifo(self.contracts, fill_price, date, time);
                 }
-                self.open_or_add_short(quantity, fill_price, bar, date, time)?;
+                self.open_or_add_short(quantity, fill_price, bar, date, time, signal)?;
             }
             Action::Sell => {
                 if self.market_position > 0 {
@@ -556,6 +576,7 @@ impl FillEngine {
         bar: usize,
         date: i64,
         time: i64,
+        signal: &str,
     ) {
         // Python `_open_or_add_long` rounding points:
         //   fill = f32(fill)
@@ -584,8 +605,10 @@ impl FillEngine {
             self.entry_date = date;
             self.entry_time = time;
             self.entry_qtys.clear();
+            self.entry_labels.clear();
         }
         self.entry_qtys.push_back(quantity);
+        self.entry_labels.push_back(signal.to_owned());
         self.pos_max_contracts = self.pos_max_contracts.max(self.contracts);
         self.bars_since_entry = 0;
         self.peak_profit = 0.0;
@@ -599,6 +622,7 @@ impl FillEngine {
         bar: usize,
         date: i64,
         time: i64,
+        signal: &str,
     ) -> Result<(), KernelError> {
         // Same explicit f32 sites as Python `_open_or_add_short`, including its
         // `abs(contracts)` for the old size (short size is stored positive).
@@ -626,8 +650,10 @@ impl FillEngine {
             self.entry_date = date;
             self.entry_time = time;
             self.entry_qtys.clear();
+            self.entry_labels.clear();
         }
         self.entry_qtys.push_back(quantity);
+        self.entry_labels.push_back(signal.to_owned());
         self.pos_max_contracts = self.pos_max_contracts.max(self.contracts);
         self.bars_since_entry = 0;
         self.position_profit = 0.0;
@@ -695,6 +721,7 @@ impl FillEngine {
         self.peak_profit = 0.0;
         self.entry_prices.clear();
         self.entry_qtys.clear();
+        self.entry_labels.clear();
         self.entry_date = 0;
         self.entry_time = 0;
     }
@@ -1304,8 +1331,8 @@ mod tests {
         assert_eq!(narrow_f32(16_777_217.0), 16_777_216.0);
 
         let mut engine = FillEngine::new(Instrument::default());
-        engine.open_or_add_long(25, 13_436_425.0, 1, 0, 0);
-        engine.open_or_add_long(3, 84_743_376.0, 2, 0, 0);
+        engine.open_or_add_long(25, 13_436_425.0, 1, 0, 0, "");
+        engine.open_or_add_long(3, 84_743_376.0, 2, 0, 0, "");
 
         // Python's exact f32 call-site sequence yields 21076456. A naive f32
         // multiply/add/divide pipeline yields 21076454 instead.
@@ -1996,6 +2023,25 @@ mod tests {
         assert!(err
             .to_string()
             .contains("'from entry' (Sell from entry(\"A\")) with more than one open entry"));
+    }
+
+    #[test]
+    fn named_exit_with_only_that_entry_pyramided_closes_like_plain_exit() {
+        let mut engine = FillEngine::new(Instrument::default());
+        enter_long(&mut engine);
+        enter_long(&mut engine);
+        queue(
+            &mut engine,
+            vec![named_exit(Action::Sell, "LE")],
+            RiskUpdate::default(),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+            2,
+        );
+        engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 932), 3)
+            .unwrap();
+        assert_eq!(engine.market_position, 0);
+        assert!(engine.entry_labels.is_empty());
     }
 
     #[test]
