@@ -10,6 +10,7 @@
 ### Changed
 
 - `pl_run` writes its per-bar rows with the Rust kernel when it is installed and the run is full-tape (byte-identical CSV; `--native` / `--python` as in `pl_oracle`, a loud note on fallback, and `[native]` / `[python]` on the status line) (#3).
+- LIMITATIONS notes that `el_emit` does not check the argument types of multi-argument functions (#7).
 - The README's own-strategy example now enters and exits, and pins its digest and status line (#140).
 - The README quickstart explains the stderr status line and adds a "Your own strategy" section; CONTRIBUTING has a generated table of default test skips (`tools/skip_report.py`) and says what public CI covers (#136).
 

@@ -87,7 +87,8 @@ def _can_build():
 @pytest.mark.timeout(300)
 def test_installed_wheel_outside_repo():
     if not _can_build():
-        pytest.skip("needs the 'build' module and setuptools>=77 to build the wheel offline")
+        pytest.skip("needs the 'build' module and setuptools>=77 to build the wheel "
+                    "offline: pip install -e '.[dev]'")
     work = tempfile.mkdtemp()
     try:
         dist = os.path.join(work, 'dist')
