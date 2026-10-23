@@ -29,7 +29,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::compile::{Binop, CallOp, Cmp, Instr, Program, RiskOp, SeriesSrc, Unary};
-use super::pynum::{binop_num, may_raise, py_extreme, py_int, py_sign, py_square};
+use super::pynum::{binop_num, may_raise, py_extreme, py_int, py_round, py_sign, py_square};
 use super::value::{num_to_str, Value};
 
 /// Specialised instruction stream for one frozen Input vector.
@@ -267,6 +267,15 @@ fn fold_call(op: CallOp, args: &[Value]) -> Option<Instr> {
         CallOp::Sign if args.len() == 1 => Some(Instr::PushNum(py_sign(args[0].as_f64().ok()?))),
         CallOp::Square if args.len() == 1 => {
             Some(Instr::PushNum(py_square(args[0].as_f64().ok()?).ok()?))
+        }
+        CallOp::Round => {
+            let x = args.first()?.as_f64().ok()?;
+            let decimals = match args.len() {
+                1 => None,
+                2 => Some(args[1].as_f64().ok()?),
+                _ => return None,
+            };
+            Some(Instr::PushNum(py_round(x, decimals).ok()?))
         }
         CallOp::MaxList | CallOp::MinList => {
             let nums = args

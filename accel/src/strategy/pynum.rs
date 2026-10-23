@@ -90,6 +90,50 @@ pub(crate) fn py_square(a: f64) -> Result<f64, KernelError> {
     Ok(r)
 }
 
+/// Exact powers of ten that Python's `10 ** n` gives for an int `n` in 0..=22.
+const POW10: [f64; 23] = [
+    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
+    1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+];
+
+/// `Round(x, n)` (`el_round`) or, with `decimals` `None`, `Round(x)`
+/// (`el_round0`): half away from zero, on `x * 10 ** n`.
+///
+/// Python raises where `math.floor`/`math.ceil` see a NaN or infinity, where
+/// `10 ** n` overflows, and where it underflows to `0.0` (the division). An
+/// integral `n` above 22 refuses: `10 ** n` is then an exact Python int that
+/// `f64` cannot hold, so the division could round differently.
+pub(crate) fn py_round(x: f64, decimals: Option<f64>) -> Result<f64, KernelError> {
+    let factor = match decimals {
+        None => 1.0,
+        Some(n) if n.fract() == 0.0 && (0.0..=22.0).contains(&n) => POW10[n as usize],
+        Some(n) if n.fract() == 0.0 && n > 22.0 => {
+            return Err(refuse("Round precision above 22"));
+        }
+        // A negative or fractional n: Python's float pow.
+        Some(n) => 10f64.powf(n),
+    };
+    if factor.is_infinite() {
+        return Err(refuse("Round precision overflow"));
+    }
+    let scaled = x * factor;
+    let k = if x >= 0.0 {
+        (scaled + 0.5).floor()
+    } else {
+        (scaled - 0.5).ceil()
+    };
+    if !k.is_finite() {
+        return Err(refuse("Round of a non-finite value"));
+    }
+    // math.floor/ceil return an int, which has no negative zero.
+    let k = k + 0.0;
+    match decimals {
+        None => Ok(k),
+        Some(_) if factor == 0.0 => Err(refuse("Round precision underflow")),
+        Some(_) => Ok(k / factor),
+    }
+}
+
 /// `Sign(x)`, emitted as `1 if x > 0 else (-1 if x < 0 else 0)`.
 pub(crate) fn py_sign(a: f64) -> f64 {
     if a > 0.0 {
@@ -120,13 +164,13 @@ pub(crate) fn py_extreme(args: &[f64], max: bool) -> Result<f64, KernelError> {
 
 /// Whether `instr` can raise on the Python path for some operand values, so
 /// the kernel may refuse it at run time: a `/` or `mod` whose divisor is not a
-/// non-zero constant, `IntPortion`, `Square`, or `MaxList`/`MinList` of fewer
+/// non-zero constant, `IntPortion`, `Square`, `Round`, or `MaxList`/`MinList` of fewer
 /// than two values. Such an instruction must run on every bar Python runs it:
 /// it is never deleted as dead code. `prev` is the preceding instruction (the
 /// divisor push for a plain `Binop`), when known.
 pub(crate) fn may_raise(instr: &Instr, prev: Option<&Instr>) -> bool {
     match instr {
-        Instr::Call(CallOp::IntPortion | CallOp::Square, _) => true,
+        Instr::Call(CallOp::IntPortion | CallOp::Square | CallOp::Round, _) => true,
         _ => divides_unsafely(instr, prev, &[]),
     }
 }
@@ -195,8 +239,8 @@ fn operand_reads_var(instrs: &[Instr], pc: usize) -> bool {
 
 /// Whether any instruction of `instrs` can raise on the Python path for some
 /// bar, so a prefix skip would hide the error: an unsafe division (see
-/// [`divides_unsafely`]), or `IntPortion`/`Square` of a value that may be
-/// non-finite or unbounded, i.e. one that reads a variable. With no unsafe
+/// [`divides_unsafely`]), `IntPortion`/`Square` of a value that may be
+/// non-finite or unbounded, i.e. one that reads a variable, or any `Round`. With no unsafe
 /// division, `IntPortion(Time / 100)` or `Square(Close - Open)` only see
 /// finite bar data and cannot raise.
 pub(crate) fn program_may_raise(instrs: &[Instr], inputs: &[Value]) -> bool {
@@ -206,6 +250,8 @@ pub(crate) fn program_may_raise(instrs: &[Instr], inputs: &[Value]) -> bool {
             || (matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, 1))
                 && operand_reads_var(instrs, pc))
             || matches!(instr, Instr::Call(CallOp::IntPortion | CallOp::Square, n) if *n != 1)
+            // The precision operand can overflow or underflow `10 ** n`.
+            || matches!(instr, Instr::Call(CallOp::Round, _))
     })
 }
 
@@ -254,6 +300,49 @@ mod tests {
             assert!(binop_num(Binop::Mod, -3.0, b).is_err());
         }
         assert_eq!(binop_num(Binop::Div, -3.0, 4.0).unwrap(), -0.75);
+    }
+
+    #[test]
+    fn round_matches_el_round() {
+        // Values from the runtime's el_round / el_round0 under CPython.
+        let cases: [(f64, f64, f64); 16] = [
+            (2.5, 0.0, 3.0),
+            (-2.5, 0.0, -3.0),
+            (0.5, 0.0, 1.0),
+            (-0.5, 0.0, -1.0),
+            (1.005, 2.0, 1.0),
+            (-1.005, 2.0, -1.0),
+            (2.675, 2.0, 2.68),
+            (0.125, 2.0, 0.13),
+            (-0.125, 2.0, -0.13),
+            (1234.5, -2.0, 1200.0),
+            (1250.0, -2.0, 1300.0),
+            (-1250.0, -2.0, -1300.0),
+            (-1249.99, -2.0, -1200.0),
+            (-15.0, -1.0, -20.0),
+            (1.23456, 1.5, 1.233_288_287_465_667_9),
+            (-1.23456, 1.5, -1.233_288_287_465_667_9),
+        ];
+        for (x, n, want) in cases {
+            assert_eq!(
+                bits(py_round(x, Some(n))),
+                want.to_bits(),
+                "Round({x}, {n})"
+            );
+        }
+        // math.ceil(-0.7) is the int 0: no negative zero.
+        assert_eq!(bits(py_round(-0.2, Some(0.0))), 0f64.to_bits());
+        assert_eq!(bits(py_round(-0.4, None)), 0f64.to_bits());
+        assert_eq!(py_round(-2.5, None).unwrap(), -3.0);
+        assert_eq!(py_round(0.499_999_999_999_999_94, None).unwrap(), 1.0);
+        // OverflowError, ZeroDivisionError, ValueError on the Python path.
+        assert!(py_round(1.0, Some(400.0)).is_err());
+        assert!(py_round(1.0, Some(-400.0)).is_err());
+        assert!(py_round(f64::INFINITY, Some(2.0)).is_err());
+        assert!(py_round(f64::NAN, Some(0.0)).is_err());
+        assert!(py_round(1e308, Some(2.0)).is_err());
+        // An exact int 10 ** 23 is refused rather than approximated.
+        assert!(py_round(7.0, Some(23.0)).is_err());
     }
 
     #[test]

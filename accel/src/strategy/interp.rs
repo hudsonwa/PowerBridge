@@ -37,7 +37,7 @@ use super::compile::{
     SeriesSrc, Unary,
 };
 use super::drawing::{find_anchor, gradient_color, legacy_color_to_rgb, rgb, DrawingStore};
-use super::pynum::{binop_num, py_extreme, py_int, py_sign, py_square};
+use super::pynum::{binop_num, py_extreme, py_int, py_round, py_sign, py_square};
 use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
 use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
 
@@ -85,6 +85,9 @@ pub(crate) struct Interpreter<'a> {
     loops: Vec<(i64, i64)>,
     /// Type of the element the last `ArrayGet` read (for `ElemKind::Read`).
     last_read_kind: ElemKind,
+    /// The run's `MinMove` and `PriceScale` (see [`Self::set_price_units`]).
+    minmove: f64,
+    pricescale: f64,
 }
 
 /// Largest `for` bound the kernel runs. Python keeps the loop variable as an
@@ -171,6 +174,8 @@ impl<'a> Interpreter<'a> {
             arrays,
             loops,
             last_read_kind: ElemKind::Unknown,
+            minmove: 0.0,
+            pricescale: 0.0,
         };
         interp.seed_state();
         Ok(interp)
@@ -832,6 +837,11 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(Value::Num(py_square(args[0].as_f64()?)?))
             }
+            CallOp::Round => match args.as_slice() {
+                [x] => Ok(Value::Num(py_round(x.as_f64()?, None)?)),
+                [x, n] => Ok(Value::Num(py_round(x.as_f64()?, Some(n.as_f64()?))?)),
+                _ => Err(KernelError::unsupported("Round requires 1 or 2 args")),
+            },
             CallOp::MaxList | CallOp::MinList => {
                 let nums = args
                     .iter()
@@ -974,6 +984,8 @@ impl<'a> Interpreter<'a> {
             PositionKw::AlertEnabled => Value::Bool(false),
             PositionKw::CheckAlert => Value::Bool(true),
             PositionKw::LastBarOnChartEx => Value::Bool(false),
+            PositionKw::MinMove => Value::Num(self.minmove),
+            PositionKw::PriceScale => Value::Num(self.pricescale),
         }
     }
 
@@ -1053,6 +1065,13 @@ impl<'a> Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub(crate) fn set_drawing_tick(&mut self, tick: f64) {
         self.drawings.set_tick(tick);
+    }
+
+    /// The config's `minmove` and `pricescale`, which the Python bar loop
+    /// passes as the `MinMove` / `PriceScale` run values.
+    pub(crate) fn set_price_units(&mut self, minmove: i64, pricescale: i64) {
+        self.minmove = minmove as f64;
+        self.pricescale = pricescale as f64;
     }
 
     pub(crate) fn drawings_json(&self) -> Json {

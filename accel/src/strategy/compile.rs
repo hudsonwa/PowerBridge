@@ -139,6 +139,9 @@ pub(crate) enum PositionKw {
     AlertEnabled,
     CheckAlert,
     LastBarOnChartEx,
+    /// `MinMove` / `PriceScale`: the run's instrument config values.
+    MinMove,
+    PriceScale,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +159,8 @@ pub(crate) enum CallOp {
     IntPortion,
     Sign,
     Square,
+    /// `Round(x, n)` (`el_round`) or `Round(x)` (`el_round0`).
+    Round,
     MaxList,
     MinList,
     TlNew,
@@ -1383,6 +1388,11 @@ impl Compiler {
                 // pl_array_getmaxindex: len - 1; pl_array_indexof: an index.
                 "intportion" | "sign" | "array_getmaxindex" | "array_indexof" => Int,
                 "average" | "averagefc" | "averagetfc" => Float,
+                // el_round0 returns math.floor's int; el_round divides to a float.
+                "round" => match node.get("args").and_then(Json::as_array).map(Vec::len) {
+                    Some(1) => Int,
+                    _ => Float,
+                },
                 _ => Unknown,
             },
             Some("bar_ref") => {
@@ -1699,6 +1709,11 @@ impl Compiler {
             self.instrs.push(Instr::PushNum(f64::from(hhmm)));
             return Ok(());
         }
+        // The runtime's module constant `lastbaronchart_s = True`.
+        if name == "lastbaronchart_s" {
+            self.instrs.push(Instr::PushBool(true));
+            return Ok(());
+        }
         Err(KernelError::unsupported(format!(
             "unresolved identifier {name:?}"
         )))
@@ -1809,6 +1824,8 @@ impl Compiler {
             "alert_enabled" => PositionKw::AlertEnabled,
             "check_alert" => PositionKw::CheckAlert,
             "lastbaronchartex" => PositionKw::LastBarOnChartEx,
+            "minmove" => PositionKw::MinMove,
+            "pricescale" => PositionKw::PriceScale,
             other => {
                 return Err(KernelError::unsupported(format!(
                     "position/data keyword {other:?}"
@@ -1955,6 +1972,7 @@ impl Compiler {
             "intportion" => (CallOp::IntPortion, false),
             "sign" => (CallOp::Sign, false),
             "square" => (CallOp::Square, false),
+            "round" => (CallOp::Round, false),
             "maxlist" => (CallOp::MaxList, false),
             "minlist" => (CallOp::MinList, false),
             // Drawing and measured colour calls. Not folded: drawing calls
