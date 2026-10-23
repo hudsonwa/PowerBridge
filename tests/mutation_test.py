@@ -118,8 +118,8 @@ MUTATIONS = [
         "crosses_above_comparison",
         "alter the comparison in pl_crosses_above (> -> <)",
         "pl_crosses_above",
-        "return series_a[-1] > series_b[-1] and _cross_prior_relation(series_a, series_b, start) < 0",
-        "return series_a[-1] < series_b[-1] and _cross_prior_relation(series_a, series_b, start) < 0",
+        "return (series_a[-1] > series_b[-1]",
+        "return (series_a[-1] < series_b[-1]",
     ),
 ]
 

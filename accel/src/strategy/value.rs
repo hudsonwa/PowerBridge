@@ -281,11 +281,21 @@ pub(crate) fn pl_average(
     Ok(narrow(sum / length_n as f64))
 }
 
-fn cross_prior_relation(series_a: &SeriesView, series_b: &SeriesView, start: usize) -> i8 {
-    let mut i = series_a.len().saturating_sub(2);
-    while i >= start && i < series_a.len() && i < series_b.len() {
-        let a = series_a.at(i);
-        let b = series_b.at(i);
+/// Sign of (A - B) on the last bar before the current one where they differ,
+/// mirroring Python `_cross_prior_relation`. `i` indexes the common,
+/// right-aligned window; `off_a` / `off_b` are each side's extra leading items.
+fn cross_prior_relation(
+    series_a: &SeriesView,
+    series_b: &SeriesView,
+    start: usize,
+    off_a: usize,
+    off_b: usize,
+) -> i8 {
+    let n = series_a.len() - off_a;
+    let mut i = n.saturating_sub(2);
+    while i >= start && i < n {
+        let a = series_a.at(i + off_a);
+        let b = series_b.at(i + off_b);
         if a < b {
             return -1;
         }
@@ -300,43 +310,49 @@ fn cross_prior_relation(series_a: &SeriesView, series_b: &SeriesView, start: usi
     0
 }
 
-/// First bar of a cross comparison, mirroring Python `_cross_operands`.
-/// Leading zeros (PAD element, indicator warm-up) are skipped only on a side
-/// that has a nonzero value; an all-zero side is a zero level, not a warm-up.
-fn cross_start(series_a: &SeriesView, series_b: &SeriesView) -> usize {
-    let start_a = series_a.first_valid();
-    let start_b = series_b.first_valid();
-    if start_a == series_a.len() {
+/// Operands of a cross comparison, mirroring Python `_cross_operands`:
+/// `(off_a, off_b, start)`, or `None` when no cross is possible yet. The two
+/// histories end on the current bar but may differ in length (under
+/// MaxBarsBack a price series also holds the skipped bars), so they are
+/// compared right-aligned over the bars both hold. Leading zeros (PAD
+/// element, indicator warm-up) are skipped only on a side that has a nonzero
+/// value; an all-zero side is a zero level, not a warm-up.
+fn cross_operands(series_a: &SeriesView, series_b: &SeriesView) -> Option<(usize, usize, usize)> {
+    if series_a.len() < 2 || series_b.len() < 2 {
+        return None;
+    }
+    let n = series_a.len().min(series_b.len());
+    let off_a = series_a.len() - n;
+    let off_b = series_b.len() - n;
+    let start_a = series_a.first_valid().saturating_sub(off_a);
+    let start_b = series_b.first_valid().saturating_sub(off_b);
+    let start = if start_a == n {
         start_b
-    } else if start_b == series_b.len() {
+    } else if start_b == n {
         start_a
     } else {
         start_a.max(start_b)
+    };
+    if n.saturating_sub(start) < 2 {
+        return None;
     }
+    Some((off_a, off_b, start))
 }
 
 pub(crate) fn pl_crosses_above(series_a: &SeriesView, series_b: &SeriesView) -> bool {
-    if series_a.len() < 2 || series_b.len() < 2 {
+    let Some((off_a, off_b, start)) = cross_operands(series_a, series_b) else {
         return false;
-    }
-    let start = cross_start(series_a, series_b);
-    if series_a.len().saturating_sub(start) < 2 {
-        return false;
-    }
+    };
     series_a.at(series_a.len() - 1) > series_b.at(series_b.len() - 1)
-        && cross_prior_relation(series_a, series_b, start) < 0
+        && cross_prior_relation(series_a, series_b, start, off_a, off_b) < 0
 }
 
 pub(crate) fn pl_crosses_below(series_a: &SeriesView, series_b: &SeriesView) -> bool {
-    if series_a.len() < 2 || series_b.len() < 2 {
+    let Some((off_a, off_b, start)) = cross_operands(series_a, series_b) else {
         return false;
-    }
-    let start = cross_start(series_a, series_b);
-    if series_a.len().saturating_sub(start) < 2 {
-        return false;
-    }
+    };
     series_a.at(series_a.len() - 1) < series_b.at(series_b.len() - 1)
-        && cross_prior_relation(series_a, series_b, start) > 0
+        && cross_prior_relation(series_a, series_b, start, off_a, off_b) > 0
 }
 
 #[cfg(test)]
@@ -378,6 +394,22 @@ mod cross_tests {
             &SeriesView::Slice(&fast),
             &SeriesView::Slice(&slow)
         ));
+    }
+
+    #[test]
+    fn unequal_lengths_compare_right_aligned() {
+        // Under MaxBarsBack a price series also holds the skipped bars; a
+        // variable's history ([PAD] + evaluated bars) is shorter.
+        let close = [9.0, 9.0, 9.0, 4.0, 6.0];
+        let avg = [0.0, 5.0, 5.0];
+        let (c, a) = (SeriesView::Slice(&close), SeriesView::Slice(&avg));
+        assert!(pl_crosses_above(&c, &a));
+        assert!(pl_crosses_below(&a, &c));
+        assert!(!pl_crosses_below(&c, &a));
+        // First evaluated bar: no prior evaluated bar, so no cross.
+        let (c, a) = (SeriesView::Slice(&close[..4]), SeriesView::Slice(&avg[..2]));
+        assert!(!pl_crosses_above(&c, &a));
+        assert!(!pl_crosses_below(&c, &a));
     }
 }
 
