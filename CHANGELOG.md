@@ -50,6 +50,10 @@
 
 ### Changed
 
+- Tests carry `needs_native`, `needs_captures` and `perf` markers. A plain
+  pytest run deselects `needs_captures` (licensed MultiCharts data) and `perf`
+  (`PB_PERF=1`); select them with `-m`. Kernel tests stay collected and show
+  as one `needs_native` line in the skip summary until the kernel is built.
 - README states the Python to EasyLanguage direction accepts only the mirror
   dialect, and calls out the MaxBarsBack warm-up difference in the quickstart.
 - README quickstart now shows the Python to EasyLanguage direction (`el_emit`);

@@ -186,6 +186,7 @@ def _accel_or_skip():
         pytest.skip(ACCEL_SKIP)
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize("name,pt_stmt,dollar_stmt", CASES, ids=[c[0] for c in CASES])
 def test_point_stop_native_matches_python(name, pt_stmt, dollar_stmt):
     _accel_or_skip()

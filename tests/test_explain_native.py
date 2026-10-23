@@ -86,12 +86,14 @@ def _read(path):
         return fh.read()
 
 
+@pytest.mark.needs_native
 def test_public_examples_are_fully_native():
     _require_accel()
     assert explain_native(_read(MA_CROSS)) == []
     assert explain_native(_read(GT2)) == []
 
 
+@pytest.mark.needs_native
 def test_every_refusal_is_listed_with_its_line():
     _require_accel()
     got = [(r.kind, r.name, r.line) for r in explain_native(THREE)]
@@ -102,6 +104,7 @@ def test_every_refusal_is_listed_with_its_line():
     ]
 
 
+@pytest.mark.needs_native
 def test_nested_bodies_are_still_checked():
     _require_accel()
     got = [(r.kind, r.name, r.line) for r in explain_native(NESTED)]
@@ -112,6 +115,7 @@ def test_nested_bodies_are_still_checked():
     ]
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize("source", [THREE, NESTED])
 def test_first_entry_is_the_run_native_refusal(source):
     _require_accel()
@@ -122,6 +126,7 @@ def test_first_entry_is_the_run_native_refusal(source):
     assert first.name in first.message.lower()
 
 
+@pytest.mark.needs_native
 def test_refused_variable_is_reported_once():
     _require_accel()
     source = "Vars: v(Close);\nv = v + 1;\nPlot1(v);\n"
@@ -129,6 +134,7 @@ def test_refused_variable_is_reported_once():
     assert got == [("variable", "v", 1)]
 
 
+@pytest.mark.needs_native
 def test_explain_runs_nothing_and_is_not_a_fallback():
     _require_accel()
     before = fallback_count()
@@ -136,6 +142,7 @@ def test_explain_runs_nothing_and_is_not_a_fallback():
     assert fallback_count() == before
 
 
+@pytest.mark.needs_native
 def test_cli_lists_refusals_sorted_by_line(tmp_path, capsys):
     _require_accel()
     el = tmp_path / "three.el"
@@ -145,6 +152,7 @@ def test_cli_lists_refusals_sorted_by_line(tmp_path, capsys):
         "statement while 3\nstatement switch 8\nfunction xaverage 11\n")
 
 
+@pytest.mark.needs_native
 def test_cli_says_when_native_can_run_it(capsys):
     _require_accel()
     assert pl_oracle.main(["--explain-native", MA_CROSS]) == 0

@@ -133,6 +133,7 @@ def _assert_digest_parity(source, bars):
     return native['fills']
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize('name', sorted(PROGRAMS))
 def test_lookback_digest_and_trace_match_python(accel, tape, name):
     from pl_transpiler.runtime.accel import run_native_trace
@@ -150,6 +151,7 @@ def test_lookback_digest_and_trace_match_python(accel, tape, name):
         assert [str(v) for v in got] == [want[i] for i in pick], (
             f'{name}: trace differs on bar {bar + 1}')
 
+@pytest.mark.needs_native
 def test_close_minus_close1_threshold_on_sample_bars(accel):
     # f32(Close[1]) made this fire natively; the raw value does not.
     bars = load_bars_csv(os.path.join(REPO, 'examples', 'NQ_sample_bars.csv'))
@@ -158,6 +160,7 @@ def test_close_minus_close1_threshold_on_sample_bars(accel):
     assert _assert_digest_parity(source, bars) == 0
 
 
+@pytest.mark.needs_native
 def test_three_condition_lookbacks_long_random_walk(accel):
     bars = random_walk(20000, seed=7)
     assert _assert_digest_parity(PROGRAMS['three_conditions'], bars) > 0

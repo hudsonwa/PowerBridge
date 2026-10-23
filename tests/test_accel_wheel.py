@@ -53,6 +53,7 @@ PROBE = (
 )
 
 
+@pytest.mark.needs_native
 def test_installed_accel_wheel_loads():
     with tempfile.TemporaryDirectory() as tmp:
         proc = subprocess.run(

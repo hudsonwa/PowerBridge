@@ -60,6 +60,7 @@ GT2 = os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt")
 GTA5 = os.path.join(REPO, "ground_truth", "GTA5_strategy.txt")
 
 
+@pytest.mark.needs_native
 def test_native_and_python_digest_identical_with_native_taken():
     if not accel_available():
         pytest.skip(ACCEL_SKIP)
@@ -92,6 +93,7 @@ def test_native_and_python_digest_identical_with_native_taken():
     )
 
 
+@pytest.mark.needs_native
 def test_deeply_nested_ir_loads_natively_and_digest_matches_python():
     """GTA5's IR nests past serde_json's default 128-level limit (issue #20).
 

@@ -153,6 +153,7 @@ def test_clear_series_cache_forces_remarshal():
     assert series_1 == series_2
 
 
+@pytest.mark.needs_native
 def test_run_native_repeat_does_not_remarshal():
     """The caller cache is on the tape, not the config: two runs, one marshal."""
     if not accel_available():

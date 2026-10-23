@@ -92,6 +92,7 @@ def test_points_are_minmove_over_pricescale(unit):
     assert records != run_oracle(_stop_el("0"), BARS, NQ)["records"]
 
 
+@pytest.mark.needs_native
 def test_points_native_kernel_refuses_loudly():
     pytest.importorskip("pl_transpiler._accel", reason=ACCEL_SKIP)
     # The native kernel has no MinMove/PriceScale value; it must refuse, not guess.

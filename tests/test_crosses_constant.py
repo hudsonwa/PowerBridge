@@ -47,6 +47,7 @@ def test_crosses_constant_matches_explicit_python(kind):
     assert got['sha256'] == want['sha256']
 
 
+@pytest.mark.needs_native
 @pytest.mark.parametrize('kind', sorted(CROSS))
 def test_crosses_constant_matches_explicit_native(kind):
     pytest.importorskip('pl_transpiler._accel')

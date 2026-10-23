@@ -76,6 +76,8 @@ def _setup():
     return el, bars, data2
 
 
+@pytest.mark.needs_native
+@pytest.mark.needs_captures
 def test_sliced_batch_reproduces_full_packet_and_golden(tmp_path):
     _require()
     el, bars, data2 = _setup()
@@ -101,6 +103,8 @@ def test_sliced_batch_reproduces_full_packet_and_golden(tmp_path):
     assert hdr["round_turn_count"] == 3682
 
 
+@pytest.mark.needs_native
+@pytest.mark.needs_captures
 def test_every_config_in_batch_is_byte_identical_to_solo(tmp_path):
     _require()
     el, bars, data2 = _setup()

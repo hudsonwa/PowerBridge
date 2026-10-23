@@ -124,6 +124,7 @@ def test_pl_oracle_verbose_explains_skipped_bars():
                for ln in proc.stderr.splitlines()), proc.stderr
 
 
+@pytest.mark.needs_native
 def test_pl_oracle_accel_internals_need_vv():
     pytest.importorskip("pl_transpiler._accel", reason="native kernel not built")
     for flag, shown in (("-v", False), ("-vv", True)):
