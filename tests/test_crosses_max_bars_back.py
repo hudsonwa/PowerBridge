@@ -16,7 +16,8 @@
 """`crosses` under MaxBarsBack (#161). A price series holds the skipped
 warm-up bars, while a variable's history starts on the first evaluated bar,
 so the two operands differ in length. The cross compares them right-aligned:
-the prior relation comes from the previous evaluated bar, and the first
+the prior relation comes from the previous bar both operands hold. When an
+operand is a variable, that is the previous evaluated bar, and the first
 evaluated bar never crosses."""
 import os
 import sys
