@@ -42,7 +42,7 @@ TT_COMMENT   = 'COMMENT'
 # Each entry: {'text': verbatim incl. delimiters, 'line', 'col' (1-based), 'trailing':
 # bool (True iff non-whitespace precedes the comment on its line)}. Consumers should
 # prefer collect_comments(source) (a pure function of source) over reading this global.
-last_comments = []
+last_comments: list = []
 
 KEYWORDS = {
     'if','then','else','begin','end','for','to','downto','next',

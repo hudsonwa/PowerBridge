@@ -82,6 +82,8 @@
   imports are sorted and typing uses the Python 3.9 builtin generics. Re-raised
   errors in `py_to_ast`, `get_config` and `load_bars_csv` now chain their cause
   (`raise ... from err`); the messages are unchanged.
+- CI's mypy job now type-checks the whole `pl_transpiler` package instead of
+  five public modules (annotation-only changes; byte-identical output).
 
 ### Fixed
 

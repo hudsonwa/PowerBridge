@@ -22,7 +22,7 @@ from pl_transpiler.runtime._rt_history import SeriesState
 
 # FillEngine.fill_pos_kwargs keys → attribute names. Persist 8-arg path
 # writes only the keys the strategy names; **kwargs still writes the full set.
-_POS_KWARGS = (
+_POS_KWARGS: tuple[tuple[str, str], ...] = (
     ('market_position', 'market_position'),
     ('current_contracts', 'contracts'),
     ('entry_price', 'entry_price'),

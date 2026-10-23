@@ -455,8 +455,8 @@ def _emit_decl_init(init):
 # they are anchored back to statements by their original source line so the
 # readability of the source survives the round trip. Anchoring is keyed by object
 # identity of the statement node via two per-emit maps set up in emit_el:
-_LEADING = {}    # id(stmt) -> [verbatim comment text, ...]  (emitted on own lines before)
-_TRAILING = {}   # id(stmt) -> [verbatim comment text, ...]  (appended to the stmt's line)
+_LEADING: dict = {}    # id(stmt) -> [verbatim comment text, ...]  (emitted on own lines before)
+_TRAILING: dict = {}   # id(stmt) -> [verbatim comment text, ...]  (appended to the stmt's line)
 
 
 def _inline_leg(stmt, level, prefix):

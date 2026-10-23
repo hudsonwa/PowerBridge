@@ -47,7 +47,7 @@ _PY_TO_EL_CMP = {py: el for el, py in COMPARE_OPS.items()}
 # canonical MultiCharts spelling (CANONICAL_EL_NAME) wins, else the first EL
 # spelling. The verify_twoway comparator canonicalises call names back through
 # BUILTIN_FUNC_MAP, so all aliases collapse to the same py_name either way.
-_PL_TO_EL = {}
+_PL_TO_EL: dict[str, str] = {}
 for _el, _py in BUILTIN_FUNC_MAP.items():
     if _py.startswith('pl_'):
         _PL_TO_EL.setdefault(_py, CANONICAL_EL_NAME.get(_py, _el))

@@ -77,17 +77,20 @@ include = ["pl_transpiler*"]
 "pl_transpiler.tools" = ["pl_signatures.jsonl", "pl_signatures.schema.json", "mc_verified_builtins.txt", "mc_proven.json"]
 
 [tool.mypy]
-# Type-checks the public library API only (CI job "mypy"). Everything else is
-# followed silently for types but not reported on.
-files = [
-    "pl_transpiler/__init__.py",
-    "pl_transpiler/catalog.py",
-    "pl_transpiler/runtime/instrument_config.py",
-    "pl_transpiler/tools/pl_run.py",
-    "pl_transpiler/tools/pl_oracle.py",
-]
-follow_imports = "silent"
+# Type-checks the whole pl_transpiler package (CI job "mypy").
+files = ["pl_transpiler"]
+follow_imports = "normal"
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Names are injected via globals() at import time (mirrors the ruff F821 ignore).
+module = "pl_transpiler.builtins"
+disable_error_code = ["name-defined"]
+
+[[tool.mypy.overrides]]
+# Optional compiled extension; absent unless built with tools/build_accel.sh.
+module = "pl_transpiler._accel"
+ignore_missing_imports = true
 
 [tool.ruff]
 # Lint only. ruff format is deliberately not adopted: it would rewrite most

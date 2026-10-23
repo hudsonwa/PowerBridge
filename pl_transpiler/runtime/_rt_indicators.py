@@ -150,7 +150,7 @@ def pl_true_range(high, low, prev_close):
 # only. This reproduces the EXACT same float op sequence — just without redoing the
 # prefix. CRITICAL: reset between runs (run_gt calls reset_indicator_caches()),
 # because verify_all reuses the process and a GC'd list's id() can be recycled.
-_ind_cache = {}
+_ind_cache: dict = {}
 
 
 def reset_indicator_caches():

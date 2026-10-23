@@ -120,7 +120,7 @@ jobs:
           grep -q '^  variance$' bad.out
           test "$rcb" -eq 1
 
-  # Type-checks the public library API; the module list lives in pyproject.toml ([tool.mypy]).
+  # Type-checks the whole pl_transpiler package; settings live in pyproject.toml ([tool.mypy]).
   mypy:
     runs-on: ubuntu-latest
     steps:
