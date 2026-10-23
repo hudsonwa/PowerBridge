@@ -173,3 +173,73 @@ def test_not_installed_is_a_clear_error(monkeypatch, capsys):
         accel_mod.explain_native(THREE)
     assert pl_oracle.main(["--explain-native", MA_CROSS]) == 2
     assert "native kernel not installed" in capsys.readouterr().err
+
+
+# A refused declaration followed by uses of it, and declarations nested in a
+# block (which get no slot), must be listed, never crash the kernel (#111).
+NO_PANIC = [
+    'Arrays: S[3]("a");\nVars: x(0);\nx = 1;\nS[1] = "b";\n',
+    "Vars: v(Average(Close, 3));\nv = 2;\nif v > 1 then Buy next bar at market;\n",
+    "if Close > Open then begin\n Vars: z(0);\n z = z + 1;\nend;\n",
+    'if Close > Open then begin\n Arrays: A[2]("s");\n A[0] = "t";\nend;\n',
+    "Vars: Value1(Close);\nValue1 = Value1 + 1;\nValue2 = Value1;\n",
+    "Vars: d(0, data2);\nd = Close;\nif d > 0 then Buy next bar at market;\n",
+]
+
+
+@pytest.mark.needs_native
+@pytest.mark.parametrize("source", NO_PANIC)
+def test_refused_declarations_do_not_panic(source):
+    _require_accel()
+    refusals = explain_native(source)
+    assert isinstance(refusals, list) and refusals
+
+
+def _corpus():
+    for root in ("examples", "ground_truth"):
+        for dirpath, _, names in os.walk(os.path.join(REPO, root)):
+            for name in sorted(names):
+                if name.endswith((".el", ".txt")):
+                    yield os.path.join(dirpath, name)
+
+
+def _mutations(source):
+    yield source
+    # The whole program nested in a block: every declaration loses its slot.
+    yield "if Close > 0 then begin\n" + source + "\nend;\n"
+    # Every numeric variable turned into a refused (non-literal) init.
+    yield source.replace("(0)", "(Close)")
+
+
+@pytest.mark.needs_native
+def test_explain_never_raises_on_the_corpus():
+    _require_accel()
+    from pl_transpiler.lexer import PLSyntaxError
+    checked = 0
+    for path in _corpus():
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        for source in _mutations(text):
+            try:
+                refusals = explain_native(source)
+            except (PLSyntaxError, RecursionError):
+                continue  # the parser rejects it; not the kernel's problem
+            assert isinstance(refusals, list), path
+            checked += 1
+    assert checked
+
+
+def test_kernel_panic_is_a_clear_error(monkeypatch):
+    class PanicException(BaseException):
+        pass
+
+    class FakeAccel:
+        @staticmethod
+        def explain_program(_ir):
+            raise PanicException("no entry found for key")
+
+    import pl_transpiler
+    monkeypatch.setitem(sys.modules, "pl_transpiler._accel", FakeAccel)
+    monkeypatch.setattr(pl_transpiler, "_accel", FakeAccel, raising=False)
+    with pytest.raises(RuntimeError, match="native kernel crashed"):
+        explain_native("Vars: x(0);\nx = 1;\n")

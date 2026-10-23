@@ -422,8 +422,17 @@ def explain_native(el_source):
             "(tools/build_accel.sh)")
     tokens, positions = tokenise(el_source)
     ast = parse(tokens, positions=positions, source=el_source)
+    try:
+        refusals = accel.explain_program(serialise_ir(ast))
+    except BaseException as exc:
+        # pyo3 raises a kernel panic as PanicException (a BaseException).
+        if type(exc).__name__ != "PanicException":
+            raise
+        raise RuntimeError(
+            f"native kernel crashed while explaining this program ({exc}); "
+            "please report it with the EL source") from exc
     return [NativeRefusal(kind, name, line, message)
-            for kind, name, line, message in accel.explain_program(serialise_ir(ast))]
+            for kind, name, line, message in refusals]
 
 
 def run_native_drawings(el_source, bars, config, *, data2_bars=None,

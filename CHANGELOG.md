@@ -85,6 +85,10 @@
 
 ### Fixed
 
+- `explain_native` / `pl_oracle --explain-native` no longer crashes the native
+  kernel ("no entry found for key") on a `Vars:` declared inside a block; the
+  declaration is listed as a refusal, and a kernel panic would now surface as
+  a clear `RuntimeError` (#111).
 - The Python engine treated an undeclared `ValueN` / `ConditionN` as a plain
   per-bar local, so reading one before writing it (`Value1 = Value1 + 1`)
   raised `UnboundLocalError`, it never kept its value between bars, and
