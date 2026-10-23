@@ -110,6 +110,27 @@ def test_pl_run_summary_wording():
     assert " fills, " in summary and " round-turns" in summary, summary
 
 
+@pytest.mark.parametrize("program, want", [
+    # Every new high adds a contract and nothing exits: 11 entries, 0 round turns.
+    ('If Close > Highest(High, 20)[1] Then Buy ("BO") Next Bar At Market;', (11, 0)),
+    ('If MarketPosition = 0 and Close > Highest(High, 10)[1] Then Buy ("BO") Next Bar At Market;\n'
+     'If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;', (6, 3)),
+])
+def test_pl_run_round_turns_match_pl_oracle(tmp_path, program, want):
+    # Issue #140: pl_run counted fills // 2; both tools must count exit records.
+    el = tmp_path / "s.el"
+    el.write_text(program + "\n")
+    common = (str(el), BARS, "--max-bars-back", "21")
+    run = _run("pl_run", *common, "-o", "-")
+    oracle = _run("pl_oracle", *common, "--python")
+    assert run.returncode == oracle.returncode == 0, run.stderr + oracle.stderr
+    tail = "%d fills, %d round-turns" % want
+    assert run.stderr.strip().splitlines()[-1].endswith(tail), run.stderr
+    assert ("round_turns: %d" % want[1]) in oracle.stdout, oracle.stdout
+    assert any(ln.startswith("[pl_oracle]") and tail in ln
+               for ln in oracle.stderr.splitlines()), oracle.stderr
+
+
 def test_pl_oracle_status_line_has_no_jargon():
     proc = _run("pl_oracle", EL, BARS, "--python")
     assert proc.returncode == 0, proc.stderr

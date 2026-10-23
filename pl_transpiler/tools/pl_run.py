@@ -723,8 +723,10 @@ def _main(ap, args):
     note_warmup(el_source, args.max_bars_back, "pl_run", quiet=args.quiet,
                 n_bars=ohlcv_columns(bars)["n"])
     warmup_note = (f", {result['n_warmup']} warmup" if result.get("n_warmup") else "")
+    # Local import: pl_oracle imports this module.
+    from pl_transpiler.tools.pl_oracle import count_round_turns
     print(f"[pl_run] {len(bars)} bars{warmup_note}, {result['n_rows']} rows, "
-          f"{len(result['trades'])} fills, {len(result['trades']) // 2} round-turns"
+          f"{len(result['trades'])} fills, {count_round_turns(result['trades'])} round-turns"
           + (f" -> {out_path}" if out_path else ""), file=sys.stderr)
     return 0
 

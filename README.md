@@ -106,23 +106,40 @@ The [full rules](docs/USAGE.md#your-own-data) cover the edge cases. For example:
 import os
 os.makedirs("out", exist_ok=True)
 with open("out/breakout.el", "w") as f:
-    f.write("Inputs: Len(20);\n"
-            "If Close > Highest(High, Len)[1] Then Buy (\"BO\") Next Bar At Market;\n"
-            "If Close < Lowest(Low, Len)[1] Then Sell (\"BX\") Next Bar At Market;\n")
+    f.write("Inputs: Len(10);\n"
+            "If MarketPosition = 0 and Close > Highest(High, Len)[1] Then\n"
+            "    Buy (\"BO\") Next Bar At Market;\n"
+            "If BarsSinceEntry >= 5 Then Sell (\"BX\") Next Bar At Market;\n")
 ```
 
+It buys a 10-bar breakout when flat and sells five bars later:
+
 ```bash
-pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 21
-pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 21 -o out/breakout_trace.csv
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11
 ```
 
 ```
 powerbridge-trade-digest v2
-...
+fills: 6
+round_turns: 3
+sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
 ```
 
+```bash
+pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back 11 -o out/breakout_trace.csv
+```
+
+```
+[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns -> out/breakout_trace.csv
+```
+
+A round turn is an exit fill, so a strategy that only adds entries reports
+`0 round-turns`. Without the `MarketPosition = 0` check, every new high would
+add another contract: same-direction entries pyramid by default
+(`--max-entries-per-direction 1` caps them).
+
 Set `--max-bars-back` to the longest lookback your strategy reads (here
-`Highest(High, 20)[1]` reads 21 bars), and `--config ES` or
+`Highest(High, 10)[1]` reads 11 bars), and `--config ES` or
 `--config my_instrument.json` for an instrument other than NQ
 ([other instruments](docs/USAGE.md#other-instruments)).
 
