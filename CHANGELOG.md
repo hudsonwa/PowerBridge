@@ -4,6 +4,7 @@
 
 ### Added
 
+- CONTRIBUTING now upgrades pip before the editable install, so contributor setup works on Python 3.9's bundled pip, and CI runs that setup on Python 3.9 (#175).
 - `--version` on the command-line tools also says whether the native kernel is available and, if not, why, and `native_status()` gives the same check from Python (#173).
 
 ## 0.9.0 — 2026-10-23
