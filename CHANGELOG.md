@@ -4,6 +4,17 @@
 
 ### Added
 
+- The native kernel runs variables declared inside a block (`Vars:` inside
+  `begin ... end`) with the Python path's semantics: a local of the bar,
+  re-initialised each time the declaration runs, never traced and not kept
+  between bars; redeclaring a top-level variable there is a no-op. Uses the
+  Python path cannot match (before the declaration or outside its block, as a
+  series or lookback, a name shared with an input) are refused at compile
+  time. These programs no longer fall back (#128).
+- `--explain-native` / `explain_native` now lists the Python 3.12+ refusal of
+  an `Average` over a series whose int/float type is not known natively
+  (`function Average`): it is decided at compile time instead of while the
+  program runs. Runs are refused as before (#128).
 - The native kernel runs the `total` order modifier and
   `Sell` / `BuyToCover ... from entry ("X")` named exits with a literal label,
   with the Python path's fills. A named exit that would fill while more than
