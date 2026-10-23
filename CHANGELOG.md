@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- A strict-mode stop (`from entry ("X")` with several entries open, a missing bar column such as `OpenInt`, or an unimplemented builtin) now names the line of the statement that raised it; before, `pl_run` and `pl_oracle` named the first line that mentioned the word, even a comment or a different order (#178).
+- A strict-mode stop (`from entry ("X")` while another named entry is open, a missing bar column such as `OpenInt`, or an unimplemented builtin) now names the line of the statement that raised it; before, `pl_run` and `pl_oracle` named the first line that mentioned the word, even a comment or a different order (#178).
 
 ## 0.9.0 — 2026-10-23
 
