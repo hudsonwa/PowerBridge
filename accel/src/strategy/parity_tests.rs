@@ -45,7 +45,7 @@ if len(sys.argv) >= 5:
     d2 = load_bars_csv(sys.argv[4])
     by_key = {(r["date"], r["time"]): r["close"] for r in d2}
     data2_closes = [by_key.get((b["date"], b["time"]), b["close"]) for b in bars]
-result = run_oracle(source, bars, get_config("NQ"), data2_closes=data2_closes)
+result = run_oracle(source, bars, get_config("NQ"), data2_closes=data2_closes, max_bars_back=0)
 print(json.dumps({
     "ir": serialise_ir(ast),
     "fills": [canonical_fill_line(fill) for fill in result["records"]],
@@ -634,7 +634,7 @@ fn out_of_range_array_index_fails_both_paths() {
         tokens, positions = tokenise(source)\n\
         print(serialise_ir(parse(tokens, positions=positions, source=source)))\n\
         sys.stdout.flush()\n\
-        run_oracle(source, load_bars_csv(sys.argv[1]), get_config('NQ'))\n";
+        run_oracle(source, load_bars_csv(sys.argv[1]), get_config('NQ'), max_bars_back=0)\n";
     let mut child = Command::new("python3")
         .arg("-c")
         .arg(script)
