@@ -72,6 +72,8 @@ class _StatementsMixin:
 
         def at_end(self) -> bool: ...
 
+        def _end_stmt(self) -> None: ...
+
         def _ident_spelling(self, name: str, tok_index: int) -> Optional[str]: ...
 
         def parse_statement(self) -> Optional[Node]: ...
@@ -109,7 +111,7 @@ class _StatementsMixin:
             decls.append(decl)
             if not self.match(TT_COMMA):
                 break
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'var_decl', 'decls': decls}
 
     # ---- Input Declaration ----
@@ -132,7 +134,7 @@ class _StatementsMixin:
             decls.append(decl)
             if not self.match(TT_COMMA):
                 break
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'input_decl', 'decls': decls}
 
     # ---- If Statement ----
@@ -188,7 +190,7 @@ class _StatementsMixin:
                       hint="add an 'end;' to close this 'begin' block",
                       tok_index=begin_index)
         self.expect(TT_KEYWORD, 'end')
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return stmts
 
     # ---- For Loop ----
@@ -252,7 +254,7 @@ class _StatementsMixin:
                 body.append(stmt)
         self.expect(TT_KEYWORD, 'until')
         cond = self.parse_expression()
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'repeat_until', 'body': body, 'cond': cond}
 
     # ---- Once ----
@@ -311,7 +313,7 @@ class _StatementsMixin:
             else:
                 break
         self.expect(TT_KEYWORD, 'end')
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'switch', 'expr': expr, 'cases': cases, 'default': default_body}
 
     # ---- Array Declaration ----
@@ -348,6 +350,8 @@ class _StatementsMixin:
                     inner.append(t)
             raw_args = _reconstruct_tokens(inner)
         self.expect(TT_RBRACKET)
+        # Attributes are not statements: EL writes them without a ';'
+        # (one is tolerated).
         self.match(TT_SEMICOLON)
         node = {'type': 'attribute', 'name': name, 'value': value}
         if raw_args is not None:
@@ -385,7 +389,7 @@ class _StatementsMixin:
             decls.append(decl)
             if not self.match(TT_COMMA):
                 break
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'array_decl', 'decls': decls}
 
     # ---- Commentary ----
@@ -397,7 +401,7 @@ class _StatementsMixin:
         while self.match(TT_COMMA):
             extra.append(self.parse_expression())
         self.expect(TT_RPAREN)
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         node: Node = {'type': 'commentary', 'msg': msg}
         if extra:
             # Kept as separate arguments, not a `+` chain: MultiCharts
@@ -422,7 +426,7 @@ class _StatementsMixin:
                       hint="add an '#End;' to close this commentary block",
                       tok_index=begin_index)
         self.advance()
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'commentary_block', 'body': stmts}
 
     # ---- Order ----
@@ -508,7 +512,7 @@ class _StatementsMixin:
             bar_timing = 'this'
             order_type = 'close'
 
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         node = {
             'type': 'order',
             'action': action,
@@ -530,7 +534,7 @@ class _StatementsMixin:
             # No args
             if self.match(TT_LPAREN):
                 self.expect(TT_RPAREN)
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'risk', 'func': name, 'arg': None}
         elif name in ('setpercenttrailing', 'setpercenttrailing_pt'):
             # Two-arg form: SetPercentTrailing(Profit, Pct) / SetPercentTrailing_pt(Points, Pct)
@@ -539,25 +543,25 @@ class _StatementsMixin:
             self.expect(TT_COMMA)
             arg2 = self.parse_expression()
             self.expect(TT_RPAREN)
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'risk', 'func': name, 'args': [arg1, arg2]}
         elif name == 'setdollartrailing':
             self.expect(TT_LPAREN)
             arg = self.parse_expression()
             self.expect(TT_RPAREN)
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'risk', 'func': name, 'arg': arg}
         elif name in ('setstopcontract', 'setstopshare', 'setstopposition'):
             # Bare risk functions (no parentheses)
             if self.match(TT_LPAREN):
                 self.expect(TT_RPAREN)
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'risk', 'func': name, 'arg': None}
         else:
             self.expect(TT_LPAREN)
             arg = self.parse_expression()
             self.expect(TT_RPAREN)
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'risk', 'func': name, 'arg': arg}
 
     # ---- Plot ----
@@ -579,7 +583,7 @@ class _StatementsMixin:
             while self.match(TT_COMMA):
                 extra_args.append(self.parse_expression())
         self.expect(TT_RPAREN)
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         node = {'type': 'plot', 'name': name, 'value': value, 'label': label}
         if extra_args:
             node['extra_args'] = extra_args
@@ -591,7 +595,7 @@ class _StatementsMixin:
         self.expect(TT_LPAREN)
         msg = self.parse_expression()
         self.expect(TT_RPAREN)
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'alert', 'msg': msg}
 
     # ---- Print ----
@@ -602,7 +606,7 @@ class _StatementsMixin:
         while self.match(TT_COMMA):
             args.append(self.parse_expression())
         self.expect(TT_RPAREN)
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'print', 'args': args}
 
     # ---- Assignment or Expression Statement ----
@@ -618,19 +622,19 @@ class _StatementsMixin:
             # Check for := assignment
             if self.match(TT_OP, ':='):
                 rhs = self.parse_expression()
-                self.match(TT_SEMICOLON)
+                self._end_stmt()
                 return {'type': 'assign', 'target': target, 'value': rhs}
 
             # Check for = assignment (only if target is ident or bar_ref, not a call)
             if self.peek() == (TT_OP, '=') and target.get('type') in ('ident', 'bar_ref'):
                 self.advance()  # consume =
                 rhs = self.parse_expression()
-                self.match(TT_SEMICOLON)
+                self._end_stmt()
                 return {'type': 'assign', 'target': target, 'value': rhs}
 
             # Not an assignment, backtrack and parse as expression
             self.pos = save_pos
 
         expr = self.parse_expression()
-        self.match(TT_SEMICOLON)
+        self._end_stmt()
         return {'type': 'expr_stmt', 'expr': expr}
