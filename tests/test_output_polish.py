@@ -67,7 +67,7 @@ def test_native_refusal_reported_once(monkeypatch, capsys):
         raise AccelRefused("unsupported construct")
 
     monkeypatch.setattr(pl_oracle, "accel_available", lambda: True)
-    monkeypatch.setattr(pl_oracle, "run_native", refuse)
+    monkeypatch.setattr("pl_transpiler.oracle.run_native", refuse)
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     assert pl_oracle.main([EL, BARS]) == 0
     err = capsys.readouterr().err

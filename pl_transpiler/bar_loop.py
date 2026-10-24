@@ -395,7 +395,7 @@ def run_bar_loop(
     on_bar: Optional[Callable[[int], Any]] = None,
 ) -> tuple[int, int, Optional[str]]:
     """Shared per-bar execution core used by BOTH run_gt (the GT capture harness)
-    and the general entrypoint (tools/pl_run.run_el).
+    and the general entrypoint (pl_transpiler.run.run_el).
 
     Given a transpiled trace-mode strategy_fn, per-bar OHLCV (via get_ohlcv) and the
     EL date/time series, this drives the SAME engine sequence run_gt always used:

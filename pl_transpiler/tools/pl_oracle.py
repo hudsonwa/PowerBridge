@@ -14,43 +14,11 @@
 # limitations under the License.
 
 """
-pl_oracle.py — exact trade-list digest (the merge gate for perf work).
+pl_oracle.py — exact trade-list digest (the merge gate for perf work): the command-line front end.
 
-Runs EL over a tape through ``run_bar_loop`` with ``persist=True`` and min-emit
-(no ``_trace`` stores, no retained rows, no ``inject_trace`` position-column
-writes) and prints a canonical digest:
-
-    powerbridge-trade-digest v2
-    fills: N
-    round_turns: M
-    sha256: <hex>
-
-The sha256 is the SHA-256 of the line ``digest_version: 2`` followed by the
-ordered fill tuples ``(type, signal, date, time, price, contracts)``, one
-canonical line per fill. Every change of the signed position is a fill: a
-reversal logs its close leg and then its open leg, and SetStopLoss /
-SetProfitTarget / other Set* risk exits are logged too. ``round_turns`` is the
-number of exit records (each closes one entered contract).
-
-``--digest-v1`` reproduces the pre-v2 digest byte for byte (no version line,
-reversal open legs and risk exits missing, ``round_turns = fills // 2``) for
-anyone with pinned v1 digests. It always runs the Python path.
-The hashed ``type`` field is the order's buy/sell SIDE, not a position label:
-``EntryLong`` means a buy-side fill (Buy, BuyToCover, or a risk exit of a
-short) and ``ExitLong`` a sell-side fill (Sell, SellShort, or a risk exit of
-a long). It is the same in v1 and v2. For the position-aware label
-(EntryLong / ExitLong / EntryShort / ExitShort) use ``fill_trade_types`` or
-``--fills-csv``; it is not hashed.
-Two runs on unchanged code produce byte-identical digest text. Changes that may
-affect fills should cite the before/after digest.
-
-This module does not change the engine, the dialect, or ``run_el``. It is a
-correctness instrument, not an optimisation.
-
-Library:
-    from pl_transpiler.tools.pl_oracle import run_oracle, format_digest
-    d = run_oracle(el_source, bars, config)
-    print(d['text'])
+The library code lives in ``pl_transpiler.oracle``; this module parses arguments
+and calls it. The library names are re-exported here, so
+``from pl_transpiler.tools.pl_oracle import ...`` keeps working.
 
 CLI:
     python -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> [--config NQ] \\
@@ -61,609 +29,70 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import contextlib
-import csv
 import gzip
 import hashlib
 import os
 import sys
-from collections.abc import Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Sequence
+from typing import Optional, Union
 
-if TYPE_CHECKING:
-    from pl_transpiler.runtime.instrument_config import InstrumentConfig
-    from pl_transpiler.tools.pl_run import Bars
-
-from pl_transpiler import transpile
-from pl_transpiler.engine import FillEngine, run_bar_loop
-from pl_transpiler.errors import UnimplementedKeywordError, el_runtime_error
-from pl_transpiler.lookback import (
-    check_max_bars_back,
-    check_max_entries_per_direction,
-    note_warmup,
-    warn_short_history,
+from pl_transpiler.lookback import note_warmup
+from pl_transpiler.oracle import (
+    AUDIT_REF_3_DIGEST,
+    AUDIT_REF_3_FILLS,
+    AUDIT_REF_3_ROUND_TURNS,
+    AUDIT_REF_3_SHA256,
+    BUY_SIDE,
+    DIGEST_VERSION,
+    FILLS_CSV_COLUMNS,
+    SELL_SIDE,
+    canonical_fill_line,
+    count_round_turns,
+    data2_closes_from_bars,
+    fill_trade_types,
+    fills_sha256,
+    format_digest,
+    format_summary,
+    hashed_payload,
+    run_oracle,
+    trade_summary,
+    window_bars,
+    write_fills_csv,
 )
+from pl_transpiler.run import load_bars, unimplemented_stop_message
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError, set_strict_mode
 from pl_transpiler.runtime.accel import (
-    AccelRefused,
     AccelUnavailable,
     accel_available,
     explain_native,
-    run_native,
-    run_native_drawings,
     warn_python_path,
 )
-from pl_transpiler.runtime.bar_tape import BarTape, ohlcv_columns
-from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
+from pl_transpiler.runtime.bar_tape import ohlcv_columns
 from pl_transpiler.tools import _cli
-from pl_transpiler.tools.pl_run import (
-    load_bars,
-    resolve_trade_from,
-    tick_decimals,
-    unimplemented_stop_message,
-)
 
-DIGEST_VERSION = "v2"
-
-# Headline reference-strategy digest (the reference EL over the 2,322,973-bar NQ
-# tape, persist=True min-emit). Full tape and the 2018-01-01 window (856,914
-# bars) produce this identical digest. This module does not load that private
-# tape; the constants are kept as a fixed reference.
-AUDIT_REF_3_FILLS = 7364
-AUDIT_REF_3_ROUND_TURNS = 3682
-AUDIT_REF_3_SHA256 = "d839e7ab8a1feb8a9e238174538f94a477d9c54193a4f48be68b6bd3284d7e0c"
-AUDIT_REF_3_DIGEST = (
-    "powerbridge-trade-digest v1\n"
-    f"fills: {AUDIT_REF_3_FILLS}\n"
-    f"round_turns: {AUDIT_REF_3_ROUND_TURNS}\n"
-    f"sha256: {AUDIT_REF_3_SHA256}\n"
-)
-
-
-# Hashed fill ``type`` values. They name the order SIDE, not the position effect.
-BUY_SIDE = "EntryLong"
-SELL_SIDE = "ExitLong"
-
-
-def canonical_fill_line(fill: Mapping[str, Any]) -> str:
-    """One stable line for one FillEngine fill / get_mc_trades() dict.
-
-    The first field is the buy/sell side (``EntryLong`` = buy side,
-    ``ExitLong`` = sell side) exactly as both engines emit it, so a SellShort
-    from flat hashes as ``ExitLong``. Do not change it: every pinned digest
-    depends on it. See ``fill_trade_types`` for the position-aware label.
-    """
-    return (
-        f"{fill['type']}\t{fill['signal']}\t{fill['date']}\t{fill['time']}\t"
-        f"{float(fill['price']).hex()}\t{int(fill['contracts'])}"
-    )
-
-
-def fill_trade_types(fills: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Position-aware label for each fill: EntryLong, ExitLong, EntryShort or ExitShort.
-
-    Not part of the digest. Each record is one contract; the position is
-    replayed from flat with buy side = +contracts and sell side = -contracts.
-    A buy while short is ExitShort, otherwise EntryLong; a sell while long is
-    ExitLong, otherwise EntryShort. Because a reversal is logged one contract
-    per record, it splits into exit records followed by entry records. Works
-    the same on Python and native records, since both carry the same side.
-    """
-    labels = []
-    position = 0
-    for fill in fills:
-        qty = int(fill["contracts"])
-        if fill["type"] == BUY_SIDE:
-            labels.append("ExitShort" if position < 0 else "EntryLong")
-            position += qty
-        elif fill["type"] == SELL_SIDE:
-            labels.append("ExitLong" if position > 0 else "EntryShort")
-            position -= qty
-        else:
-            raise ValueError(f"unknown fill side {fill['type']!r}")
-    return labels
-
-
-FILLS_CSV_COLUMNS = ("order_no", "trade_type", "side", "signal", "date", "time",
-                     "price", "contracts", "position_after")
-
-
-def write_fills_csv(path: Union[str, os.PathLike[str]], fills: Sequence[Mapping[str, Any]],
-                    tick: Optional[float] = None) -> None:
-    """Write the human-facing fill log: one row per fill, with ``trade_type``.
-
-    ``price`` is rounded to the decimals of ``tick`` when given (display only;
-    the digest hashes the unrounded fills).
-
-    ``side`` is the hashed buy/sell field (``buy`` / ``sell``); ``trade_type``
-    is from ``fill_trade_types``; ``position_after`` is the signed position.
-    """
-    position = 0
-    dp = None if tick is None else tick_decimals(tick)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, lineterminator="\n")
-        writer.writerow(FILLS_CSV_COLUMNS)
-        for i, (fill, label) in enumerate(zip(fills, fill_trade_types(fills)), 1):
-            qty = int(fill["contracts"])
-            buy = fill["type"] == BUY_SIDE
-            position += qty if buy else -qty
-            writer.writerow([i, label, "buy" if buy else "sell", fill["signal"],
-                             fill["date"], fill["time"], _fmt_price(fill["price"], dp),
-                             qty, position])
-
-
-def trade_summary(fills: Sequence[Mapping[str, Any]], bigpointvalue: float) -> dict[str, Any]:
-    """Closed-trade statistics from the fill records (not part of the digest).
-
-    Each exit record closes one contract against the oldest open entry on
-    that side (FIFO). P&L is in dollars, ``bigpointvalue`` per point per
-    contract, before commission and slippage. Max drawdown is the largest
-    peak-to-trough fall of cumulative closed-trade P&L.
-    """
-    longs: list[float]
-    shorts: list[float]
-    pnls: list[float]
-    longs, shorts, pnls = [], [], []
-    for fill, label in zip(fills, fill_trade_types(fills)):
-        price = float(fill["price"])
-        for _ in range(int(fill["contracts"])):
-            if label == "EntryLong":
-                longs.append(price)
-            elif label == "EntryShort":
-                shorts.append(price)
-            elif label == "ExitLong":
-                pnls.append((price - longs.pop(0)) * bigpointvalue)
-            else:
-                pnls.append((shorts.pop(0) - price) * bigpointvalue)
-    equity = peak = drawdown = 0.0
-    for pnl in pnls:
-        equity += pnl
-        peak = max(peak, equity)
-        drawdown = max(drawdown, peak - equity)
-    winners = [p for p in pnls if p > 0]
-    losers = [p for p in pnls if p < 0]
-    return {
-        "trades": len(pnls),
-        "winners": len(winners),
-        "losers": len(losers),
-        "net_profit": sum(pnls),
-        "gross_profit": sum(winners),
-        "gross_loss": sum(losers),
-        "max_drawdown": drawdown,
-        "open_contracts": len(longs) + len(shorts),
-    }
-
-
-def format_summary(summary: Mapping[str, Any]) -> str:
-    """The ``--summary`` text block."""
-    trades = summary["trades"]
-    rate = f"{100.0 * summary['winners'] / trades:.1f}%" if trades else "n/a"
-    return (
-        "performance summary (closed trades, before commission and slippage)\n"
-        f"  net profit:     {summary['net_profit']:.2f}\n"
-        f"  gross profit:   {summary['gross_profit']:.2f}\n"
-        f"  gross loss:     {summary['gross_loss']:.2f}\n"
-        f"  trades:         {trades}\n"
-        f"  winners:        {summary['winners']}\n"
-        f"  losers:         {summary['losers']}\n"
-        f"  win rate:       {rate}\n"
-        f"  max drawdown:   {summary['max_drawdown']:.2f}\n"
-        f"  open contracts: {summary['open_contracts']}\n"
-    )
-
-
-def _fmt_price(price: Any, dp: Optional[int]) -> str:
-    return repr(float(price)) if dp is None else f"{float(price):.{dp}f}"
-
-
-def hashed_payload(fills: Iterable[Mapping[str, Any]], version: int = 2) -> str:
-    """The exact text ``fills_sha256`` hashes (and ``--dump`` writes).
-
-    v2 starts with a ``digest_version: 2`` line; v1 is the bare fill lines.
-    """
-    head = "digest_version: 2\n" if version >= 2 else ""
-    return head + "".join(canonical_fill_line(f) + "\n" for f in fills)
-
-
-def fills_sha256(fills: Iterable[Mapping[str, Any]], version: int = 2) -> str:
-    """SHA-256 (utf-8) of ``hashed_payload(fills, version)``."""
-    return hashlib.sha256(hashed_payload(fills, version).encode("utf-8")).hexdigest()
-
-
-def count_round_turns(fills: Iterable[Mapping[str, Any]]) -> int:
-    """Round turns = exit records: each closes one previously entered contract."""
-    return sum(1 for t in fill_trade_types(fills) if t.startswith("Exit"))
-
-
-def format_digest(*, fills: int, round_turns: int, sha256: str, version: int = 2) -> str:
-    """Canonical four-line digest text. Always ends with a newline."""
-    return (
-        f"powerbridge-trade-digest v{version}\n"
-        f"fills: {fills}\n"
-        f"round_turns: {round_turns}\n"
-        f"sha256: {sha256}\n"
-    )
-
-
-def data2_closes_from_bars(bars: Bars, data2_bars: Bars) -> list[float]:
-    """Derive a Data1-aligned Close-of-Data2 series from a Data2 bar tape.
-
-    Aligns on exact ``(date, time)``, last-wins — the same join the native
-    kernel uses in ``align_data2``. A Data1 bar with no Data2 match falls back
-    to that bar's Data1 close, matching both the kernel's ``DataOf`` missing
-    path and codegen's ``kwargs.get('data2_close', close[-1])``.
-
-    ``bars`` / ``data2_bars`` may be ``list[dict]`` or ``BarTape``. The result
-    is a ``list[float]`` of length ``len(bars)``, ready for the Python path's
-    ``data2_closes`` argument.
-    """
-    d1 = ohlcv_columns(bars)
-    d2 = ohlcv_columns(data2_bars)
-    by_key: dict[tuple[int, int], float] = {}
-    dates2, times2, closes2 = d2["date"], d2["time"], d2["close"]
-    for j in range(d2["n"]):
-        by_key[(int(dates2[j]), int(times2[j]))] = float(closes2[j])
-    dates1, times1, closes1 = d1["date"], d1["time"], d1["close"]
-    out = [0.0] * d1["n"]
-    for i in range(d1["n"]):
-        hit = by_key.get((int(dates1[i]), int(times1[i])))
-        out[i] = float(closes1[i]) if hit is None else hit
-    return out
-
-
-def window_bars(bars: Bars, from_date: Optional[int] = None,
-                to_date: Optional[int] = None, extra: Optional[Sequence[Any]] = None
-                ) -> tuple[Bars, Optional[Sequence[Any]]]:
-    """Inclusive EL-date slice of ``bars`` and an optional parallel ``extra`` list.
-
-    ``from_date`` / ``to_date`` are EL integers (YYYMMDD). None means unbounded
-    on that side. This is a tape slice (drops the prefix). Engine-level seeded
-    warmup is ``run_oracle(..., seed_warmup=True)`` / ``--seed-warmup``.
-    """
-    if extra is not None and len(extra) != len(bars):
-        raise ValueError(
-            f"extra series length {len(extra)} != bars length {len(bars)}")
-    if from_date is None and to_date is None:
-        return bars, extra
-    lo = from_date if from_date is not None else -10 ** 18
-    hi = to_date if to_date is not None else 10 ** 18
-    n = len(bars)
-    if isinstance(bars, BarTape):
-        dates = bars.date
-        keep = [i for i in range(n) if lo <= int(dates[i]) <= hi]
-    else:
-        keep = [i for i, b in enumerate(bars) if lo <= int(b["date"]) <= hi]
-    if not keep:
-        empty = bars[0:0]
-        out_extra = extra[0:0] if extra is not None else None
-        return empty, out_extra
-    first, last = keep[0], keep[-1] + 1
-    if last - first == len(keep):
-        sl = slice(first, last)
-        out_extra = extra[sl] if extra is not None else None
-        return bars[sl], out_extra
-    out_bars = [bars[i] for i in keep]
-    out_extra = [extra[i] for i in keep] if extra is not None else None
-    return out_bars, out_extra
-
-
-def _run_oracle_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
-                       data2_bars: Optional[Bars], from_date: Optional[int],
-                       to_date: Optional[int], from_bar: Optional[int],
-                       seed_warmup: bool, digest_version: int = 2,
-                       max_bars_back: Union[int, str] = 0,
-                       max_entries_per_direction: Optional[int] = 0,
-                       drawings: bool = False
-                       ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
-    """Attempt the native kernel path for one ``run_oracle`` call.
-
-    The native path serves exactly the full-tape, non-windowed shape — the
-    kernel's ``run_program`` signature takes no bar window. Data2 is served by
-    forwarding the caller's full ``(date, time)``-aligned ``data2_bars`` tape;
-    the closes-only ``data2_closes`` argument cannot be reconstructed into that
-    tape, so a Data2 program run without ``data2_bars`` is left for the kernel
-    to refuse (loudly) and the Python path then runs. Any windowed run is the
-    Python path's job.
-
-    Returns ``(digest, None)`` on a successful native run. On any fallback —
-    a windowed shape, an absent extension, or a kernel refusal — returns
-    ``(None, reason)``. ``run_oracle`` prints a LOUD stderr note for a refusal
-    once the Python run completes, so the caller never silently receives a
-    partial or approximate trade list, and a program that stops on a user
-    error reports only that error.
-    """
-    if (from_date is not None or to_date is not None or from_bar is not None
-            or seed_warmup):
-        return None, "run is windowed (not the native shape)"
-    if digest_version < 2:
-        return None, "--digest-v1 is served by the Python path only"
-    try:
-        objects = None
-        if drawings:
-            fills, objects = run_native_drawings(
-                el_source, bars, config, data2_bars=data2_bars,
-                max_bars_back=max_bars_back,
-                max_entries_per_direction=max_entries_per_direction)
-        else:
-            fills = run_native(el_source, bars, config, data2_bars=data2_bars,
-                               max_bars_back=max_bars_back,
-                               max_entries_per_direction=max_entries_per_direction)
-    except (AccelUnavailable, AccelRefused) as exc:
-        return None, f"native path refused: {exc}"
-    n = ohlcv_columns(bars)["n"]
-    digest = {
-        "fills": len(fills),
-        "round_turns": count_round_turns(fills),
-        # The FFI returns the ordered fill list, not the closed-position
-        # ledger, so the native path cannot report closed_positions. It is not
-        # part of the digest text.
-        "closed_positions": None,
-        "sha256": fills_sha256(fills),
-        "n_bars": n,
-        "n_warmup": 0,
-        "records": fills,
-        "native": True,
-        "_native_drawings": objects,
-    }
-    digest["text"] = format_digest(
-        fills=digest["fills"],
-        round_turns=digest["round_turns"],
-        sha256=digest["sha256"],
-        version=digest_version,
-    )
-    return digest, None
-
-
-def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
-               data2_closes: Optional[Sequence[float]] = None,
-               data2_bars: Optional[Bars] = None,
-               from_date: Optional[int] = None, to_date: Optional[int] = None,
-               from_bar: Optional[int] = None, seed_warmup: bool = False,
-               use_native: bool = False, digest_version: int = 2,
-               max_bars_back: Union[int, str] = 0,
-               max_entries_per_direction: Optional[int] = None,
-               drawings: bool = False, drawing_case_id: Optional[str] = None,
-               drawing_tape: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    """Transpile persist=True, run min-emit, return a digest dict.
-
-    el_source     : EL/PowerLanguage source string.
-    bars          : list of bar dicts (date, time, open, high, low, close, volume)
-                    or a BarTape (same values, column-contiguous).
-    config        : InstrumentConfig (use get_config('NQ')).
-    data2_closes  : optional list[float] aligned with ``bars`` (Close of Data2).
-                    Drives the Python path's per-bar ``data2_close``. The native
-                    path cannot reconstruct a full Data2 tape from closes-only
-                    and still refuses that shape loudly.
-    data2_bars    : optional Data2 bar series (``list[dict]`` or ``BarTape``).
-                    The native path forwards it to ``run_native``, which aligns
-                    it by ``(date, time)``. The Python path, when
-                    ``data2_closes`` is omitted, derives a Close series from it
-                    the same way (``data2_closes_from_bars``). Either spelling
-                    is accepted on the Python path; ``data2_bars`` is never
-                    ignored. When both are supplied, ``data2_closes`` is used
-                    as the Python-path Close series (the CLI always passes
-                    both, derived from the same file).
-    from_date     : optional inclusive EL-date lower bound (YYYMMDD).
-    to_date       : optional inclusive EL-date upper bound (YYYMMDD).
-    from_bar      : optional 0-based tape-index lower bound. Exclusive with
-                    from_date.
-    seed_warmup   : False (default): drop the prefix (tape slice).
-                    True: keep the prefix, run it with fills
-                    suppressed so Once / lookback / Variables stay primed.
-                    A windowed run that disagrees on trades is a
-                    bug, not a speed win.
-    use_native    : False (default): the pure-Python path, byte-identical to
-                    before. True: try the optional native kernel first (one FFI
-                    crossing) for the full-tape shape; a Data2 program is
-                    served by forwarding ``data2_bars``. If the kernel refuses
-                    the program or is not built, fall back to the Python path
-                    LOUDLY (a stderr note) — never a partial trade list. The
-                    digest is identical whichever path runs.
-    max_bars_back : skip the first N bars (after any window) as history only:
-                    no evaluation, no orders, BarNumber starts at 1 on bar N+1
-                    (MultiCharts MaxBarsBack). Default 0 evaluates every bar.
-                    ``"auto"`` uses lookback.infer_max_bars_back(el_source)
-                    (ValueError if it cannot be inferred).
-    max_entries_per_direction : None/0 (default): every Buy/SellShort adds
-                    to the position. N >= 1: an entry in the open position's
-                    direction is refused while N entries are open (N=1 is
-                    MultiCharts' documented default). Reversals always fill.
-    drawings      : False (default). True records trendline, arrow and text
-                    objects and adds ``drawings``, a powerbridge-drawing-dump
-                    v1 dict. Requires ``drawing_case_id`` and ``drawing_tape``
-                    with ``name`` and ``sha256`` (optional ``tick``). The sha
-                    is the caller's tape identity (the golden corpus uses the
-                    MultiCharts ASCII tape, not the PowerBridge CSV). Omit
-                    both and the digest text is unchanged.
-    drawing_case_id, drawing_tape : stored in that dump.
-
-    Returns a dict with keys:
-      text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
-      records, native, native_fallback_reason
-      and, when ``drawings`` is true, ``drawings``.
-    ``records`` is the get_mc_trades() list (ordered). ``round_turns`` is
-    ``count_round_turns(records)`` (v1: ``len(records) // 2``).
-    ``digest_version=1`` reproduces pre-v2 digests on the Python path.
-    ``text`` is format_digest(). ``n_warmup`` is 0 unless seed_warmup ran a
-    prefix. ``native`` is True iff the native kernel produced the digest;
-    ``native_fallback_reason`` is a string when
-    ``use_native`` was requested but the Python path ran, else ``None``. On
-    the native path ``records`` are the kernel fills (no ``order_no``) and
-    ``closed_positions`` is ``None`` (the FFI returns fills, not the
-    closed-position ledger — neither is in the digest text).
-    """
-    max_bars_back = check_max_bars_back(max_bars_back, el_source)
-    max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
-    warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
-    drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
-    if drawings:
-        from pl_transpiler.runtime._rt_drawing import (
-            DrawingRecorder,
-            make_dump,
-            resolve_drawing_request,
-        )
-        from pl_transpiler.runtime.drawing_dump import build_dump
-        drawing_meta = resolve_drawing_request(
-            drawing_case_id, drawing_tape, config.tick)
-    fallback_reason = None
-    if use_native:
-        native_digest, fallback_reason = _run_oracle_native(
-            el_source, bars, config, data2_bars=data2_bars,
-            from_date=from_date, to_date=to_date, from_bar=from_bar,
-            seed_warmup=seed_warmup, digest_version=digest_version,
-            max_bars_back=max_bars_back,
-            max_entries_per_direction=max_entries_per_direction,
-            drawings=drawings,
-        )
-        if native_digest is not None:
-            objects = native_digest.pop("_native_drawings", None)
-            if drawings:
-                # The kernel recorded the objects; the envelope is built the
-                # same way as on the Python path.
-                cols = ohlcv_columns(bars)
-                native_digest["drawings"] = build_dump(
-                    objects or [],
-                    case_id=drawing_meta[0], tape_name=drawing_meta[1],
-                    tape_sha256=drawing_meta[2],
-                    n_bars=len(cols["date"]),
-                    first=(cols["date"][0], cols["time"][0]),
-                    last=(cols["date"][-1], cols["time"][-1]),
-                    tick=drawing_meta[3],
-                    producer_kind="pb-native",
-                )
-            return native_digest
-
-    if from_date is not None and from_bar is not None:
-        raise ValueError("from_date and from_bar are mutually exclusive")
-    from pl_transpiler.runtime.pl_runtime import (
-        pl_unimplemented_reset,
-        pl_unimplemented_warn,
-    )
-    pl_unimplemented_reset()
-    trade_from = 0
-    n_warmup = 0
-    if seed_warmup:
-        # Keep the head for warmup; still honour to_date as a tail slice.
-        bars, data2_closes = window_bars(
-            bars, from_date=None, to_date=to_date, extra=data2_closes)
-        trade_from = resolve_trade_from(
-            bars, from_date=from_date, from_bar=from_bar)
-        n_warmup = trade_from
-    else:
-        if from_bar is not None:
-            cut = resolve_trade_from(bars, from_bar=from_bar)
-            bars = bars[cut:]
-            if data2_closes is not None:
-                data2_closes = data2_closes[cut:]
-        bars, data2_closes = window_bars(
-            bars, from_date=from_date, to_date=to_date, extra=data2_closes)
-
-    # data2_bars is a (date, time) lookup table, not a positional extra, so it
-    # is joined AFTER the Data1 window. Deriving before the slice would require
-    # data2_bars to be 1:1 with the unsliced tape.
-    if data2_closes is None and data2_bars is not None:
-        data2_closes = data2_closes_from_bars(bars, data2_bars)
-
-    reset_indicator_caches()
-    py_code = transpile(el_source, persist=True)
-    ns: dict[str, Any] = {}
-    exec(compile(py_code, "<oracle>", "exec"), ns)
-    strategy_fn = ns["strategy"]
-
-    cols = ohlcv_columns(bars)
-    n = cols["n"]
-    o_arr, h_arr, l_arr = cols["open"], cols["high"], cols["low"]
-    c_arr, v_arr = cols["close"], cols["volume"]
-    dates, times = cols["date"], cols["time"]
-
-    fill_engine = FillEngine(config=config,
-                             max_entries_per_direction=max_entries_per_direction)
-    fill_engine._emit_gta6 = False
-
-    extra = None
-    if data2_closes is not None:
-        d2 = data2_closes
-
-        def extra(i: int) -> dict[str, float]:
-            return {"data2_close": d2[i]}
-
-    def emit_row(_i: int, _barnumber: int, _trace: Any) -> None:
-        return None
-
-    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
-        return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
-
-    # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
-    # digest. Same discard as run_el.
-    recorder = None
-    if drawings:
-        recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
-    with open(os.devnull, "w", encoding="utf-8") as _devnull, \
-            contextlib.redirect_stdout(_devnull), \
-            (recorder if recorder is not None else contextlib.nullcontext()):
-        try:
-            run_bar_loop(
-                strategy_fn,
-                n_bars=n,
-                get_ohlcv=get_ohlcv,
-                dates=dates,
-                times=times,
-                config=config,
-                fill_engine=fill_engine,
-                emit_row=emit_row,
-                per_bar_extra=extra,
-                strict=True,
-                trade_from=trade_from,
-                emit_trace=False,
-                max_bars_back=max_bars_back,
-                on_bar=None if recorder is None else recorder.set_bar,
-            )
-        except (UnimplementedBuiltinError, UnimplementedKeywordError):
-            raise
-        except Exception as exc:
-            el_exc = el_runtime_error(exc, py_code, "<oracle>", el_source)
-            if el_exc is None:
-                raise
-            raise el_exc from exc
-    # Reported after the run, so a program that stops on a user error
-    # prints only that error.
-    if fallback_reason is not None and fallback_reason.startswith("native path refused"):
-        print(
-            f"[pl_oracle] {fallback_reason}; using the pure-Python engine (slower)",
-            file=sys.stderr,
-        )
-
-    v1 = digest_version < 2
-    records = fill_engine.get_mc_trades(v1=v1)
-    # A round-turn is a matched entry+exit contract: one exit record each (v1
-    # used fills//2). len(closed_trades) is closed *positions* (a ladder is one).
-    digest = {
-        "fills": len(records),
-        "round_turns": len(records) // 2 if v1 else count_round_turns(records),
-        "closed_positions": len(fill_engine.closed_trades),
-        "sha256": fills_sha256(records, digest_version),
-        "n_bars": n,
-        "n_warmup": n_warmup,
-        "fast_path_hits": fill_engine.fast_path_hits,
-        "records": records,
-        "native": False,
-        "native_fallback_reason": fallback_reason,
-        "unimplemented": pl_unimplemented_warn('pl_oracle'),
-    }
-    digest["text"] = format_digest(
-        fills=digest["fills"],
-        round_turns=digest["round_turns"],
-        sha256=digest["sha256"],
-        version=digest_version,
-    )
-    if drawings:
-        digest["drawings"] = make_dump(
-            recorder, dates, times,
-            case_id=drawing_meta[0], tape_name=drawing_meta[1],
-            tape_sha256=drawing_meta[2], tick=drawing_meta[3],
-            producer_kind="pb-python",
-        )
-    return digest
+# The library names, re-exported for the old import path.
+__all__ = [
+    "AUDIT_REF_3_DIGEST",
+    "AUDIT_REF_3_FILLS",
+    "AUDIT_REF_3_ROUND_TURNS",
+    "AUDIT_REF_3_SHA256",
+    "BUY_SIDE",
+    "DIGEST_VERSION",
+    "FILLS_CSV_COLUMNS",
+    "SELL_SIDE",
+    "canonical_fill_line",
+    "count_round_turns",
+    "data2_closes_from_bars",
+    "fill_trade_types",
+    "fills_sha256",
+    "format_digest",
+    "format_summary",
+    "hashed_payload",
+    "run_oracle",
+    "trade_summary",
+    "window_bars",
+    "write_fills_csv",
+]
 
 
 def _build_parser() -> argparse.ArgumentParser:

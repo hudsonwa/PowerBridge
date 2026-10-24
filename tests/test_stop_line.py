@@ -24,6 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler import run  # noqa: E402
 from pl_transpiler.runtime import _rt_core  # noqa: E402
 from pl_transpiler.runtime.accel import accel_available  # noqa: E402
 from pl_transpiler.tools import pl_oracle, pl_run  # noqa: E402
@@ -92,4 +93,4 @@ def test_builtin_stop_names_the_calling_line(tool, path, strict, tmp_path, capsy
 
 def test_unparsable_source_falls_back_to_first_mention():
     exc = _rt_core.UnimplementedBuiltinError("pl_arraysize")
-    assert pl_run._stop_line("x = = ArraySize(a);\n", exc) is None
+    assert run._stop_line("x = = ArraySize(a);\n", exc) is None
