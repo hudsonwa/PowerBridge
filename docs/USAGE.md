@@ -185,6 +185,26 @@ The digest goes to stdout. The `[pl_oracle] … fills` summary line (and,
 with `-v`, a `note:` line when the native kernel is not installed) go to stderr, so
 `pl_oracle … > digest.txt` captures only the block above.
 
+Add `--summary` to also print a performance summary of the closed trades to
+stderr (the digest is unchanged):
+
+```
+performance summary (closed trades, before commission and slippage)
+  net profit:     1343.80
+  gross profit:   1343.80
+  gross loss:     0.00
+  trades:         1
+  winners:        1
+  losers:         0
+  win rate:       100.0%
+  max drawdown:   0.00
+  open contracts: 1
+```
+
+Each exit fill closes one contract against the oldest open entry on its side;
+P&L uses the instrument's big point value. Max drawdown is the largest fall of
+cumulative closed-trade P&L from its peak.
+
 To see why a strategy would run on the Python path, list every construct the
 native kernel refuses (no bars CSV needed, nothing runs):
 `pl_oracle --explain-native my_strategy.el`. It is a compile-time check: a run

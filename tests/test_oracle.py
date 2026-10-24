@@ -519,3 +519,62 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def _fill(side, price, contracts=1):
+    return {"type": side, "signal": "s", "date": 1240102, "time": 930,
+            "price": price, "contracts": contracts}
+
+
+def test_trade_summary_fifo_long_short_and_drawdown():
+    from pl_transpiler.tools.pl_oracle import (
+        BUY_SIDE,
+        SELL_SIDE,
+        format_summary,
+        trade_summary,
+    )
+    fills = [
+        _fill(BUY_SIDE, 100.0, 2),   # long 2
+        _fill(SELL_SIDE, 103.0),     # +3
+        _fill(SELL_SIDE, 99.0),      # -1
+        _fill(SELL_SIDE, 99.0),      # short 1
+        _fill(BUY_SIDE, 104.0),      # -5
+        _fill(BUY_SIDE, 104.0),      # long 1, left open
+    ]
+    s = trade_summary(fills, 20.0)
+    assert s == {"trades": 3, "winners": 1, "losers": 2, "net_profit": -60.0,
+                 "gross_profit": 60.0, "gross_loss": -120.0,
+                 "max_drawdown": 120.0, "open_contracts": 1}
+    text = format_summary(s)
+    assert "  net profit:     -60.00\n" in text
+    assert "  win rate:       33.3%\n" in text
+
+
+def test_trade_summary_no_trades():
+    from pl_transpiler.tools.pl_oracle import format_summary, trade_summary
+    s = trade_summary([], 20.0)
+    assert s["trades"] == 0 and s["net_profit"] == 0.0
+    assert "  win rate:       n/a\n" in format_summary(s)
+
+
+def test_summary_flag_stdout_unchanged_and_paths_agree():
+    from pl_transpiler.tools.pl_oracle import main
+    el = os.path.join(REPO, "examples", "ma_cross.el")
+    csv = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
+
+    def run(*extra):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            assert main([el, csv, "-q", *extra]) == 0
+        return out.getvalue(), err.getvalue()
+
+    plain_out, plain_err = run("--python")
+    out, err = run("--python", "--summary")
+    assert out == plain_out
+    assert "performance summary" not in plain_err
+    block = err[err.index("performance summary"):]
+    assert "  trades:         1\n" in block
+    if accel_available():
+        n_out, n_err = run("--native", "--summary")
+        assert n_out == out
+        assert n_err[n_err.index("performance summary"):] == block
