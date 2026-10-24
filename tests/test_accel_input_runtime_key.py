@@ -87,7 +87,7 @@ COLLIDING = [k for k in INPUT_KEYS if k not in PARSED_AS_KEYWORD | {"outpath"}]
 
 def _oracle_extra_keys():
     """Keys pl_oracle's per_bar_extra hook adds (it only has one with Data2)."""
-    import pl_transpiler.tools.pl_oracle as oracle
+    import pl_transpiler.oracle as oracle
     seen = set()
     real = oracle.run_bar_loop
 

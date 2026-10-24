@@ -22,7 +22,7 @@ from .codegen_tables import _SERIES_PARAMS
 _PL_TARGETS_CACHE: Optional[set[str]] = None
 
 
-def _available_pl_targets() -> set[str]:
+def available_pl_targets() -> set[str]:
     """Set of every callable pl_* name in the runtime (the names generated code can
     call). Cached after first use."""
     global _PL_TARGETS_CACHE

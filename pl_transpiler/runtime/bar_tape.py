@@ -307,7 +307,7 @@ def csv_to_pbar(csv_path: str | os.PathLike[str], pbar_path: str | os.PathLike[s
 
     Same parse, same float64 values. Returns the bar count.
     """
-    from pl_transpiler.tools.pl_run import load_bars_csv
+    from pl_transpiler.run import load_bars_csv
     return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
 
 

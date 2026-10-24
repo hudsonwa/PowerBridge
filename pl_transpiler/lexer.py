@@ -161,7 +161,7 @@ def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
                 line, col = _line_col(src, i)
                 raise PLSyntaxError(
                     "unterminated comment '{' — no matching '}'",
-                    line, col, _source_line(src, line),
+                    line, col, source_line_at(src, line),
                     hint="close the comment with '}'")
             _add_comment(i, j)
             i = j
@@ -188,7 +188,7 @@ def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
                 line, col = _line_col(src, i)
                 raise PLSyntaxError(
                     'unterminated string literal',
-                    line, col, _source_line(src, line),
+                    line, col, source_line_at(src, line),
                     hint='close the string with a matching double-quote (")')
             emit((TT_STRING, src[i+1:j]), i)
             i = j + 1
@@ -262,7 +262,7 @@ def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
             line, col = _line_col(src, i)
             raise PLSyntaxError(
                 f"unexpected character {ch!r}",
-                line, col, _source_line(src, line),
+                line, col, source_line_at(src, line),
                 hint=("character not part of EasyLanguage; remove it or put it "
                       "inside a comment or string"))
         i += 1
@@ -286,7 +286,7 @@ def collect_comments(source: str) -> list[dict[str, Any]]:
     return [dict(c) for c in last_comments]
 
 
-def _source_line(source: str, line: int) -> str:
+def source_line_at(source: str, line: int) -> str:
     """Return the 1-based `line`-th line of source (without trailing newline)."""
     if line < 1:
         return ''

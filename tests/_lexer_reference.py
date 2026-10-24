@@ -36,7 +36,7 @@ from pl_transpiler.lexer import (  # noqa: F401
     TT_SEMICOLON,
     TT_STRING,
     PLSyntaxError,
-    _source_line,
+    source_line_at,
 )
 
 
@@ -99,7 +99,7 @@ def tokenise(source: str):
                 line, col = _line_col(src, i)
                 raise PLSyntaxError(
                     "unterminated comment '{' — no matching '}'",
-                    line, col, _source_line(src, line),
+                    line, col, source_line_at(src, line),
                     hint="close the comment with '}'")
             _add_comment(i, j)
             i = j
@@ -126,7 +126,7 @@ def tokenise(source: str):
                 line, col = _line_col(src, i)
                 raise PLSyntaxError(
                     'unterminated string literal',
-                    line, col, _source_line(src, line),
+                    line, col, source_line_at(src, line),
                     hint='close the string with a matching double-quote (")')
             emit((TT_STRING, src[i+1:j]), i)
             i = j + 1
@@ -200,7 +200,7 @@ def tokenise(source: str):
             line, col = _line_col(src, i)
             raise PLSyntaxError(
                 f"unexpected character {ch!r}",
-                line, col, _source_line(src, line),
+                line, col, source_line_at(src, line),
                 hint=("character not part of EasyLanguage; remove it or put it "
                       "inside a comment or string"))
         i += 1

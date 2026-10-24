@@ -37,10 +37,10 @@ from pl_transpiler import transpile
 # EL date/time parsers (pl_transpiler.engine_dates) live in the SHIPPED package so the installed pl_run
 # console script works from a bare wheel. They are re-imported here as a single
 # source (zero duplication); run_gt's public surface -- run_gt.FillEngine,
-# run_gt.run_bar_loop, run_gt._parse_el_date, ... -- is unchanged, so every
+# run_gt.run_bar_loop, run_gt.parse_el_date, ... -- is unchanged, so every
 # existing caller and monkeypatcher keeps resolving them off this module.
 from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
-from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time  # noqa: E402
+from pl_transpiler.engine_dates import parse_el_date, parse_el_time  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 
@@ -270,8 +270,8 @@ def _load_multi_data(data1_path, data2_path, max_bars=None, warmup=0):
                 continue
             # Format: Date, Time, Open, High, Low, Close, Volume
             # Date: D/MM/YYYY, Time: HH:MM:SS
-            el_date = _parse_el_date(row[0].strip())
-            el_time = _parse_el_time(row[1].strip())
+            el_date = parse_el_date(row[0].strip())
+            el_time = parse_el_time(row[1].strip())
             try:
                 o, h, l, c, v = float(row[2]), float(row[3]), float(row[4]), float(row[5]), int(row[6])
             except (ValueError, IndexError):
@@ -294,8 +294,8 @@ def _load_multi_data(data1_path, data2_path, max_bars=None, warmup=0):
         for row in reader:
             if not row:
                 continue
-            el_date = _parse_el_date(row[0].strip())
-            el_time = _parse_el_time(row[1].strip())
+            el_date = parse_el_date(row[0].strip())
+            el_time = parse_el_time(row[1].strip())
             key = (el_date, el_time)
             try:
                 o, h, l, c, v = float(row[2]), float(row[3]), float(row[4]), float(row[5]), int(row[6])
@@ -372,8 +372,8 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
                     if not row:
                         continue
                     data1_raw.append({
-                        'date': _parse_el_date(row[0].strip()),
-                        'time': _parse_el_time(row[1].strip()),
+                        'date': parse_el_date(row[0].strip()),
+                        'time': parse_el_time(row[1].strip()),
                         'open': float(row[2]), 'high': float(row[3]),
                         'low': float(row[4]), 'close': float(row[5]),
                         'volume': int(row[6]),
@@ -537,7 +537,7 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
                 for row in reader:
                     if not row:
                         continue
-                    key = (_parse_el_date(row[0].strip()), _parse_el_time(row[1].strip()))
+                    key = (parse_el_date(row[0].strip()), parse_el_time(row[1].strip()))
                     try:
                         data2_map[key] = {
                             'open': float(row[2]), 'high': float(row[3]),
@@ -579,8 +579,8 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
                 for j, row in enumerate(reader):
                     if not row:
                         continue
-                    el_date = _parse_el_date(row[0].strip())
-                    el_time = _parse_el_time(row[1].strip())
+                    el_date = parse_el_date(row[0].strip())
+                    el_time = parse_el_time(row[1].strip())
                     # Stop after we've collected warmup bars that precede capture start
                     if j < data1_warmup_count:
                         warmup_bars.append({

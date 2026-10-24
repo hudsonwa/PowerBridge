@@ -33,6 +33,13 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ### Changed
 
+- The library code behind `pl_run` and `pl_oracle` moved out of the CLI
+  modules: `run_el`, `load_bars_csv`, `load_bars` and their helpers now live in
+  `pl_transpiler.run`, and `run_oracle` and the digest helpers in
+  `pl_transpiler.oracle`. `pl_transpiler/tools/pl_run.py` and `pl_oracle.py`
+  are now thin argument parsers. The old import paths
+  (`from pl_transpiler.tools.pl_run import run_el`, `pl_transpiler.run_el`, ...)
+  still work, and output is unchanged.
 - A run-time error in the EL program (an array index out of range, a division
   or `Mod` by zero, any other exception from the generated code) now stops
   `pl_run` and `pl_oracle` with one line naming the EL line, such as

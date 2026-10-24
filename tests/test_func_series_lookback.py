@@ -35,10 +35,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler import run as pl_run  # noqa: E402
 from pl_transpiler import transpile  # noqa: E402
 from pl_transpiler.runtime._rt_indicators import _pb_lag, reset_indicator_caches  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
-from pl_transpiler.tools import pl_run  # noqa: E402
 from pl_transpiler.tools.pl_oracle import run_oracle  # noqa: E402
 
 BREAKOUT_EL = """

@@ -79,7 +79,8 @@ run_el(el_source: str, bars, config, *,
 
 Transpiles `el_source`, runs it over `bars` with the instrument `config`, and
 returns the per-bar trace and the trade list. This is the library form of
-`pl_run`.
+`pl_run`; it lives in `pl_transpiler.run` (also importable from
+`pl_transpiler.tools.pl_run`).
 
 | Keyword | Default | Meaning |
 |---|---|---|
@@ -147,7 +148,8 @@ run_oracle(el_source: str, bars, config, *,
 
 Runs the strategy without per-bar tracing and returns a canonical digest of
 its trade list: the fastest way to check that two runs (or two engines)
-produce exactly the same trades. This is the library form of `pl_oracle`.
+produce exactly the same trades. This is the library form of `pl_oracle`; it
+lives in `pl_transpiler.oracle` (also importable from `pl_transpiler.tools.pl_oracle`).
 `from_date` / `to_date` / `from_bar` window the tape (by slicing, unless
 `seed_warmup=True`). `data2_bars` (or `data2_closes`, a Close series aligned
 with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel

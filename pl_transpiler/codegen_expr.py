@@ -20,8 +20,8 @@ from ._types import Node
 from .codegen_tables import _SERIES_PARAMS, BUILTIN_FUNC_MAP, COMPARE_OPS
 from .codegen_util import (
     _OHLCV_F32_NAMES,
-    _available_pl_targets,
     _runtime_bound_bare_names,
+    available_pl_targets,
     call_arity_problem,
 )
 from .errors import UnimplementedKeywordError, unimplemented_message
@@ -366,7 +366,7 @@ class _ExprMixin:
         (self._declared_all, collected recursively), the codegen's own trace/state
         sets, series params, EL builtins (BUILTIN_FUNC_MAP), any pl_* runtime target,
         the boolean words, and every reserved/scratch identifier the parser's
-        semantic oracle (`_is_known_name`) already treats as known — Value0..Value99,
+        semantic oracle (`is_known_name`) already treats as known — Value0..Value99,
         Condition0..Condition99, marketposition, order words, colors/styles, etc.
         Anything else is an unimplemented EL keyword."""
         if (name in self._declared_all
@@ -374,10 +374,10 @@ class _ExprMixin:
                 or name in self._array_vars or name in self._numeric_vars
                 or name in BUILTIN_FUNC_MAP
                 or name in ('true', 'false')
-                or f'pl_{name}' in _available_pl_targets()):
+                or f'pl_{name}' in available_pl_targets()):
             return True
-        from pl_transpiler.semantic import _is_known_name
-        return _is_known_name(name, self._declared_all)
+        from pl_transpiler.semantic import is_known_name
+        return is_known_name(name, self._declared_all)
 
     def _bare_raw_resolves(self, name: str) -> bool:
         """True when a bare identifier reaching the ident fallback can be emitted
@@ -405,7 +405,7 @@ class _ExprMixin:
         keyword is reported at once at the end of generate(). The emitted text is
         discarded whenever any error was recorded (strict all-or-nothing preserved)."""
         target = f"pl_{name}"
-        if target not in _available_pl_targets():
+        if target not in available_pl_targets():
             line = None
             if isinstance(node, dict):
                 line = node.get('_line')

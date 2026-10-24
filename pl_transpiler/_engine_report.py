@@ -19,7 +19,7 @@ performance kwargs, MultiCharts trade export and trace injection."""
 from typing import TYPE_CHECKING, Any, Optional
 
 from pl_transpiler.bar_loop import _PERF_KWARGS
-from pl_transpiler.engine_dates import _el_to_ole
+from pl_transpiler.engine_dates import el_to_ole
 from pl_transpiler.runtime.instrument_config import NQ
 
 if TYPE_CHECKING:
@@ -201,7 +201,7 @@ class _ReportMixin:
         trace['ennm'] = self.entry_name if in_pos else ''
         trace['endate'] = self.entry_date if in_pos else 0
         trace['entime'] = self.entry_time if in_pos else 0
-        trace['endtm'] = _el_to_ole(self.entry_date, self.entry_time) if in_pos else 0.0
+        trace['endtm'] = el_to_ole(self.entry_date, self.entry_time) if in_pos else 0.0
         trace['curentr'] = self._pos_entries if in_pos else 0
         trace['curshr'] = contracts if in_pos else 0
         trace['execoff'] = 0
@@ -217,8 +217,8 @@ class _ReportMixin:
             trace['ptexitpx'] = t['exit_px']
             trace['ptentrybar'] = t['entry_bar']
             trace['ptexitbar'] = t['exit_bar']
-            trace['ptentrydtm'] = _el_to_ole(t['entry_date'], t['entry_time'])
-            trace['ptexitdtm'] = _el_to_ole(t['exit_date'], t['exit_time'])
+            trace['ptentrydtm'] = el_to_ole(t['entry_date'], t['entry_time'])
+            trace['ptexitdtm'] = el_to_ole(t['exit_date'], t['exit_time'])
             trace['ptentrycat'] = t['entry_cat']
             trace['ptexitcat'] = t['exit_cat']
             trace['ptentrynm'] = t['entry_name']
@@ -226,7 +226,7 @@ class _ReportMixin:
             trace['exnm'] = t['exit_name']
             trace['exdate'] = t['exit_date']
             trace['extime'] = t['exit_time']
-            trace['exdtm'] = _el_to_ole(t['exit_date'], t['exit_time'])
+            trace['exdtm'] = el_to_ole(t['exit_date'], t['exit_time'])
         else:
             for k in ('ptcount', 'ptprofit', 'ptsize', 'ptislong', 'ptisopen',
                       'ptentrypx', 'ptexitpx', 'ptentrybar', 'ptexitbar',

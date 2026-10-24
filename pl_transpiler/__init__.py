@@ -34,10 +34,10 @@ _LAZY = {
     'ELRuntimeError': 'errors',
     'restore_spelling': 'errors',
     'unimplemented_message': 'errors',
-    'run_el': 'tools.pl_run',
-    'load_bars_csv': 'tools.pl_run',
-    'load_bars': 'tools.pl_run',
-    'run_oracle': 'tools.pl_oracle',
+    'run_el': 'run',
+    'load_bars_csv': 'run',
+    'load_bars': 'run',
+    'run_oracle': 'oracle',
     'get_config': 'runtime.instrument_config',
     'load_config_file': 'runtime.instrument_config',
     'catalog': '',
@@ -61,12 +61,12 @@ if _TYPE_CHECKING:
     from . import catalog as catalog
     from .errors import ELRuntimeError as ELRuntimeError
     from .errors import UnimplementedKeywordError as UnimplementedKeywordError
+    from .oracle import run_oracle as run_oracle
+    from .run import load_bars as load_bars
+    from .run import load_bars_csv as load_bars_csv
+    from .run import run_el as run_el
     from .runtime.instrument_config import get_config as get_config
     from .runtime.instrument_config import load_config_file as load_config_file
-    from .tools.pl_oracle import run_oracle as run_oracle
-    from .tools.pl_run import load_bars as load_bars
-    from .tools.pl_run import load_bars_csv as load_bars_csv
-    from .tools.pl_run import run_el as run_el
 
 
 def __getattr__(name: str) -> "_Any":

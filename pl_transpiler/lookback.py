@@ -428,8 +428,8 @@ class _Scan:
 def _is_builtin(name: str) -> bool:
     """A call codegen handles itself (BUILTIN_FUNC_MAP, a runtime ``pl_<name>``
     such as File or FileAppend, or a catalog keyword), not a user function."""
-    from pl_transpiler.codegen_util import _available_pl_targets
-    return (name in BUILTIN_FUNC_MAP or f'pl_{name}' in _available_pl_targets()
+    from pl_transpiler.codegen_util import available_pl_targets
+    return (name in BUILTIN_FUNC_MAP or f'pl_{name}' in available_pl_targets()
             or catalog.get(name) is not None)
 
 

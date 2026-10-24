@@ -37,8 +37,8 @@ from .lexer import (  # noqa: F401  (re-exported)
     TT_SEMICOLON,
     TT_STRING,
     PLSyntaxError,
-    _source_line,
     collect_comments,
+    source_line_at,
     tokenise,
 )
 from .parser_tables import (  # noqa: F401  (re-exported)
@@ -59,8 +59,8 @@ from .semantic import (  # noqa: F401  (re-exported)
     _RESERVED_IDENTS,
     _SCRATCH_VARS,
     _SERIES_PARAMS,
-    _collect_declared,
-    _is_known_name,
+    collect_declared,
+    is_known_name,
     semantic_check,
 )
 
@@ -146,7 +146,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         lowercase spelling (== the parser's `name`) is redundant and omitted. Keeping
         this to genuine, differently-cased user identifiers means the forward output is
         byte-identical (codegen ignores '_ident') and the reparse-fixpoint holds."""
-        if _is_known_name(name, frozenset()):
+        if is_known_name(name, frozenset()):
             return None
         spelling = self._spelling_at(tok_index)
         if spelling is None or spelling == name:
@@ -174,7 +174,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
             tok_index = self.pos
         line, col = self._pos_of(tok_index)
         raise PLSyntaxError(message, line, col,
-                            _source_line(self.source, line), hint)
+                            source_line_at(self.source, line), hint)
 
     @staticmethod
     def _describe(tok: Token) -> str:
