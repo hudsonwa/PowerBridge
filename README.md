@@ -19,26 +19,26 @@ PowerBridge covers: 254 run, and 7 transpile but stop at run time.
 
 Python 3.9 or newer. In a fresh virtual environment (on Windows activate with
 `.venv\Scripts\activate`), install the wheel attached to the
-[v0.9.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.9.0):
+[v0.10.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.10.0):
 
 <!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 python -m pip install -U pip
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.9.0/powerbridge-0.9.0-py3-none-any.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.10.0/powerbridge-0.10.0-py3-none-any.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.9.0"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.10.0"
 ```
 
 The optional native fast path is a separate wheel per platform,
-`powerbridge_accel-0.9.0-cp39-abi3-<platform>.whl` on the same release page;
-see [the platform table](docs/ACCEL.md#install). PyPI publishing is coming in a
-later release.
+`powerbridge_accel-0.10.0-cp39-abi3-<platform>.whl` on the same release page;
+see [the platform table](docs/ACCEL.md#install). Releases are distributed
+through GitHub Releases, not PyPI.
 
 ## Quickstart
 
@@ -128,7 +128,7 @@ compatibility.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), which also covers running the tests and
-why a fresh clone skips the native-kernel tests that CI runs.
+why a run without the native kernel leaves out the tests that need it.
 Open an issue before a large change. Small fixes can be a pull request on their own.
 
 Development started in a private repository; this public repository begins at

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "powerbridge"
-version = "0.9.0"
+version = "0.10.0"
 description = "Bidirectional EasyLanguage/PowerLanguage to Python transpiler for MultiCharts and TradeStation."
 requires-python = ">=3.9"
 license = "Apache-2.0"
@@ -53,7 +53,7 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 # `pip install .[accel]` fails today: install the wheel from the GitHub Release
 # or build accel/ from source (docs/ACCEL.md "Install"). release.yml will publish
 # it to PyPI; keep this pin equal to `version`.
-accel = ["powerbridge-accel==0.9.0"]
+accel = ["powerbridge-accel==0.10.0"]
 
 # Development tools only (tests, lint, type check, wheel build); never imported by the package.
 dev = ["pytest", "pytest-timeout", "build", "setuptools>=77", "ruff", "mypy"]

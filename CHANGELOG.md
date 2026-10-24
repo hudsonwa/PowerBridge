@@ -25,28 +25,34 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+## 0.10.0 — 2026-10-24
+
+Highlights:
+
+- `pl_oracle --summary` prints a performance summary of the closed trades.
+- `--version` says whether the native kernel is available, and why not.
+- A plain `pytest` run without the native kernel is short and quiet, and `tools/dev_setup.sh` sets up a full development environment (#186, #188).
+- The lexer runs in linear time and `pl_run` / `pl_oracle` parse a program once per run (#180, #182).
+
 ### Added
 
-- `pl_oracle --summary` prints a short performance summary of the closed trades to stderr after the run: net profit, gross profit and loss, number of trades, winners, losers, win rate, max drawdown of closed-trade equity and contracts still open. P&L uses the instrument's big point value, before commission and slippage. The text is the same on the native and Python paths, and the digest on stdout is unchanged.
-- `tools/dev_setup.sh` sets up a full development environment in the active virtual environment: it upgrades pip, installs `.[dev]` in editable mode, builds the native kernel when `cargo` is available (or says why it skipped it), and ends with the kernel status. CONTRIBUTING leads with it and lists what a default `pytest` run still skips after it; CI runs it in a fresh venv (#188).
-
-- CONTRIBUTING now upgrades pip before the editable install, so contributor setup works on Python 3.9's bundled pip, and CI runs that setup on Python 3.9 (#175).
-- `--version` on the command-line tools also says whether the native kernel is available and, if not, why, and `native_status()` gives the same check from Python (#173).
+- `pl_oracle --summary` prints a performance summary of the closed trades to stderr: net, gross profit and loss, trades, winners, losers, win rate, closed-trade max drawdown and open contracts. P&L uses the big point value, before commission and slippage. The text is the same on both paths and the digest is unchanged.
+- `--version` on the command-line tools says whether the native kernel is available and, if not, why; `native_status()` gives the same check from Python (#173).
+- `tools/dev_setup.sh` sets up a development environment in the active venv: upgrades pip, installs `.[dev]` editable, builds the native kernel when `cargo` is available and prints the kernel status. CONTRIBUTING leads with it and CI runs it in a fresh venv (#188).
 
 ### Changed
 
-- A plain `pytest` run without the native kernel no longer reports about 600 skipped tests: the kernel-only tests are left out of the run and one summary line gives their count and how to build the kernel. With the kernel built the same tests run as before; `-m needs_native` still collects them.
-- `pl_transpiler/builtins.py` imports its runtime functions by name instead of injecting them through `globals()`, so mypy and ruff check the builtin table again, and mypy runs with stricter flags (#198), now including `warn_return_any`, `no_implicit_reexport` and `disallow_any_generics` (#200).
-- A plain `pytest` run now ends with skips grouped by category (native extension not built, licensed captures not shipped, optional tool missing, not applicable by design), says which are expected on a fresh clone, and points at `pip install -e '.[dev]'` and docs/ACCEL.md (#186).
-- The lexer now runs in linear time, so long programs tokenise much faster (a 3,200-line program in about 0.04 s instead of 2 s), with identical output (#180).
-- `Sell` / `BuyToCover ... from entry("X")` stops with an error (exit 2) only when an entry with a different name is open on its side; with entry X alone open, even pyramided, it now closes the position as before 0.9.0 instead of stopping. Programs that would silently flatten other entries still stop (#24).
-- `pl_run` and `pl_oracle` now lex and parse a program once per run instead of up to ten times, with identical output (#182).
-- Packaging is declared in `pyproject.toml` only: `setup.py` and its custom `build_py` hook are gone. The quickstart files that `pl_examples` writes now live in `pl_transpiler/_examples/` (a test keeps them identical to `examples/`); the wheel contents are unchanged (#192).
+- `Sell` / `BuyToCover ... from entry("X")` stops (exit 2) only when an entry with a different name is open on its side; with entry X alone open, even pyramided, it closes the position as before 0.9.0 (#24).
+- Without the native kernel, a plain `pytest` run leaves the kernel-only tests out and prints one line with their count and how to build the kernel, instead of about 600 skips; `-m needs_native` still collects them (#207). The remaining skips are grouped by category with a pointer to the setup docs (#186).
+- The lexer runs in linear time (a 3,200-line program lexes in about 0.04 s instead of 2 s), and `pl_run` / `pl_oracle` lex and parse a program once per run instead of up to ten times; output is identical (#180, #182).
+- Packaging is declared in `pyproject.toml` only; `setup.py` is gone and the `pl_examples` files live in `pl_transpiler/_examples/`. The wheel contents are unchanged (#192).
+- `pl_transpiler/builtins.py` imports its runtime functions by name, so mypy and ruff check the builtin table, and mypy runs with stricter flags (#198, #200).
 
 ### Fixed
 
-- When a program has several front-end errors, each unknown keyword in the combined message is now labelled `unimplemented EL keyword 'foo' at line N`, matching the single-error wording in the README, instead of a bare `'foo' at line N` (#196).
-- A strict-mode stop (`from entry ("X")` while another named entry is open, a missing bar column such as `OpenInt`, or an unimplemented builtin) now names the line of the statement that raised it; before, `pl_run` and `pl_oracle` named the first line that mentioned the word, even a comment or a different order (#178).
+- Contributor setup works on Python 3.9's bundled pip: CONTRIBUTING upgrades pip before the editable install, and CI runs that setup on 3.9 (#175).
+- A strict-mode stop (`from entry ("X")` with another named entry open, a missing bar column such as `OpenInt`, an unimplemented builtin) names the line of the statement that raised it, not the first line mentioning the word (#178).
+- With several front-end errors, each unknown keyword is labelled `unimplemented EL keyword 'foo' at line N`, as for a single error (#196).
 
 ## 0.9.0 — 2026-10-23
 

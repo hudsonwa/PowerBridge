@@ -237,7 +237,7 @@ def accel_available():
 def native_status():
     """``(available, line)`` for the native kernel, the same check the run uses.
 
-    ``line`` is e.g. ``"native kernel: powerbridge-accel 0.9.0 (available)"`` or
+    ``line`` is e.g. ``"native kernel: powerbridge-accel 0.10.0 (available)"`` or
     ``"native kernel: not available (not installed); install ..."``.
     """
     accel, reason = _probe()
