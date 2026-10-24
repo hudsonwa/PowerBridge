@@ -158,6 +158,10 @@ engine and an interpreter for the serialised IR:
 - `config` has no defaults on the Rust side. A missing field raises, so the
   kernel can never quietly use different instrument constants from Python.
 
+There is one Rust fill engine, `accel/src/kernel.rs`. Its reference is the
+Python engine (`pl_transpiler/engine.py`, with the stop logic in
+`_engine_stops.py`), which the native digests are checked against.
+
 The caller decides on fallback (`pl_transpiler/runtime/accel.py`). If the
 module is missing, the kernel refuses a construct, or its `FILL_LOG_VERSION`
 differs from Python's, the run uses the Python engine. The CLIs print one

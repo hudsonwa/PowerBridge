@@ -73,6 +73,11 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
   define them (`engine_dates`, `runtime.instrument_config`). These were never part
   of the documented API.
+- Internal: the native kernel (`accel/`) now has one Rust fill engine. The
+  unused second copy in `accel/src/engine/` and the types only it used are
+  removed, its test scenarios are kept as kernel tests, and the `kernel` module
+  no longer carries a module-wide `#[allow(dead_code)]`. No behaviour change:
+  fills and digests are identical.
 - The dev tools are pinned in the `dev` extra (`ruff`, `mypy`, `pytest`, `pytest-timeout`), and CI installs that extra, so `pip install -e '.[dev]'` gives contributors the same lint, type-check and test results as CI. Python 3.9 gets the last mypy and pytest releases that support it; CI runs mypy on 3.9 and 3.13.
 - The parser, code generator, fill engine, bar loop and CLIs are fully type-annotated, and mypy now runs with `check_untyped_defs` (plus `disallow_untyped_defs` for the annotated modules). No behaviour change: fills and digests are identical.
 
