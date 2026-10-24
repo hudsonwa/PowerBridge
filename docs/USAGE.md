@@ -203,8 +203,8 @@ This is expected, not an error. `-v` adds the kernel's own reason, and
 A strategy's `Print(...)` lines go to stderr, after the run for `pl_oracle` and
 as they are printed for `pl_run` on the Python engine. `--print FILE` writes them
 to FILE instead. The digest, the CSV and the fills are the same with or without
-`Print`. In Python, `run_el(...)["prints"]` and `run_oracle(...)["prints"]` hold
-the lines.
+`Print`. In Python, pass `prints=True` to `run_el` or `run_oracle`, and the
+result's `prints` holds the lines.
 
 Each `Print` call is one line: its arguments joined with no separator, strings
 as they are, numbers with two decimals (`Print("bar ", CurrentBar)` gives

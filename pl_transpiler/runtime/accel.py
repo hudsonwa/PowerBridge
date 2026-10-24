@@ -431,7 +431,10 @@ def run_native(el_source: str, bars: Any, config: "InstrumentConfig", *,
     entries; an older kernel without that support is refused the same way.
 
     ``prints``, when given a list, receives the run's ``Print`` lines (the
-    same lines as the Python path's ``pl_print``).
+    same lines as the Python path's ``pl_print``). Recording them costs a
+    line per ``Print`` per bar and the prefix skip, so leave it ``None``
+    unless the lines are wanted; a kernel built before Print output is then
+    refused only when they are.
     """
     accel = _import_accel()
     if max_bars_back and not getattr(accel, "MAX_BARS_BACK", False):
@@ -611,9 +614,10 @@ def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
 
     Raises ``AccelUnavailable`` / ``AccelRefused`` — never a partial trace.
     """
-    accel, program_ir, series, data2 = _serialise_and_marshal(
-        el_source, bars, data2_bars
-    )
+    accel = _import_accel()
+    ast = parse_source(el_source)
+    program_ir = serialise_ir(ast)
+    series, data2 = marshalled_series(bars, data2_bars)
     if ((max_bars_back or max_entries_per_direction)
             and not getattr(accel, "TRACE_RUN_OPTIONS", False)):
         _record_fallback()
@@ -623,7 +627,7 @@ def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
         return cast("tuple[list[str], list[list[Any]], list[Fill]]", _call_with_prints(
-            accel, "run_program_trace", parse_source(el_source), prints,
+            accel, "run_program_trace", ast, prints,
             program_ir, series, data2, config_map))
     except NotImplementedError as exc:
         _record_fallback()

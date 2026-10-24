@@ -78,7 +78,7 @@ run_el(el_source: str, bars, config, *,
        max_entries_per_direction: int | None = None,
        drawings: bool = False, drawing_case_id: str | None = None,
        drawing_tape: dict | None = None,
-       use_native: bool = False) -> dict
+       use_native: bool = False, prints: bool = False) -> dict
 ```
 
 Transpiles `el_source`, runs it over `bars` with the instrument `config`, and
@@ -103,6 +103,7 @@ returns the per-bar trace and the trade list. This is the library form of
 | `drawing_case_id` | `None` | Case id stored in the drawing dump. |
 | `drawing_tape` | `None` | `{"name": ..., "sha256": ...}` identifying the tape, stored in the drawing dump. |
 | `use_native` | `False` | Try the optional Rust kernel first. It serves full-tape runs without `partial` or `drawings`, with rows byte-identical to the Python engine's; any other run uses Python, and `native_fallback_reason` says why. `pl_run` uses the kernel by default when it is installed (`--python` turns it off). |
+| `prints` | `False` | `True` fills the result's `prints` with the strategy's `Print` lines. Off by default because recording them costs the native kernel a line per `Print` per bar. |
 
 `seed_warmup` defaults differ on purpose: `run_el` defaults to `True` (prime
 the strategy on the bars before the window, as `pl_run` does unless
@@ -122,7 +123,7 @@ The result is a dict:
 | `unimplemented` | `dict[str, int]` | Builtins the runtime does not implement that the run evaluated as `0`/`''` (only when strict mode is off, e.g. `PL_STRICT=0`), with call counts. Empty in the default strict mode, which stops instead. |
 | `native` | `bool` | The Rust kernel produced the rows. |
 | `native_fallback_reason` | `str \| None` | Why a `use_native=True` run fell back to Python, else `None`. |
-| `prints` | `list[str]` | The strategy's `Print` lines in order, the same on either engine (format in [USAGE.md](USAGE.md#print-output)). |
+| `prints` | `list[str]` | With `prints=True`, the strategy's `Print` lines in order, the same on either engine (format in [USAGE.md](USAGE.md#print-output)); otherwise `[]`. |
 | `drawings` | `dict` | Only with `drawings=True`: the drawing dump. |
 
 Every cell in `rows` is a string: `str(value)` of the traced value, and `"0"`
@@ -164,7 +165,8 @@ run_oracle(el_source: str, bars, config, *,
            max_bars_back: int | str | None = None,
            max_entries_per_direction: int | None = None,
            drawings: bool = False, drawing_case_id: str | None = None,
-           drawing_tape: dict | None = None) -> dict
+           drawing_tape: dict | None = None,
+           prints: bool = False) -> dict
 ```
 
 Runs the strategy without per-bar tracing and returns a canonical digest of
@@ -179,7 +181,7 @@ with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel
 and falls back to Python with a stderr note when it cannot serve the run; the
 digest is the same either way. `digest_version=1` reproduces the older v1
 digest. `max_bars_back`, `max_entries_per_direction` and the three `drawing*`
-keywords mean the same as in `run_el`. Note that `seed_warmup` defaults to
+keywords, and `prints`, mean the same as in `run_el`. Note that `seed_warmup` defaults to
 `False` here but to `True` in `run_el` (see above).
 
 The result has `text` (the digest as printed by `pl_oracle`), `sha256` (str),

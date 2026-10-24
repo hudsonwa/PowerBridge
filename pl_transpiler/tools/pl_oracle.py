@@ -287,6 +287,7 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         drawings=args.drawings_json is not None,
         drawing_case_id=args.drawing_case,
         drawing_tape=_drawing_tape_arg(args) if args.drawings_json else None,
+        prints=True,
     )
     if not result.get("native"):
         if args.use_native is False or args.digest_v1:

@@ -69,17 +69,17 @@ def bars():
 
 
 def test_python_lines_and_format(bars):
-    out = run_el(PRINTS, bars, NQ, max_bars_back=0)
+    out = run_el(PRINTS, bars, NQ, max_bars_back=0, prints=True)
     assert out["prints"][0] == "header"
     assert out["prints"][1] == (
         "bar 1.00 close=15000.00 third=5000.00 up=TRUE t neg=-0.00")
     assert len(out["prints"]) == 4
-    assert run_oracle(PRINTS, bars, NQ, max_bars_back=0)["prints"] == out["prints"]
+    assert run_oracle(PRINTS, bars, NQ, max_bars_back=0, prints=True)["prints"] == out["prints"]
 
 
 def test_printing_does_not_change_the_trades(bars):
-    printed = run_oracle(PRINTS, bars, NQ, max_bars_back=0)
-    silent = run_oracle(SILENT, bars, NQ, max_bars_back=0)
+    printed = run_oracle(PRINTS, bars, NQ, max_bars_back=0, prints=True)
+    silent = run_oracle(SILENT, bars, NQ, max_bars_back=0, prints=True)
     assert silent["prints"] == []
     assert printed["text"] == silent["text"]
 
@@ -90,14 +90,17 @@ def test_printing_does_not_change_the_trades(bars):
 @pytest.mark.parametrize("path", PROGRAMS + ["<PRINTS>"], ids=os.path.basename)
 def test_native_prints_equal_python(bars, path, max_bars_back):
     src = PRINTS if path == "<PRINTS>" else open(path, encoding="utf-8").read()
-    native = run_oracle(src, bars, NQ, use_native=True, max_bars_back=max_bars_back)
-    python = run_oracle(src, bars, NQ, max_bars_back=max_bars_back)
+    native = run_oracle(src, bars, NQ, use_native=True, max_bars_back=max_bars_back,
+                   prints=True)
+    python = run_oracle(src, bars, NQ, max_bars_back=max_bars_back,
+                   prints=True)
     assert native["text"] == python["text"]
     assert native["prints"] == python["prints"]
     if path in (GT2, "<PRINTS>"):
         assert native["native"] is True
         assert native["prints"]
-    trace = run_el(src, bars, NQ, use_native=True, max_bars_back=max_bars_back)
+    trace = run_el(src, bars, NQ, use_native=True, max_bars_back=max_bars_back,
+                   prints=True)
     assert trace["prints"] == python["prints"]
 
 
@@ -106,13 +109,51 @@ def test_native_prints_equal_python(bars, path, max_bars_back):
 def test_old_kernel_is_refused_for_a_printing_program(bars, monkeypatch, capsys):
     import pl_transpiler._accel as kernel
     monkeypatch.delattr(kernel, "run_program_prints")
-    out = run_oracle(PRINTS, bars, NQ, use_native=True, max_bars_back=0)
+    out = run_oracle(PRINTS, bars, NQ, use_native=True, max_bars_back=0, prints=True)
     assert out["native"] is False
     assert "predates Print output" in out["native_fallback_reason"]
-    assert out["prints"] == run_oracle(PRINTS, bars, NQ, max_bars_back=0)["prints"]
-    # A program without Print still runs natively on that kernel.
-    assert run_oracle(SILENT, bars, NQ, use_native=True, max_bars_back=0)["native"]
+    assert out["prints"] == run_oracle(PRINTS, bars, NQ, max_bars_back=0, prints=True)["prints"]
+    # A program without Print still runs natively on that kernel, and so does
+    # a printing one when nobody asked for the lines.
+    assert run_oracle(SILENT, bars, NQ, use_native=True, max_bars_back=0, prints=True)["native"]
+    assert run_oracle(PRINTS, bars, NQ, use_native=True, max_bars_back=0)["native"]
     capsys.readouterr()
+
+
+@needs_accel
+@pytest.mark.needs_native
+@pytest.mark.parametrize("prints", [False, True])
+def test_print_of_outpath_stays_native(bars, prints):
+    # Python reads OutPath as '', so the kernel prints "" for it too.
+    src = 'Inputs: OutPath("x");\nPrint(OutPath, " ", Close);\n'
+    native = run_oracle(src, bars, NQ, use_native=True, max_bars_back=0, prints=prints)
+    python = run_oracle(src, bars, NQ, max_bars_back=0, prints=prints)
+    assert native["native"] is True
+    assert native["prints"] == python["prints"]
+    assert native["text"] == python["text"]
+    if prints:
+        assert native["prints"][0] == " 15000.00"
+
+
+def test_prints_are_empty_unless_asked(bars):
+    assert run_el(PRINTS, bars, NQ, max_bars_back=0)["prints"] == []
+    assert run_oracle(PRINTS, bars, NQ, max_bars_back=0)["prints"] == []
+
+
+def test_python_print_never_raises():
+    np = pytest.importorskip("numpy")
+    from pl_transpiler.runtime._rt_datetime import _capture_prints, pl_file, pl_print
+
+    class Broken:
+        def __str__(self):
+            raise RuntimeError("no text")
+
+    with _capture_prints() as lines:
+        pl_print(np.int64(3), " ", np.float32(1.5), " ", np.bool_(True), " ",
+                 np.bool_(False), " ", None, pl_file("f.txt"))
+        pl_print(Broken())
+    assert lines[0] == "3.00 1.50 TRUE FALSE None"
+    assert lines[1].startswith("<")
 
 
 @pytest.mark.parametrize("engine", ["--python", None])
