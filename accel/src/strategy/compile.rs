@@ -401,6 +401,9 @@ pub(crate) enum Instr {
     JumpIfNotFirstBar(usize),
     SetFirstBarFalse,
     Drop,
+    /// `Print`: pops the line's `n` values (first argument deepest) and
+    /// records the line.
+    Print(u8),
 
     Binop(Binop),
     Compare(Cmp),
@@ -1548,13 +1551,25 @@ impl Compiler {
             Some("order") => self.compile_order(stmt),
             Some("risk") => self.compile_risk(stmt),
             Some("print") => {
+                // Arguments are evaluated left to right, as Python does. A
+                // `File(...)` argument is the destination, not text: it is
+                // evaluated (and can refuse) but left out of the line.
+                let mut parts: u8 = 0;
                 if let Some(Json::Array(args)) = stmt.get("args") {
                     for arg in args {
-                        self.allow_outpath(arg);
                         self.compile_expr(arg, false)?;
-                        self.instrs.push(Instr::Drop);
+                        if node_type(arg) == Some("call")
+                            && arg.get("name").and_then(Json::as_str) == Some("file")
+                        {
+                            self.instrs.push(Instr::Drop);
+                        } else {
+                            parts = parts.checked_add(1).ok_or_else(|| {
+                                KernelError::unsupported("Print of over 255 values")
+                            })?;
+                        }
                     }
                 }
+                self.instrs.push(Instr::Print(parts));
                 Ok(())
             }
             Some("alert") => {

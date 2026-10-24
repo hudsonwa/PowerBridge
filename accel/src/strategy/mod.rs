@@ -86,12 +86,24 @@ pub(crate) fn run_program_inputs(
     config: &Config,
     inputs: &HashMap<String, Value>,
 ) -> Result<KernelOutcome, KernelError> {
+    run_program_prints(program_ir, series, data2, config, inputs).map(|(outcome, _)| outcome)
+}
+
+/// [`run_program_inputs`], and the run's `Print` lines in order.
+pub(crate) fn run_program_prints(
+    program_ir: &str,
+    series: &BarTape,
+    data2: Option<&BarTape>,
+    config: &Config,
+    inputs: &HashMap<String, Value>,
+) -> Result<(KernelOutcome, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
     strategy.set_drawing_tick(config.tick);
     strategy.set_price_units(config.minmove, config.pricescale);
-    run_with_max_bars_back(series, config, &mut strategy)
+    let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
+    Ok((outcome, strategy.take_prints()))
 }
 
 /// Every construct the native compiler refuses in `program_ir`, as
@@ -112,7 +124,8 @@ pub(crate) fn explain_program(
         .collect())
 }
 
-/// Like [`run_program`], and the drawing objects the run recorded.
+/// Like [`run_program`], and the drawing objects and `Print` lines the run
+/// recorded.
 ///
 /// The JSON array is the object list of a `powerbridge-drawing-dump` v1
 /// (`seq` is 0; the Python dump builder assigns creation order). `producer`
@@ -124,7 +137,7 @@ pub(crate) fn run_program_drawings(
     data2: Option<&BarTape>,
     config: &Config,
     inputs: &HashMap<String, Value>,
-) -> Result<(Vec<Fill>, String), KernelError> {
+) -> Result<(Vec<Fill>, String, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
     let mut strategy = Interpreter::new(ast, inputs, data2)?;
@@ -132,7 +145,11 @@ pub(crate) fn run_program_drawings(
     strategy.set_drawing_tape(series.dates(), series.times())?;
     strategy.set_price_units(config.minmove, config.pricescale);
     let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
-    Ok((outcome.fills, strategy.drawings_json().to_string()))
+    Ok((
+        outcome.fills,
+        strategy.drawings_json().to_string(),
+        strategy.take_prints(),
+    ))
 }
 
 /// Run `strategy` honouring `config.max_bars_back`.
@@ -193,7 +210,7 @@ fn refuse_run_program_options(config: &Config, entry: &str) -> Result<(), Kernel
     Ok(())
 }
 
-/// Produce the typed per-bar trace plus the outcome fills.
+/// Produce the typed per-bar trace plus the outcome fills and `Print` lines.
 ///
 /// Honours `max_bars_back` and `max_entries_per_direction` like
 /// [`run_program`]: history-only bars emit no row, and the `_barnumber`
@@ -203,7 +220,7 @@ pub(crate) fn run_program_trace(
     series: &BarTape,
     data2: Option<&BarTape>,
     config: &Config,
-) -> Result<(TypedTrace, Vec<Fill>), KernelError> {
+) -> Result<(TypedTrace, Vec<Fill>, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let blanked = HashMap::from([(trace_types::BLANKED_INPUT.to_owned(), Value::str(""))]);
@@ -223,7 +240,11 @@ pub(crate) fn run_program_trace(
         0,
         |s, position, bar, index| collector.observe(s, position, bar, index),
     )?;
-    Ok((collector.into_trace(), outcome.fills))
+    Ok((
+        collector.into_trace(),
+        outcome.fills,
+        strategy.take_prints(),
+    ))
 }
 
 /// Production [`run_native`] loop plus a typed `audit-event-v1` packet.
@@ -664,13 +685,35 @@ mod tests {
         config.max_bars_back = tape.len() + 5;
         let none = run_program(ir, &tape, None, &config, &HashMap::new()).unwrap();
         assert!(none.fills.is_empty());
-        let (trace, trace_fills) = run_program_trace(ir, &tape, None, &config).unwrap();
+        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config).unwrap();
         assert!(trace.rows.is_empty() && trace_fills.is_empty());
         // The trace run skips the same bars and makes the same fills.
         config.max_bars_back = 50;
-        let (trace, trace_fills) = run_program_trace(ir, &tape, None, &config).unwrap();
+        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config).unwrap();
         assert_eq!(trace_fills, skipped.fills);
         assert_eq!(trace.rows.len(), tape.len() - 50);
+    }
+
+    #[test]
+    fn print_lines_skip_the_file_argument_and_match_the_trace() {
+        // GT2 prints its CSV header once, then one row per bar, each into
+        // `File(OutPath)`: the destination is left out of the line.
+        let ir = include_str!("fixtures/gt2.ir.json");
+        let tape = load_csv(sample_bars_path().to_str().unwrap());
+        let (outcome, prints) =
+            run_program_prints(ir, &tape, None, &nq_config(), &HashMap::new()).unwrap();
+        assert_eq!(prints.len(), tape.len() + 1);
+        assert!(prints[0].starts_with("bn,date,time,close,"));
+        assert!(prints[1].starts_with("1,"));
+        let plain = run_program(ir, &tape, None, &nq_config(), &HashMap::new()).unwrap();
+        assert_eq!(outcome.fills, plain.fills);
+        let mut config = nq_config();
+        config.max_bars_back = 50;
+        let (_, prints_mbb) =
+            run_program_prints(ir, &tape, None, &config, &HashMap::new()).unwrap();
+        assert_eq!(prints_mbb.len(), tape.len() - 50 + 1);
+        let (_, _, trace_prints) = run_program_trace(ir, &tape, None, &config).unwrap();
+        assert_eq!(trace_prints, prints_mbb);
     }
 
     #[test]
@@ -680,7 +723,7 @@ mod tests {
         let fills = run_program(ir, &tape, None, &nq_config(), &HashMap::new())
             .unwrap()
             .fills;
-        let (trace, trace_fills) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
+        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
 
         // The trace run's fills are the same ordered trade list, bit-for-bit.
         assert_eq!(trace_fills, fills, "trace run must produce the same fills");
@@ -740,7 +783,7 @@ mod tests {
              "value":{"type":"binop","op":"/","left":{"type":"ident","name":"close"},
                       "right":{"type":"number","value":"2"}}}]}}"#;
         let tape = load_csv(sample_bars_path().to_str().unwrap());
-        let (trace, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
+        let (trace, _, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
         let c = trace.columns.iter().position(|n| n == "c").unwrap();
         let h = trace.columns.iter().position(|n| n == "h").unwrap();
         assert_eq!(trace.rows[4][c], super::Cell::Int(5));
@@ -927,7 +970,7 @@ mod tests {
             vec![1002],
         )
         .unwrap();
-        let (_fills, raw) =
+        let (_fills, raw, _) =
             run_program_drawings(ir, &tape, None, &nq_config(), &HashMap::new()).expect("draw");
         let objs: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let objs = objs.as_array().expect("array");

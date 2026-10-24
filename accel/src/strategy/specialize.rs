@@ -489,6 +489,7 @@ pub(crate) fn stack_delta(ins: &Instr) -> Option<(i32, i32)> {
         | Instr::CompareC { .. }
         | Instr::CompareCLhs { .. } => (1, 1),
         Instr::Call(_, n) => (*n as i32, 1),
+        Instr::Print(n) => (i32::from(*n), 0),
         Instr::EmitOrder { has_price, .. } => (if *has_price { 3 } else { 2 }, 0),
         Instr::ArrayGet(_) => (1, 1),
         Instr::ArraySet { .. } | Instr::ForInit { .. } => (2, 0),
@@ -535,6 +536,7 @@ fn is_pure(ins: &Instr) -> bool {
         | Instr::EmitOrderConst { .. }
         | Instr::EmitOrderAll { .. }
         | Instr::RiskSet(_)
+        | Instr::Print(_)
         | Instr::SetFirstBarFalse
         | Instr::Jump(_)
         | Instr::JumpIfFalse(_)
