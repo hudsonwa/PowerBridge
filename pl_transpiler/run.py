@@ -174,7 +174,8 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
     the EL integer form (YYYMMDD, HHMM); both are normalized to EL integers.
     ``date_format`` ('dmy', 'mdy' or 'ymd') sets the field order of slash dates;
     the default is day-first. Invalid dates/times raise ValueError naming the line
-    and value (see ``engine_dates.parse_el_date``).
+    and value (see ``engine_dates.parse_el_date``). Bars must be oldest first:
+    a bar older than the one before it raises ValueError naming the line.
     """
     bars = []
     with open(path, newline='', encoding='utf-8') as f:
@@ -188,14 +189,31 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
             raise ValueError("header is missing column(s) %s (want: %s)"
                              % (",".join(missing), ",".join(_CSV_COLUMNS)))
         idx = {name: header.index(name) for name in _CSV_COLUMNS}
+        prev: Optional[tuple[int, int]] = None
         for row in reader:
             if not row:
                 continue
             try:
-                bars.append(_csv_bar(row, idx, date_format))
+                bar = _csv_bar(row, idx, date_format)
             except (ValueError, IndexError) as exc:
                 raise ValueError("line %d: %s" % (reader.line_num, exc)) from exc
+            # Bars must be oldest first. Equal timestamps are allowed: an
+            # export at minute resolution can hold two bars stamped with the
+            # same minute (tick or volume bars). Strictly decreasing is refused.
+            stamp = (bar['date'], bar['time'])
+            if prev is not None and stamp < prev:
+                raise ValueError("bars out of order at line %d: %s comes after %s"
+                                 % (reader.line_num, _fmt_stamp(stamp), _fmt_stamp(prev)))
+            prev = stamp
+            bars.append(bar)
     return bars
+
+
+def _fmt_stamp(stamp: tuple[int, int]) -> str:
+    """EL (date, time) integers as ``YYYY-MM-DD HH:MM``."""
+    d, t = int(stamp[0]), int(stamp[1])
+    return "%04d-%02d-%02d %02d:%02d" % (d // 10000 + 1900, d // 100 % 100, d % 100,
+                                         t // 100, t % 100)
 
 
 _CSV_COLUMNS = ('date', 'time', 'open', 'high', 'low', 'close', 'volume')

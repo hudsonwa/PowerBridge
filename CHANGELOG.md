@@ -33,6 +33,14 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ### Changed
 
+- **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars`
+  (CSV input) now stop on bars that go back in time, with one line naming the
+  CSV line, such as `bars out of order at line 4: 2024-01-02 09:29 comes after
+  2024-01-02 09:31`, and exit 2. Before, a file in descending or shuffled order
+  ran silently and gave meaningless fills. The library raises `ValueError`, as
+  for other bad bar files. Two bars with the same date and time are still
+  accepted, since a minute-resolution export can stamp several bars with the
+  same minute. Files in date order load exactly as before.
 - The library code behind `pl_run` and `pl_oracle` moved out of the CLI
   modules: `run_el`, `load_bars_csv`, `load_bars` and their helpers now live in
   `pl_transpiler.run`, and `run_oracle` and the digest helpers in
@@ -54,6 +62,13 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   0 (or '' for a text builtin), a missing bar column reads as 0, and a
   `from entry` exit with several named entries open closes the whole position.
   Option names and behaviour are unchanged.
+- `pl_oracle --help` and `pl_run --help` drop the remaining jargon: the window
+  options talk about the bars file, bar numbers (0 = first bar) and EL dates
+  written `1YYMMDD`, instead of a "tape slice", a "0-based tape-index" and
+  `YYYMMDD`. Maintainer and drawing-check options (`--dump`, `--drawings-json`,
+  `--drawing-case`, `--tape-name`, `--tape-sha`, `--digest-v1`,
+  `--explain-native`, and `pl_run --partial`) are listed last under "advanced
+  options". Option names and behaviour are unchanged.
 - `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
   `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
   define them (`engine_dates`, `runtime.instrument_config`). These were never part

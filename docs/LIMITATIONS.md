@@ -30,7 +30,8 @@ trust a backtest from partial output.
 
 ## Known gaps
 
-- **Run-time errors** stop the run on both paths with one line and exit 2,
+- **Run-time errors** (*new in the next release*; on 0.10.0 they end in a
+  Python traceback and exit 1) stop the run on both paths with one line and exit 2,
   naming the EL line: `error: array index 4 out of range for 'a' (max index 3)
   at line 2`, `error: division by zero at line 2` (`/` and `Mod`), and for
   anything else `error: internal error at line N: <type>: <message>`. Set

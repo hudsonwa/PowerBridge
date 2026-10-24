@@ -451,6 +451,11 @@ Rules:
 - Months must be 1-12, days must exist in that month, and times must be
   00:00-23:59. Bar times have minute resolution, so a time with non-zero
   seconds (`09:31:05`) is an error rather than being rounded.
+- Bars must be oldest first. *New in the next release:* a bar dated before
+  the one above it stops the run (`bars out of order at line 4: 2024-01-02
+  09:29 comes after 2024-01-02 09:31`); on 0.10.0 such a file runs without a
+  warning, so check the order yourself. Two bars with the same date and time
+  are accepted.
 - Any bad value stops the run with one `error:` line naming the file, the CSV
   line and the value, and exit code 2.
 

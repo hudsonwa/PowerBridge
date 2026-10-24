@@ -21,7 +21,8 @@ All public names import from the package root and are listed in
 ```python
 from pl_transpiler import (transpile, run_el, run_oracle, load_bars_csv, load_bars,
                            get_config, load_config_file, catalog,
-                           UnimplementedKeywordError, ELRuntimeError)
+                           UnimplementedKeywordError)
+from pl_transpiler import ELRuntimeError  # new in the next release
 ```
 
 ### Bars and dates
@@ -79,8 +80,10 @@ run_el(el_source: str, bars, config, *,
 
 Transpiles `el_source`, runs it over `bars` with the instrument `config`, and
 returns the per-bar trace and the trade list. This is the library form of
-`pl_run`; it lives in `pl_transpiler.run` (also importable from
-`pl_transpiler.tools.pl_run`).
+`pl_run`. Import it from the package root, or as
+`from pl_transpiler.tools.pl_run import run_el`, which works on 0.10.0 and
+later. *New in the next release:* the code lives in `pl_transpiler.run`; the
+old paths keep working.
 
 | Keyword | Default | Meaning |
 |---|---|---|
@@ -148,8 +151,11 @@ run_oracle(el_source: str, bars, config, *,
 
 Runs the strategy without per-bar tracing and returns a canonical digest of
 its trade list: the fastest way to check that two runs (or two engines)
-produce exactly the same trades. This is the library form of `pl_oracle`; it
-lives in `pl_transpiler.oracle` (also importable from `pl_transpiler.tools.pl_oracle`).
+produce exactly the same trades. This is the library form of `pl_oracle`.
+Import it from the package root, or as
+`from pl_transpiler.tools.pl_oracle import run_oracle`, which works on 0.10.0
+and later. *New in the next release:* the code lives in `pl_transpiler.oracle`;
+the old paths keep working.
 `from_date` / `to_date` / `from_bar` window the tape (by slicing, unless
 `seed_warmup=True`). `data2_bars` (or `data2_closes`, a Close series aligned
 with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel
@@ -292,7 +298,8 @@ builtin 1 ['numeric'] verified:capture-strategy
 - `UnimplementedKeywordError`: the source uses EL the
   transpiler does not implement. The message lists each keyword with its line;
   `.errors` holds the details.
-- `ELRuntimeError`: raised by `run_el` and `run_oracle` when the program
+- `ELRuntimeError` (*new in the next release*; on 0.10.0 the original Python
+  exception propagates instead): raised by `run_el` and `run_oracle` when the program
   fails while it runs: an array index out of range, a division (or `Mod`) by
   zero, or any other exception from the generated code. `.line` is the EL line
   of the failing statement (`None` if unknown), the message is one line such as
