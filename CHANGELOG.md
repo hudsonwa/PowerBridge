@@ -39,6 +39,7 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 - `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
 - The maintainer-only capture reader `analyze_capture.py` moved from `pl_transpiler/tools/` to the repository's `tools/`, so the wheel no longer ships it; the unused `tools/measure_audit_packet.py` is gone, and `ground_truth/captures/MANIFEST.md` is now a short data card (#248).
+- Internal: strict mode and the unimplemented-call counts are kept per run, and the EL emitter's comment maps per call, so two `run_el` / `run_oracle` runs with different strictness, or emits in threads, no longer interfere. The engine's trade-stat trace hook is `FillEngine(capture_stats=...)` / `set_capture_stats()` instead of a fixture-named private flag. Output and digests are unchanged (#244).
 
 ## 0.11.0 — 2026-10-24
 

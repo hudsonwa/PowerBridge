@@ -60,7 +60,7 @@ def test_formatdate_accepts_serial_datetime():
 
 def test_unimplemented_builtins_are_reported(capsys, monkeypatch):
     # Lenient mode only: strict (the default) stops instead; see test_strict_default.py.
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", False)
     out = run_el("Vars: x(0); Arrays: a[5](0); x = ArraySize(a) + Random(3);", BARS, NQ)
     assert set(out["unimplemented"]) == {"arraysize", "random"}
     assert "unimplemented EasyLanguage builtin" in capsys.readouterr().err

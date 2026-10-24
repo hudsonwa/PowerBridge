@@ -210,7 +210,7 @@ def test_engine_history_is_growing_list_with_pad():
     n = 4
     closes = [10.0, 11.0, 12.0, 13.0]
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=n,

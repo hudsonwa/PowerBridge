@@ -72,7 +72,7 @@ PATHS = [False] + ([True] if accel_available() else [])
 
 @pytest.fixture
 def strict(monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
 
 
 @pytest.mark.parametrize("native", PATHS)
@@ -85,12 +85,10 @@ def test_two_entries_named_exit_stops(strict, src, verb, native):
 
 
 def test_two_entries_named_exit_lenient_flattens(monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
-    _rt_core.pl_unimplemented_reset()
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", False)
     res = run_oracle(TWO_LONG, BARS, NQ)
     assert res["fills"] == 4  # today's behaviour: both entries closed
-    assert _rt_core.pl_unimplemented_report().get("pl_from entry") == 1
-    _rt_core.pl_unimplemented_reset()
+    assert res["unimplemented"] == {"from entry": 1}
 
 
 @pytest.mark.parametrize("native", PATHS)

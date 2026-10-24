@@ -74,7 +74,7 @@ def _run(scenario, fast=True, get_ohlcv=None):
     default rising tape (so a loss/drawdown scenario can fall).
     """
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     if not fast:
         fe.no_work_state = lambda: False
     n = len(scenario)
@@ -229,7 +229,7 @@ def test_onclose_order_transitions_out_of_no_work():
 def _rollover_tape_run(scenario, fast):
     """Run a multi-day tape so a real date change triggers the rollover path."""
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     if not fast:
         fe.no_work_state = lambda: False
     n = len(scenario)

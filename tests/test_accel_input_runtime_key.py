@@ -61,7 +61,7 @@ def _runtime_kwargs():
         return {"orders": [], "risk": {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(strategy, n_bars=2,
                  get_ohlcv=lambda i: (1.0, 1.1, 0.9, 1.05, 1.0),
                  dates=[1240102] * 2, times=[930, 931], config=NQ,

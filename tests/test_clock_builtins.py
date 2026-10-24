@@ -52,15 +52,15 @@ def test_lastcalc_fallback_uses_clock(fixed_clock):
 
 
 def test_not_treated_as_unimplemented(fixed_clock, monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
     names = ["pl_currenttime_s", "pl_currentdate_s", "pl_currenttime",
              "pl_currentdate", "pl_computerdatetime", "pl_lastcalcdatetime",
              "pl_lastcalcjdate", "pl_lastcalcmmtime", "pl_lastcalcmstime",
              "pl_lastcalcsstime"]
-    before = dict(_rt_core._UNIMPL_CALLS)
+    before = dict(_rt_core._DEFAULT_STATE.unimpl_calls)
     for n in names:
         assert getattr(rt, n)() != 0
-    assert _rt_core._UNIMPL_CALLS == before
+    assert _rt_core._DEFAULT_STATE.unimpl_calls == before
 
 
 def test_generated_code_calls_clock(fixed_clock, monkeypatch):
@@ -74,7 +74,7 @@ def test_generated_code_calls_clock(fixed_clock, monkeypatch):
            "a = CurrentTime_s; b = ComputerDateTime; c = CurrentDate_s;\n")
     code = transpile(src)
     assert "pl_currenttime_s()" in code and "pl_computerdatetime()" in code
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
     bars = load_bars_csv(os.path.join(os.path.dirname(__file__), "..",
                                       "examples", "NQ_sample_bars.csv"))[:5]
     result = run_el(src, bars, get_config("NQ"))

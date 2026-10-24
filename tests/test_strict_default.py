@@ -35,7 +35,7 @@ SRC = "Vars: x(0);\nArrays: a[5](0);\nx = ArraySize(a);\n"
 
 @pytest.fixture
 def strict(monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
 
 
 @pytest.mark.parametrize("value, expected", [
@@ -84,4 +84,4 @@ def test_cli_lenient_flag_warns_and_continues(tool, strict, tmp_path, capsys):
     extra = ["--python"] if tool is pl_oracle else ["-o", str(tmp_path / "out.csv")]
     assert tool.main([el, BARS_CSV, "--lenient"] + extra) == 0
     assert "WARNING" in capsys.readouterr().err
-    assert _rt_core._PL_STRICT is False
+    assert _rt_core._DEFAULT_STATE.strict is False

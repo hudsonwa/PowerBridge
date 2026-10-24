@@ -47,7 +47,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
 
     def __init__(self, point_value: float = 20, tick: float = 0.25,
                  config: Optional[InstrumentConfig] = None,
-                 max_entries_per_direction: int = 0) -> None:
+                 max_entries_per_direction: int = 0,
+                 capture_stats: bool = True) -> None:
         # Per-run instrument config (InstrumentConfig). When provided, it is the
         # single source of the chart/instrument constants — point_value (=$/point)
         # and tick are derived from it so the fill PnL responds to the injected
@@ -108,15 +109,15 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self._entry_qtys: list[int] = []
         # Label of each entry in `_entry_qtys`, kept in step with it (#24).
         self._entry_labels: list[str] = []
-        # GTA6 File-2 strategy-performance stats: a per-closed-position ledger plus
+        # Strategy-performance stats: a per-closed-position ledger plus
         # the OPEN position's running excursions. Each closed-trade snapshot records
         # the realized pnl, bars-in-trade (exit_bar - entry_bar + 1), the max favorable
         # / adverse excursion PER CONTRACT (MaxPositionProfit/Loss, MaxContractProfit),
         # the max contracts held (MaxContracts/MaxShares), and the entry count
         # (MaxEntries). All cited to PowerLanguage Keyword Reference pp.797-808.
         self.closed_trades: list[dict[str, Any]] = []     # list of dicts (one per closed position)
-        # Incremental GTA6-stat aggregates, updated at trade CLOSE in
-        # _record_closed_trade so _inject_gta6_stats reads O(1) running fields
+        # Incremental trade-stat aggregates, updated at trade CLOSE in
+        # _record_closed_trade so _inject_trade_stats reads O(1) running fields
         # instead of rescanning the entire growing ledger every bar (a rescan is
         # O(trades) per bar -> O(trades^2) over a full-range run).
         # Integer counts/sums/run-lengths and selected float extremes are exactly
@@ -133,15 +134,14 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self._st_clos = 0           # current consecutive-losers run length
         self._st_maxcwin = 0        # MaxConsecWinners
         self._st_maxclos = 0        # MaxConsecLosers
-        # When False, skip GTA6 stat/introspection injection entirely for captures
-        # whose header contains none of those columns (e.g. GT2). Set per-run from
-        # the capture header; defaults True (inject).
-        self._emit_gta6 = True
+        # When False, skip the per-bar trade-stat/introspection trace keys (see
+        # set_capture_stats); defaults True (inject).
+        self._capture_stats = bool(capture_stats)
         self._pos_mfe_pc = 0.0      # open position: max favorable excursion per contract ($)
         self._pos_mae_pc = 0.0      # open position: max adverse excursion per contract ($, <=0)
         self._pos_max_contracts = 0 # open position: max contracts held while open
         self._pos_entries = 0       # open position: number of separate entries
-        # GTA6 File-2 trade-introspection (OpenEntry* / PosTrade* / Entry-Exit metadata):
+        # Trade-introspection (OpenEntry* / PosTrade* / Entry-Exit metadata):
         # the OPEN position's entry context (date/time/name/order-category), captured at
         # the entry fill, and a per-closed-trade ledger of entry/exit context so the
         # PosTrade*(1,0) and Exit*(1) words can be reconstructed (pdf:11911-12217).
@@ -153,6 +153,14 @@ class FillEngine(_StopsMixin, _ReportMixin):
         # before_bar lifecycle was skipped. A public counter — the transition
         # tests and the oracle status line read it to prove the fast path fired.
         self.fast_path_hits = 0
+
+    def set_capture_stats(self, enabled: bool) -> None:
+        """Turn the per-bar trade-stat and trade-introspection trace keys on or off.
+
+        On (the default) every bar's trace carries NumWinTrades, PosTradeEntryPrice
+        and the rest of that family. Turn it off when nothing reads those keys: it
+        only saves time and never changes a fill or any other trace value."""
+        self._capture_stats = bool(enabled)
 
     def _has_active_risk(self) -> bool:
         """True iff any money-management / session risk setting is armed.
@@ -684,7 +692,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
             'entry_cat': self.entry_cat,
             'exit_cat': exit_cat,
         })
-        # Fold this just-closed trade into the incremental GTA6 aggregates (see
+        # Fold this just-closed trade into the incremental trade-stat aggregates (see
         # __init__). pnl/bars are the SAME values stored in the snapshot above, so
         # the running counts/sums/extremes/run-lengths reproduce a full
         # rescan exactly (win=pnl>0, loss=pnl<0, even=pnl==0; floors at 0.0).

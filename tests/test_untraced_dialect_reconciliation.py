@@ -93,7 +93,7 @@ def _fills_for(mode, el=GATE_EL):
     exec(compile(py, "<recon>", "exec"), ns)
     strategy = ns["strategy"]
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=len(_GATE_BARS),
@@ -185,7 +185,7 @@ def _run_trace_mode(el, bars, d2):
     c, v = cols["close"], cols["volume"]
     dates, times = cols["date"], cols["time"]
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     def extra(i):
         return {"data2_close": d2[i]}
     def goh(i):

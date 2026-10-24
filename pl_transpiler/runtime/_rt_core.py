@@ -19,6 +19,9 @@ Re-exported by pl_runtime; see that module."""
 
 import ctypes
 import os as _os
+from collections.abc import Iterator as _Iterator
+from contextlib import contextmanager as _contextmanager
+from contextvars import ContextVar as _ContextVar
 
 # Module-level alias: dodge ctypes.c_float attribute lookup on the ~25-calls/bar path.
 _CFloat = ctypes.c_float
@@ -91,8 +94,49 @@ def _strict_from_env(environ=None):
     return val.strip().lower() not in ('0', 'false', 'no', 'off')
 
 
-_PL_STRICT = _strict_from_env()
-_UNIMPL_CALLS: dict[str, int] = {}
+class _RunState:
+    """Strict mode and the unimplemented-call counts of one run.
+
+    Each run_el / pl_oracle run works on its own _RunState (see _run_state), so
+    two runs with different strictness, in threads or one after the other, do
+    not affect each other. Outside a run the process default is used."""
+
+    __slots__ = ('strict', 'unimpl_calls')
+
+    def __init__(self, strict: bool) -> None:
+        self.strict = bool(strict)
+        self.unimpl_calls: dict[str, int] = {}
+
+
+# Process default: strict from PL_STRICT at import; set_strict_mode changes it.
+_DEFAULT_STATE = _RunState(_strict_from_env())
+_RUN_STATE: _ContextVar[_RunState] = _ContextVar('pl_run_state')
+
+
+def _current_run_state() -> _RunState:
+    """The _RunState of the run in progress (the process default outside a run)."""
+    return _RUN_STATE.get(_DEFAULT_STATE)
+
+
+@_contextmanager
+def _run_state(strict: 'bool | None' = None) -> '_Iterator[_RunState]':
+    """Run the body with a fresh _RunState: empty call counts, and strictness
+    ``strict`` (None inherits the current strictness). Scoped to this thread /
+    context, so concurrent runs stay isolated."""
+    state = _RunState(_current_run_state().strict if strict is None else strict)
+    token = _RUN_STATE.set(state)
+    try:
+        yield state
+    finally:
+        _RUN_STATE.reset(token)
+
+
+def _count_unimplemented(name: str) -> _RunState:
+    st = _current_run_state()
+    calls = st.unimpl_calls
+    calls[name] = calls.get(name, 0) + 1
+    return st
+
 # Builtins whose correct value is a constant 0, so their bodies look like stubs;
 # they are not wrapped as loud stubs. Keep this minimal and explicit so nothing
 # is hidden. TickID and ExecOffset matches MultiCharts backtests: 0 on every
@@ -158,9 +202,7 @@ class NamedExitUnverifiedError(UnimplementedBuiltinError):
 
 def pl_named_exit_unverified(verb, entry):
     """Stop (strict) or record a warning (lenient) for a multi-entry named exit."""
-    name = 'pl_from entry'
-    _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
-    if _PL_STRICT:
+    if _count_unimplemented('pl_from entry').strict:
         raise NamedExitUnverifiedError(verb, entry)
 
 
@@ -172,32 +214,29 @@ def pl_bar_column(kwargs, column, word):
     (reported by pl_unimplemented_warn) and returns 0."""
     if column in kwargs:
         return kwargs[column]
-    name = 'pl_' + column
-    _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
-    if _PL_STRICT:
+    if _count_unimplemented('pl_' + column).strict:
         raise MissingBarColumnError(word, column)
     return 0
 
 
 def set_strict_mode(strict):
-    """Set strict mode for this process (pl_run / pl_oracle --lenient use it)."""
-    global _PL_STRICT
-    _PL_STRICT = bool(strict)
+    """Set strict mode for the current run, or the process default outside a
+    run (pl_run / pl_oracle --lenient use it)."""
+    _current_run_state().strict = bool(strict)
 
 
 def _unimplemented(name):
-    _UNIMPL_CALLS[name] = _UNIMPL_CALLS.get(name, 0) + 1
-    if _PL_STRICT and name not in _UNIMPL_WHITELIST and not _is_cosmetic(name):
+    if _count_unimplemented(name).strict and name not in _UNIMPL_WHITELIST and not _is_cosmetic(name):
         raise UnimplementedBuiltinError(name)
     return '' if name in _UNIMPL_STR_RETURNING else 0
 
 def pl_unimplemented_report():
     """{name: call_count} of unimplemented functions hit since the last reset (coverage linter)."""
-    return dict(_UNIMPL_CALLS)
+    return dict(_current_run_state().unimpl_calls)
 
 def pl_unimplemented_reset():
     """Clear the unimplemented-call registry (call before a fresh strategy run)."""
-    _UNIMPL_CALLS.clear()
+    _current_run_state().unimpl_calls.clear()
 
 
 # Placeholders whose 0/'' cannot change trades in a backtest (drawing, sound,
@@ -230,14 +269,16 @@ def _is_cosmetic(name):
     return name in _UNIMPL_COSMETIC or name.startswith(_UNIMPL_COSMETIC_PREFIXES)
 
 
-def pl_unimplemented_warn(label='pl_transpiler', stream=None):
+def pl_unimplemented_warn(label='pl_transpiler', stream=None, state=None):
     """Print ONE loud stderr warning naming every non-cosmetic unimplemented
     builtin hit since the last reset, and return {name: calls} for those.
     The run used 0/'' for each, so any result depending on them is not the
     MultiCharts result. Only reached in lenient mode (PL_STRICT=0); the default
-    raises on the first call instead."""
+    raises on the first call instead. ``state`` is the _RunState to report
+    (default: the current one)."""
     import sys as _sys
-    hit = {n: c for n, c in _UNIMPL_CALLS.items() if not _is_cosmetic(n)}
+    calls = (state or _current_run_state()).unimpl_calls
+    hit = {n: c for n, c in calls.items() if not _is_cosmetic(n)}
     if hit:
         names = ", ".join("%s (%d calls)" % (n[3:], c) for n, c in sorted(hit.items()))
         (stream or _sys.stderr).write(

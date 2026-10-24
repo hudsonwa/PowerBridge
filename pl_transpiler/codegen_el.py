@@ -42,6 +42,7 @@ the lowercase fallback is always compile-safe.
 """
 import json
 import os
+from contextvars import ContextVar
 from typing import Any, Optional
 
 from pl_transpiler._codegen_el_layout import (  # noqa: F401  (re-export)
@@ -466,9 +467,12 @@ def _emit_decl_init(init: Node) -> str:
 # Comments ride the AST's `_comments` side-list (attached by the parser). On emit
 # they are anchored back to statements by their original source line so the
 # readability of the source survives the round trip. Anchoring is keyed by object
-# identity of the statement node via two per-emit maps set up in emit_el:
-_LEADING: dict[int, list[str]] = {}    # id(stmt) -> [verbatim comment text, ...]  (emitted on own lines before)
-_TRAILING: dict[int, list[str]] = {}   # id(stmt) -> [verbatim comment text, ...]  (appended to the stmt's line)
+# identity of the statement node via two per-emit maps that emit_el sets for its
+# own call (a context variable, so concurrent emits in threads stay separate):
+#   leading:  id(stmt) -> [verbatim comment text, ...]  (emitted on own lines before)
+#   trailing: id(stmt) -> [verbatim comment text, ...]  (appended to the stmt's line)
+_CommentMaps = tuple[dict[int, list[str]], dict[int, list[str]]]
+_COMMENT_MAPS: ContextVar[_CommentMaps] = ContextVar('el_comment_maps', default=({}, {}))
 
 
 def _inline_leg(stmt: Node, level: int, prefix: str) -> list[str]:
@@ -493,10 +497,11 @@ def _inline_leg(stmt: Node, level: int, prefix: str) -> list[str]:
     first = plines[0]
     first = first[len(pad):] if first.startswith(pad) else first.lstrip(_TAB)
     plines[0] = f"{pad}{prefix}{first}"
-    trail = _TRAILING.get(id(stmt))
+    leading, trailing = _COMMENT_MAPS.get()
+    trail = trailing.get(id(stmt))
     if trail:
         plines[-1] = plines[-1] + ' ' + ' '.join(trail)
-    lead = _LEADING.get(id(stmt))
+    lead = leading.get(id(stmt))
     out = _comment_lines(lead, pad) if lead else []
     out.extend(hoist)
     out.extend(plines)
@@ -507,8 +512,9 @@ def emit_stmt(node: Node, level: int) -> str:
     """Emit a statement with any anchored comments interleaved: leading comments on
     their own lines before it, trailing comments appended to its final line."""
     text = _emit_stmt_core(node, level)
-    lead = _LEADING.get(id(node))
-    trail = _TRAILING.get(id(node))
+    leading, trailing = _COMMENT_MAPS.get()
+    lead = leading.get(id(node))
+    trail = trailing.get(id(node))
     if not lead and not trail:
         return text
     pad = _ind(level)
@@ -767,8 +773,7 @@ def emit_el(ast: Any) -> str:
         raise ELEmitError("emit_el expects a 'program' AST node")
     header, leading, trailing, footer = _anchor_comments(
         ast['body'], ast.get('_comments') or [])
-    global _LEADING, _TRAILING
-    _LEADING, _TRAILING = leading, trailing
+    token = _COMMENT_MAPS.set((leading, trailing))
     try:
         parts = []
         # Leading blank lines at the top of the source, reproduced verbatim from the
@@ -784,5 +789,5 @@ def emit_el(ast: Any) -> str:
         parts.extend(_comment_lines(footer, ""))
         body = "\n".join(parts)
     finally:
-        _LEADING, _TRAILING = {}, {}
+        _COMMENT_MAPS.reset(token)
     return _wrap_all(body) + "\n"

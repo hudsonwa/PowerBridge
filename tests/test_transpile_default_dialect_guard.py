@@ -53,7 +53,7 @@ def _fills_for_transpile(trades=False, **kw):
     times = [930 + i for i in range(len(bars))]
 
     fe = FillEngine(config=get_config("NQ"))
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=len(bars),

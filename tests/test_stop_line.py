@@ -57,7 +57,7 @@ BUILTIN = (
 
 @pytest.fixture
 def strict(monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
 
 
 def _stop(tool, path, src, tmp_path, capsys, extra=()):

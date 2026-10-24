@@ -119,7 +119,7 @@ def test_named_exit_with_two_entries_is_refused(sample_bars):
 
 
 def test_named_exit_with_two_entries_falls_back_lenient(monkeypatch, sample_bars):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", False)
     _rt_core.pl_unimplemented_reset()
     try:
         want = run_oracle(TWO_LONG, sample_bars[:40], NQ, max_bars_back=0)
