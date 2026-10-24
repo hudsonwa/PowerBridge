@@ -12,5 +12,6 @@
   "symalt": "@NQ#C",
   "descstr": "E-MINI NASDAQ 100",
   "expdate": 1130331,
-  "category": 0
+  "category": 0,
+  "round_turn_cost": 25.0
 }

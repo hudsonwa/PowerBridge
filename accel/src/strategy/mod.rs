@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::audit::{self, AuditCollector, NQ_ROUND_TURN_COST};
+use crate::audit::{self, AuditCollector};
 use crate::kernel::{run_native, run_native_from_observing, run_native_from_offset};
 use crate::types::{
     BarTape, Config, Fill, Instrument, KernelError, KernelOutcome, NativeStrategy, SkipPlan,
@@ -249,7 +249,7 @@ pub(crate) fn run_program_audit_packet(
         &strategy,
         instrument.tick,
         instrument.point_value,
-        NQ_ROUND_TURN_COST,
+        config.round_turn_cost,
     )?;
     let plan = strategy.skip_plan(series);
     if !crate::kernel::diagnostics_enabled() {
@@ -326,7 +326,7 @@ pub(crate) fn run_program_audit_packet_sliced(
         &strategy,
         instrument.tick,
         instrument.point_value,
-        NQ_ROUND_TURN_COST,
+        config.round_turn_cost,
     )?;
     let outcome = run_native_from_offset(
         series,
@@ -383,7 +383,7 @@ pub(crate) fn run_program_audit_packet_batch(
             &strategy,
             instrument.tick,
             instrument.point_value,
-            NQ_ROUND_TURN_COST,
+            config.round_turn_cost,
         )?;
         let outcome = run_native_from_offset(
             series,
@@ -550,6 +550,7 @@ mod tests {
             symalt: "@NQ#C".into(),
             descstr: "E-MINI NASDAQ 100".into(),
             expdate: 1130331,
+            round_turn_cost: 25.0,
         }
     }
 

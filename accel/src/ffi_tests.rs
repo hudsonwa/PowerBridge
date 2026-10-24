@@ -56,6 +56,7 @@ fn nq_config() -> Config {
         symalt: "@NQ#C".into(),
         descstr: "E-MINI NASDAQ 100".into(),
         expdate: 1130331,
+        round_turn_cost: 25.0,
     }
 }
 

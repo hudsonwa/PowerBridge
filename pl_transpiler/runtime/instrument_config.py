@@ -36,6 +36,7 @@ spec, not from the capture under test), so injecting them per-run preserves the
 audited non-circular sourcing.
 """
 import json
+import math
 import os
 from dataclasses import MISSING, dataclass, fields
 from typing import Any, Union
@@ -64,6 +65,10 @@ class InstrumentConfig:
     # Category code (MultiCharts/TradeStation numbering: 0 = future, 1 = future
     # option, 2 = stock, 4 = index, 12 = forex, ...).
     category: int = 0
+    # Round-turn trading cost in $ per contract (commission plus slippage for
+    # one entry and its exit). The native audit packet subtracts it from each
+    # closed trade's gross profit to give net profit. Fills are not affected.
+    round_turn_cost: float = 25.0
 
 
 # The NQ config holds the validated @NQ#C instrument values. Selected for all
@@ -82,6 +87,7 @@ NQ = InstrumentConfig(
     symalt="@NQ#C",
     descstr="E-MINI NASDAQ 100",
     expdate=1130331,
+    round_turn_cost=25.0,
 )
 
 
@@ -102,6 +108,7 @@ ES = InstrumentConfig(
     symalt="@ES#C",
     descstr="E-MINI S&P 500",
     expdate=1130331,
+    round_turn_cost=25.0,
 )
 
 
@@ -127,8 +134,9 @@ def _type_ok(value: Any, typ: Any) -> bool:
 def load_config_file(path: Union[str, "os.PathLike[str]"]) -> InstrumentConfig:
     """Load an InstrumentConfig from the JSON object in `path`.
 
-    Keys are exactly the InstrumentConfig field names; `category` is optional
-    (default 0). Unknown keys, missing keys and wrong types raise
+    Keys are exactly the InstrumentConfig field names; `category` (default 0)
+    and `round_turn_cost` (default 25.0, must be >= 0) are optional. Unknown
+    keys, missing keys, wrong types and a negative `round_turn_cost` raise
     ConfigFileError; a missing file raises OSError.
     """
     with open(path, encoding="utf-8") as fh:
@@ -155,6 +163,11 @@ def load_config_file(path: Union[str, "os.PathLike[str]"]) -> InstrumentConfig:
             raise ConfigFileError(
                 f"bad config file {path}: {name} must be {typ.__name__}, "
                 f"got {type(value).__name__} {value!r}")
+    cost = data.get("round_turn_cost", 0.0)
+    if not math.isfinite(cost) or cost < 0:
+        raise ConfigFileError(
+            f"bad config file {path}: round_turn_cost must be a finite number >= 0, "
+            f"got {cost!r}")
     return InstrumentConfig(**data)
 
 

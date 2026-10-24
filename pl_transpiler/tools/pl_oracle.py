@@ -38,10 +38,6 @@ from typing import Optional, Union
 
 from pl_transpiler.lookback import note_warmup
 from pl_transpiler.oracle import (
-    AUDIT_REF_3_DIGEST,
-    AUDIT_REF_3_FILLS,
-    AUDIT_REF_3_ROUND_TURNS,
-    AUDIT_REF_3_SHA256,
     BUY_SIDE,
     DIGEST_VERSION,
     FILLS_CSV_COLUMNS,
@@ -72,10 +68,6 @@ from pl_transpiler.tools import _cli
 
 # The library names, re-exported for the old import path.
 __all__ = [
-    "AUDIT_REF_3_DIGEST",
-    "AUDIT_REF_3_FILLS",
-    "AUDIT_REF_3_ROUND_TURNS",
-    "AUDIT_REF_3_SHA256",
     "BUY_SIDE",
     "DIGEST_VERSION",
     "FILLS_CSV_COLUMNS",

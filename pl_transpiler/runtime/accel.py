@@ -372,6 +372,7 @@ def _config_dict(config: "InstrumentConfig", max_bars_back: Union[int, str] = 0,
         "symalt": str(config.symalt),
         "descstr": str(config.descstr),
         "expdate": int(config.expdate),
+        "round_turn_cost": float(config.round_turn_cost),
     }
 
 

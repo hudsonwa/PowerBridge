@@ -30,9 +30,18 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 - `pl_transpile --dialect {runnable,mirror}` selects the output dialect with the
   same names as `transpile(src, dialect=...)`. `--no-persist` keeps working as an
   alias for `--dialect mirror`, and output for existing flags is unchanged.
+- `InstrumentConfig.round_turn_cost` ($ per contract, default 25.0) sets the
+  cost the native audit packet subtracts from each closed trade's gross profit.
+  Before, the kernel used a fixed $25. A config file may set it (a finite
+  number >= 0). The built-in NQ and ES configs keep 25.0, so their packets are
+  byte-identical; fills and digests do not depend on it.
 
 ### Changed
 
+- The `AUDIT_REF_3_*` constants (the pinned digest of the reference strategy,
+  whose tape is not shipped) moved from `pl_transpiler.oracle` and
+  `pl_transpiler.tools.pl_oracle` to `tests/reference_pins.py`, since only
+  the tests use them.
 - **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars`
   (CSV input) now stop on bars that go back in time, with one line naming the
   CSV line, such as `bars out of order at line 4: 2024-01-02 09:29 comes after

@@ -44,6 +44,18 @@ def test_category_optional(tmp_path):
     assert load_config_file(_write(tmp_path, d)) == ES
 
 
+def test_round_turn_cost_optional_and_sent_to_kernel(tmp_path):
+    d = _es()
+    del d["round_turn_cost"]
+    assert load_config_file(_write(tmp_path, d)) == ES
+    d["round_turn_cost"] = 4.5
+    loaded = load_config_file(_write(tmp_path, d))
+    assert loaded.round_turn_cost == 4.5
+    assert accel._config_dict(loaded)["round_turn_cost"] == 4.5
+    d["round_turn_cost"] = 0
+    assert load_config_file(_write(tmp_path, d)).round_turn_cost == 0
+
+
 @pytest.mark.parametrize("mutate,needle", [
     (lambda d: d.update(commission=2.5), "unknown key(s) commission"),
     (lambda d: d.pop("tick"), "missing key(s) tick"),
@@ -51,6 +63,9 @@ def test_category_optional(tmp_path):
     (lambda d: d.update(minmove=25.0), "minmove must be int"),
     (lambda d: d.update(tick=True), "tick must be float"),
     (lambda d: d.update(symnm=1), "symnm must be str"),
+    (lambda d: d.update(round_turn_cost="4.5"), "round_turn_cost must be float"),
+    (lambda d: d.update(round_turn_cost=-1.0), "round_turn_cost must be a finite number >= 0"),
+    (lambda d: d.update(round_turn_cost=float("inf")), "round_turn_cost must be a finite number >= 0"),
 ])
 def test_bad_config_file(tmp_path, mutate, needle):
     d = _es()

@@ -95,21 +95,6 @@ from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 
 DIGEST_VERSION = "v2"
 
-# Headline reference-strategy digest (the reference EL over the 2,322,973-bar NQ
-# tape, persist=True min-emit). Full tape and the 2018-01-01 window (856,914
-# bars) produce this identical digest. This module does not load that private
-# tape; the constants are kept as a fixed reference.
-AUDIT_REF_3_FILLS = 7364
-AUDIT_REF_3_ROUND_TURNS = 3682
-AUDIT_REF_3_SHA256 = "d839e7ab8a1feb8a9e238174538f94a477d9c54193a4f48be68b6bd3284d7e0c"
-AUDIT_REF_3_DIGEST = (
-    "powerbridge-trade-digest v1\n"
-    f"fills: {AUDIT_REF_3_FILLS}\n"
-    f"round_turns: {AUDIT_REF_3_ROUND_TURNS}\n"
-    f"sha256: {AUDIT_REF_3_SHA256}\n"
-)
-
-
 # Hashed fill ``type`` values. They name the order SIDE, not the position effect.
 BUY_SIDE = "EntryLong"
 SELL_SIDE = "ExitLong"
