@@ -17,9 +17,11 @@
 
     pl_examples [DIR]
 
-Copies the bundled strategy (ma_cross.el) and synthetic bars
-(NQ_sample_bars.csv) so the README commands work after a wheel install,
-without a clone. Existing files are never overwritten.
+Copies the bundled strategy (ma_cross.el), synthetic bars
+(NQ_sample_bars.csv), instrument configs (configs/*.json) and the hand-written
+mirror-dialect strategy (hand_written.py) so the README, usage-guide and
+Python-strategies commands work after a wheel install, without a clone.
+Existing files are never overwritten.
 """
 
 import argparse
@@ -29,7 +31,8 @@ import sys
 from collections.abc import Sequence
 from typing import Optional
 
-EXAMPLE_FILES = ("ma_cross.el", "NQ_sample_bars.csv")
+EXAMPLE_FILES = ("ma_cross.el", "NQ_sample_bars.csv", "configs/ES.json", "configs/NQ.json",
+                 "hand_written.py")
 _PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -38,7 +41,7 @@ def _data_dir() -> str:
     wheel; a copy of the repo's examples/ files), else the repo's examples/."""
     for d in (os.path.join(_PKG_DIR, "_examples"),
               os.path.join(os.path.dirname(_PKG_DIR), "examples")):
-        if all(os.path.isfile(os.path.join(d, n)) for n in EXAMPLE_FILES):
+        if all(os.path.isfile(os.path.join(d, *n.split("/"))) for n in EXAMPLE_FILES):
             return d
     return os.path.join(_PKG_DIR, "_examples")
 
@@ -46,14 +49,15 @@ def _data_dir() -> str:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         prog="pl_examples",
-        description="Copy a small example strategy and made-up price bars into "
-                    "DIR so you can try the README quickstart. Existing files are "
+        description="Copy the example strategies, made-up price bars and "
+                    "instrument configs into DIR so you can try the README "
+                    "and usage-guide commands. Existing files are "
                     "never overwritten.")
     ap.add_argument("dir", nargs="?", default="examples",
                     help="Destination directory (default: examples).")
     args = ap.parse_args(argv)
     src = _data_dir()
-    missing = [n for n in EXAMPLE_FILES if not os.path.isfile(os.path.join(src, n))]
+    missing = [n for n in EXAMPLE_FILES if not os.path.isfile(os.path.join(src, *n.split("/")))]
     if missing:
         print(f"[pl_examples] error: bundled example file(s) missing from this install: "
               f"{', '.join(missing)} (looked in {src}); reinstall powerbridge",
@@ -61,11 +65,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
     os.makedirs(args.dir, exist_ok=True)
     for name in EXAMPLE_FILES:
-        dst = os.path.join(args.dir, name)
+        dst = os.path.join(args.dir, *name.split("/"))
         if os.path.exists(dst):
             print(f"[pl_examples] {dst} exists, left unchanged", file=sys.stderr)
             continue
-        shutil.copyfile(os.path.join(src, name), dst)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copyfile(os.path.join(src, *name.split("/")), dst)
         print(f"[pl_examples] wrote {dst}", file=sys.stderr)
     return 0
 

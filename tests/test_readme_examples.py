@@ -33,6 +33,11 @@ whether the optional native module is installed and are ignored, and so is
 the engine tag on a `[pl_run]` status line: a documented `[python]` also
 matches `[native]` (the CSV is byte-identical either way).
 
+With POWERBRIDGE_DOCS_INSTALLED=1 (the CI wheel job) the blocks instead run
+as a reader after a wheel install: in an empty directory, through the
+installed console commands next to sys.executable, without the repository on
+PYTHONPATH, so every example file must come from the README's `pl_examples`.
+
 `out/` is removed at the start of every `## ` section, so each section must
 create the directories it writes to, as a reader who jumps straight to it would.
 """
@@ -123,6 +128,10 @@ def shell_commands(body):
 
 
 def to_argv(argv):
+    if argv[0] in COMMANDS and INSTALLED:
+        exe = shutil.which(argv[0], path=os.path.dirname(sys.executable))
+        assert exe, f"{argv[0]} is not installed next to {sys.executable}"
+        return [exe] + argv[1:]
     if argv[0] in COMMANDS:
         return [sys.executable, "-m", COMMANDS[argv[0]]] + argv[1:]
     if argv[0] in ("python", "python3"):
@@ -133,6 +142,9 @@ def to_argv(argv):
     raise AssertionError(
         f"README command {argv[0]!r} is not runnable here; mark the block "
         "<!-- readme-test: skip (reason) -->")
+
+
+INSTALLED = os.environ.get("POWERBRIDGE_DOCS_INSTALLED") == "1"
 
 
 ENGINE_TAG = re.compile(r"^(\[pl_run\] .*) \[native\]( -> .*)?$")
@@ -162,6 +174,8 @@ def matches(doc, actual):
 @pytest.fixture(scope="module")
 def workdir(tmp_path_factory):
     d = tmp_path_factory.mktemp("readme")
+    if INSTALLED:
+        return d
     shutil.copytree(os.path.join(REPO, "examples"), d / "examples")
     os.mkdir(d / "ground_truth")
     for name in os.listdir(os.path.join(REPO, "ground_truth")):
@@ -171,7 +185,10 @@ def workdir(tmp_path_factory):
 
 
 def run(argv, cwd):
-    env = dict(os.environ, PYTHONPATH=REPO + os.pathsep + os.environ.get("PYTHONPATH", ""))
+    if INSTALLED:
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    else:
+        env = dict(os.environ, PYTHONPATH=REPO + os.pathsep + os.environ.get("PYTHONPATH", ""))
     p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=50)
     return p.returncode, p.stdout.splitlines(), p.stderr.splitlines()
 
@@ -190,6 +207,10 @@ def test_readme_parses_runnable_blocks():
 
 
 def test_readme_examples(workdir):
+    if INSTALLED:
+        rc, out, err = run([sys.executable, "-c", "import pl_transpiler; print(pl_transpiler.__file__)"],
+                           workdir)
+        assert rc == 0 and not out[0].startswith(REPO + os.sep), (out, err)
     failures, section = [], None
     for doc, b in doc_blocks():
         if (doc, b["section"]) != section:
