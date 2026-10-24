@@ -27,10 +27,6 @@ pub(crate) const HEADER_SIZE: usize = 256;
 pub(crate) const TRANSITION_SIZE: usize = 104;
 pub(crate) const TRADE_SIZE: usize = 88;
 
-/// NQ report round-turn cost. Not `Config.commission` (that is 0.0 on the
-/// native path); this is the $25 the Python report subtracts per contract.
-pub(crate) const NQ_ROUND_TURN_COST: f64 = 25.0;
-
 /// Interpreter slots projected by stable (lowercased) IR name.
 ///
 /// Engine-owned columns (`current_contracts`, `entry_price`, `net_profit`,
@@ -567,6 +563,70 @@ mod tests {
             price: 0.0,
             contracts: 1,
         }
+    }
+
+    struct ZeroSlots;
+
+    impl AuditSlots for ZeroSlots {
+        fn slot_index(&self, name: &str) -> Option<usize> {
+            NQ_AUDIT_SLOT_NAMES.iter().position(|n| *n == name)
+        }
+        fn slot_f64(&self, _index: usize) -> f64 {
+            0.0
+        }
+        fn slot_bool(&self, _index: usize) -> bool {
+            false
+        }
+    }
+
+    fn view(contracts: isize, entry_price: f64, net_profit: f64) -> PositionView {
+        PositionView {
+            market_position: contracts.signum() as i8,
+            contracts,
+            entry_price,
+            avg_entry_price: entry_price,
+            bars_since_entry: 0,
+            exit_price: 0.0,
+            bars_since_exit: 0,
+            open_position_profit: 0.0,
+            position_profit: 0.0,
+            net_profit,
+            gross_profit: 0.0,
+            gross_loss: 0.0,
+            total_trades: 0,
+            max_contracts_held: contracts,
+            max_id_drawdown: 0.0,
+        }
+    }
+
+    fn bar(date: i64, time: i64) -> Bar {
+        Bar {
+            open: 0.0,
+            high: 0.0,
+            low: 0.0,
+            close: 0.0,
+            volume: 0.0,
+            date,
+            time,
+        }
+    }
+
+    /// One long round turn, 100.00 -> 101.00 at $20/pt: gross $20.
+    fn net_after(cost: f64) -> f64 {
+        let mut c = AuditCollector::bind(&ZeroSlots, 0.25, 20.0, cost).unwrap();
+        c.observe(&ZeroSlots, view(1, 100.0, 0.0), bar(1180102, 930), 0)
+            .unwrap();
+        c.observe(&ZeroSlots, view(0, 0.0, 20.0), bar(1180102, 931), 1)
+            .unwrap();
+        assert_eq!(c.trades.len(), 1);
+        f64::from_le_bytes(c.trades[0][40..48].try_into().unwrap())
+    }
+
+    #[test]
+    fn trade_net_is_gross_minus_configured_round_turn_cost() {
+        assert_eq!(net_after(0.0), 20.0);
+        assert_eq!(net_after(25.0), -5.0);
+        assert_eq!(net_after(4.5), 15.5);
     }
 
     #[test]

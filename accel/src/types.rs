@@ -650,6 +650,10 @@ pub(crate) struct Config {
     pub(crate) symalt: String,
     pub(crate) descstr: String,
     pub(crate) expdate: i64,
+    /// $ per contract subtracted from each closed trade's gross profit in the
+    /// audit packet (commission plus slippage for one round turn). Fills and
+    /// the stable `run_program` path do not read it.
+    pub(crate) round_turn_cost: f64,
 }
 
 // ============================================================================

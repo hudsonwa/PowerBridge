@@ -136,6 +136,7 @@ fn run(
 ///     ``session`` (``{"start", "end"}``), ``commission``, ``slippage``,
 ///     ``max_bars_back``, ``max_entries_per_direction``, ``warmup_seed``,
 ///     ``symccy``, ``symnm``, ``symalt``, ``descstr``, ``expdate``.
+///     ``round_turn_cost`` is optional (default 25.0).
 ///
 /// Returns
 /// -------
@@ -292,7 +293,12 @@ fn kernel_error_to_py(error: KernelError) -> PyErr {
 
 /// Extract the explicit [`Config`] from a Python mapping. Every field is
 /// required: `Config` has no `Default` (v2 requirement 2-3) and a missing
-/// field raises rather than being invented.
+/// field raises rather than being invented. The one exception is
+/// `round_turn_cost`, which defaults to [`DEFAULT_ROUND_TURN_COST`] so older
+/// callers keep working.
+/// Round-turn cost used when the config mapping does not send one.
+const DEFAULT_ROUND_TURN_COST: f64 = 25.0;
+
 fn extract_config(config: &Bound<'_, PyDict>) -> PyResult<Config> {
     fn required<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         dict.get_item(key)?
@@ -347,6 +353,10 @@ fn extract_config(config: &Bound<'_, PyDict>) -> PyResult<Config> {
         symalt: cfg_str(config, "symalt")?,
         descstr: cfg_str(config, "descstr")?,
         expdate: cfg_int(config, "expdate")?,
+        round_turn_cost: match config.get_item("round_turn_cost")? {
+            Some(_) => cfg_f64(config, "round_turn_cost")?,
+            None => DEFAULT_ROUND_TURN_COST,
+        },
     })
 }
 
