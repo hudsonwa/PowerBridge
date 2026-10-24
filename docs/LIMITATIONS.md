@@ -30,6 +30,19 @@ trust a backtest from partial output.
 
 ## Known gaps
 
+- **Run-time errors** stop the run on both paths with one line and exit 2,
+  naming the EL line: `error: array index 4 out of range for 'a' (max index 3)
+  at line 2`, `error: division by zero at line 2` (`/` and `Mod`), and for
+  anything else `error: internal error at line N: <type>: <message>`. Set
+  `PB_DEBUG=1` for the full Python traceback. Whether MultiCharts stops on a
+  division by zero or returns a value is unverified; PowerBridge stops.
+- **Negative array indexes** are not rejected. `A[-1]` reads `A[N]`, `A[-2]`
+  reads `A[N-1]`, and so on down to `A[-(N+1)]`, which reads `A[0]`; only an index
+  below that is an out-of-range error. MultiCharts documents array indexes as
+  `0` to `N` (documented behaviour, unverified), so a program that relies on a
+  negative index gives results MultiCharts would not. This is left as is so
+  programs that run today give the same results.
+
 - The Python to EL direction only reads the **mirror dialect**: the clean Python
   this transpiler itself emits. Arbitrary hand-written Python is out of scope.
 - `el_emit` checks function names, argument counts and return types. It checks
