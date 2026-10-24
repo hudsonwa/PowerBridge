@@ -40,8 +40,11 @@ import argparse
 import sys
 
 from pl_transpiler import transpile
-from pl_transpiler.errors import (UnimplementedKeywordError, format_error_lines,
-                                  format_labelled_error_lines)
+from pl_transpiler.errors import (
+    UnimplementedKeywordError,
+    format_error_lines,
+    format_labelled_error_lines,
+)
 from pl_transpiler.tools import _cli
 
 
