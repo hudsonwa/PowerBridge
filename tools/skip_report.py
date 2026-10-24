@@ -23,7 +23,10 @@ CONTRIBUTING.md.
 With --native it keeps the built kernel and fills the skip-report-native block
 instead: the run after tools/dev_setup.sh with a Rust toolchain present.
 
-    python3 tools/skip_report.py [--native] [--write]
+    python3 tools/skip_report.py [--native] [--write | --check]
+
+--check exits 1 (printing a diff) when the table rows in CONTRIBUTING.md differ
+from this run; CI runs it so the tables cannot drift.
 
 Counts depend on the Python version and the optional tools installed (build,
 setuptools), so the table records the interpreter it was made with.
@@ -65,12 +68,17 @@ GROUPS = {
     "kernel refuses this program": (
         "nothing: a ground-truth program the native kernel does not support, so "
         "it runs in Python (by design)", "n/a"),
+    "could not import 'numpy'": (
+        "numpy (`pip install numpy`; not in the dev extra)", "no"),
     "private fixture absent": (
         "a licensed audit fixture; set `PB_AUDIT_FIXTURE_DIR` / `PB_AUDIT_EL`", "no"),
 }
 
 # Skip reasons that vary per test (the detail after the colon); counted as one row.
-_COLLAPSE = ("kernel refuses this program", "private fixture absent")
+_COLLAPSE = ("kernel refuses this program", "private fixture absent",
+             "could not import 'numpy'")
+# Runtime skips (no marker) that belong to a marker's row.
+_AS_MARKER = {"native kernel not built": "needs_native"}
 
 
 def describe(group):
@@ -107,8 +115,13 @@ def pytest_runtest_logreport(report):
         _rows.append(["skipped", _group(report.keywords, reason.strip())])
 
 def pytest_sessionfinish(session):
+    import importlib.util
+    try:
+        kernel = importlib.util.find_spec("pl_transpiler._accel") is not None
+    except ImportError:
+        kernel = False
     with open(_out, "w") as f:
-        json.dump(_rows, f)
+        json.dump({"rows": _rows, "kernel": kernel}, f)
 '''
 
 
@@ -118,6 +131,11 @@ def collect(native=False):
     import json
     files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=REPO,
                            capture_output=True, text=True, check=True).stdout.splitlines()
+    if native:
+        # The built kernel is git-ignored, so ls-files does not list it.
+        pkg = os.path.join(REPO, "pl_transpiler")
+        files += ["pl_transpiler/" + n for n in sorted(os.listdir(pkg))
+                  if n.startswith("_accel") and n.endswith((".so", ".pyd"))]
     with tempfile.TemporaryDirectory() as tmp:
         tree = os.path.join(tmp, "tree")
         for rel in files:
@@ -139,10 +157,20 @@ def collect(native=False):
                         "-p", "skip_report_plugin", "-p", "no:cacheprovider"],
                        cwd=tree, env=env, stdout=subprocess.DEVNULL)
         with open(out) as f:
-            return [tuple(r) for r in json.load(f)]
+            result = json.load(f)
+    # An editable install or a stray kernel elsewhere on sys.path would make the
+    # run test a different setup than the table claims.
+    if result["kernel"] != native:
+        raise SystemExit("skip_report: the pytest run %s the native kernel; expected "
+                         "it %s" % ("found" if result["kernel"] else "did not find",
+                                    "built" if native else "absent"))
+    return [tuple(r) for r in result["rows"]]
 
 
 def _collapse(group):
+    for prefix, marker in _AS_MARKER.items():
+        if group.startswith(prefix):
+            return marker
     for prefix in _COLLAPSE:
         if group.startswith(prefix):
             return prefix
@@ -164,16 +192,45 @@ def table(rows, native=False):
     return "\n".join(lines)
 
 
+def _rows_only(text):
+    """The table lines, without the 'Generated with' note (it names the host)."""
+    return [line for line in text.splitlines() if line.startswith("|")]
+
+
+def check(text, begin, end):
+    """0 if CONTRIBUTING.md's block has the same rows as this run, else 1."""
+    import difflib
+    with open(TARGET, encoding="utf-8") as f:
+        doc = f.read()
+    m = re.search(re.escape(begin) + r"(.*?)" + re.escape(end), doc, flags=re.S)
+    if m is None:
+        print(f"skip-report markers not found in {TARGET}", file=sys.stderr)
+        return 1
+    want, got = _rows_only(m.group(1)), _rows_only(text)
+    if want == got:
+        print("skip report matches CONTRIBUTING.md")
+        return 0
+    print("CONTRIBUTING.md skip report is out of date; regenerate it with "
+          "tools/skip_report.py --write (see CONTRIBUTING.md):", file=sys.stderr)
+    sys.stderr.writelines(difflib.unified_diff(
+        [w + "\n" for w in want], [g + "\n" for g in got],
+        "CONTRIBUTING.md", "this run"))
+    return 1
+
+
 def main(argv):
     native = "--native" in argv
     if native:
         import importlib.util
+        sys.path.insert(0, REPO)
         if importlib.util.find_spec("pl_transpiler._accel") is None:
             print("--native needs the kernel built; run tools/build_accel.sh",
                   file=sys.stderr)
             return 1
     begin, end = (NATIVE_BEGIN, NATIVE_END) if native else (BEGIN, END)
     text = table(collect(native), native)
+    if "--check" in argv:
+        return check(text, begin, end)
     if "--write" not in argv:
         print(text)
         return 0

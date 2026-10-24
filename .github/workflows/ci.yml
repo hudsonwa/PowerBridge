@@ -59,10 +59,15 @@ jobs:
         if: matrix.python != '3.13'
         run: python -m pytest -q --timeout=60
       # Coverage on one interpreter only: a terminal summary in the log plus the
-      # XML report as a downloadable artifact.
+      # XML report as a downloadable artifact. The floor is the measured total
+      # rounded down; raise it when coverage rises, never lower it.
       - name: Run pytest with coverage
         if: matrix.python == '3.13'
-        run: python -m pytest -q --timeout=60 --cov=pl_transpiler --cov-report=term --cov-report=xml
+        run: python -m pytest -q --timeout=60 --cov=pl_transpiler --cov-report=term --cov-report=xml --cov-fail-under=83
+      # CONTRIBUTING.md's fresh-clone skip table must match a real run.
+      - name: Skip table in CONTRIBUTING.md is current
+        if: matrix.python == '3.13'
+        run: python tools/skip_report.py --check
       - name: Upload coverage report
         if: matrix.python == '3.13'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -285,6 +290,13 @@ jobs:
         run: python -m pytest -q --timeout=60 tests/test_accel_*.py
       - name: Other tests that need the native kernel
         run: python -m pytest -q --timeout=60 -m needs_native
+      # CONTRIBUTING.md's native skip table describes a run after dev_setup.sh,
+      # which installs the dev extra.
+      - name: Native skip table in CONTRIBUTING.md is current
+        if: matrix.python == '3.14'
+        run: |
+          python -m pip install '.[dev]'
+          python tools/skip_report.py --native --check
       - name: tools/dev_setup.sh sets up a fresh venv with the kernel
         if: matrix.python == '3.14'
         run: |
