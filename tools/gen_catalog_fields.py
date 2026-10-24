@@ -64,6 +64,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from pl_transpiler import codegen_expr  # noqa: E402
+from pl_transpiler._codegen_inline_calls import INLINE_CALLS  # noqa: E402
 from pl_transpiler.builtins import BUILTINS  # noqa: E402
 from pl_transpiler.codegen_util import _EXTRA_ARITY  # noqa: E402
 from pl_transpiler.lexer import KEYWORDS  # noqa: E402
@@ -117,10 +118,36 @@ def _fixed_positional(fn):
     return sum(1 for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD))
 
 
+# Probe lengths for the inline-expansion table; an entry that also accepts the
+# largest one has no exact count test (no test, or a ``>=`` test).
+_PROBE_ARITIES = range(9)
+
+
+def _inline_call_arities():
+    """{marker: accepted arg counts, or None if not exact} for INLINE_CALLS entries.
+
+    Each entry returns None for an arg count it has no expansion for, so probing
+    with digit-string args finds the exact ``len(args) == N`` counts."""
+    found = {}
+    for marker, expand in INLINE_CALLS.items():
+        ok = []
+        for n in _PROBE_ARITIES:
+            try:
+                accepted = expand(marker, [str(i + 1) for i in range(n)]) is not None
+            except (IndexError, ValueError):
+                accepted = False
+            if accepted:
+                ok.append(n)
+        found[marker] = ok if ok and _PROBE_ARITIES[-1] not in ok else None
+    return found
+
+
 def _marker_arities():
-    """{marker: max N} for ``__marker__`` intrinsics that codegen_expr lowers only under
-    ``py_name == '__marker__' and len(args) == N`` tests. A marker that appears in any
-    other form (no count test, ``>=``, a membership test) is left out: unknown."""
+    """{marker: max N} for ``__marker__`` intrinsics that codegen lowers only for
+    exact arg counts: ``py_name == '__marker__' and len(args) == N`` tests in
+    codegen_expr, or INLINE_CALLS entries that expand only for exact counts. A
+    marker that appears in any other form (no count test, ``>=``, a membership
+    test) is left out: unknown."""
     tree = ast.parse(inspect.getsource(codegen_expr))
     exact = {}
     for node in ast.walk(tree):
@@ -137,10 +164,17 @@ def _marker_arities():
                 and isinstance(b.left, ast.Call) and getattr(b.left.func, "id", "") == "len"
                 and isinstance(b.comparators[0], ast.Constant)):
             exact.setdefault(marker, []).append(b.comparators[0].value)
+    inline = _inline_call_arities()
     # Keep only markers whose every occurrence is one of the exact tests counted above.
     counts = collections.Counter(
-        n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and n.value in exact)
-    return {m: max(ns) for m, ns in exact.items() if counts[m] == len(ns)}
+        n.value for n in ast.walk(tree)
+        if isinstance(n, ast.Constant) and (n.value in exact or n.value in inline))
+    out = {m: max(ns) for m, ns in exact.items()
+           if counts[m] == len(ns) and m not in inline}
+    for m, ns in inline.items():
+        if ns is not None and counts[m] == len(exact.get(m, ())):
+            out[m] = max(ns + exact.get(m, []))
+    return out
 
 
 _MARKER_ARITY = _marker_arities()

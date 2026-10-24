@@ -598,35 +598,21 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                 return out
         else:
             fallback_reason = reason
-    reset_indicator_caches()
-    if partial:
-        # Surface the manifest loudly before running. Detect the stubs via the
-        # strict transpile's collect-all diagnostics (empty when nothing is stubbed).
-        try:
-            transpile(el_source, trace=True)
-        except UnimplementedKeywordError as e:
-            _print_partial_manifest(e.errors)
-        py_code = transpile(el_source, trace=True, partial=True)
-    else:
-        py_code = transpile(el_source, trace=True)
+    py_code = _transpile_for_run(el_source, partial)
     ns: dict[str, Any] = {}
     exec(compile(py_code, "<pl_run>", "exec"), ns)
     strategy_fn = ns['strategy']
 
     trade_from = 0
-    n_warmup = 0
     if from_date is not None or from_bar is not None:
         idx = resolve_trade_from(bars, from_date=from_date, from_bar=from_bar)
         if seed_warmup:
             trade_from = idx
-            n_warmup = idx
         else:
             bars = bars[idx:]
 
     cols = ohlcv_columns(bars)
     n = cols['n']
-    o_arr, h_arr, l_arr = cols['open'], cols['high'], cols['low']
-    c_arr, v_arr = cols['close'], cols['volume']
     dates, times = cols['date'], cols['time']
 
     fill_engine = FillEngine(config=config,
@@ -635,47 +621,14 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     # capture-specific concern and stays off here.
     fill_engine._emit_gta6 = False
 
-    if retain_rows is None:
-        retain_rows = row_sink is None
+    collector = _RowCollector(
+        trace_columns, row_sink=row_sink, header_sink=header_sink,
+        retain_rows=row_sink is None if retain_rows is None else retain_rows)
 
-    rows = []
-    cols_holder: dict[str, Optional[list[str]]] = {'cols': None, 'keys': None}
-    n_emitted = [0]
-
-    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
-        return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
-
-    def emit_row(i: int, barnumber: int, trace: dict[str, Any]) -> None:
-        keys = cols_holder['keys']
-        if keys is None:
-            if trace_columns is not None:
-                cols = list(trace_columns)
-                keys = resolve_trace_columns(cols, trace.keys())
-            else:
-                cols = keys = sorted(trace.keys())
-            cols_holder['cols'] = cols
-            cols_holder['keys'] = keys
-            if header_sink is not None:
-                header_sink(cols)
-        row = format_trace_row(trace, keys)
-        n_emitted[0] += 1
-        if retain_rows:
-            rows.append(row)
-        if row_sink is not None:
-            row_sink(row)
-
-    # Fail-loud: a general entrypoint has no throw-sidecar gate, so any EL surface
-    # the runtime cannot reproduce must RAISE (strict) rather than be silently
-    # counted. The transpiled strategy's own Print(File(...)) lands on stdout; we
-    # discard it here so it can never corrupt the returned data or the CLI's stdout.
-    from pl_transpiler.runtime.accel import accel_available, python_path_note
     from pl_transpiler.runtime.pl_runtime import (
         pl_unimplemented_reset,
         pl_unimplemented_warn,
     )
-    # The library logs the "Python path" note; the CLI passes warn_python_path
-    # to print it on stderr instead.
-    notify = _python_path_notify or (lambda r=None: _log.info(python_path_note(r)))
     pl_unimplemented_reset()
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
     drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
@@ -683,63 +636,33 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     if drawings:
         from pl_transpiler.runtime._rt_drawing import (
             DrawingRecorder,
-            make_dump,
             resolve_drawing_request,
         )
         drawing_meta = resolve_drawing_request(
             drawing_case_id, drawing_tape, config.tick)
         recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
-    with open(os.devnull, 'w', encoding='utf-8') as _devnull, \
-            contextlib.redirect_stdout(_devnull), \
-            (recorder if recorder is not None else contextlib.nullcontext()):
-        try:
-            run_bar_loop(
-                strategy_fn,
-                n_bars=n,
-                get_ohlcv=get_ohlcv,
-                dates=dates,
-                times=times,
-                config=config,
-                fill_engine=fill_engine,
-                emit_row=emit_row,
-                strict=True,
-                trade_from=trade_from,
-                max_bars_back=max_bars_back,
-                on_bar=None if recorder is None else recorder.set_bar,
-            )
-        except (UnimplementedBuiltinError, UnimplementedKeywordError):
-            raise
-        except Exception as exc:
-            el_exc = el_runtime_error(exc, py_code, '<pl_run>', el_source)
-            if el_exc is None:
-                raise
-            raise el_exc from exc
+    _run_strategy_loop(
+        strategy_fn, py_code, el_source, '<pl_run>', cols, config, fill_engine,
+        collector.emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
+        recorder=recorder)
 
     # Reported after the run, so a program that stops on a user error prints
     # only that error.
-    if fallback_reason is not None:
-        notify(fallback_reason)
-    elif not use_native and accel_available():
-        notify("use_native=False (pl_run --native is the default when it is installed)")
-    elif not use_native:
-        notify()
-    columns = cols_holder['cols']
-    if columns is None:
-        columns = list(trace_columns) if trace_columns is not None else []
-        if header_sink is not None:
-            header_sink(columns)
+    _notify_python_path(_python_path_notify, fallback_reason, use_native)
     out = {
-        'columns': columns,
-        'rows': rows,
+        'columns': collector.final_columns(),
+        'rows': collector.rows,
         'trades': fill_engine.get_mc_trades(),
-        'n_rows': n_emitted[0],
-        'n_warmup': n_warmup,
+        'n_rows': collector.n_emitted,
+        # The seeded prefix; 0 when the tape is sliced or no window is set.
+        'n_warmup': trade_from,
         # {keyword: calls} of unimplemented builtins this run used as 0/'' (warned on stderr).
         'unimplemented': pl_unimplemented_warn('pl_run'),
         'native': False,
         'native_fallback_reason': fallback_reason,
     }
     if drawings:
+        from pl_transpiler.runtime._rt_drawing import make_dump
         out['drawings'] = make_dump(
             recorder, dates, times,
             case_id=drawing_meta[0], tape_name=drawing_meta[1],
@@ -747,6 +670,135 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
             producer_kind='pb-python',
         )
     return out
+
+
+def _run_strategy_loop(strategy_fn: Callable[..., Any], py_code: str, el_source: str,
+                       filename: str, cols: Mapping[str, Any], config: InstrumentConfig,
+                       fill_engine: FillEngine,
+                       emit_row: Callable[[int, int, dict[str, Any]], Any], *,
+                       trade_from: int, max_bars_back: int, recorder: Any,
+                       per_bar_extra: Optional[Callable[[int], dict[str, Any]]] = None,
+                       emit_trace: bool = True) -> None:
+    """Run the strict bar loop over *cols* (``ohlcv_columns``) for run_el / run_oracle.
+
+    Fail-loud: a general entrypoint has no throw-sidecar gate, so any EL surface
+    the runtime cannot reproduce must RAISE (strict) rather than be silently
+    counted. The transpiled strategy's own Print(File(...)) lands on stdout; it
+    is discarded here so it can never corrupt the returned data or the CLI's
+    stdout. A runtime error is re-raised against the EL source line when it can
+    be mapped. *recorder* (or None) is the drawing recorder, entered for the run.
+    """
+    o_arr, h_arr, l_arr = cols['open'], cols['high'], cols['low']
+    c_arr, v_arr = cols['close'], cols['volume']
+
+    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
+        return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
+
+    with open(os.devnull, 'w', encoding='utf-8') as _devnull, \
+            contextlib.redirect_stdout(_devnull), \
+            (recorder if recorder is not None else contextlib.nullcontext()):
+        try:
+            run_bar_loop(
+                strategy_fn,
+                n_bars=cols['n'],
+                get_ohlcv=get_ohlcv,
+                dates=cols['date'],
+                times=cols['time'],
+                config=config,
+                fill_engine=fill_engine,
+                emit_row=emit_row,
+                per_bar_extra=per_bar_extra,
+                strict=True,
+                trade_from=trade_from,
+                emit_trace=emit_trace,
+                max_bars_back=max_bars_back,
+                on_bar=None if recorder is None else recorder.set_bar,
+            )
+        except (UnimplementedBuiltinError, UnimplementedKeywordError):
+            raise
+        except Exception as exc:
+            el_exc = el_runtime_error(exc, py_code, filename, el_source)
+            if el_exc is None:
+                raise
+            raise el_exc from exc
+
+
+def _transpile_for_run(el_source: str, partial: bool) -> str:
+    """Trace-mode Python for ``run_el``; partial mode prints the stub manifest first."""
+    reset_indicator_caches()
+    if not partial:
+        return transpile(el_source, trace=True)
+    # Surface the manifest loudly before running. Detect the stubs via the
+    # strict transpile's collect-all diagnostics (empty when nothing is stubbed).
+    try:
+        transpile(el_source, trace=True)
+    except UnimplementedKeywordError as e:
+        _print_partial_manifest(e.errors)
+    return transpile(el_source, trace=True, partial=True)
+
+
+class _RowCollector:
+    """``run_el``'s ``emit_row``: fixes the columns on the first bar, then
+    formats each bar's trace into a row for the sink and/or the kept rows."""
+
+    def __init__(self, trace_columns: Optional[Sequence[str]], *,
+                 row_sink: Optional[Callable[[list[str]], Any]],
+                 header_sink: Optional[Callable[[list[str]], Any]],
+                 retain_rows: bool) -> None:
+        self.trace_columns = trace_columns
+        self.row_sink = row_sink
+        self.header_sink = header_sink
+        self.retain_rows = retain_rows
+        self.rows: list[Any] = []
+        self.columns: Optional[list[str]] = None
+        self.keys: Optional[list[str]] = None
+        self.n_emitted = 0
+
+    def emit_row(self, i: int, barnumber: int, trace: dict[str, Any]) -> None:
+        keys = self.keys
+        if keys is None:
+            if self.trace_columns is not None:
+                cols = list(self.trace_columns)
+                keys = resolve_trace_columns(cols, trace.keys())
+            else:
+                cols = keys = sorted(trace.keys())
+            self.columns = cols
+            self.keys = keys
+            if self.header_sink is not None:
+                self.header_sink(cols)
+        row = format_trace_row(trace, keys)
+        self.n_emitted += 1
+        if self.retain_rows:
+            self.rows.append(row)
+        if self.row_sink is not None:
+            self.row_sink(row)
+
+    def final_columns(self) -> list[str]:
+        """The column list; with no bar emitted, the requested columns (sent
+        to the header sink now) or []."""
+        if self.columns is not None:
+            return self.columns
+        columns = list(self.trace_columns) if self.trace_columns is not None else []
+        if self.header_sink is not None:
+            self.header_sink(columns)
+        return columns
+
+
+def _notify_python_path(python_path_notify: Optional[Callable[..., Any]],
+                        fallback_reason: Optional[str], use_native: bool) -> None:
+    """Report that ``run_el`` ran on the Python path, and why.
+
+    The library logs the note; the CLI passes warn_python_path to print it on
+    stderr instead.
+    """
+    from pl_transpiler.runtime.accel import accel_available, python_path_note
+    notify = python_path_notify or (lambda r=None: _log.info(python_path_note(r)))
+    if fallback_reason is not None:
+        notify(fallback_reason)
+    elif not use_native and accel_available():
+        notify("use_native=False (pl_run --native is the default when it is installed)")
+    elif not use_native:
+        notify()
 
 
 def _native_shape_refusal(*, partial: bool, from_date: Optional[int],
