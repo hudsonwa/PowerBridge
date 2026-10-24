@@ -25,6 +25,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Changed
+
+- The parser, code generator, fill engine, bar loop and CLIs are fully type-annotated, and mypy now runs with `check_untyped_defs` (plus `disallow_untyped_defs` for the annotated modules). No behaviour change: fills and digests are identical.
+
 ## 0.10.0 — 2026-10-24
 
 Highlights:
