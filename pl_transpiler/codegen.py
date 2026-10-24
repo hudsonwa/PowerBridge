@@ -43,7 +43,10 @@ from .codegen_util import (  # noqa: F401
     _runtime_bound_bare_names,
     mangle_user_names,
 )
-from .errors import UnimplementedKeywordError  # noqa: F401
+from .errors import (
+    GeneratedSource,
+    UnimplementedKeywordError,  # noqa: F401
+)
 from .semantic import _collect_declared, add_scratch_decls
 
 
@@ -51,6 +54,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
     def __init__(self, trace: bool = False, partial: bool = False,
                  persist: Optional[bool] = None) -> None:
         self.lines: list[str] = []
+        # EL source line of each entry of ``lines`` (None outside any statement);
+        # becomes the ``el_line_map`` of the generated source for runtime errors.
+        self._line_of: list[Optional[int]] = []
+        self._emit_line: Optional[int] = None
         self.indent = 1  # start inside function body
         self.has_once = False
         self.has_math = False
@@ -90,6 +97,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
 
     def emit(self, line: str) -> None:
         self.lines.append('    ' * self.indent + line)
+        self._line_of.append(self._emit_line)
 
     def gen_program(self, node: Node) -> str:
         """Generate the whole strategy module for program AST *node*."""
@@ -124,7 +132,22 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return_items.append("'_trace': _trace")
         footer = "\n    return {" + ", ".join(return_items) + "}\n"
         out = self._module_imports() + self._function_header() + body + footer
-        return self._apply_partial_banner(out)
+        return self._with_line_map(self._apply_partial_banner(out), len(body + footer))
+
+    def _with_line_map(self, out: str, tail: int) -> 'GeneratedSource':
+        """Tag ``out`` with its generated-line -> EL-line map; the body is the
+        last ``tail`` characters before the footer."""
+        lineno = out.count('\n', 0, len(out) - tail) + 1
+        line_map: dict[int, int] = {}
+        for text, el_line in zip(self.lines, self._line_of):
+            if el_line is not None:
+                for k in range(text.count('\n') + 1):
+                    line_map[lineno + k] = el_line
+            lineno += text.count('\n') + 1
+        src = GeneratedSource(out)
+        src.el_line_map = line_map
+        src.el_names = self._el_names
+        return src
 
     def _collect_declared_names(self, node: Node) -> None:
         """Fill ``_declared_all``: every declared name plus rescuable assigned locals."""
@@ -369,12 +392,12 @@ class CodeGen(_ExprMixin, _StmtMixin):
             # a crosses operand that calls Average((High + Low) / 2, 10) sees
             # this bar's value.
             for k, arg in self._arg_sites.values():
-                self._cur_stmt_line = arg.get('_line')
+                self._cur_stmt_line = self._emit_line = arg.get('_line')
                 self.emit(f"_state['__pb_a{k}'].append(f32({self.gen_expr(arg)}))")
             for k, arg in self._cross_sites.values():
-                self._cur_stmt_line = arg.get('_line')
+                self._cur_stmt_line = self._emit_line = arg.get('_line')
                 self.emit(f"_state['__pb_x{k}'].append(f32({self.gen_expr(arg)}))")
-            self._cur_stmt_line = None
+            self._cur_stmt_line = self._emit_line = None
 
     def _emit_header_comments(self, node: Node) -> Sequence[str]:
         """Clean mode: anchor source comments, emit the header; return the footer."""

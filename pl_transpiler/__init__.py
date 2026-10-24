@@ -31,6 +31,7 @@ _LAZY = {
     'parse': 'parser',
     'generate': 'codegen',
     'UnimplementedKeywordError': 'errors',
+    'ELRuntimeError': 'errors',
     'restore_spelling': 'errors',
     'unimplemented_message': 'errors',
     'run_el': 'tools.pl_run',
@@ -53,10 +54,12 @@ __all__ = [
     'load_config_file',
     'catalog',
     'UnimplementedKeywordError',
+    'ELRuntimeError',
 ]
 
 if _TYPE_CHECKING:
     from . import catalog as catalog
+    from .errors import ELRuntimeError as ELRuntimeError
     from .errors import UnimplementedKeywordError as UnimplementedKeywordError
     from .runtime.instrument_config import get_config as get_config
     from .runtime.instrument_config import load_config_file as load_config_file
