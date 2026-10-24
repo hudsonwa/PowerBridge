@@ -66,15 +66,11 @@ from pl_transpiler import transpile
 from pl_transpiler._types import Node
 
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
-# the package (pl_transpiler.engine), so the installed `pl_run` console script drives
+# the package (pl_transpiler.engine / engine_dates), so the installed `pl_run` console script drives
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
-from pl_transpiler.engine import (
-    FillEngine,
-    _parse_el_date,
-    _parse_el_time,
-    run_bar_loop,
-)
+from pl_transpiler.engine import FillEngine, run_bar_loop
+from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time
 from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.lookback import (

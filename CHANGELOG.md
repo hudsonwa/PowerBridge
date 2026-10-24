@@ -25,8 +25,18 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Added
+
+- `pl_transpile --dialect {runnable,mirror}` selects the output dialect with the
+  same names as `transpile(src, dialect=...)`. `--no-persist` keeps working as an
+  alias for `--dialect mirror`, and output for existing flags is unchanged.
+
 ### Changed
 
+- `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
+  `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
+  define them (`engine_dates`, `runtime.instrument_config`). These were never part
+  of the documented API.
 - The parser, code generator, fill engine, bar loop and CLIs are fully type-annotated, and mypy now runs with `check_untyped_defs` (plus `disallow_untyped_defs` for the annotated modules). No behaviour change: fills and digests are identical.
 
 ## 0.10.0 — 2026-10-24

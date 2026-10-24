@@ -15,12 +15,15 @@
 
 """pl_transpile.py — forward transpiler CLI (EL/PowerLanguage -> Python).
 
-    pl_transpile <in.txt> [-o out.py] [--trace] [--no-persist] [--partial]
+    pl_transpile <in.txt> [-o out.py] [--trace] [--dialect {runnable,mirror}]
+                 [--partial]
 
-The output is runnable by default: cross-bar state (Vars, lookback, Inputs)
-lives in a `_state` dict inside the caller's kwargs. --no-persist emits the
-clean mirror dialect (read back by el_emit / py_front), which is not runnable
-on its own. --persist is accepted as a no-op alias for the default.
+The output is runnable by default (--dialect runnable): cross-bar state (Vars,
+lookback, Inputs) lives in a `_state` dict inside the caller's kwargs.
+--dialect mirror emits the clean mirror dialect (read back by el_emit /
+py_front), which is not runnable on its own. The names match the library API,
+transpile(src, dialect=...). --no-persist is an alias for --dialect mirror and
+--persist for --dialect runnable. --trace always emits the runnable dialect.
 
 DEFAULT (strict) mode:
   * Valid source           -> exit 0, write Python (to -o, else stdout).
@@ -86,16 +89,22 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="write Python here (default: stdout).")
     ap.add_argument("--trace", action="store_true",
                     help="emit trace-mode Python (per-bar variable capture).")
-    ap.add_argument("--no-persist", dest="persist", action="store_false",
-                    help="emit the clean mirror dialect without cross-bar _state "
-                         "(input for el_emit; NOT runnable as a backtest). "
-                         "Default: runnable output that keeps _state.")
-    ap.add_argument("--persist", dest="persist", action="store_true",
-                    help="no-op alias for the default (kept for compatibility).")
+    ap.add_argument("--dialect", dest="dialect", choices=("runnable", "mirror"),
+                    help="output dialect, as in transpile(src, dialect=...): "
+                         "'runnable' (default) keeps cross-bar _state and runs "
+                         "as a backtest; 'mirror' is the clean dialect without "
+                         "_state (input for el_emit; NOT runnable as a "
+                         "backtest). --trace always emits 'runnable'.")
+    ap.add_argument("--no-persist", dest="dialect", action="store_const",
+                    const="mirror",
+                    help="alias for --dialect mirror.")
+    ap.add_argument("--persist", dest="dialect", action="store_const",
+                    const="runnable",
+                    help="alias for --dialect runnable (the default).")
     ap.add_argument("--partial", action="store_true",
                     help="opt-in partial mode: unimplemented constructs become "
                          "execution-time stubs under a NOT-FAITHFUL watermark.")
-    ap.set_defaults(persist=True)
+    ap.set_defaults(dialect="runnable")
     _cli.add_version(ap, "pl_transpile")
     return ap
 
@@ -114,7 +123,7 @@ def _main(args: argparse.Namespace) -> int:
     errors: list[dict[str, Any]] = []
     strict_out: Optional[str]
     try:
-        dialect = "mirror" if not (args.persist or args.trace) else "runnable"
+        dialect = "runnable" if args.trace else args.dialect
         strict_out = transpile(src, trace=args.trace, dialect=dialect)
     except UnimplementedKeywordError as e:
         errors = e.errors
@@ -126,7 +135,7 @@ def _main(args: argparse.Namespace) -> int:
             return 2
         out = cast(str, strict_out)  # set whenever no keyword errors were raised
     else:
-        dialect = "mirror" if not (args.persist or args.trace) else "runnable"
+        dialect = "runnable" if args.trace else args.dialect
         out = transpile(src, trace=args.trace, partial=True, dialect=dialect)
         if errors:
             _print_partial_manifest(args.in_file, errors)

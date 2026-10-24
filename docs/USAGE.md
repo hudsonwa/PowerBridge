@@ -125,8 +125,10 @@ with open("examples/NQ_sample_bars.csv") as f:
 
 These are raw signals: the first `LX` arrives while flat and fills nothing.
 For fills, positions and P&L use `pl_run` or `pl_oracle` below.
-`pl_transpile --no-persist` emits the clean mirror dialect for `el_emit`
-instead; that file is not runnable on its own.
+`pl_transpile --dialect mirror` emits the clean mirror dialect for `el_emit`
+instead; that file is not runnable on its own. The dialect names match the
+library call `transpile(src, dialect="runnable" | "mirror")`; the older
+`--no-persist` flag still works as an alias for `--dialect mirror`.
 
 **3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
 generated Python on your machine, so only run files you trust (transpiling
@@ -303,7 +305,7 @@ checked EasyLanguage:
 
 ```bash
 mkdir -p out
-pl_transpile examples/ma_cross.el --no-persist -o out/ma_mirror.py
+pl_transpile examples/ma_cross.el --dialect mirror -o out/ma_mirror.py
 ```
 
 ```
