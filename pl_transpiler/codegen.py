@@ -92,6 +92,42 @@ class CodeGen(_ExprMixin, _StmtMixin):
         self.lines.append('    ' * self.indent + line)
 
     def gen_program(self, node: Node) -> str:
+        """Generate the whole strategy module for program AST *node*."""
+        self._collect_declared_names(node)
+        self._classify_decls(node)
+        self._analyse_storage(node)
+        self._seed_partial_stubs(node)
+        self._emit_state_prologue(node)
+        _ftr = self._emit_header_comments(node)
+
+        # Emit the wrapper function body
+        for stmt in node['body']:
+            self.gen_stmt(stmt)
+
+        if not self.trace and not self.persist:
+            for txt in _ftr:
+                self._emit_comment(txt)
+
+        self._emit_state_epilogue()
+
+        # Collect-all fail-loud: if any unimplemented keyword was recorded during the
+        # walk, discard the emitted text and raise ONE complete report (no Python is
+        # ever returned when an unknown keyword exists — strict all-or-nothing).
+        # In partial mode (opt-in) we do NOT raise: each unknown was emitted as an
+        # execution-time stub and the output is watermarked below instead.
+        if self._unimpl_errors and not self._partial:
+            self._raise_unimplemented()
+
+        body = '\n'.join(self.lines)
+        return_items = ["'orders': _orders", "'plots': _plots", "'alerts': _alerts", "'risk': _risk"]
+        if self.trace:
+            return_items.append("'_trace': _trace")
+        footer = "\n    return {" + ", ".join(return_items) + "}\n"
+        out = self._module_imports() + self._function_header() + body + footer
+        return self._apply_partial_banner(out)
+
+    def _collect_declared_names(self, node: Node) -> None:
+        """Fill ``_declared_all``: every declared name plus rescuable assigned locals."""
         # Reset the collect-all diagnostics for this generate() (no cross-call leak).
         self._unimpl_errors = []
         # Collect EVERY declared name (Variables:/Inputs:/Arrays:/for-loop vars) at
@@ -133,6 +169,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
         _read: set[str] = set()
         self._collect_read_names(node, _read)
         self._declared_all |= self._rescuable_assign_locals(node, _assigned & _read)
+
+    def _classify_decls(self, node: Node) -> None:
+        """Record top-level Vars/Inputs/Arrays: traced, stateful, numeric, seeds."""
         # Collect user-declared var names first (before codegen body)
         for stmt in node['body']:
             if stmt['type'] == 'var_decl':
@@ -177,6 +216,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     if name:
                         self._trace_vars.add(name)
                         self._array_vars.add(name)
+
+    def _analyse_storage(self, node: Node) -> None:
+        """Find double-precision accumulators and vars that need a history list."""
         # Detect self-referential numeric accumulators: assignments of the form
         # `Var = ...Var...` (Var referenced on its own RHS, as ident or Var[n]).
         # EL/PowerLanguage numeric variables are DOUBLE precision; an unbounded
@@ -193,6 +235,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self.persist:
             self._collect_history_vars(node['body'])
 
+    def _seed_partial_stubs(self, node: Node) -> None:
+        """Partial persist mode: seed vars whose initializer is unimplemented with a stub."""
+        if not (self._partial and self.persist):
+            return
         # Partial mode: in partial persist/trace mode, a `Vars: x(<init containing an
         # unimplemented keyword>)` must make the RUN fail loud the moment x is
         # initialized — not silently start x at a literal default. Trace-mode
@@ -207,29 +253,30 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # UnimplementedKeywordError on the first bar (inside the first-bar seed).
         # Strict (non-partial) mode is untouched — it raises at transpile time
         # via _raise_unimplemented().
-        if self._partial and self.persist:
-            for stmt in node['body']:
-                if stmt.get('type') != 'var_decl':
+        for stmt in node['body']:
+            if stmt.get('type') != 'var_decl':
+                continue
+            for d in stmt.get('decls', []):
+                name = d.get('name')
+                init = d.get('init')
+                if (not name or not isinstance(init, dict)
+                        or d.get('data_ref') is not None):
                     continue
-                for d in stmt.get('decls', []):
-                    name = d.get('name')
-                    init = d.get('init')
-                    if (not name or not isinstance(init, dict)
-                            or d.get('data_ref') is not None):
-                        continue
-                    before = len(self._unimpl_errors)
-                    self.gen_expr(init)  # walk only — collect unimplemented keywords
-                    if len(self._unimpl_errors) > before:
-                        # Seed the var's state with an ARGLESS stub naming the first
-                        # unimplemented keyword found in the initializer (accurate
-                        # message, consistent with the watermark). A bare stub (not
-                        # the full init expression) guarantees the run raises
-                        # UnimplementedKeywordError — never some unrelated error from
-                        # evaluating the rest of the initializer.
-                        e = self._unimpl_errors[before]
-                        self._state_inits[name] = (
-                            f"pl_partial_stub({e['name']!r}, {e['line']!r})()")
+                before = len(self._unimpl_errors)
+                self.gen_expr(init)  # walk only — collect unimplemented keywords
+                if len(self._unimpl_errors) > before:
+                    # Seed the var's state with an ARGLESS stub naming the first
+                    # unimplemented keyword found in the initializer (accurate
+                    # message, consistent with the watermark). A bare stub (not
+                    # the full init expression) guarantees the run raises
+                    # UnimplementedKeywordError — never some unrelated error from
+                    # evaluating the rest of the initializer.
+                    e = self._unimpl_errors[before]
+                    self._state_inits[name] = (
+                        f"pl_partial_stub({e['name']!r}, {e['line']!r})()")
 
+    def _emit_state_prologue(self, node: Node) -> None:
+        """Persist/trace: emit the first-bar `_state` seed and per-bar unpack."""
         # Emit state initialization (persist/trace mode).
         # The clean mirror dialect (trace=False, persist=False) must NOT emit
         # `_state` — py_front reads that dialect back. persist=True is the
@@ -328,6 +375,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 self._cur_stmt_line = arg.get('_line')
                 self.emit(f"_state['__pb_x{k}'].append(f32({self.gen_expr(arg)}))")
             self._cur_stmt_line = None
+
+    def _emit_header_comments(self, node: Node) -> Sequence[str]:
+        """Clean mode: anchor source comments, emit the header; return the footer."""
         # Comments: in clean (trace=False, persist=False) mode, carry the source EL
         # comments through as `#| <verbatim>` lines, anchored (by object identity)
         # to the same statements the reverse emitter uses. Trace and persist-only
@@ -342,15 +392,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
             self._cmt_lead, self._cmt_trail = _lead, _trail
             for txt in _hdr:
                 self._emit_comment(txt)
+        return _ftr
 
-        # Emit the wrapper function body
-        for stmt in node['body']:
-            self.gen_stmt(stmt)
-
-        if not self.trace and not self.persist:
-            for txt in _ftr:
-                self._emit_comment(txt)
-
+    def _emit_state_epilogue(self) -> None:
+        """Persist/trace: write this bar's values back into `_state` / `_trace`."""
         # Persist: write this bar's values into `_state`. Unindexed vars pack
         # into `__pb_slots` (one slice-assign, reuse the same list). Lookback /
         # series-arg vars keep a growing named list. Trace: also snapshot every
@@ -372,15 +417,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
             for name in sorted(self._trace_vars, key=self._el_name):
                 self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
-        # Collect-all fail-loud: if any unimplemented keyword was recorded during the
-        # walk, discard the emitted text and raise ONE complete report (no Python is
-        # ever returned when an unknown keyword exists — strict all-or-nothing).
-        # In partial mode (opt-in) we do NOT raise: each unknown was emitted as an
-        # execution-time stub and the output is watermarked below instead.
-        if self._unimpl_errors and not self._partial:
-            self._raise_unimplemented()
-
-        # Build output
+    def _function_header(self) -> str:
+        """The `def strategy(...)` signature and per-bar prologue text."""
         # Persist/trace run inside run_bar_loop. Passing the engine's kwargs
         # dict by reference (8th positional) avoids a 40-key **unpack copy
         # every bar. The `kwargs=None, **_kw` fallback keeps direct callers
@@ -444,13 +482,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 "    _close = f32(close[-1])\n"
                 "    _volume = f32(volume[-1])\n"
             )
+        return header
 
-        body = '\n'.join(self.lines)
-        return_items = ["'orders': _orders", "'plots': _plots", "'alerts': _alerts", "'risk': _risk"]
-        if self.trace:
-            return_items.append("'_trace': _trace")
-        footer = "\n    return {" + ", ".join(return_items) + "}\n"
-
+    def _module_imports(self) -> str:
+        """The module-level import lines the generated body needs."""
         imports = ''
         if self.has_math:
             imports = 'import math\n'
@@ -467,9 +502,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self._series_state:
             imports += 'from pl_transpiler.runtime._rt_history import SeriesState as _PbSeriesState\n'
         imports += '__builtin_len = len\n'
+        return imports
 
-        out = imports + header + body + footer
-
+    def _apply_partial_banner(self, out: str) -> str:
+        """Partial mode: prefix the watermark (or the 0-stub acknowledgement)."""
         if self._partial:
             errors = self._sorted_unimpl()
             if errors:
