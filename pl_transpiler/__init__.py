@@ -20,6 +20,7 @@ __version__ = "0.9.0"
 from pkgutil import extend_path as _extend_path
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 from typing import Any as _Any
+from typing import cast as _cast
 
 __path__ = _extend_path(__path__, __name__)
 
@@ -120,4 +121,4 @@ def transpile(pl_source: str, trace: bool = False, partial: bool = False,
         restore_spelling(exc.errors, pl_source)
         raise UnimplementedKeywordError(unimplemented_message(exc.errors),
                                         errors=exc.errors) from None
-    return out
+    return _cast(str, out)

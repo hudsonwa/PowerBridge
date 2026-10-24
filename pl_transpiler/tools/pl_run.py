@@ -56,6 +56,7 @@ from typing import (
     Callable,
     Optional,
     Union,
+    cast,
 )
 
 if TYPE_CHECKING:
@@ -544,7 +545,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                 trace_columns=trace_columns,
                 row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows)
             if out is not None:
-                return out
+                return cast("dict[str, Any]", out)
         else:
             fallback_reason = reason
     reset_indicator_caches()
@@ -829,7 +830,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.lenient:
         set_strict_mode(False)
     try:
-        return _cli.run("pl_run", _main, ap, args)
+        return cast(int, _cli.run("pl_run", _main, ap, args))
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_run", exc, args.el_file), file=sys.stderr)
         return 2

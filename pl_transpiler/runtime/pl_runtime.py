@@ -33,10 +33,12 @@ from ._rt_session import *  # noqa: F401,F403
 from ._rt_color import *  # noqa: F401,F403
 from ._rt_platform_stubs import *  # noqa: F401,F403
 
+import os as _os  # noqa: F401  (same module object _rt_core uses)
+
 # Private helpers and state that tests, builtins and tools reach through here.
 from ._rt_core import (  # noqa: F401
     _CFloat, _PL_STRICT, _UNIMPL_CALLS, _UNIMPL_COSMETIC,
-    _UNIMPL_COSMETIC_PREFIXES, _UNIMPL_STR_RETURNING, _UNIMPL_WHITELIST, _os,
+    _UNIMPL_COSMETIC_PREFIXES, _UNIMPL_STR_RETURNING, _UNIMPL_WHITELIST,
     _unimplemented, _strict_from_env,
 )
 from ._rt_indicators import (  # noqa: F401

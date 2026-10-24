@@ -18,6 +18,7 @@ import hashlib
 import struct
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 MAGIC = b"AUEVT1\0\0"
 VERSION = 1
@@ -133,7 +134,7 @@ def datetime_from_el(el_date: int, el_time: int) -> datetime:
     )
 
 
-def parse_header(packet: bytes) -> dict:
+def parse_header(packet: bytes) -> dict[str, Any]:
     if len(packet) < HEADER_SIZE:
         raise ValueError(f"audit-event-v1 packet shorter than header ({len(packet)})")
     header = packet[:HEADER_SIZE]
@@ -187,7 +188,7 @@ def parse_header(packet: bytes) -> dict:
     }
 
 
-def parse_transitions(packet: bytes, header: dict) -> list[dict]:
+def parse_transitions(packet: bytes, header: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
     offset = HEADER_SIZE
     for _ in range(header["transition_count"]):
@@ -212,7 +213,7 @@ def parse_transitions(packet: bytes, header: dict) -> list[dict]:
     return out
 
 
-def parse_trades(packet: bytes, header: dict) -> list[dict]:
+def parse_trades(packet: bytes, header: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
     offset = HEADER_SIZE + header["transition_count"] * TRANSITION_SIZE
     for _ in range(header["trade_count"]):
@@ -264,7 +265,7 @@ def parse_trades(packet: bytes, header: dict) -> list[dict]:
     return out
 
 
-def decode(packet: bytes) -> dict:
+def decode(packet: bytes) -> dict[str, Any]:
     header = parse_header(packet)
     records = packet[HEADER_SIZE:]
     digest = hashlib.sha256(records).hexdigest()
@@ -277,7 +278,7 @@ def decode(packet: bytes) -> dict:
     }
 
 
-def require_trade_fields(row: dict) -> None:
+def require_trade_fields(row: dict[str, Any]) -> None:
     missing = [name for name in TRADE_CSV_FIELDS if name not in row]
     if missing:
         raise ValueError(
@@ -286,7 +287,7 @@ def require_trade_fields(row: dict) -> None:
         )
 
 
-def report_trades(decoded: dict) -> tuple[list[dict], dict]:
+def report_trades(decoded: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Trades + trace_meta for the NQ report build. Raises on open contracts."""
     header = decoded["header"]
     remaining = header["remaining_open"]
@@ -310,7 +311,7 @@ def report_trades(decoded: dict) -> tuple[list[dict], dict]:
     return trades, trace_meta
 
 
-def write_trades_csv(path: Path, trades: list[dict]) -> None:
+def write_trades_csv(path: Path, trades: list[dict[str, Any]]) -> None:
     headers = [
         "Position",
         "Symbol",
@@ -348,7 +349,7 @@ def write_trades_csv(path: Path, trades: list[dict]) -> None:
             )
 
 
-def write_equity_csv(path: Path, trades: list[dict]) -> None:
+def write_equity_csv(path: Path, trades: list[dict[str, Any]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(

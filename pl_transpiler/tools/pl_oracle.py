@@ -68,7 +68,7 @@ import hashlib
 import os
 import sys
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -463,7 +463,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     tick=drawing_meta[3],
                     producer_kind="pb-native",
                 )
-            return native_digest
+            return cast("dict[str, Any]", native_digest)
 
     if from_date is not None and from_bar is not None:
         raise ValueError("from_date and from_bar are mutually exclusive")
@@ -682,7 +682,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.lenient:
         set_strict_mode(False)
     try:
-        return _cli.run("pl_oracle", _main, ap, args)
+        return cast(int, _cli.run("pl_oracle", _main, ap, args))
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_oracle", exc, args.el_file), file=sys.stderr)
         return 2

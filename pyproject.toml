@@ -90,13 +90,19 @@ packages = ["pl_transpiler", "pl_transpiler.runtime", "pl_transpiler.tools", "pl
 files = ["pl_transpiler"]
 follow_imports = "normal"
 warn_unused_ignores = true
-# Stricter checks that pass cleanly across the whole package (no per-module
-# exceptions). Not yet enabled because they need real typing work first:
-# warn_return_any, check_untyped_defs, disallow_any_generics, no_implicit_reexport.
+# Stricter checks that pass across the whole package (no per-module
+# exceptions). Not yet enabled because it needs real typing work first:
+# check_untyped_defs.
 warn_redundant_casts = true
 warn_unreachable = true
 strict_equality = true
 extra_checks = true
+warn_return_any = true
+no_implicit_reexport = true
+# Three classes subclass a bare builtin/ABC (SeriesHistory(list), SeriesState(dict),
+# BarTape(Sequence)) and carry a narrow `type: ignore[type-arg]`: parameterising
+# the base would change the runtime class bases.
+disallow_any_generics = true
 
 [[tool.mypy.overrides]]
 # Optional compiled extension; absent unless built with tools/build_accel.sh.

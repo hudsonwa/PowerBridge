@@ -67,7 +67,7 @@ def _require_native_sizes():
         )
 
 
-class BarTape(Sequence):
+class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stays the plain ABC
     """Column-contiguous OHLCV tape.
 
     Indexing with an int yields a dict with the same keys/types as
@@ -239,7 +239,7 @@ def write_pbar(path, bars):
     return n
 
 
-def load_pbar(path):
+def load_pbar(path) -> BarTape:
     """Memory-map a ``.pbar`` into a BarTape (zero-copy columns).
 
     The returned tape holds the ``mmap`` object; keep it alive while using

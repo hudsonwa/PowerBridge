@@ -25,6 +25,7 @@ import hashlib
 import json
 import re
 import struct
+from typing import Any
 
 SCHEMA = "powerbridge-drawing-dump"
 VERSION = 1
@@ -58,7 +59,7 @@ def _num(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _need(obj: dict, keys: set, where: str) -> None:
+def _need(obj: dict[str, Any], keys: set[str], where: str) -> None:
     missing = sorted(keys - set(obj))
     if missing:
         raise DumpError(f"missing {missing[0]} at {where}")
@@ -102,7 +103,7 @@ def _barkey(key, where: str, price: bool = False, tick: float = 0.25) -> None:
                 f"price_ticks must equal round(price/tick) at {where}.price_ticks")
 
 
-def _check_off_tape(dump: dict) -> None:
+def _check_off_tape(dump: dict[str, Any]) -> None:
     """Reject a null-``bn`` anchor whose (date, time) is a known tape bar.
 
     The dump does not list every bar, so the known bars are the tape's first
@@ -131,7 +132,7 @@ def _check_off_tape(dump: dict) -> None:
                 f"tape bar at {where}.bn")
 
 
-def validate(dump: dict) -> dict:
+def validate(dump: dict[str, Any]) -> dict[str, Any]:
     """Return ``dump`` if it is a v1 drawing dump; otherwise raise."""
     if not isinstance(dump, dict):
         raise DumpError("dump is not an object")
@@ -220,7 +221,7 @@ def argb(color: int) -> str:
     return f"#FF{red:02X}{green:02X}{blue:02X}"
 
 
-def canonical(dump: dict) -> bytes:
+def canonical(dump: dict[str, Any]) -> bytes:
     """Canonical UTF-8 bytes of a validated dump."""
     return (
         json.dumps(dump, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -228,12 +229,12 @@ def canonical(dump: dict) -> bytes:
     ).encode("utf-8")
 
 
-def sha256(dump: dict) -> str:
+def sha256(dump: dict[str, Any]) -> str:
     return hashlib.sha256(canonical(dump)).hexdigest()
 
 
-def blank_object(type_: str, seq: int) -> dict:
-    obj: dict = {key: None for key in OBJ_KEYS}
+def blank_object(type_: str, seq: int) -> dict[str, Any]:
+    obj: dict[str, Any] = {key: None for key in OBJ_KEYS}
     obj["type"] = type_
     obj["seq"] = seq
     obj["anchors"] = []
@@ -241,7 +242,7 @@ def blank_object(type_: str, seq: int) -> dict:
 
 
 def barkey(bn: int | None, date: int, time: int, price: float | None = None,
-           tick: float = 0.25) -> dict:
+           tick: float = 0.25) -> dict[str, Any]:
     """One bar key. ``time_s`` is ``time`` as HHMMSS (seconds 0).
 
     ``bn`` is None for an anchor that is not a bar on the tape.
@@ -258,8 +259,8 @@ def barkey(bn: int | None, date: int, time: int, price: float | None = None,
     return key
 
 
-def build_dump(objects: list, *, case_id: str, tape_name: str, tape_sha256: str,
-               n_bars: int, first, last, tick: float, producer_kind: str) -> dict:
+def build_dump(objects: list[dict[str, Any]], *, case_id: str, tape_name: str, tape_sha256: str,
+               n_bars: int, first, last, tick: float, producer_kind: str) -> dict[str, Any]:
     """Validate and return a v1 dump for ``objects`` in creation order.
 
     ``objects`` are recorder dicts (``blank_object`` shape, ``seq`` ignored).

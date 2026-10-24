@@ -16,6 +16,8 @@
 
 Re-exported by pl_runtime; see that module."""
 
+from typing import Any as _Any
+
 from ._rt_core import f32
 
 
@@ -165,7 +167,7 @@ def pl_true_range(high, low, prev_close):
 # only. This reproduces the EXACT same float op sequence — just without redoing the
 # prefix. CRITICAL: reset between runs (run_gt calls reset_indicator_caches()),
 # because verify_all reuses the process and a GC'd list's id() can be recycled.
-_ind_cache: dict = {}
+_ind_cache: dict[_Any, _Any] = {}
 
 
 def reset_indicator_caches():
@@ -678,12 +680,12 @@ def _find_first_valid(series):
     return len(series)
 
 
+from ._rt_trend import _adx_engine as _adx_engine  # noqa: E402
+from ._rt_trend import _calc_dmi as _calc_dmi  # noqa: E402
+from ._rt_trend import _compute_adx_series as _compute_adx_series  # noqa: E402
+from ._rt_trend import _tr_rma as _tr_rma  # noqa: E402
+from ._rt_trend import _true_range_for_adx as _true_range_for_adx  # noqa: E402
 from ._rt_trend import (  # noqa: E402,F401  (re-export)
-    _adx_engine,
-    _calc_dmi,
-    _compute_adx_series,
-    _tr_rma,
-    _true_range_for_adx,
     pl_adx,
     pl_adxr,
     pl_bollinger_band,

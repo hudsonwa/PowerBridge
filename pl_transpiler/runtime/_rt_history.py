@@ -112,7 +112,7 @@ class SeriesView:
         return repr(self.tolist())
 
 
-class SeriesHistory(list):
+class SeriesHistory(list):  # type: ignore[type-arg]  # holds any series value; base stays the plain builtin
     """Append-only history list whose ``+ [x]`` is an O(1) ``SeriesView``."""
 
     __slots__ = ()
@@ -123,7 +123,7 @@ class SeriesHistory(list):
         return list.__add__(self, other)
 
 
-class SeriesState(dict):
+class SeriesState(dict):  # type: ignore[type-arg]  # holds any state value; base stays the plain builtin
     """The bar loop's ``_state``: stores each list seeded before
     ``__pb_seeded`` is set (the lookback histories) as a ``SeriesHistory``.
     Internal ``__pb_*`` keys and later stores (arrays) are kept as given."""
