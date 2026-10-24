@@ -33,18 +33,14 @@ sys.path.insert(0, REPO)
 
 from pl_transpiler import transpile
 
-# The bar-by-bar engine (FillEngine + run_bar_loop) and the EL date/time parsers
-# live in the SHIPPED package (pl_transpiler.engine) so the installed pl_run
+# The bar-by-bar engine (FillEngine + run_bar_loop, pl_transpiler.engine) and the
+# EL date/time parsers (pl_transpiler.engine_dates) live in the SHIPPED package so the installed pl_run
 # console script works from a bare wheel. They are re-imported here as a single
 # source (zero duplication); run_gt's public surface -- run_gt.FillEngine,
 # run_gt.run_bar_loop, run_gt._parse_el_date, ... -- is unchanged, so every
 # existing caller and monkeypatcher keeps resolving them off this module.
-from pl_transpiler.engine import (  # noqa: E402  (re-export, not shadowing)
-    FillEngine,
-    _parse_el_date,
-    _parse_el_time,
-    run_bar_loop,
-)
+from pl_transpiler.engine import FillEngine, run_bar_loop  # noqa: E402
+from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config
 from pl_transpiler.runtime.pl_runtime import reset_indicator_caches
 

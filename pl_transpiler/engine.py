@@ -15,33 +15,19 @@
 
 """engine.py -- shared bar-by-bar execution engine.
 
-The stateful order/fill engine (:class:`FillEngine`), plus re-exports of the
-per-bar execution core (:func:`run_bar_loop`, in ``bar_loop``) and the EL
-date/time parsers (in ``engine_dates``), extracted from
-tests/run_gt.py so the SHIPPED package is self-contained. The installed ``pl_run``
-console script (pl_transpiler.tools.pl_run) drives this engine directly from a
-bare wheel, with no dependency on the private tests/ harness.
-
-tests/run_gt.py re-imports these names (run_gt.FillEngine,
-run_gt.run_bar_loop, run_gt._parse_el_date, ...), so this module is the single
-definition of them.
+Defines the stateful order/fill engine (:class:`FillEngine`) and exposes the
+per-bar execution core (:func:`run_bar_loop`, defined in ``bar_loop``) next to
+it: ``run_bar_loop`` steps a transpiled strategy function over the bars and
+hands its orders to a ``FillEngine``. The installed ``pl_run`` and
+``pl_oracle`` console scripts use this module directly.
 """
 from collections.abc import Iterable
 from typing import Any, Optional
 
 from pl_transpiler._engine_report import _ReportMixin
 from pl_transpiler._engine_stops import _StopsMixin
-from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
-    _el_date_to_day_of_week,
-    _el_to_ole,
-)
-from pl_transpiler.engine_dates import _parse_el_date as _parse_el_date
-from pl_transpiler.engine_dates import _parse_el_time as _parse_el_time
 from pl_transpiler.runtime import _rt_core
-from pl_transpiler.runtime.instrument_config import (
-    NQ,  # noqa: F401  (re-export)
-    InstrumentConfig,
-)
+from pl_transpiler.runtime.instrument_config import InstrumentConfig
 from pl_transpiler.runtime.pl_runtime import f32
 
 
@@ -809,10 +795,4 @@ class FillEngine(_StopsMixin, _ReportMixin):
             self.open_position_profit = diff * self.market_position * self.point_value * self.contracts
 
 
-from pl_transpiler.bar_loop import (  # noqa: E402,F401  (re-export)
-    _DAILY_OHLC_KEYS,
-    _PERF_KWARGS,
-    _POS_KWARGS,
-    _code_has_const,
-)
 from pl_transpiler.bar_loop import run_bar_loop as run_bar_loop  # noqa: E402
