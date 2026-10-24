@@ -100,6 +100,9 @@ packages = ["pl_transpiler", "pl_transpiler.runtime", "pl_transpiler.tools", "pl
 [tool.mypy]
 # Type-checks the whole pl_transpiler package (CI job "mypy").
 files = ["pl_transpiler"]
+# Bundled example files (byte-identical copies of examples/) are user strategy
+# code that runs under the strategy runtime, not package modules.
+exclude = ["^pl_transpiler/_examples/"]
 follow_imports = "normal"
 warn_unused_ignores = true
 # Stricter checks that pass across the whole package (no per-module
