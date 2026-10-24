@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a new builtin, flag or improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you would like PowerBridge to do. For a missing builtin, name it and link its EasyLanguage documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: An EasyLanguage snippet or command that would use the feature (optional).
+      render: text
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workaround you use now (optional).

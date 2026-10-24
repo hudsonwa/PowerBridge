@@ -1,0 +1,56 @@
+name: Bug report
+description: A crash, a wrong result, or fills that differ from what you expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A small EasyLanguage snippet and the exact command
+        usually let us reproduce the problem straight away. Please only share
+        synthetic or public data; do not attach licensed market data.
+  - type: input
+    id: version
+    attributes:
+      label: PowerBridge version
+      description: Output of `pl_oracle --version`.
+      placeholder: pl_oracle 0.x.y
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and OS
+      description: For example `Python 3.12.4, Ubuntu 24.04` or `Python 3.11, Windows 11`.
+    validations:
+      required: true
+  - type: textarea
+    id: el
+    attributes:
+      label: EasyLanguage snippet
+      description: The smallest strategy that shows the problem.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran, and a few rows of the bar data if it matters.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What you expected, e.g. the MultiCharts fills or output.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead. Paste the full error or output.
+      render: text
+    validations:
+      required: true
