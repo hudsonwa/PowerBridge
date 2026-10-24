@@ -98,10 +98,11 @@ def _build_parser() -> argparse.ArgumentParser:
     ap.add_argument("el_file", help="EL/PowerLanguage source file.")
     ap.add_argument("bars_csv", nargs="?", default=None,
                     help="plain OHLCV CSV (date,time,open,high,low,close,volume) "
-                         "or a .pbar produced by csv_to_pbar.")
+                         "or a .pbar made by "
+                         "python -m pl_transpiler.runtime.bar_tape csv2pbar.")
     ap.add_argument("--config", default="NQ",
                     help="instrument config: a built-in name (NQ, ES) or a path to a "
-                         "JSON file with the same fields, e.g. examples/configs/ES.json "
+                         "JSON file with the same fields as a built-in config "
                          "(default: NQ).")
     window = ap.add_mutually_exclusive_group()
     window.add_argument("--from-date", dest="from_date", default=None, type=int,

@@ -25,6 +25,16 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Fixed
+
+- Mirror-dialect output (`pl_transpile --dialect mirror`) no longer reads `_state` when a Variable is passed to `CrossesAbove` / `CrossesBelow` or another series function; it passes the bare variable, as the docs say. `el_emit` gives the same EasyLanguage as before, and runnable output is unchanged (#242).
+- `pl_run` / `pl_oracle --help` no longer point at `examples/configs/ES.json` or `csv_to_pbar`, which a wheel install does not have (#242).
+- docs/API.md shows the full `run_el` / `run_oracle` signatures (`drawings`, `drawing_case_id`, `drawing_tape`, `use_native`), says why `seed_warmup` defaults to `True` in `run_el` and `False` in `run_oracle`, and a test now fails when a documented signature drifts from the code. USAGE.md and PYTHON_STRATEGIES.md use `--dialect mirror` and drop the redundant `--max-bars-back auto` (#242).
+
+### Changed
+
+- `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
+
 ## 0.11.0 — 2026-10-24
 
 Highlights:

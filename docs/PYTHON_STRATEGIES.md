@@ -1,7 +1,7 @@
 # Writing a strategy in Python
 
 `el_emit` turns Python into EasyLanguage, but only Python written in the
-**mirror dialect**: the small, fixed shape that `pl_transpile --no-persist`
+**mirror dialect**: the small, fixed shape that `pl_transpile --dialect mirror`
 itself produces. It is not general Python. Anything outside the dialect is
 rejected with an error; nothing is guessed. This page teaches the dialect from
 scratch. [LLM_DIALECT.md](LLM_DIALECT.md) lists every accepted construct.
@@ -75,7 +75,7 @@ Built-in indicators are `pl_*` helpers that take the series and a length,
 for example `pl_average(close, 20)` → `average(close, 20)` and
 `pl_highest(high, 5)` → `highest(high, 5)`. (The optional Rust kernel does
 not run every helper yet; `Highest`, for one, falls back to the Python engine
-with a stderr note.) Run `pl_transpile --no-persist`
+with a stderr note.) Run `pl_transpile --dialect mirror`
 on a line of EasyLanguage to see the helper name for any builtin.
 
 **Warm-up.** MultiCharts skips its MaxBarsBack bars before evaluating a
@@ -136,7 +136,7 @@ skips the first 20 (stderr says `max-bars-back 20 (auto)`). With `--max-bars-bac
 `9f11e024f4832be65e4c22641085e47c7ec731357162a801a885de95663f61aa` and stderr
 shows one `warning: lookback past available history` line. The digest is the same on the Rust and Python
 paths, and the emitted EasyLanguage survives a round trip:
-`pl_transpile --no-persist` on it and `el_emit` again gives the same
+`pl_transpile --dialect mirror` on it and `el_emit` again gives the same
 statements (blank lines are not kept).
 
 ## What el_emit rejects

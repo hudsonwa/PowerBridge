@@ -129,10 +129,10 @@ with open("examples/NQ_sample_bars.csv") as f:
 
 These are raw signals: the first `LX` arrives while flat and fills nothing.
 For fills, positions and P&L use `pl_run` or `pl_oracle` below.
-`pl_transpile --no-persist` emits the clean mirror dialect for `el_emit`
-instead; that file is not runnable on its own. `pl_transpile --dialect
-mirror` does the same, with the dialect names of the library call
-`transpile(src, dialect="runnable" | "mirror")`.
+`pl_transpile --dialect mirror` emits the clean mirror dialect for `el_emit`
+instead; that file is not runnable on its own. The dialect names match the
+library call `transpile(src, dialect="runnable" | "mirror")`; `--no-persist`
+is an older alias for `--dialect mirror`.
 
 **3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
 generated Python on your machine, so only run files you trust (transpiling
@@ -265,7 +265,7 @@ If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
 It buys a 10-bar breakout when flat and sells five bars later:
 
 ```bash
-pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv
 ```
 
 ```
@@ -276,7 +276,7 @@ sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
 ```
 
 ```bash
-pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto -o out/breakout_trace.csv
+pl_run out/breakout.el examples/NQ_sample_bars.csv -o out/breakout_trace.csv
 ```
 
 ```
@@ -288,9 +288,9 @@ A round turn is an exit fill, so a strategy that only adds entries reports
 add another contract: same-direction entries pyramid by default
 (`--max-entries-per-direction 1` caps them).
 
-`--max-bars-back auto` skips the bars the strategy needs before its first
-signal: the longest lookback it reads, here 11 for `Highest(High, 10)[1]`
-(without it the run gives 8 fills, not 6). The status line shows the value it
+By default (`--max-bars-back auto`) the run skips the bars the strategy
+needs before its first signal: the longest lookback it reads, here 11 for
+`Highest(High, 10)[1]` (with `--max-bars-back 0` the run gives 8 fills, not 6). The status line shows the value it
 chose; pass a number instead to match your chart
 ([details](#warm-up-and-maxbarsback)). Use `--config ES` or
 `--config my_instrument.json` for an instrument other than NQ
@@ -317,7 +317,7 @@ checked EasyLanguage:
 
 ```bash
 mkdir -p out
-pl_transpile examples/ma_cross.el --no-persist -o out/ma_mirror.py
+pl_transpile examples/ma_cross.el --dialect mirror -o out/ma_mirror.py
 ```
 
 ```

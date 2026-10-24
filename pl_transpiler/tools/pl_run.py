@@ -36,6 +36,7 @@ from pl_transpiler.lookback import note_warmup
 from pl_transpiler.run import (
     Bars,
     UnknownTraceColumnError,
+    _run_el,
     csv_to_pbar,
     display_row_sink,
     format_trace_cell,
@@ -85,11 +86,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # 'need a bars CSV' error instead of an argparse usage error.
     ap.add_argument("bars_csv", nargs="?", default=None,
                     help="plain OHLCV CSV (date,time,open,high,low,close,volume) "
-                         "or a .pbar produced by csv_to_pbar / "
+                         "or a .pbar made by "
                          "python -m pl_transpiler.runtime.bar_tape csv2pbar.")
     ap.add_argument("--config", default="NQ",
                     help="instrument config: a built-in name (NQ, ES) or a path to a "
-                         "JSON file with the same fields, e.g. examples/configs/ES.json "
+                         "JSON file with the same fields as a built-in config "
                          "(default: NQ).")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write predicted per-bar CSV here (default: stdout).")
@@ -201,29 +202,29 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     # default still retains.
     if columns is not None:
         try:
-            result = run_el(el_source, bars, config, trace_columns=columns,
-                            partial=args.partial, header_sink=header_sink,
-                            row_sink=row_sink,
-                            from_date=args.from_date, from_bar=args.from_bar,
-                            seed_warmup=not args.slice_tape,
-                            max_bars_back=args.max_bars_back,
-                            max_entries_per_direction=args.max_entries_per_direction,
-                            use_native=use_native, _python_path_notify=notify)
+            result = _run_el(el_source, bars, config, trace_columns=columns,
+                             partial=args.partial, header_sink=header_sink,
+                             row_sink=row_sink,
+                             from_date=args.from_date, from_bar=args.from_bar,
+                             seed_warmup=not args.slice_tape,
+                             max_bars_back=args.max_bars_back,
+                             max_entries_per_direction=args.max_entries_per_direction,
+                             use_native=use_native, python_path_notify=notify)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
             print(f"pl_run: error: {exc}", file=sys.stderr)
             return 2
     else:
-        result = run_el(el_source, bars, config, trace_columns=None,
-                        partial=args.partial,
-                        header_sink=header_sink,
-                        row_sink=row_sink,
-                        from_date=args.from_date, from_bar=args.from_bar,
-                        seed_warmup=not args.slice_tape,
-                        max_bars_back=args.max_bars_back,
-                        max_entries_per_direction=args.max_entries_per_direction,
-                        use_native=use_native, _python_path_notify=notify)
+        result = _run_el(el_source, bars, config, trace_columns=None,
+                         partial=args.partial,
+                         header_sink=header_sink,
+                         row_sink=row_sink,
+                         from_date=args.from_date, from_bar=args.from_bar,
+                         seed_warmup=not args.slice_tape,
+                         max_bars_back=args.max_bars_back,
+                         max_entries_per_direction=args.max_entries_per_direction,
+                         use_native=use_native, python_path_notify=notify)
     if out_path:
         out_f.close()
 
