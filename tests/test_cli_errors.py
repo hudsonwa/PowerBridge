@@ -193,6 +193,39 @@ def test_pl_transpile_undeclared_variable(tmp_path):
     assert "unimplemented EL keyword 'mytotal'" not in proc.stderr
 
 
+MULTI_EL = "x = Foo(3);\n"
+MULTI_MSG = ("cannot transpile: 2 errors: unimplemented EL keyword 'foo' at line 1; "
+             "undeclared variable 'x' at line 1 (declare it under Vars:)")
+
+
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle", "pl_transpile"])
+def test_multi_error_items_self_describing(tool, tmp_path):
+    el = tmp_path / "m.el"
+    el.write_text(MULTI_EL)
+    args = (str(el),) if tool == "pl_transpile" else (str(el), BARS)
+    proc = _run(tool, *args)
+    assert proc.returncode == 2, proc.stderr
+    assert "Traceback" not in proc.stderr
+    if tool == "pl_transpile":  # multi-line report: one item per line
+        assert "\n  unimplemented EL keyword 'foo' at line 1\n" in proc.stderr, proc.stderr
+        assert "\n  undeclared variable 'x' at line 1 (declare it under Vars:)\n" in proc.stderr
+    else:
+        assert MULTI_MSG in proc.stderr, proc.stderr
+
+
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle", "pl_transpile"])
+def test_single_unimplemented_keyword_readme_wording(tool, tmp_path):
+    el = tmp_path / "s.el"
+    el.write_text("Vars: X(0);\nX = Foo(3);\n")
+    args = (str(el),) if tool == "pl_transpile" else (str(el), BARS)
+    proc = _run(tool, *args)
+    assert proc.returncode == 2, proc.stderr
+    if tool == "pl_transpile":  # header names the kind; items follow
+        assert ": 1 unimplemented EL keyword(s):\n  'foo' at line 2\n" in proc.stderr, proc.stderr
+    else:
+        assert "error: unimplemented EL keyword 'foo' at line 2" in proc.stderr, proc.stderr
+
+
 @pytest.mark.parametrize("src,needle", [
     ("A = sum(close[-20:])\n", "at line 1"),
     ("def strategy(:\n    pass\n", "not valid Python"),

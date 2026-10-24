@@ -44,6 +44,14 @@ def format_error_lines(errors):
     return [_describe(e) for e in errors]
 
 
+def format_labelled_error_lines(errors):
+    """Like :func:`format_error_lines`, but each unimplemented keyword is
+    labelled ``"unimplemented EL keyword '<name>' at line <L>"`` so every item
+    of a mixed-kind error report says what is wrong on its own."""
+    return [_describe(e) if e.get('kind') else "unimplemented EL keyword " + _describe(e)
+            for e in errors]
+
+
 def _describe(e):
     line = e.get('line')
     where = f" at line {line}" if line else ""
@@ -70,7 +78,7 @@ def unimplemented_message(errors):
         return f"unimplemented EL keyword '{e['name']}'{where}"
     if any(e.get('kind') in ('undeclared', 'arity', 'unsupported') for e in errors):
         return (f"cannot transpile: {len(errors)} errors: "
-                + "; ".join(_describe(e) for e in errors))
+                + "; ".join(format_labelled_error_lines(errors)))
     return (f"cannot transpile: {len(errors)} unimplemented keywords: "
             + "; ".join(_describe(e) for e in errors))
 

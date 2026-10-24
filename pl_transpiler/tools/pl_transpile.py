@@ -40,18 +40,22 @@ import argparse
 import sys
 
 from pl_transpiler import transpile
-from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
+from pl_transpiler.errors import (
+    UnimplementedKeywordError,
+    format_error_lines,
+    format_labelled_error_lines,
+)
 from pl_transpiler.tools import _cli
 
 
 def _print_strict_report(in_path, errors):
     """Complete report to stderr: every unimplemented keyword, name + line."""
     n = len(errors)
-    what = ("error(s)" if any(e.get('kind') for e in errors)
-            else "unimplemented EL keyword(s)")
+    mixed = any(e.get('kind') for e in errors)
+    what = "error(s)" if mixed else "unimplemented EL keyword(s)"
     print(f"pl_transpile: cannot transpile {in_path!r}: {n} {what}:",
           file=sys.stderr)
-    for txt in format_error_lines(errors):
+    for txt in (format_labelled_error_lines if mixed else format_error_lines)(errors):
         print(f"  {txt}", file=sys.stderr)
     print("no output written (strict mode). Re-run with --partial to emit "
           "execution-time stubs for incremental porting.", file=sys.stderr)
