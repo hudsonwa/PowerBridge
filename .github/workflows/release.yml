@@ -160,7 +160,7 @@ jobs:
         # link to the installed one: every import and every file read then
         # comes from the wheel.
         run: |
-          site=$("$RUNNER_TEMP/venv/bin/python" -c "import pathlib, pl_transpiler; print(pathlib.Path(pl_transpiler.__file__).parent)")
+          site=$(cd "$RUNNER_TEMP" && "$RUNNER_TEMP/venv/bin/python" -c "import pathlib, pl_transpiler; print(pathlib.Path(pl_transpiler.__file__).parent)")
           case "$site" in *site-packages*) ;; *) echo "pl_transpiler not from the wheel: $site"; exit 1;; esac
           rm -rf pl_transpiler
           ln -s "$site" pl_transpiler
