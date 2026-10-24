@@ -17,6 +17,7 @@
 import copy
 import re
 from collections import OrderedDict
+from typing import Any
 
 from . import lexer as _lexer
 from ._parser_expr import _ExpressionsMixin
@@ -381,7 +382,7 @@ def _parse(tokens, positions, source, comments):
 # share these results. Failures are never cached: a source that does not lex
 # or parse raises afresh, with the same error, at every call.
 _SOURCE_CACHE_SIZE = 8
-_source_cache: "OrderedDict[str, dict]" = OrderedDict()
+_source_cache: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
 
 
 def _source_entry(source):

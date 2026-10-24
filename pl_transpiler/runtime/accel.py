@@ -113,6 +113,7 @@ Public surface:
 """
 import json
 from collections import OrderedDict, namedtuple
+from typing import Any
 
 from pl_transpiler.ir import serialise_ir
 from pl_transpiler.parser import parse_source
@@ -285,7 +286,7 @@ def _series_dict(bars):
 # never part of the key — a sweep of N variants over one tape marshals once.
 # Bounded so a long process does not pin every tape it has ever seen.
 _MAX_CACHED_TAPES = 4
-_series_cache: OrderedDict = OrderedDict()  # id(bars) -> (bars, series_dict)
+_series_cache: "OrderedDict[int, tuple[Any, Any]]" = OrderedDict()  # id(bars) -> (bars, series_dict)
 _marshal_count = 0
 
 

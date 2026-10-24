@@ -20,6 +20,7 @@ messages an LLM can self-correct from. See PLSyntaxError for the rendered format
 """
 import re
 from bisect import bisect_left
+from typing import Any
 
 # Token types
 TT_KEYWORD   = 'KEYWORD'
@@ -43,7 +44,7 @@ TT_COMMENT   = 'COMMENT'
 # Each entry: {'text': verbatim incl. delimiters, 'line', 'col' (1-based), 'trailing':
 # bool (True iff non-whitespace precedes the comment on its line)}. Consumers should
 # prefer collect_comments(source) (a pure function of source) over reading this global.
-last_comments: list = []
+last_comments: list[dict[str, Any]] = []
 
 KEYWORDS = {
     'if','then','else','begin','end','for','to','downto','next',

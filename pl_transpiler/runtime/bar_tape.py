@@ -67,7 +67,7 @@ def _require_native_sizes():
         )
 
 
-class BarTape(Sequence):
+class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stays the plain ABC
     """Column-contiguous OHLCV tape.
 
     Indexing with an int yields a dict with the same keys/types as
