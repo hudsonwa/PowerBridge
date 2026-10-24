@@ -36,6 +36,7 @@ def _install_fake(monkeypatch, fake):
     monkeypatch.setattr(pl_transpiler, "_accel", fake, raising=False)
 
 
+@pytest.mark.needs_native
 def test_available():
     pytest.importorskip("pl_transpiler._accel")
     if not accel.accel_available():

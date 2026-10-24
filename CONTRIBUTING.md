@@ -62,7 +62,7 @@ Tests that need something a clone cannot provide carry a pytest marker
 
 | Marker | Needs | Default run | Run it with |
 | --- | --- | --- | --- |
-| `needs_native` | the optional Rust kernel (`pl_transpiler._accel`) | collected; skips until the kernel is built | `tools/build_accel.sh`, then a plain run (see [docs/ACCEL.md](docs/ACCEL.md)) |
+| `needs_native` | the optional Rust kernel (`pl_transpiler._accel`) | left out until the kernel is built (one summary line gives the count) | `tools/build_accel.sh`, then a plain run (see [docs/ACCEL.md](docs/ACCEL.md)) |
 | `needs_captures` | MultiCharts captures, audit tapes or the drawing corpus (licensed, not redistributed; see [docs/CAPTURES.md](docs/CAPTURES.md)) | deselected | `pytest -m needs_captures` with your data attached |
 | `perf` | a quiet machine (wall-clock check) | deselected | `PB_PERF=1 pytest -m perf` |
 
@@ -90,12 +90,12 @@ variables) does not run, by reason:
 
 | Reason | Tests | Default run | Needs | Public CI runs it |
 | --- | ---: | --- | --- | --- |
-| `needs_native` | 309 | skipped | the native kernel; `tools/build_accel.sh`, then a plain run | yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml) |
+| `needs_native` | 597 | deselected | the native kernel; `tools/build_accel.sh`, then a plain run | yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml) |
 | `needs_captures` | 24 | deselected | MultiCharts captures, audit tapes or the drawing corpus (licensed, not in the repo); `pytest -m needs_captures` with your data attached | no |
 | input name is an engine kwargs key | 2 | skipped | nothing: a parametrized case that does not apply (by design) | n/a |
 | no round trip: PyFrontError | 2 | skipped | nothing: a ground-truth file outside the mirror dialect (by design) | n/a |
 | `perf` | 1 | deselected | a quiet machine; `PB_PERF=1 pytest -m perf` | no |
-| needs the 'build' module and setuptools>=77 to build the wheel offline | 1 | skipped | `pip install -e '.[dev]'` | no (the pytest job installs neither) |
+| needs the 'build' module and setuptools>=77 to build the wheel offline: pip install -e '.[dev]' | 1 | skipped | `pip install -e '.[dev]'` | no (the pytest job installs neither) |
 
 Generated with Python 3.9 on Darwin, no native kernel.
 
@@ -115,13 +115,13 @@ What public CI covers (`.github/workflows/ci.yml` and `accel.yml`):
   and 3.14, and `accel-macos-arm64` (accel.yml) builds the wheel with maturin
   and runs the full suite with it loaded. In those jobs no `needs_native`
   test skips (a full run there skips only the 12 by-design cases), so the
-  `needs_native` skips in the fresh-clone table above are covered;
+  `needs_native` tests left out in the fresh-clone table above are covered;
 - ruff, mypy, `cargo fmt`, `clippy` and `cargo test`, and the installed-wheel
   `el_emit` check.
 
 No CI job has the licensed data, so `needs_captures` tests never run there,
-and CI does not set `PB_PERF`. `-m "not needs_native"` hides the kernel
-tests locally too.
+and CI does not set `PB_PERF`. Without the kernel, `-m needs_native` collects
+the kernel tests anyway (they then skip).
 
 Every pytest run ends with a skip summary that groups skips by reason with
 counts; `python3 -m pytest -q -rs --timeout=60` lists each skipped test.

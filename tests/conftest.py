@@ -1,5 +1,6 @@
 """Shared pytest hooks for the PowerBridge test suite."""
 
+import importlib.util
 from collections import Counter
 
 import pytest
@@ -21,6 +22,16 @@ _STDLIB_MARKS = {
 }
 
 _NATIVE_MISSING = ("not built", "not installed", "No module named")
+
+_NATIVE_NOTE = "native kernel not built: {n} native-parity tests not collected " \
+    "(build with tools/build_accel.sh, see docs/ACCEL.md)"
+
+
+def _kernel_built():
+    try:
+        return importlib.util.find_spec("pl_transpiler._accel") is not None
+    except ImportError:
+        return False
 
 # Skip categories for the end-of-run summary: (label, needles). The first whose
 # needle appears in the reason wins; anything else is listed under "other".
@@ -49,9 +60,11 @@ def skip_category(reason, native=False):
     return None
 
 
-# tryfirst: mark before pytest applies -m (including the default in pytest.ini).
-@pytest.hookimpl(tryfirst=True)
+# A wrapper: mark before pytest applies -m (including the default in
+# pytest.ini), then leave out the native tests from what -m kept.
+@pytest.hookimpl(hookwrapper=True)
 def pytest_collection_modifyitems(config, items):
+    native_only = {id(i) for i in items if _native_only(i)}
     for item in items:
         reasons = " ".join(str(m.kwargs.get("reason", ""))
                            for m in item.iter_markers("skipif"))
@@ -64,10 +77,39 @@ def pytest_collection_modifyitems(config, items):
         callspec = getattr(item, "callspec", None)
         if callspec is not None and callspec.params.get("cap_dep"):
             item.add_marker(pytest.mark.needs_captures)
+    yield
+    native_off = [i for i in items if id(i) in native_only]
+    # Without the kernel every needs_native test would skip; leave them out of
+    # the run (one summary line says so) unless -m asks for them by name.
+    if (native_off and "needs_native" not in (config.option.markexpr or "")
+            and not _kernel_built()):
+        items[:] = [i for i in items if id(i) not in native_only]
+        config.hook.pytest_deselected(items=native_off)
+        config._pb_native_off = len(native_off)
+
+
+def _native_only(item):
+    """True if `item` skips whenever the kernel is missing."""
+    # Called before the reason markers are added, so only a hand-written mark
+    # counts (a skipif that names the kernel is checked for its condition below).
+    if any(item.iter_markers("needs_native")) \
+            or _STDLIB_MARKS.get(item.nodeid.rpartition("/")[2]) == "needs_native":
+        return True
+    needles = _REASON_MARKERS[0][1]
+    for m in item.iter_markers("skipif"):
+        reason = str(m.kwargs.get("reason", ""))
+        # Plain bool conditions only; a string condition is left to pytest.
+        if any(n in reason for n in needles) and m.args \
+                and all(isinstance(a, bool) and a for a in m.args):
+            return True
+    return False
 
 
 def pytest_terminal_summary(terminalreporter):
     """Group skipped tests by reason so a plain run shows why they skipped."""
+    native_off = getattr(terminalreporter.config, "_pb_native_off", 0)
+    if native_off:
+        terminalreporter.write_sep("-", _NATIVE_NOTE.format(n=native_off))
     skipped = terminalreporter.stats.get("skipped", [])
     if not skipped:
         return

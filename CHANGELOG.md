@@ -19,6 +19,7 @@ there is enough new content to justify one.
 
 ### Changed
 
+- A plain `pytest` run without the native kernel no longer reports about 600 skipped tests: the kernel-only tests are left out of the run and one summary line gives their count and how to build the kernel. With the kernel built the same tests run as before; `-m needs_native` still collects them.
 - `pl_transpiler/builtins.py` imports its runtime functions by name instead of injecting them through `globals()`, so mypy and ruff check the builtin table again, and mypy runs with stricter flags (#198), now including `warn_return_any`, `no_implicit_reexport` and `disallow_any_generics` (#200).
 - A plain `pytest` run now ends with skips grouped by category (native extension not built, licensed captures not shipped, optional tool missing, not applicable by design), says which are expected on a fresh clone, and points at `pip install -e '.[dev]'` and docs/ACCEL.md (#186).
 - The lexer now runs in linear time, so long programs tokenise much faster (a 3,200-line program in about 0.04 s instead of 2 s), with identical output (#180).
