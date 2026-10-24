@@ -119,10 +119,6 @@ pub(crate) struct FillEngine {
     on_close_pending: Vec<OnCloseOrder>,
     risk: RiskSettings,
     fills: Vec<Fill>,
-    // Closed-position ledger (shared `types` surface). Empty in this pre-ledger
-    // engine; the `accel/engine` module fills it via
-    // `SessionEngine::record_closed_trade` and it feeds `KernelOutcome`.
-    closed_positions: Vec<ClosedPosition>,
     // Open position's entry bar date/time and most contracts held (Python
     // `entry_date` / `entry_time` / `_pos_max_contracts`), plus the closed
     // positions the positions-ago keywords read (`closed_trades`).
@@ -164,7 +160,6 @@ impl FillEngine {
             on_close_pending: Vec::new(),
             risk: RiskSettings::default(),
             fills: Vec::new(),
-            closed_positions: Vec::new(),
             entry_date: 0,
             entry_time: 0,
             pos_max_contracts: 0,
@@ -1180,12 +1175,6 @@ where
         position,
         total_trades: engine.total_trades,
         max_id_drawdown: engine.max_id_drawdown,
-        // The closed-position ledger (shared `types` output surface). The
-        // pre-ledger `FillEngine` above never records a closed trade yet — the
-        // `accel/engine` module wires `SessionEngine::record_closed_trade` into
-        // the close paths, after which this is populated and
-        // `closed_positions` becomes non-empty.
-        closed_positions: engine.closed_positions,
         skipped_bars: eval_from,
         fast_path_hits: engine.fast_path_hits,
     })
@@ -1253,7 +1242,6 @@ where
         position,
         total_trades: engine.total_trades,
         max_id_drawdown: engine.max_id_drawdown,
-        closed_positions: engine.closed_positions,
         skipped_bars: offset,
         fast_path_hits: engine.fast_path_hits,
     })

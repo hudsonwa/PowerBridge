@@ -14,13 +14,14 @@
 
 //! PowerBridge native kernel extra (`pl_transpiler._accel`).
 //!
-//! The stable Rust-side contract lives in [`types`]; the native bar loop and
-//! fill engine live in [`kernel`]. The stable [`run`] call still refuses
-//! execution because its seven-array signature provides no EL program, AST,
-//! strategy identifier, instrument configuration, or Data2. Hard-coding one
-//! strategy would silently return wrong trades for every other program, so
-//! the crate deliberately chooses the fail-loud fallback policy. The `engine`
-//! and `strategy` module skeletons are pre-wired for the engine and strategy implementations.
+//! The shared Rust-side types live in [`types`]. [`kernel`] is the native bar
+//! loop and fill engine; [`strategy`] is the IR interpreter that drives it and
+//! backs every `run_program*` entry point; [`audit`] builds the audit packet.
+//! The stable [`run`] call still refuses execution because its seven-array
+//! signature provides no EL program, AST, strategy identifier, instrument
+//! configuration, or Data2. Hard-coding one strategy would silently return
+//! wrong trades for every other program, so the crate deliberately chooses the
+//! fail-loud fallback policy.
 
 use std::collections::HashMap;
 
@@ -28,35 +29,20 @@ use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
-/// Stable shared contract (interface v2): bar/series shapes, the order/fill/
-/// position surface, the closed-position ledger, the output/report surface,
-/// the session/engine/interpreter seams, and the explicit config. Re-exported
-/// at the crate root so the engine, strategy and FFI code name the shared
-/// types without a `types::` prefix.
+/// Shared types (interface v2): bar/series shapes, the order/fill/position
+/// surface, the output/report surface, the interpreter seam, and the explicit
+/// config.
 pub(crate) mod types;
 
-// The selected fail-loud strategy policy leaves the completed native loop
-// dormant in production until an owner-approved strategy-bearing contract can
-// call it. Rust unit tests exercise it directly.
+// The native bar loop and fill engine every `run_program*` call runs on.
+// Module-wide allow, narrowed to item level in the follow-up cleanup.
 #[allow(dead_code)]
 mod kernel;
 
-// Module skeletons for the engine and strategy implementations (see `types` for the
-// contracts they implement against); kept as separate modules so each owns its
-// own files.
 mod audit;
-mod engine;
 mod strategy;
 
-// The shared contract, re-exported for the FFI layer. Some names are not yet
-// consumed by `lib.rs` — the future `run_program` entry point reads them — hence the
-// `#[allow(unused_imports)]`.
-#[allow(unused_imports)]
-pub(crate) use types::{
-    narrow_f32, Action, Bar, BarTape, ClosedPosition, Config, Fill, Instrument, KernelError,
-    KernelOutcome, NativeStrategy, Order, OrderType, PositionAggregates, PositionView, RiskUpdate,
-    Session, SessionEngine, SessionStats, StrategyOutput, Timing, TraceReport,
-};
+use types::{BarTape, Config, Fill, KernelError, Session};
 
 /// Trivial export used to prove the FFI boundary. Always returns 42.
 #[pyfunction]
