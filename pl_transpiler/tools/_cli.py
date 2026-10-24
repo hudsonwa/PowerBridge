@@ -52,7 +52,7 @@ class _VersionAction(argparse.Action):
 
 
 def add_version(ap, prog):
-    """Add ``--version`` (prints e.g. ``pl_run 0.9.0`` and the native kernel status)."""
+    """Add ``--version`` (prints e.g. ``pl_run 0.10.0`` and the native kernel status)."""
     from pl_transpiler import __version__
     ap.add_argument("--version", action=_VersionAction, version="%s %s" % (prog, __version__))
 
