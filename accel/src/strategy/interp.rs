@@ -34,8 +34,8 @@ use crate::types::{
 use super::arrays::{py_index_int, ElArray};
 use super::clock::{clock_value, python_clock, Clock};
 use super::compile::{
-    compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PosAgoField, PositionKw, Program, RiskOp,
-    Series, SeriesSrc, Unary,
+    compile_with, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PosAgoField, PositionKw, Program,
+    RiskOp, Series, SeriesSrc, Unary,
 };
 use super::datefmt::format_date;
 use super::drawing::{
@@ -135,7 +135,18 @@ impl<'a> Interpreter<'a> {
         input_overrides: &HashMap<String, Value>,
         data2: Option<Arc<Data2Aligned<'a>>>,
     ) -> Result<Self, KernelError> {
-        let program = compile(&ast, input_overrides)?;
+        Self::new_with(ast, input_overrides, data2, false)
+    }
+
+    /// [`Self::new`]; with `record_prints`, the run keeps its `Print` lines
+    /// (see [`compile_with`]).
+    pub(crate) fn new_with(
+        ast: Json,
+        input_overrides: &HashMap<String, Value>,
+        data2: Option<Arc<Data2Aligned<'a>>>,
+        record_prints: bool,
+    ) -> Result<Self, KernelError> {
+        let program = compile_with(&ast, input_overrides, record_prints)?;
         Self::from_program(program, data2)
     }
 

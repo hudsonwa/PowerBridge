@@ -48,7 +48,7 @@ mod drawing;
 mod skip;
 mod specialize;
 pub(crate) use arrays::{set_python_sum, PySum};
-use compile::{compile, resolve_inputs};
+use compile::{compile, compile_with, resolve_inputs};
 use interp::{align_data2, Data2Aligned, Interpreter};
 use ir::{ast_uses_data2, load_program_ir};
 pub(crate) use trace::{Cell, TypedTrace};
@@ -86,10 +86,17 @@ pub(crate) fn run_program_inputs(
     config: &Config,
     inputs: &HashMap<String, Value>,
 ) -> Result<KernelOutcome, KernelError> {
-    run_program_prints(program_ir, series, data2, config, inputs).map(|(outcome, _)| outcome)
+    let ast = load_program_ir(program_ir)?;
+    let data2 = prepare_data2(&ast, series, data2)?;
+    let mut strategy = Interpreter::new(ast, inputs, data2)?;
+    strategy.set_drawing_tick(config.tick);
+    strategy.set_price_units(config.minmove, config.pricescale);
+    run_with_max_bars_back(series, config, &mut strategy)
 }
 
-/// [`run_program_inputs`], and the run's `Print` lines in order.
+/// [`run_program_inputs`], and the run's `Print` lines in order. Recording
+/// them costs a line per `Print` per bar and the prefix skip, so only this
+/// entry point does.
 pub(crate) fn run_program_prints(
     program_ir: &str,
     series: &BarTape,
@@ -99,7 +106,7 @@ pub(crate) fn run_program_prints(
 ) -> Result<(KernelOutcome, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
-    let mut strategy = Interpreter::new(ast, inputs, data2)?;
+    let mut strategy = Interpreter::new_with(ast, inputs, data2, true)?;
     strategy.set_drawing_tick(config.tick);
     strategy.set_price_units(config.minmove, config.pricescale);
     let outcome = run_with_max_bars_back(series, config, &mut strategy)?;
@@ -124,8 +131,8 @@ pub(crate) fn explain_program(
         .collect())
 }
 
-/// Like [`run_program`], and the drawing objects and `Print` lines the run
-/// recorded.
+/// Like [`run_program`], and the drawing objects the run recorded, plus its
+/// `Print` lines when `record_prints` (empty otherwise).
 ///
 /// The JSON array is the object list of a `powerbridge-drawing-dump` v1
 /// (`seq` is 0; the Python dump builder assigns creation order). `producer`
@@ -137,10 +144,11 @@ pub(crate) fn run_program_drawings(
     data2: Option<&BarTape>,
     config: &Config,
     inputs: &HashMap<String, Value>,
+    record_prints: bool,
 ) -> Result<(Vec<Fill>, String, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2 = prepare_data2(&ast, series, data2)?;
-    let mut strategy = Interpreter::new(ast, inputs, data2)?;
+    let mut strategy = Interpreter::new_with(ast, inputs, data2, record_prints)?;
     strategy.set_drawing_tick(config.tick);
     strategy.set_drawing_tape(series.dates(), series.times())?;
     strategy.set_price_units(config.minmove, config.pricescale);
@@ -210,7 +218,8 @@ fn refuse_run_program_options(config: &Config, entry: &str) -> Result<(), Kernel
     Ok(())
 }
 
-/// Produce the typed per-bar trace plus the outcome fills and `Print` lines.
+/// Produce the typed per-bar trace plus the outcome fills, and the `Print`
+/// lines when `record_prints` (empty otherwise).
 ///
 /// Honours `max_bars_back` and `max_entries_per_direction` like
 /// [`run_program`]: history-only bars emit no row, and the `_barnumber`
@@ -220,11 +229,12 @@ pub(crate) fn run_program_trace(
     series: &BarTape,
     data2: Option<&BarTape>,
     config: &Config,
+    record_prints: bool,
 ) -> Result<(TypedTrace, Vec<Fill>, Vec<String>), KernelError> {
     let ast = load_program_ir(program_ir)?;
     let data2_aligned = prepare_data2(&ast, series, data2)?;
     let blanked = HashMap::from([(trace_types::BLANKED_INPUT.to_owned(), Value::str(""))]);
-    let program = compile(&ast, &blanked)?;
+    let program = compile_with(&ast, &blanked, record_prints)?;
     let (var_types, input_types) = compile::trace_types(&ast, &program)?;
     let mut collector = trace::TraceCollector::new(&program, var_types, input_types)?;
     // Every bar is evaluated (no skip plan) and every store is kept, so the
@@ -685,11 +695,11 @@ mod tests {
         config.max_bars_back = tape.len() + 5;
         let none = run_program(ir, &tape, None, &config, &HashMap::new()).unwrap();
         assert!(none.fills.is_empty());
-        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config).unwrap();
+        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config, false).unwrap();
         assert!(trace.rows.is_empty() && trace_fills.is_empty());
         // The trace run skips the same bars and makes the same fills.
         config.max_bars_back = 50;
-        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config).unwrap();
+        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &config, false).unwrap();
         assert_eq!(trace_fills, skipped.fills);
         assert_eq!(trace.rows.len(), tape.len() - 50);
     }
@@ -712,8 +722,27 @@ mod tests {
         let (_, prints_mbb) =
             run_program_prints(ir, &tape, None, &config, &HashMap::new()).unwrap();
         assert_eq!(prints_mbb.len(), tape.len() - 50 + 1);
-        let (_, _, trace_prints) = run_program_trace(ir, &tape, None, &config).unwrap();
+        let (_, _, trace_prints) = run_program_trace(ir, &tape, None, &config, true).unwrap();
         assert_eq!(trace_prints, prints_mbb);
+    }
+
+    #[test]
+    fn print_shows_outpath_as_empty_and_records_only_when_asked() {
+        // Python reads `OutPath` as `''`, so the line starts with `" "`.
+        let ir = r#"{"kind":"pl_transpiler.ast","ir_version":1,"ast":{"type":"program","body":[
+            {"type":"input_decl","decls":[{"name":"outpath",
+                "default":{"type":"string","value":"x"}}]},
+            {"type":"print","args":[{"type":"ident","name":"outpath"},
+                {"type":"string","value":" "},{"type":"ident","name":"close"}]}]}}"#;
+        let tape = load_csv(sample_bars_path().to_str().unwrap());
+        let (_, prints) =
+            run_program_prints(ir, &tape, None, &nq_config(), &HashMap::new()).unwrap();
+        assert_eq!(prints.len(), tape.len());
+        assert!(prints.iter().all(|line| line.starts_with(' ')));
+        // A run that does not ask for the lines keeps none.
+        let (_, _, none) =
+            run_program_drawings(ir, &tape, None, &nq_config(), &HashMap::new(), false).unwrap();
+        assert!(none.is_empty());
     }
 
     #[test]
@@ -723,7 +752,8 @@ mod tests {
         let fills = run_program(ir, &tape, None, &nq_config(), &HashMap::new())
             .unwrap()
             .fills;
-        let (trace, trace_fills, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
+        let (trace, trace_fills, _) =
+            run_program_trace(ir, &tape, None, &nq_config(), false).unwrap();
 
         // The trace run's fills are the same ordered trade list, bit-for-bit.
         assert_eq!(trace_fills, fills, "trace run must produce the same fills");
@@ -783,7 +813,7 @@ mod tests {
              "value":{"type":"binop","op":"/","left":{"type":"ident","name":"close"},
                       "right":{"type":"number","value":"2"}}}]}}"#;
         let tape = load_csv(sample_bars_path().to_str().unwrap());
-        let (trace, _, _) = run_program_trace(ir, &tape, None, &nq_config()).unwrap();
+        let (trace, _, _) = run_program_trace(ir, &tape, None, &nq_config(), false).unwrap();
         let c = trace.columns.iter().position(|n| n == "c").unwrap();
         let h = trace.columns.iter().position(|n| n == "h").unwrap();
         assert_eq!(trace.rows[4][c], super::Cell::Int(5));
@@ -971,7 +1001,8 @@ mod tests {
         )
         .unwrap();
         let (_fills, raw, _) =
-            run_program_drawings(ir, &tape, None, &nq_config(), &HashMap::new()).expect("draw");
+            run_program_drawings(ir, &tape, None, &nq_config(), &HashMap::new(), false)
+                .expect("draw");
         let objs: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let objs = objs.as_array().expect("array");
         assert_eq!(objs.len(), 1, "{raw}");
