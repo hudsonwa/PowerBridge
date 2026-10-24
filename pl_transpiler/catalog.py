@@ -231,7 +231,7 @@ def coverage() -> dict[str, int]:
     return out
 
 
-def _main(argv=None):
+def _main(argv: Optional[list[str]] = None) -> int:
     import argparse
 
     ap = argparse.ArgumentParser(

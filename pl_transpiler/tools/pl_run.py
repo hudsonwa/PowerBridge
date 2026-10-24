@@ -49,14 +49,13 @@ import math
 import os
 import re
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Optional,
     Union,
-    cast,
 )
 
 if TYPE_CHECKING:
@@ -64,6 +63,7 @@ if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
 
 from pl_transpiler import transpile
+from pl_transpiler._types import Node
 
 # The bar-by-bar engine pieces (FillEngine, run_bar_loop, EL date/time parsers) ship in
 # the package (pl_transpiler.engine), so the installed `pl_run` console script drives
@@ -102,7 +102,7 @@ Bars = Union[Sequence[Mapping[str, Any]], "BarTape"]
 _log = logging.getLogger(__name__)
 
 
-def _stop_matches(node, exc):
+def _stop_matches(node: Node, exc: UnimplementedBuiltinError) -> bool:
     """True when AST ``node`` is the code that raised the strict-mode stop ``exc``."""
     if isinstance(exc, NamedExitUnverifiedError):
         entry = node.get('entry_label')
@@ -116,7 +116,7 @@ def _stop_matches(node, exc):
             and name.lower() == exc.builtin.lower())
 
 
-def _stop_line(source, exc):
+def _stop_line(source: str, exc: UnimplementedBuiltinError) -> Optional[int]:
     """EL line of the first statement whose code raised ``exc``, or None.
 
     Walks the parsed program, so comments, strings and other statements that
@@ -127,7 +127,7 @@ def _stop_line(source, exc):
     except Exception:  # noqa: BLE001 - fall back to the text search
         return None
 
-    def walk(node, line):
+    def walk(node: Any, line: Optional[int]) -> Optional[int]:
         if isinstance(node, list):
             for item in node:
                 found = walk(item, line)
@@ -149,7 +149,8 @@ def _stop_line(source, exc):
     return walk(ast, None)
 
 
-def unimplemented_stop_message(prog, exc, el_file):
+def unimplemented_stop_message(prog: str, exc: UnimplementedBuiltinError,
+                               el_file: str) -> str:
     """One-line error for an unimplemented builtin that stopped a strict run,
     naming the source line of the statement that raised it (or, failing that,
     the first source line that mentions it)."""
@@ -207,7 +208,8 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
 _CSV_COLUMNS = ('date', 'time', 'open', 'high', 'low', 'close', 'volume')
 
 
-def _csv_bar(row, idx, date_format=None):
+def _csv_bar(row: list[str], idx: dict[str, int],
+             date_format: Optional[str] = None) -> dict[str, Any]:
     return {
         'date': _parse_el_date(row[idx['date']].strip(), date_format),
         'time': _parse_el_time(row[idx['time']].strip()),
@@ -264,7 +266,7 @@ def csv_to_pbar(csv_path: Union[str, os.PathLike[str]],
     return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
 
 
-def _print_partial_manifest(errors):
+def _print_partial_manifest(errors: list[dict[str, Any]]) -> None:
     """Loud partial-mode stub manifest to stderr: banner + per-stub + warning."""
     n = len(errors)
     print("=" * 70, file=sys.stderr)
@@ -278,7 +280,7 @@ def _print_partial_manifest(errors):
     print("=" * 70, file=sys.stderr)
 
 
-def format_trace_cell(value):
+def format_trace_cell(value: Any) -> str:
     """Format one trace value the way the GT harness writes a CSV cell.
 
     None (missing or explicit) becomes '0'; every other value is str(value).
@@ -286,7 +288,7 @@ def format_trace_cell(value):
     return '0' if value is None else str(value)
 
 
-def format_trace_row(trace, columns):
+def format_trace_row(trace: Mapping[str, Any], columns: Sequence[str]) -> list[str]:
     """Format one bar's trace dict into a list[str] aligned with columns."""
     get = trace.get
     return [format_trace_cell(get(k)) for k in columns]
@@ -329,7 +331,7 @@ _EL_COLUMN_NAMES = {
 }
 
 
-def _el_name(key):
+def _el_name(key: str) -> str:
     return _EL_COLUMN_NAMES.get(key, key)
 
 
@@ -342,29 +344,30 @@ _MONEY_COLUMNS = frozenset((
 _PRICE_COLUMNS = frozenset(('entryprice', 'exitprice', 'avgentryprice', 'close'))
 
 
-def tick_decimals(tick):
+def tick_decimals(tick: float) -> int:
     """Decimal places of a tick size (0.25 -> 2, 1.0 -> 0), capped at 8."""
     text = f"{float(tick):.8f}".rstrip('0')
     return len(text.split('.')[1]) if '.' in text else 0
 
 
-def display_row_sink(sink, tick):
+def display_row_sink(sink: Callable[[Iterable[Any]], Any], tick: float
+                     ) -> tuple[Callable[[Iterable[Any]], None], Callable[[Iterable[Any]], None]]:
     """Wrap a (header, row) sink pair so money/price cells print rounded.
 
     Returns ``(header_sink, row_sink)``. Cells that are not plain floats
     (empty, ints, text) pass through unchanged.
     """
     price_dp = tick_decimals(tick)
-    places = []
+    places: list[Optional[int]] = []
 
-    def header(cols):
+    def header(cols: Iterable[Any]) -> None:
         for c in cols:
             f = _fold(c)
             places.append(2 if f in _MONEY_COLUMNS
                           else price_dp if f in _PRICE_COLUMNS else None)
         sink(cols)
 
-    def row(cells):
+    def row(cells: Iterable[Any]) -> None:
         out = list(cells)
         for i, dp in enumerate(places):
             if dp is None or i >= len(out) or '.' not in str(out[i]):
@@ -384,11 +387,12 @@ class UnknownTraceColumnError(ValueError):
     """A requested trace column is not a key of the run's trace."""
 
 
-def _fold(name):
+def _fold(name: str) -> str:
     return name.lower().replace('_', '')
 
 
-def resolve_trace_columns(requested, available):
+def resolve_trace_columns(requested: Iterable[str], available: Iterable[str]
+                          ) -> list[str]:
     """Map requested column names onto trace keys, failing loud on unknowns.
 
     Exact keys win; otherwise names match case-insensitively and ignoring
@@ -399,9 +403,11 @@ def resolve_trace_columns(requested, available):
     import difflib
     available = list(available)
     exact = set(available)
-    folded = {}
+    folded: dict[str, str] = {}
     for k in sorted(available, key=lambda k: (k.startswith('_'), k)):
         folded.setdefault(_fold(k), k)
+    resolved: list[Any]
+    unknown: list[str]
     resolved, unknown = [], []
     for name in requested:
         if name in exact:
@@ -426,7 +432,8 @@ def resolve_trace_columns(requested, available):
     return resolved
 
 
-def resolve_trade_from(bars, *, from_date=None, from_bar=None):
+def resolve_trade_from(bars: Bars, *, from_date: Optional[int] = None,
+                       from_bar: Optional[int] = None) -> int:
     """First tape index that may fill / emit. 0 = no window (full tape).
 
     from_date : inclusive EL-integer (YYYMMDD). First bar with date >= from_date.
@@ -545,7 +552,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                 trace_columns=trace_columns,
                 row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows)
             if out is not None:
-                return cast("dict[str, Any]", out)
+                return out
         else:
             fallback_reason = reason
     reset_indicator_caches()
@@ -589,13 +596,13 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         retain_rows = row_sink is None
 
     rows = []
-    cols_holder = {'cols': None, 'keys': None}
+    cols_holder: dict[str, Optional[list[str]]] = {'cols': None, 'keys': None}
     n_emitted = [0]
 
-    def get_ohlcv(i):
+    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
         return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
 
-    def emit_row(i, barnumber, trace):
+    def emit_row(i: int, barnumber: int, trace: dict[str, Any]) -> None:
         keys = cols_holder['keys']
         if keys is None:
             if trace_columns is not None:
@@ -691,7 +698,8 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     return out
 
 
-def _native_shape_refusal(*, partial, from_date, from_bar, drawings):
+def _native_shape_refusal(*, partial: bool, from_date: Optional[int],
+                          from_bar: Optional[int], drawings: bool) -> Optional[str]:
     """Why ``run_el(use_native=True)`` must take the Python path before asking
     the kernel, or None. The typed trace serves the full-tape run only."""
     if partial:
@@ -703,9 +711,14 @@ def _native_shape_refusal(*, partial, from_date, from_bar, drawings):
     return None
 
 
-def _run_el_native(el_source, bars, config, *, max_bars_back,
-                   max_entries_per_direction, trace_columns, row_sink,
-                   header_sink, retain_rows):
+def _run_el_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
+                   max_bars_back: int,
+                   max_entries_per_direction: Optional[int],
+                   trace_columns: Optional[Sequence[str]],
+                   row_sink: Optional[Callable[[list[str]], Any]],
+                   header_sink: Optional[Callable[[list[str]], Any]],
+                   retain_rows: Optional[bool]
+                   ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """The native typed trace, rendered the way ``emit_row`` renders it.
 
     Returns ``(out, None)`` (``run_el``'s dict) or ``(None, reason)`` when the
@@ -763,7 +776,7 @@ def _run_el_native(el_source, bars, config, *, max_bars_back,
     }, None
 
 
-def _build_parser():
+def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_run",
         description="General EL -> trades entrypoint: run transpiled EL over "
@@ -830,13 +843,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.lenient:
         set_strict_mode(False)
     try:
-        return cast(int, _cli.run("pl_run", _main, ap, args))
+        return _cli.run("pl_run", _main, ap, args)
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_run", exc, args.el_file), file=sys.stderr)
         return 2
 
 
-def _main(ap, args):
+def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_run <el_file> <bars_csv> ...")
 

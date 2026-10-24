@@ -25,6 +25,7 @@ import hashlib
 import json
 import re
 import struct
+from collections.abc import Sequence
 from typing import Any
 
 SCHEMA = "powerbridge-drawing-dump"
@@ -51,11 +52,11 @@ class DumpError(ValueError):
     """A drawing dump broke the v1 contract."""
 
 
-def _is_int(value) -> bool:
+def _is_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _num(value) -> bool:
+def _num(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -68,7 +69,7 @@ def _need(obj: dict[str, Any], keys: set[str], where: str) -> None:
         raise DumpError(f"unknown field {extra[0]} at {where}")
 
 
-def _barkey(key, where: str, price: bool = False, tick: float = 0.25) -> None:
+def _barkey(key: object, where: str, price: bool = False, tick: float = 0.25) -> None:
     if not isinstance(key, dict):
         raise DumpError(f"bar key not an object at {where}")
     keys = {"bn", "date", "time", "time_s"}
@@ -260,7 +261,7 @@ def barkey(bn: int | None, date: int, time: int, price: float | None = None,
 
 
 def build_dump(objects: list[dict[str, Any]], *, case_id: str, tape_name: str, tape_sha256: str,
-               n_bars: int, first, last, tick: float, producer_kind: str) -> dict[str, Any]:
+               n_bars: int, first: Sequence[Any], last: Sequence[Any], tick: float, producer_kind: str) -> dict[str, Any]:
     """Validate and return a v1 dump for ``objects`` in creation order.
 
     ``objects`` are recorder dicts (``blank_object`` shape, ``seq`` ignored).

@@ -113,11 +113,17 @@ Public surface:
 """
 import json
 from collections import OrderedDict, namedtuple
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from pl_transpiler.ir import serialise_ir
 from pl_transpiler.parser import parse_source
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
+
+if TYPE_CHECKING:
+    from pl_transpiler.runtime.instrument_config import InstrumentConfig
+
+Fill = dict[str, Any]
+Series = dict[str, list[Any]]
 
 # The FFI config requires a session `end` and the v2-required commission /
 # slippage / MaxBarsBack / warmup-seed fields, none of which the Python
@@ -135,12 +141,12 @@ _SESSION_END = 1515
 _fallback_count = 0
 
 
-def _record_fallback():
+def _record_fallback() -> None:
     global _fallback_count
     _fallback_count += 1
 
 
-def fallback_count():
+def fallback_count() -> int:
     """Process-wide number of native-path fallbacks signalled so far.
 
     Incremented only when ``run_native`` raises ``AccelUnavailable`` or
@@ -161,7 +167,7 @@ class AccelRefused(RuntimeError):
     approximate trade list — the caller must fall back to Python loudly.
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
 
@@ -169,7 +175,7 @@ class AccelRefused(RuntimeError):
 _ACCEL_MISSING_WARNED = False
 
 
-def warn_python_path(reason=None):
+def warn_python_path(reason: Optional[str] = None) -> None:
     """One short stderr line (once per process) that the slower Python path ran.
 
     ``reason=None`` means the Rust module is not installed.
@@ -184,7 +190,7 @@ def warn_python_path(reason=None):
     sys.stderr.write(python_path_note(reason) + "\n")
 
 
-def python_path_note(reason=None):
+def python_path_note(reason: Optional[str] = None) -> str:
     """The one-line note that the slower Python path ran (no trailing newline).
 
     ``reason=None`` means the Rust module is not installed.
@@ -204,7 +210,7 @@ def python_path_note(reason=None):
 FILL_LOG_VERSION = 2
 
 
-def _version_mismatch(accel):
+def _version_mismatch(accel: Any) -> Optional[str]:
     """None if the kernel's fill-log version matches, else the reason."""
     got = getattr(accel, "FILL_LOG_VERSION", None)
     if got == FILL_LOG_VERSION:
@@ -215,7 +221,7 @@ def _version_mismatch(accel):
             "using the Python path" % (kernel, have, FILL_LOG_VERSION))
 
 
-def _probe():
+def _probe() -> tuple[Any, Optional[str]]:
     """``(kernel, reason)``: the importable kernel, or None and why it is unusable."""
     try:
         import pl_transpiler._accel as accel
@@ -228,13 +234,13 @@ def _probe():
     return accel, _version_mismatch(accel)
 
 
-def accel_available():
+def accel_available() -> bool:
     """True iff the native extension imports and matches this core's fill log."""
     accel, reason = _probe()
     return accel is not None and reason is None
 
 
-def native_status():
+def native_status() -> tuple[bool, str]:
     """``(available, line)`` for the native kernel, the same check the run uses.
 
     ``line`` is e.g. ``"native kernel: powerbridge-accel 0.10.0 (available)"`` or
@@ -244,13 +250,13 @@ def native_status():
     if accel is not None and reason is None:
         kernel = getattr(accel, "__version__", None) or "(unknown version)"
         return True, "native kernel: powerbridge-accel %s (available)" % kernel
-    reason = reason.replace("; using the Python path", "")
+    reason = cast(str, reason).replace("; using the Python path", "")
     return False, ("native kernel: not available (%s); install the "
                    "powerbridge-accel wheel for your platform, see docs/ACCEL.md"
                    % " ".join(reason.split()))
 
 
-def _import_accel():
+def _import_accel() -> Any:
     try:
         import pl_transpiler._accel as accel
     except ImportError as exc:
@@ -267,7 +273,7 @@ def _import_accel():
     return accel
 
 
-def _series_dict(bars):
+def _series_dict(bars: Any) -> Series:
     """The FFI ``series`` shape: plain lists of the seven bar columns."""
     cols = ohlcv_columns(bars)
     return {
@@ -286,11 +292,11 @@ def _series_dict(bars):
 # never part of the key — a sweep of N variants over one tape marshals once.
 # Bounded so a long process does not pin every tape it has ever seen.
 _MAX_CACHED_TAPES = 4
-_series_cache: "OrderedDict[int, tuple[Any, Any]]" = OrderedDict()  # id(bars) -> (bars, series_dict)
+_series_cache: "OrderedDict[int, tuple[Any, Series]]" = OrderedDict()  # id(bars) -> (bars, series_dict)
 _marshal_count = 0
 
 
-def marshal_count():
+def marshal_count() -> int:
     """Number of times a tape has been boxed into the FFI series lists.
 
     A cache hit (same tape object reused) does not increment this. Tests and
@@ -300,12 +306,12 @@ def marshal_count():
     return _marshal_count
 
 
-def clear_series_cache():
+def clear_series_cache() -> None:
     """Drop cached series dicts. Tests use this to start from a known count."""
     _series_cache.clear()
 
 
-def _cached_series_dict(bars):
+def _cached_series_dict(bars: Any) -> Optional[Series]:
     """Return ``_series_dict(bars)``, hitting the identity cache when possible."""
     global _marshal_count
     if bars is None:
@@ -324,7 +330,8 @@ def _cached_series_dict(bars):
     return series
 
 
-def marshalled_series(bars, data2_bars=None):
+def marshalled_series(bars: Any, data2_bars: Any = None
+                      ) -> tuple[Optional[Series], Optional[Series]]:
     """Return the FFI ``(series, data2)`` mappings, cached by tape identity.
 
     Keyed on the identity of ``bars`` and ``data2_bars``, never on config.
@@ -340,7 +347,8 @@ def marshalled_series(bars, data2_bars=None):
     return series, data2
 
 
-def _config_dict(config, max_bars_back=0, max_entries_per_direction=0):
+def _config_dict(config: "InstrumentConfig", max_bars_back: Union[int, str] = 0,
+                 max_entries_per_direction: Optional[int] = 0) -> dict[str, Any]:
     """InstrumentConfig -> the FFI ``config`` mapping (v2, all fields explicit)."""
     return {
         "name": config.name,
@@ -367,8 +375,9 @@ def _config_dict(config, max_bars_back=0, max_entries_per_direction=0):
     }
 
 
-def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
-               max_entries_per_direction=0):
+def run_native(el_source: str, bars: Any, config: "InstrumentConfig", *,
+               data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
+               max_entries_per_direction: Optional[int] = 0) -> list[Fill]:
     """Execute ``el_source`` over ``bars`` through the native kernel.
 
     Exactly one FFI crossing (``run_program``): serialise the EL to ``program_ir``,
@@ -409,7 +418,7 @@ def run_native(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
     series, data2 = marshalled_series(bars, data2_bars)
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
-        return accel.run_program(program_ir, series, data2, config_map)
+        return cast("list[Fill]", accel.run_program(program_ir, series, data2, config_map))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
@@ -424,7 +433,7 @@ source line of the enclosing statement (0 if unknown); ``message`` the
 kernel's refusal text, as ``AccelRefused`` would carry it."""
 
 
-def explain_native(el_source):
+def explain_native(el_source: str) -> "list[NativeRefusal]":
     """List every construct the native kernel would refuse in ``el_source``.
 
     Returns a list of :class:`NativeRefusal` in the kernel's compile order;
@@ -467,8 +476,10 @@ def explain_native(el_source):
             for kind, name, line, message in refusals]
 
 
-def run_native_drawings(el_source, bars, config, *, data2_bars=None,
-                        max_bars_back=0, max_entries_per_direction=0):
+def run_native_drawings(el_source: str, bars: Any, config: "InstrumentConfig", *,
+                        data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
+                        max_entries_per_direction: Optional[int] = 0
+                        ) -> tuple[list[Fill], list[Any]]:
     """Native fills plus the drawing objects that run recorded.
 
     Returns ``(fills, objects)``. ``objects`` is the drawing-dump object list
@@ -504,8 +515,10 @@ def run_native_drawings(el_source, bars, config, *, data2_bars=None,
     return fills, json.loads(raw)
 
 
-def run_native_trace(el_source, bars, config, *, data2_bars=None, max_bars_back=0,
-                     max_entries_per_direction=0):
+def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
+                     data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
+                     max_entries_per_direction: Optional[int] = 0
+                     ) -> tuple[list[str], list[list[Any]], list[Fill]]:
     """Run ``el_source`` natively and return the typed per-bar trace + fills.
 
     The typed trace sink: one FFI crossing emits the kernel's
@@ -541,13 +554,14 @@ def run_native_trace(el_source, bars, config, *, data2_bars=None, max_bars_back=
             "max_entries_per_direction; rebuild accel (tools/build_accel.sh)")
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
-        return accel.run_program_trace(program_ir, series, data2, config_map)
+        return cast("tuple[list[str], list[list[Any]], list[Fill]]", accel.run_program_trace(program_ir, series, data2, config_map))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def _serialise_and_marshal(el_source, bars, data2_bars):
+def _serialise_and_marshal(el_source: str, bars: Any, data2_bars: Any
+                           ) -> tuple[Any, str, Optional[Series], Optional[Series]]:
     """The three FFI pre-amble steps shared by every native entry point:
     EL -> program_ir, bars -> cached series dicts, config -> FFI mapping."""
     accel = _import_accel()
@@ -557,7 +571,8 @@ def _serialise_and_marshal(el_source, bars, data2_bars):
     return accel, program_ir, series, data2
 
 
-def run_native_inputs(el_source, bars, config, inputs, *, data2_bars=None):
+def run_native_inputs(el_source: str, bars: Any, config: "InstrumentConfig",
+                      inputs: dict[str, Any], *, data2_bars: Any = None) -> list[Fill]:
     """Run ``el_source`` over ``bars`` through the native kernel with explicit
     Input overrides (a mapping of input name -> number/bool/string).
 
@@ -569,13 +584,15 @@ def run_native_inputs(el_source, bars, config, inputs, *, data2_bars=None):
     )
     config_map = _config_dict(config)
     try:
-        return accel.run_program_inputs(program_ir, series, data2, config_map, inputs)
+        return cast("list[Fill]", accel.run_program_inputs(program_ir, series, data2, config_map, inputs))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def run_native_sweep(el_source, bars, config, variants, *, data2_bars=None, threads=None):
+def run_native_sweep(el_source: str, bars: Any, config: "InstrumentConfig",
+                     variants: list[dict[str, Any]], *, data2_bars: Any = None,
+                     threads: Optional[int] = None) -> list[list[Fill]]:
     """Run K input variants over ONE tape, compiled and marshalled once.
 
     ``variants`` is a list of input-override dicts (name -> number/bool/string).
@@ -592,16 +609,17 @@ def run_native_sweep(el_source, bars, config, variants, *, data2_bars=None, thre
     config_map = _config_dict(config)
     try:
         if threads is None:
-            return accel.run_program_batch(program_ir, series, data2, config_map, variants)
-        return accel.run_program_batch_parallel(
+            return cast("list[list[Fill]]", accel.run_program_batch(program_ir, series, data2, config_map, variants))
+        return cast("list[list[Fill]]", accel.run_program_batch_parallel(
             program_ir, series, data2, config_map, variants, threads
-        )
+        ))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def run_native_audit_packet(el_source, bars, config, *, data2_bars=None, hash_tapes=False):
+def run_native_audit_packet(el_source: str, bars: Any, config: "InstrumentConfig", *,
+                            data2_bars: Any = None, hash_tapes: bool = False) -> bytes:
     """Production native loop returning one framed audit-event-v1 packet.
 
     Same IR/tape/config marshalling as ``run_native``. Does not replace
@@ -612,15 +630,16 @@ def run_native_audit_packet(el_source, bars, config, *, data2_bars=None, hash_ta
     )
     config_map = _config_dict(config)
     try:
-        return accel.run_program_audit_packet(
+        return cast("bytes", accel.run_program_audit_packet(
             program_ir, series, data2, config_map, hash_tapes
-        )
+        ))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def audit_skip_eval_from(el_source, dates, inputs=None):
+def audit_skip_eval_from(el_source: str, dates: Any, inputs: Optional[dict[str, Any]] = None
+                         ) -> tuple[int, bool, str]:
     """Prove the prefix skip from IR + the Data1 date column alone (no OHLC).
 
     Returns ``(eval_from, proven, reason)``. The slice-before-marshal caller
@@ -631,13 +650,13 @@ def audit_skip_eval_from(el_source, dates, inputs=None):
     ast = parse_source(el_source)
     program_ir = serialise_ir(ast)
     try:
-        return accel.audit_skip_eval_from(program_ir, dates, inputs or {})
+        return cast("tuple[int, bool, str]", accel.audit_skip_eval_from(program_ir, dates, inputs or {}))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def _sliced_series_dict(bars, start):
+def _sliced_series_dict(bars: Any, start: int) -> Series:
     """The FFI ``series`` shape over ``bars[start:]`` — slice before box.
 
     Slices the column views (zero-copy) before materialising Python lists, so
@@ -657,15 +676,15 @@ def _sliced_series_dict(bars, start):
 
 
 def run_native_audit_packet_inputs(
-    el_source,
-    bars,
-    config,
-    inputs,
+    el_source: str,
+    bars: Any,
+    config: "InstrumentConfig",
+    inputs: dict[str, Any],
     *,
-    data2_bars=None,
-    eval_from=0,
-    source_bar_count=None,
-):
+    data2_bars: Any = None,
+    eval_from: int = 0,
+    source_bar_count: Optional[int] = None,
+) -> bytes:
     """One audit-event-v1 packet with explicit ``inputs`` (the solo reference).
 
     ``bars`` may be the full tape (``eval_from=0``, ``source_bar_count=None``)
@@ -678,24 +697,24 @@ def run_native_audit_packet_inputs(
     config_map = _config_dict(config)
     sc = source_bar_count if source_bar_count is not None else len(bars)
     try:
-        return accel.run_program_audit_packet_inputs(
+        return cast("bytes", accel.run_program_audit_packet_inputs(
             program_ir, series, data2, config_map, inputs, eval_from, sc
-        )
+        ))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
 def run_native_audit_packet_batch(
-    el_source,
-    bars,
-    config,
-    variants,
+    el_source: str,
+    bars: Any,
+    config: "InstrumentConfig",
+    variants: list[dict[str, Any]],
     *,
-    data2_bars=None,
-    eval_from=0,
-    source_bar_count=None,
-):
+    data2_bars: Any = None,
+    eval_from: int = 0,
+    source_bar_count: Optional[int] = None,
+) -> list[bytes]:
     """K audit-event-v1 packets over ONE tape, compiled + marshalled once.
 
     ``out[i]`` is byte-identical to ``run_native_audit_packet_inputs`` with
@@ -708,15 +727,17 @@ def run_native_audit_packet_batch(
     config_map = _config_dict(config)
     sc = source_bar_count if source_bar_count is not None else len(bars)
     try:
-        return accel.run_program_audit_packet_batch(
+        return cast("list[bytes]", accel.run_program_audit_packet_batch(
             program_ir, series, data2, config_map, variants, eval_from, sc
-        )
+        ))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
 
 
-def run_native_audit_packet_sweep(el_source, bars, config, variants, *, data2_bars=None):
+def run_native_audit_packet_sweep(el_source: str, bars: Any, config: "InstrumentConfig",
+                                  variants: list[dict[str, Any]], *, data2_bars: Any = None
+                                  ) -> tuple[list[bytes], int, int, str]:
     """Slice-before-marshal sweep: K packets over ONE tape, slice + marshal once.
 
     Proves the prefix skip from the Data1 dates, slices the columns to

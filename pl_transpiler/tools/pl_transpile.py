@@ -38,6 +38,8 @@ DEFAULT (strict) mode:
 """
 import argparse
 import sys
+from collections.abc import Sequence
+from typing import Any, Optional, cast
 
 from pl_transpiler import transpile
 from pl_transpiler.errors import (
@@ -48,7 +50,7 @@ from pl_transpiler.errors import (
 from pl_transpiler.tools import _cli
 
 
-def _print_strict_report(in_path, errors):
+def _print_strict_report(in_path: str, errors: list[dict[str, Any]]) -> None:
     """Complete report to stderr: every unimplemented keyword, name + line."""
     n = len(errors)
     mixed = any(e.get('kind') for e in errors)
@@ -61,7 +63,7 @@ def _print_strict_report(in_path, errors):
           "execution-time stubs for incremental porting.", file=sys.stderr)
 
 
-def _print_partial_manifest(in_path, errors):
+def _print_partial_manifest(in_path: str, errors: list[dict[str, Any]]) -> None:
     """Loud partial-mode stub manifest to stderr: banner + per-stub + warning."""
     n = len(errors)
     print("=" * 70, file=sys.stderr)
@@ -75,7 +77,7 @@ def _print_partial_manifest(in_path, errors):
     print("=" * 70, file=sys.stderr)
 
 
-def _build_parser():
+def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_transpile",
         description="Forward transpiler: EL/PowerLanguage source -> Python.")
@@ -98,18 +100,19 @@ def _build_parser():
     return ap
 
 
-def main(argv=None):
+def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = _build_parser()
     args = ap.parse_args(argv)
     return _cli.run("pl_transpile", _main, args)
 
 
-def _main(args):
+def _main(args: argparse.Namespace) -> int:
     output = _cli.output_path(args.output)
     src = open(args.in_file, encoding="utf-8").read()
 
     # Detect unimplemented keywords via the strict transpile (collect-all).
-    errors = []
+    errors: list[dict[str, Any]] = []
+    strict_out: Optional[str]
     try:
         dialect = "mirror" if not (args.persist or args.trace) else "runnable"
         strict_out = transpile(src, trace=args.trace, dialect=dialect)
@@ -121,7 +124,7 @@ def _main(args):
         if errors:
             _print_strict_report(args.in_file, errors)
             return 2
-        out = strict_out
+        out = cast(str, strict_out)  # set whenever no keyword errors were raised
     else:
         dialect = "mirror" if not (args.persist or args.trace) else "runnable"
         out = transpile(src, trace=args.trace, partial=True, dialect=dialect)

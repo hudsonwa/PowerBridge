@@ -22,47 +22,54 @@ instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 import argparse
 import os
 import sys
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, Optional, Union
 
 from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.lexer import PLSyntaxError
 from pl_transpiler.py_front import PyFrontError
+
+if TYPE_CHECKING:
+    from pl_transpiler.runtime.instrument_config import InstrumentConfig
 
 
 class CliError(Exception):
     """A user-facing CLI error; its message is printed as-is."""
 
 
-def debug_enabled():
+def debug_enabled() -> bool:
     return os.environ.get("PB_DEBUG", "") not in ("", "0")
 
 
 class _VersionAction(argparse.Action):
     """``--version``: the tool version, then the native kernel status line."""
 
-    def __init__(self, option_strings, version, dest=argparse.SUPPRESS,
-                 default=argparse.SUPPRESS, help="show program's version number and exit"):
+    def __init__(self, option_strings: Sequence[str], version: str, dest: str = argparse.SUPPRESS,
+                 default: Any = argparse.SUPPRESS,
+                 help: str = "show program's version number and exit") -> None:
         super().__init__(option_strings=option_strings, dest=dest, default=default,
                          nargs=0, help=help)
         self.version = version
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
+                 values: Any, option_string: Optional[str] = None) -> NoReturn:
         from pl_transpiler.runtime.accel import native_status
         sys.stdout.write("%s\n%s\n" % (self.version, native_status()[1]))
         parser.exit()
 
 
-def add_version(ap, prog):
+def add_version(ap: argparse.ArgumentParser, prog: str) -> None:
     """Add ``--version`` (prints e.g. ``pl_run 0.10.0`` and the native kernel status)."""
     from pl_transpiler import __version__
     ap.add_argument("--version", action=_VersionAction, version="%s %s" % (prog, __version__))
 
 
-def output_path(path):
+def output_path(path: Optional[str]) -> Optional[str]:
     """``-o -`` means stdout, same as omitting ``-o``."""
     return None if path == "-" else path
 
 
-def config_or_error(name):
+def config_or_error(name: str) -> 'InstrumentConfig':
     from pl_transpiler.runtime.instrument_config import ConfigFileError, get_config
     try:
         return get_config(name)
@@ -72,7 +79,7 @@ def config_or_error(name):
         raise CliError(str(exc)) from exc
 
 
-def add_date_format_arg(ap):
+def add_date_format_arg(ap: argparse.ArgumentParser) -> None:
     """The shared ``--date-format`` option for tools that read a bars CSV."""
     ap.add_argument("--date-format", dest="date_format", default=None,
                     choices=("dmy", "mdy", "ymd"),
@@ -81,7 +88,7 @@ def add_date_format_arg(ap):
                          "(YYYY/M/D). EL integer dates (1240102) need no option.")
 
 
-def _non_negative_int(text):
+def _non_negative_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
@@ -91,7 +98,7 @@ def _non_negative_int(text):
     return value
 
 
-def _max_bars_back(text):
+def _max_bars_back(text: str) -> Union[int, str]:
     if text.strip().lower() == "auto":
         return "auto"
     try:
@@ -100,7 +107,7 @@ def _max_bars_back(text):
         raise argparse.ArgumentTypeError(f"{exc} (expected N >= 0 or 'auto')") from None
 
 
-def add_max_bars_back_arg(ap):
+def add_max_bars_back_arg(ap: argparse.ArgumentParser) -> None:
     """The shared ``--max-bars-back N|auto`` option (MultiCharts MaxBarsBack)."""
     ap.add_argument("--max-bars-back", dest="max_bars_back", default=0,
                     type=_max_bars_back, metavar="N|auto",
@@ -112,7 +119,7 @@ def add_max_bars_back_arg(ap):
                          "50 to reproduce that. Default: 0.")
 
 
-def check_max_bars_back(args, el_source):
+def check_max_bars_back(args: argparse.Namespace, el_source: str) -> str:
     """Resolve ``args.max_bars_back`` in place (``auto`` -> a number).
 
     Returns the status-line suffix: ``", max-bars-back N (auto)"`` for auto,
@@ -127,14 +134,14 @@ def check_max_bars_back(args, el_source):
     return ", max-bars-back %d (auto)" % args.max_bars_back
 
 
-def _positive_int(text):
+def _positive_int(text: str) -> int:
     value = _non_negative_int(text)
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
     return value
 
 
-def add_max_entries_per_direction_arg(ap):
+def add_max_entries_per_direction_arg(ap: argparse.ArgumentParser) -> None:
     """The shared ``--max-entries-per-direction N`` option."""
     ap.add_argument("--max-entries-per-direction", dest="max_entries_per_direction",
                     default=None, type=_positive_int, metavar="N",
@@ -144,7 +151,7 @@ def add_max_entries_per_direction_arg(ap):
                          "entries' setting. Pass 1 for MultiCharts' documented default.")
 
 
-def bars_or_error(load, path, date_format=None):
+def bars_or_error(load: Callable[..., Any], path: str, date_format: Optional[str] = None) -> Any:
     """Call ``load(path)``, turning a malformed or empty bars file into a CliError."""
     try:
         if date_format is not None:
@@ -158,13 +165,13 @@ def bars_or_error(load, path, date_format=None):
     return bars
 
 
-def _describe(exc):
+def _describe(exc: BaseException) -> str:
     if isinstance(exc, OSError) and exc.filename is not None:
         return "%s: %s" % (exc.strerror or exc, exc.filename)
     return str(exc)
 
 
-def run(prog, fn, *args):
+def run(prog: str, fn: Callable[..., int], *args: Any) -> int:
     """Run ``fn(*args)`` and return its rc, reporting user errors in one line (rc 2)."""
     try:
         return fn(*args)

@@ -54,6 +54,9 @@ verbatim comments). The round-trip proof lives in tests/test_ir_roundtrip.py.
 """
 
 import json
+from typing import Any, Optional, Union
+
+from ._types import Node
 
 IR_SCHEMA_VERSION = 1
 IR_KIND = "pl_transpiler.ast"
@@ -164,11 +167,11 @@ IR_NODE_TYPES = frozenset(_NODE_SCHEMA)
 IR_RECORD_KINDS = frozenset(_RECORD_SCHEMA)
 
 
-def _path_str(path):
+def _path_str(path: list[Union[str, int]]) -> str:
     return "$" + "".join(f"[{p}]" for p in path)
 
 
-def _check_node(node, path):
+def _check_node(node: Any, path: list[Union[str, int]]) -> None:
     if not isinstance(node, dict):
         raise IrSchemaError(
             f"expected a node dict at {_path_str(path)}, "
@@ -197,7 +200,7 @@ def _check_node(node, path):
         _check_value(kind, value, path + [key])
 
 
-def _check_record(which, rec, path):
+def _check_record(which: str, rec: Any, path: list[Union[str, int]]) -> None:
     if not isinstance(rec, dict):
         raise IrSchemaError(
             f"expected a {which} record at {_path_str(path)}, "
@@ -212,7 +215,7 @@ def _check_record(which, rec, path):
         _check_value(kind, value, path + [key])
 
 
-def _check_value(kind, value, path):
+def _check_value(kind: Any, value: Any, path: list[Union[str, int]]) -> None:
     if kind == 'node':
         if value is None:
             raise IrSchemaError(
@@ -277,7 +280,7 @@ def _check_value(kind, value, path):
         raise AssertionError(f"internal: unknown schema kind {kind!r}")
 
 
-def serialise_ir(ast, *, version=None):
+def serialise_ir(ast: Node, *, version: Optional[int] = None) -> str:
     """Validate `ast` against the dialect schema and encode it deterministically.
 
     Raises IrSchemaError for anything the dialect cannot express (compile-time
@@ -299,7 +302,8 @@ def serialise_ir(ast, *, version=None):
                       ensure_ascii=True)
 
 
-def deserialise_ir(payload, *, expected_version=None):
+def deserialise_ir(payload: Union[str, bytes], *,
+                   expected_version: Optional[int] = None) -> Node:
     """Decode and validate an IR payload back into the dict AST.
 
     Raises IrVersionError when the payload's schema version is not supported,
@@ -328,7 +332,7 @@ def deserialise_ir(payload, *, expected_version=None):
         raise IrVersionError(
             f"unsupported IR schema version {version!r}; this reader supports "
             f"{expected_version}")
-    ast = data.get('ast')
+    ast: Optional[Node] = data.get('ast')
     if ast is None:
         raise IrError("malformed IR payload: missing 'ast'")
     _check_node(ast, [])

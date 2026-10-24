@@ -83,6 +83,8 @@ DIALECT_VERSION: asserted equal to transpiler.codegen.DIALECT_VERSION at import 
 drift tripwire. Bumping the emitted dialect requires touching BOTH files.
 """
 import ast
+from collections.abc import Sequence
+from typing import Any, Optional
 
 from pl_transpiler._py_front_common import (  # noqa: F401  (re-exported)
     _BARE_COMPUTED_UNPARSE,
@@ -127,6 +129,7 @@ from pl_transpiler._py_front_expr import (  # noqa: F401  (re-exported)
     _strip_int,
     inv_expr,
 )
+from pl_transpiler._types import Node
 from pl_transpiler.codegen import (
     BUILTIN_FUNC_MAP,  # noqa: F401  (re-exported)
     COMPARE_OPS,  # noqa: F401  (re-exported)
@@ -148,10 +151,10 @@ assert _CODEGEN_DIALECT_VERSION == DIALECT_VERSION, (
 
 
 # --- statement inversion ----------------------------------------------------
-def _inv_stmts(pystmts):
+def _inv_stmts(pystmts: list[ast.stmt]) -> list[Node]:
     """Invert a list of Python statements (a function/if/for/while body) into a list
     of AST statement nodes. Handles the few multi-statement fan-outs (Stochastic)."""
-    out = []
+    out: list[Node] = []
     i = 0
     n = len(pystmts)
     while i < n:
@@ -183,7 +186,7 @@ def _inv_stmts(pystmts):
     return out
 
 
-def _try_stochastic(pystmts, i, out):
+def _try_stochastic(pystmts: list[ast.stmt], i: int, out: list[Node]) -> int:
     """If a Stochastic fan-out begins at index i, append its single reconstructed
     assign to `out` and return the number of Python statements consumed; else 0."""
     s = pystmts[i]
@@ -222,7 +225,7 @@ def _try_stochastic(pystmts, i, out):
     return j - i
 
 
-def _match_stoch_unpack(stmt):
+def _match_stoch_unpack(stmt: ast.stmt) -> Optional[tuple[int, str]]:
     """`v = f32(_stoch_result[k])` or `v = _stoch_result[k]` -> (k, 'v'), else None."""
     if not (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
             and _is_name(stmt.targets[0])):
@@ -237,7 +240,7 @@ def _match_stoch_unpack(stmt):
     return None
 
 
-def _inv_stmt(stmt, out):
+def _inv_stmt(stmt: ast.stmt, out: list[Node]) -> None:
     """Invert a single Python statement, appending 0+ AST nodes to `out`."""
     if isinstance(stmt, ast.Assign):
         _inv_assign(stmt, out)
@@ -267,7 +270,7 @@ def _inv_stmt(stmt, out):
     raise PyFrontError(f"unsupported statement: {ast.unparse(stmt)}{_ln(stmt)}{_DIALECT_HINT}")
 
 
-def _inv_assign(stmt, out):
+def _inv_assign(stmt: ast.Assign, out: list[Node]) -> None:
     if len(stmt.targets) != 1:
         raise PyFrontError(f"multi-target assignment is outside the dialect{_ln(stmt)}")
     target = stmt.targets[0]
@@ -286,7 +289,7 @@ def _inv_assign(stmt, out):
     out.append({'type': 'assign', 'target': tnode, 'value': inv_expr(stmt.value)})
 
 
-def _inv_risk_assign(key, value):
+def _inv_risk_assign(key: Any, value: ast.expr) -> Node:
     func = _RISK_KEY_TO_FUNC.get(key)
     if func is None:
         raise PyFrontError(f"unrecognised _risk key {key!r}{_ln(value)}")
@@ -306,7 +309,7 @@ def _inv_risk_assign(key, value):
     return {'type': 'risk', 'func': func, 'arg': inv_expr(value)}
 
 
-def _inv_if(stmt):
+def _inv_if(stmt: ast.If) -> Node:
     # Once: `if _first_bar: <body>; _first_bar = False`
     if _is_first_bar(stmt.test) and not stmt.orelse:
         body = stmt.body
@@ -314,22 +317,22 @@ def _inv_if(stmt):
             raise PyFrontError(f"`if _first_bar:` without trailing `_first_bar = False`{_ln(stmt)}")
         return {'type': 'once', 'body': _inv_stmts(body[:-1])}
     cond = inv_expr(stmt.test)
-    body = _inv_stmts(stmt.body)
+    body_nodes = _inv_stmts(stmt.body)
     else_body = _inv_stmts(stmt.orelse) if stmt.orelse else None
-    return {'type': 'if', 'cond': cond, 'body': body, 'else_body': else_body}
+    return {'type': 'if', 'cond': cond, 'body': body_nodes, 'else_body': else_body}
 
 
-def _is_first_bar(node):
+def _is_first_bar(node: ast.expr) -> bool:
     return _is_name(node, '_first_bar')
 
 
-def _is_first_bar_reset(stmt):
+def _is_first_bar_reset(stmt: ast.stmt) -> bool:
     return (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
             and _is_name(stmt.targets[0], '_first_bar')
             and isinstance(stmt.value, ast.Constant) and stmt.value.value is False)
 
 
-def _inv_for(stmt):
+def _inv_for(stmt: ast.For) -> Node:
     """`for v in range(int(a), int(b) + 1):` -> for-to ; `range(int(a), int(b) - 1, -1)`
     -> for-downto (codegen.py:861-865)."""
     if not _is_name(stmt.target):
@@ -357,7 +360,7 @@ def _inv_for(stmt):
             'downto': downto, 'body': _inv_stmts(stmt.body)}
 
 
-def _strip_end_bound(node, downto):
+def _strip_end_bound(node: ast.expr, downto: bool) -> ast.expr:
     """From `int(end) + 1` (to) or `int(end) - 1` (downto), return the `end` node."""
     want = ast.Sub if downto else ast.Add
     if not (isinstance(node, ast.BinOp) and isinstance(node.op, want)
@@ -366,7 +369,7 @@ def _strip_end_bound(node, downto):
     return _strip_int(node.left)
 
 
-def _inv_while(stmt):
+def _inv_while(stmt: ast.While) -> Node:
     """Regular `while (cond):` -> while ; the repeat-until shim
     `while True: <body>; if C: break` -> repeat_until (codegen.py:887-897)."""
     if isinstance(stmt.test, ast.Constant) and stmt.test.value is True:
@@ -380,7 +383,7 @@ def _inv_while(stmt):
             'body': _inv_stmts(stmt.body)}
 
 
-def _inv_expr_stmt(stmt, out):
+def _inv_expr_stmt(stmt: ast.Expr, out: list[Node]) -> None:
     """Invert an expression statement: order append, plot append/noplot, print/alert,
     commentary, or a bare call (e.g. money-management point-based helpers)."""
     val = stmt.value
@@ -414,7 +417,7 @@ def _inv_expr_stmt(stmt, out):
     raise PyFrontError(f"unsupported expression statement: {ast.unparse(stmt)}{_ln(stmt)}{_DIALECT_HINT}")
 
 
-def _match_plot_append(val):
+def _match_plot_append(val: ast.expr) -> Optional[Node]:
     """`_plots.setdefault('name', []).append(value)` -> plot node, else None."""
     if not (isinstance(val, ast.Call) and isinstance(val.func, ast.Attribute)
             and val.func.attr == 'append' and len(val.args) == 1):
@@ -427,7 +430,7 @@ def _match_plot_append(val):
             'value': inv_expr(val.args[0]), 'label': None}
 
 
-def _match_setplot(val):
+def _match_setplot(val: ast.expr) -> Optional[Node]:
     """`_plots.__setitem__(f'plot{N}_<attr>', <v>)` -> the matching output call."""
     if not (_is_attr_call(val, '_plots', '__setitem__') and len(val.args) == 2):
         return None
@@ -454,7 +457,7 @@ def _match_setplot(val):
     return None
 
 
-def _inv_order(elts):
+def _inv_order(elts: Sequence[ast.expr]) -> Node:
     """Invert an `_orders.append((...))` tuple into an order node (codegen.py:1033-1068)."""
     _oln = _ln(elts[0]) if elts else ""
     if len(elts) < 5:
@@ -511,20 +514,20 @@ def _inv_order(elts):
     return node
 
 
-def _label_node(node):
+def _label_node(node: ast.expr) -> Node:
     if _const_str(node):
         return {'type': 'string', 'value': node.value}
     return inv_expr(node)
 
 
-def _const(node):
+def _const(node: ast.expr) -> Any:
     if not isinstance(node, ast.Constant):
         raise PyFrontError(f"expected a constant, got {ast.dump(node)}{_ln(node)}")
     return node.value
 
 
 # --- module / prologue framing ----------------------------------------------
-def _find_strategy(module):
+def _find_strategy(module: ast.Module) -> ast.FunctionDef:
     """Return the `def strategy(...)` FunctionDef; raise if the module is not the
     expected clean-dialect shape."""
     fn = None
@@ -548,7 +551,7 @@ def _find_strategy(module):
     return fn
 
 
-def _skip_prologue(body):
+def _skip_prologue(body: list[ast.stmt]) -> int:
     """Skip the fixed prologue (the isinstance guard + the `_*`/time_s inits) and
     return the index of the first program statement."""
     i = 0
@@ -569,7 +572,7 @@ def _skip_prologue(body):
     return i
 
 
-def _parse_inputs(body, i, out, declared):
+def _parse_inputs(body: list[ast.stmt], i: int, out: list[Node], declared: set[str]) -> int:
     """Consume the input block: `Name = kwargs.get('Name', default)` (key == target)."""
     n = len(body)
     while i < n:
@@ -589,7 +592,7 @@ def _parse_inputs(body, i, out, declared):
     return i
 
 
-def _array_init_form(value):
+def _array_init_form(value: ast.expr) -> Optional[Node]:
     """If `value` is an array declaration initializer (`[init]` or
     `[init] * (size + 1)`), return {'init', 'size'}; else None."""
     if isinstance(value, ast.List):
@@ -606,7 +609,7 @@ def _array_init_form(value):
     return None
 
 
-def _parse_decls(body, i, out, declared):
+def _parse_decls(body: list[ast.stmt], i: int, out: list[Node], declared: set[str]) -> int:
     """Consume the contiguous declaration block. The forward transpiler emits every
     declared Var/Array as one `Name = <init>` assignment, in declaration order,
     immediately after the input block and before the first executable statement. EL
@@ -644,7 +647,7 @@ def _parse_decls(body, i, out, declared):
     return i
 
 
-def _recapture_comments(py_source):
+def _recapture_comments(py_source: str) -> list[Node]:
     """Recover the verbatim EL comments the forward codegen (clean mode, DIALECT 3)
     embedded as `#| <verbatim>` markers, WITH their anchor coordinates. Python's `ast`
     discards comments, so this is a separate `tokenize` pass (robust to a `#|` inside a
@@ -690,7 +693,7 @@ def _recapture_comments(py_source):
     return out
 
 
-def _stamp_line(nodes, lineno):
+def _stamp_line(nodes: list[Node], lineno: int) -> None:
     """Stamp `_line` (the Python source line) on each freshly-built AST statement in
     `nodes` so `codegen_el._anchor_comments` can re-anchor comments to it. `setdefault`
     never clobbers a nested statement already stamped by a recursive `_inv_stmts`."""
@@ -699,7 +702,7 @@ def _stamp_line(nodes, lineno):
             node.setdefault('_line', lineno)
 
 
-def py_to_ast(py_source):
+def py_to_ast(py_source: str) -> Node:
     """Parse clean-dialect Python source into the parser's dict AST (a 'program' node).
     Raises PyFrontError on any construct outside the mirror dialect."""
     try:
@@ -708,8 +711,8 @@ def py_to_ast(py_source):
         raise PyFrontError(f"input is not valid Python: {e.msg}{_ln(e)}") from e
     fn = _find_strategy(module)
     body = fn.body
-    out = []
-    declared = set()
+    out: list[Node] = []
+    declared: set[str] = set()
     i = _skip_prologue(body)
     i = _parse_inputs(body, i, out, declared)
     i = _parse_decls(body, i, out, declared)
@@ -718,7 +721,7 @@ def py_to_ast(py_source):
             '_comments': _recapture_comments(py_source)}
 
 
-def _demangle_names(n):
+def _demangle_names(n: Any) -> Any:
     """Restore EL names codegen mangled away from reserved Python names
     (`_el_max` -> `max`) in idents, declarations and for-loop vars."""
     if isinstance(n, list):

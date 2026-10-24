@@ -15,12 +15,50 @@
 
 """Money-management stop methods of `engine.FillEngine` (a mixin)."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 from pl_transpiler.runtime.pl_runtime import f32
 
 
 class _StopsMixin:
-    def _check_money_management_stops(self, high, low, close_price, barnumber=None, open_price=None,
-                                       date_str=0, time_str=0):
+    if TYPE_CHECKING:
+        # Host (FillEngine) state and methods this mixin uses.
+        market_position: int
+        contracts: int
+        entry_price: float
+        avgentryprice: float
+        entry_bar: int
+        bars_since_entry: int
+        open_position_profit: float
+        position_profit: float
+        net_profit: float
+        total_trades: int
+        point_value: float
+        tick: float
+        entry_date: int
+        entry_time: int
+        entry_name: str
+        entry_cat: int
+        _risk: dict[str, Any]
+        _peak_profit: float
+        _breakeven_triggered: bool
+        _entry_prices: list[float]
+
+        def _signed_position(self) -> int: ...
+
+        def _update_gross_pnl(self, pnl: float) -> None: ...
+
+        def _record_closed_trade(self, exit_bar: int, exit_price: float = 0.0, size: int = 0,
+                                 islong: bool = True, exit_date: int = 0, exit_time: int = 0,
+                                 exit_name: str = '', exit_cat: int = 0) -> None: ...
+
+        def _record_fills(self, buy_side: bool, signal: str, date: int, time: int, price: float,
+                          prev_signed: int, v1_qty: int = 0) -> None: ...
+
+    def _check_money_management_stops(self, high: float, low: float, close_price: float,
+                                       barnumber: Any = None,
+                                       open_price: Optional[float] = None,
+                                       date_str: int = 0, time_str: int = 0) -> None:
         """Close the position if the bar's intra-bar price path crosses any active
         money-management stop (StopLoss / ProfitTarget / BreakEven / PercentTrailing /
         DollarTrailing).
@@ -63,7 +101,7 @@ class _StopsMixin:
         sl_amt = self._risk.get('stop_loss', 0)
         pt_amt = self._risk.get('profit_target', 0)
         be_amt = self._risk.get('breakeven', 0)
-        pt_cfg = self._risk.get('percent_trailing', None)
+        pt_cfg: Any = self._risk.get('percent_trailing', None)
         has_trail = bool(pt_cfg and isinstance(pt_cfg, (list, tuple))
                          and len(pt_cfg) == 2 and float(pt_cfg[1]) > 0)
         trail_floor = float(pt_cfg[0]) if has_trail else 0.0
@@ -85,7 +123,7 @@ class _StopsMixin:
         pt_price = (self._snap(entry + pt_amt / pv, 'up') if long_pos
                     else self._snap(entry - pt_amt / pv, 'down')) if (pt_amt and pt_amt > 0) else None
 
-        def _trail_price(peak):
+        def _trail_price(peak: float) -> float:
             give = peak * trail_pct / 100.0
             base = (peak - give) / pv_ct
             return self._snap(entry + base, 'down') if long_pos else self._snap(entry - base, 'up')
@@ -93,8 +131,8 @@ class _StopsMixin:
         # Active levels for the given running peak, tagged with the price DIRECTION
         # that triggers them: profit-target on the favorable side, the protective
         # stops (stop-loss / breakeven / trailing) on the adverse side.
-        def _levels(peak):
-            out = []
+        def _levels(peak: float) -> list[tuple[float, str, bool]]:
+            out: list[tuple[float, str, bool]] = []
             if pt_price is not None:
                 out.append((pt_price, 'profit_target', long_pos))      # up-triggered iff long
             if sl_price is not None:
@@ -149,7 +187,7 @@ class _StopsMixin:
         # EL's SetExitOnClose exits all positions on the close of the last bar.
         # Not implemented yet (requires knowing when it's the last bar).
 
-    def _snap(self, price, direction='nearest'):
+    def _snap(self, price: float, direction: str = 'nearest') -> float:
         """Snap a price to the instrument tick grid (MultiCharts order placement).
 
         MultiCharts aligns a protective stop to a tradable price by rounding it
@@ -169,10 +207,13 @@ class _StopsMixin:
             n = math.ceil(q - 1e-9)
         else:
             n = round(q)
-        return f32(n * self.tick)
+        snapped: float = f32(n * self.tick)
+        return snapped
 
-    def _close_at_stop(self, price, reason, exit_bar=0, exit_date=0, exit_time=0,
-                       exit_name='', exit_cat=0, fill_date=None, fill_time=None):
+    def _close_at_stop(self, price: float, reason: str, exit_bar: int = 0, exit_date: int = 0,
+                       exit_time: int = 0, exit_name: str = '', exit_cat: int = 0,
+                       fill_date: Optional[int] = None,
+                       fill_time: Optional[int] = None) -> None:
         """Close the current position at a stop price.
 
         The exit is logged in ``fills`` under ``exit_name`` (or ``reason``) at

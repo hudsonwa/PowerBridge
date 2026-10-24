@@ -48,6 +48,7 @@ import json
 import os
 import re
 import sys
+from typing import Optional
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SIGNATURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pl_signatures.jsonl')
@@ -112,7 +113,7 @@ def dump_proven_data(data):
     return json.dumps(data, indent=1, sort_keys=True) + '\n'
 
 
-_proven_cache = None
+_proven_cache: Optional[tuple[set[str], set[str]]] = None
 
 
 def load_proven_data(path=None):
@@ -428,7 +429,7 @@ def argtype_violations(raw, sigs):
     return out
 
 
-def check(path, label=None):
+def check(path: str, label: Optional[str] = None) -> int:
     """Check the EL file at ``path``; the report names ``label`` (default ``path``)."""
     raw = open(path, encoding='utf-8', errors='ignore').read()
     code = _strip(raw)

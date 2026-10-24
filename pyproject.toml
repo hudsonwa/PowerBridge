@@ -91,8 +91,10 @@ files = ["pl_transpiler"]
 follow_imports = "normal"
 warn_unused_ignores = true
 # Stricter checks that pass across the whole package (no per-module
-# exceptions). Not yet enabled because it needs real typing work first:
-# check_untyped_defs.
+# exceptions). Modules that are fully annotated also get disallow_untyped_defs
+# in the override below; the rest (the runtime builtins and two maintainer
+# tools) are typed incrementally.
+check_untyped_defs = true
 warn_redundant_casts = true
 warn_unreachable = true
 strict_equality = true
@@ -103,6 +105,52 @@ no_implicit_reexport = true
 # BarTape(Sequence)) and carry a narrow `type: ignore[type-arg]`: parameterising
 # the base would change the runtime class bases.
 disallow_any_generics = true
+
+[[tool.mypy.overrides]]
+# Fully annotated modules: every new function must be annotated too.
+module = [
+    "pl_transpiler",
+    "pl_transpiler._codegen_el_layout",
+    "pl_transpiler._engine_report",
+    "pl_transpiler._engine_stops",
+    "pl_transpiler._parser_expr",
+    "pl_transpiler._parser_stmts",
+    "pl_transpiler._py_front_common",
+    "pl_transpiler._py_front_expr",
+    "pl_transpiler._types",
+    "pl_transpiler.bar_loop",
+    "pl_transpiler.catalog",
+    "pl_transpiler.codegen",
+    "pl_transpiler.codegen_el",
+    "pl_transpiler.codegen_expr",
+    "pl_transpiler.codegen_stmt",
+    "pl_transpiler.codegen_tables",
+    "pl_transpiler.codegen_util",
+    "pl_transpiler.engine",
+    "pl_transpiler.engine_dates",
+    "pl_transpiler.errors",
+    "pl_transpiler.ir",
+    "pl_transpiler.lexer",
+    "pl_transpiler.lookback",
+    "pl_transpiler.parser",
+    "pl_transpiler.parser_tables",
+    "pl_transpiler.py_front",
+    "pl_transpiler.reverse",
+    "pl_transpiler.semantic",
+    "pl_transpiler.runtime.accel",
+    "pl_transpiler.runtime.audit_packet",
+    "pl_transpiler.runtime.bar_tape",
+    "pl_transpiler.runtime.drawing_dump",
+    "pl_transpiler.runtime.instrument_config",
+    "pl_transpiler.tools._cli",
+    "pl_transpiler.tools.el_emit",
+    "pl_transpiler.tools.pl_examples",
+    "pl_transpiler.tools.pl_oracle",
+    "pl_transpiler.tools.pl_run",
+    "pl_transpiler.tools.pl_transpile",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 # Optional compiled extension; absent unless built with tools/build_accel.sh.

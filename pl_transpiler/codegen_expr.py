@@ -14,6 +14,9 @@
 
 """Expression generation for CodeGen (mixin; see codegen.py)."""
 
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
+
+from ._types import Node
 from .codegen_tables import _SERIES_PARAMS, BUILTIN_FUNC_MAP, COMPARE_OPS
 from .codegen_util import (
     _OHLCV_F32_NAMES,
@@ -44,12 +47,30 @@ _BAR_COLUMN_WORDS = {
 }
 
 class _ExprMixin:
+    if TYPE_CHECKING:
+        # Host interface provided by CodeGen (see codegen.py).
+        trace: bool
+        persist: bool
+        has_math: bool
+        _series_context: bool
+        _partial: bool
+        _need_f32_import: bool
+        _lag_sites: int
+        _cur_stmt_line: Optional[int]
+        _trace_vars: set[str]
+        _stateful_vars: set[str]
+        _numeric_vars: set[str]
+        _array_vars: set[str]
+        _declared_all: set[str]
+        _input_inits: list[tuple[str, Node]]
+        _unimpl_errors: list[dict[str, Any]]
+
     # ==== Expression Generation ====
-    def gen_expr(self, node):
+    def gen_expr(self, node: Node) -> str:
         ntype = node['type']
 
         if ntype == 'number':
-            val = node['value']
+            val: str = node['value']
             # Strip leading zeros from integer literals to avoid Python octal errors
             # but preserve "0" itself and floats like "0.5"
             if '.' not in val:
@@ -63,7 +84,7 @@ class _ExprMixin:
             return 'True' if node['value'] else 'False'
 
         if ntype == 'ident':
-            name = node['name']
+            name: str = node['name']
             # Data series params: emit current-bar value unless in series context
             if name in _SERIES_PARAMS and not self._series_context:
                 # Wrap OHLCV data in f32 for EL float32 fidelity (ad, #U10).
@@ -264,14 +285,14 @@ class _ExprMixin:
         'linearregvalue', 'linearregslope', 'linearregangle',
     ))
 
-    def _is_user_name(self, name):
+    def _is_user_name(self, name: Optional[str]) -> bool:
         """True if ``name`` is declared or assigned by the program (it then
         wins over a reserved word of the same name)."""
         return (name in self._declared_all
                 or name in self._trace_vars or name in self._stateful_vars
                 or name in self._array_vars or name in self._numeric_vars)
 
-    def _price_arg_site(self, call):
+    def _price_arg_site(self, call: Node) -> Optional[str]:
         """The hidden history for ``call``'s price argument, or None.
 
         A price argument that needs one but cannot have it (its value can
@@ -308,21 +329,22 @@ class _ExprMixin:
                            f"variable instead")})
         return None
 
-    def _needs_arg_site(self, node):
+    def _needs_arg_site(self, node: Node) -> bool:
         """True if a price argument needs a hidden history: an offset, a
         computed word, an expression or a nested call. Only a bare series
         (``Close``, a variable) or a constant is passed as it is."""
         t = node.get('type')
         if t == 'bar_ref':
-            return node['series'].get('type') != 'position_kw'
+            series_type: Optional[str] = node['series'].get('type')
+            return series_type != 'position_kw'
         if t == 'ident':
             return (node.get('name') in _BARE_COMPUTED_PRICES
                     and not self._is_user_name(node.get('name')))
         return t in ('binop', 'unaryop', 'compare', 'call')
 
-    def _gen_lagged_range(self, name, index):
+    def _gen_lagged_range(self, name: str, index: Node) -> str:
         """``Range[n]`` = High[n] - Low[n]; ``TrueRange[n]`` also uses Close[n + 1]."""
-        def col(c, idx):
+        def col(c: str, idx: Node) -> str:
             return self._gen_bar_ref({'type': 'bar_ref',
                                       'series': {'type': 'ident', 'name': c},
                                       'index': idx})
@@ -330,13 +352,13 @@ class _ExprMixin:
         if name == 'range':
             return f"({hi} - {lo})"
         if index.get('type') == 'number':
-            prev = {'type': 'number', 'value': str(int(index['value']) + 1)}
+            prev: Node = {'type': 'number', 'value': str(int(index['value']) + 1)}
         else:
             prev = {'type': 'binop', 'op': '+', 'left': index,
                     'right': {'type': 'number', 'value': '1'}}
         return f"pl_true_range({hi}, {lo}, {col('close', prev)})"
 
-    def _is_known_bare_ident(self, name):
+    def _is_known_bare_ident(self, name: str) -> bool:
         """True if a bare (parenless) identifier reaching gen_expr's ident fallback
         is a LEGITIMATE name and must pass through as-is (never flagged).
 
@@ -354,10 +376,10 @@ class _ExprMixin:
                 or name in ('true', 'false')
                 or f'pl_{name}' in _available_pl_targets()):
             return True
-        from pl_transpiler.parser import _is_known_name
+        from pl_transpiler.semantic import _is_known_name
         return _is_known_name(name, self._declared_all)
 
-    def _bare_raw_resolves(self, name):
+    def _bare_raw_resolves(self, name: str) -> bool:
         """True when a bare identifier reaching the ident fallback can be emitted
         verbatim because the raw lowercased name actually binds in the generated
         strategy() scope: a generated local (user-declared/assigned var, series
@@ -370,12 +392,12 @@ class _ExprMixin:
                 or name in self._trace_vars or name in self._stateful_vars
                 or name in self._array_vars or name in self._numeric_vars):
             return True
-        from pl_transpiler.parser import _SCRATCH_VARS
+        from pl_transpiler.semantic import _SCRATCH_VARS
         if name in _SCRATCH_VARS:
             return True
         return name in _runtime_bound_bare_names()
 
-    def _require_pl_impl(self, name, node=None):
+    def _require_pl_impl(self, name: str, node: Optional[Node] = None) -> str:
         """Validate that a generic `pl_<name>` target resolves in the runtime.
         On a miss, RECORD the unimplemented keyword (name + nearest source line) into
         the per-generate collection and return the emittable `pl_<name>` target string
@@ -398,7 +420,7 @@ class _ExprMixin:
                 return f"pl_partial_stub({name!r}, {line!r})"
         return target
 
-    def _lagged(self, s, offset, slice_zero=False):
+    def _lagged(self, s: str, offset: Union[int, str], slice_zero: bool = False) -> str:
         """``s[:-offset]`` for ``Func(s)[offset]``, emitted as a per-site
         ``_pb_lag`` so the Python path does not copy the history every bar.
         A literal offset of 0 passes ``s`` through unless ``slice_zero``
@@ -408,7 +430,7 @@ class _ExprMixin:
         self._lag_sites += 1
         return f"_pb_lag({self._lag_sites}, {s}, {offset})"
 
-    def _impl_call(self, name, node, args):
+    def _impl_call(self, name: str, node: Node, args: list[str]) -> str:
         """Emit the call expression for a builtin target `pl_<name>(args)`.
 
         Delegates to _require_pl_impl (which records the keyword on a miss). In
@@ -424,19 +446,19 @@ class _ExprMixin:
             return f"{target}()"
         return f"{target}({', '.join(args)})"
 
-    def _sorted_unimpl(self):
+    def _sorted_unimpl(self) -> list[dict[str, Any]]:
         """Deduplicate + sort the recorded unimplemented keywords: dedup by
         (name, line); sort by (line, name) with None lines last. Returns the list
         of ``{'name','line'}`` dicts shared by the raise path (strict) and the
         watermark/manifest path (partial), so both see the identical ordering."""
-        seen = set()
-        errors = []
+        seen: set[tuple[Any, Any]] = set()
+        errors: list[dict[str, Any]] = []
         for e in self._unimpl_errors:
             key = (e['name'], e['line'])
             if key in seen:
                 continue
             seen.add(key)
-            out = {'name': e['name'], 'line': e['line']}
+            out: dict[str, Any] = {'name': e['name'], 'line': e['line']}
             if e.get('kind'):
                 out['kind'] = e['kind']
             if e.get('detail'):
@@ -445,7 +467,7 @@ class _ExprMixin:
         errors.sort(key=lambda e: (e['line'] is None, e['line'] or 0, e['name']))
         return errors
 
-    def _partial_watermark(self, errors):
+    def _partial_watermark(self, errors: list[dict[str, Any]]) -> str:
         """Build the partial-mode watermark comment block that PREFIXES the
         generated file when N>0 stubs were emitted. Names every stub (same dedup/
         sort as the strict report) and states loudly that the output is not faithful."""
@@ -465,7 +487,7 @@ class _ExprMixin:
         lines.append(bar)
         return "\n".join(lines) + "\n"
 
-    def _raise_unimplemented(self):
+    def _raise_unimplemented(self) -> NoReturn:
         """Deduplicate + sort the recorded unimplemented keywords and raise ONE
         UnimplementedKeywordError. Dedup by (name, line); sort by (line, name) with
         None lines last. Single-error message is the short one-line format;
@@ -474,7 +496,7 @@ class _ExprMixin:
         message = unimplemented_message(errors)
         raise UnimplementedKeywordError(message, errors=errors)
 
-    def _gen_call(self, node):
+    def _gen_call(self, node: Node) -> str:
         # In PARTIAL mode several inline expansions in _gen_call_impl DROP,
         # RELOCATE, or STRING-INTERPOLATE their argument text — CountIf keeps only
         # args[1]; EntryName/ExitName/BaseDataNumber/CurrentDataNumber/CurrentDate/
@@ -501,8 +523,8 @@ class _ExprMixin:
             return f"pl_partial_stub({e['name']!r}, {e['line']!r})()"
         return result
 
-    def _gen_call_impl(self, node):
-        name = node['name']
+    def _gen_call_impl(self, node: Node) -> str:
+        name: str = node['name']
         problem = call_arity_problem(name, len(node['args']))
         if problem is not None:
             line = node.get('_line') or self._cur_stmt_line
@@ -742,7 +764,7 @@ class _ExprMixin:
         # Unknown function: use pl_ prefix (validated to be implemented in builtins)
         return self._impl_call(name, node, args)
 
-    def _gen_bar_ref(self, node):
+    def _gen_bar_ref(self, node: Node) -> str:
         # User variables access _state history list; data series access the list directly.
         # EL: VarName[n] = value n bars ago. User var state list stores end-of-bar values,
         # so VarName[n] = _state['name'][-n] (not -(n+1) like data series).
@@ -755,7 +777,8 @@ class _ExprMixin:
         if (isinstance(series, dict) and series.get('type') == 'ident'
                 and series.get('name') in {n for n, _ in self._input_inits}):
             self.gen_expr(index)
-            return series['name']
+            input_name: str = series['name']
+            return input_name
 
         # Position-info function call: MaxPositionProfit(1), MaxContracts(1), etc.
         # The parser models these as bar_ref(series=position_kw, index=PosAgo).
@@ -788,7 +811,7 @@ class _ExprMixin:
             return self.gen_expr(series)
 
         if series['type'] == 'ident' and series['name'] in self._stateful_vars and self.persist:
-            name = series['name']
+            name: str = series['name']
             if index['type'] == 'number':
                 n = int(index['value'])
                 if n == 0:
@@ -812,7 +835,7 @@ class _ExprMixin:
             self._series_context = old_ctx
 
             if index['type'] == 'number':
-                offset = int(index['value'])  # EL 1-indexed → remove N trailing elements
+                offset: Union[int, str] = int(index['value'])  # EL 1-indexed → remove N trailing elements
             else:
                 offset_expr = self.gen_expr(index)
                 offset = f"({offset_expr})"

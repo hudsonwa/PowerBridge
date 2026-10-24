@@ -231,7 +231,7 @@ def _compute_adx_series(high_s, low_s, close_s, length):
         else:
             dx_values.append(0.0)
     # Then build ADX series using Wilder's smoothing of DX
-    adx_values = []
+    adx_values: list[float] = []
     if len(dx_values) < length:
         return adx_values
     adx_val = sum(dx_values[:length]) / length

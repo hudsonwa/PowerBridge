@@ -15,6 +15,9 @@
 
 """Statement-level recursive-descent methods of `parser.Parser` (a mixin)."""
 
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
+
+from ._types import Node, Token
 from .lexer import (
     TT_COMMA,
     TT_EOF,
@@ -30,12 +33,12 @@ from .lexer import (
 )
 
 
-def _reconstruct_tokens(toks):
+def _reconstruct_tokens(toks: list[Token]) -> str:
     """Best-effort text reconstruction of a consumed token run, used to retain
     attribute arg lists (`[Name(args)]`) in the AST. EL is case- and
     whitespace-insensitive, so this is faithful enough for the reverse emitter
     to reproduce the attribute."""
-    out = []
+    out: list[str] = []
     for i, (tt, val) in enumerate(toks):
         if out and tt not in (TT_COMMA, TT_RPAREN, TT_RBRACKET, TT_LPAREN) \
                 and toks[i - 1][0] not in (TT_LPAREN, TT_LBRACKET):
@@ -45,8 +48,40 @@ def _reconstruct_tokens(toks):
 
 
 class _StatementsMixin:
+    if TYPE_CHECKING:
+        # Host interface supplied by `parser.Parser` (type-checking only).
+        tokens: list[Token]
+        positions: list[tuple[int, int]]
+        source: str
+        pos: int
+        _user_names: set[str]
+        _declared_names: set[str]
+
+        def peek(self) -> Token: ...
+
+        def advance(self) -> Token: ...
+
+        def _err(self, message: str, hint: str = '', tok_index: Optional[int] = None) -> NoReturn: ...
+
+        @staticmethod
+        def _describe(tok: Token) -> str: ...
+
+        def expect(self, tt: str, val: Any = None) -> Token: ...
+
+        def match(self, tt: str, val: Any = None) -> Optional[Token]: ...
+
+        def at_end(self) -> bool: ...
+
+        def _ident_spelling(self, name: str, tok_index: int) -> Optional[str]: ...
+
+        def parse_statement(self) -> Optional[Node]: ...
+
+        def parse_expression(self) -> Node: ...
+
+        def _parse_ident_or_call(self, name: Optional[str] = None) -> Node: ...
+
     # ---- Variable Declaration ----
-    def parse_var_decl(self):
+    def parse_var_decl(self) -> Node:
         self.advance()  # consume 'variables'/'var'
         self.match(TT_OP, ':')  # optional colon
         decls = []
@@ -78,7 +113,7 @@ class _StatementsMixin:
         return {'type': 'var_decl', 'decls': decls}
 
     # ---- Input Declaration ----
-    def parse_input_decl(self):
+    def parse_input_decl(self) -> Node:
         self.advance()  # consume 'inputs'
         self.match(TT_OP, ':')
         decls = []
@@ -101,7 +136,7 @@ class _StatementsMixin:
         return {'type': 'input_decl', 'decls': decls}
 
     # ---- If Statement ----
-    def parse_if(self):
+    def parse_if(self) -> Node:
         self.expect(TT_KEYWORD, 'if')
         cond = self.parse_expression()
         self.expect(TT_KEYWORD, 'then')
@@ -128,7 +163,7 @@ class _StatementsMixin:
                 stmt = self.parse_statement()
                 else_body = [stmt] if stmt else []
 
-        node = {'type': 'if', 'cond': cond, 'body': body, 'else_body': else_body}
+        node: Node = {'type': 'if', 'cond': cond, 'body': body, 'else_body': else_body}
         if then_block:
             node['then_block'] = True
         if else_block:
@@ -136,7 +171,7 @@ class _StatementsMixin:
         return node
 
     # ---- Block ----
-    def parse_block(self):
+    def parse_block(self) -> list[Node]:
         begin_index = self.pos
         self.expect(TT_KEYWORD, 'begin')
         stmts = []
@@ -157,7 +192,7 @@ class _StatementsMixin:
         return stmts
 
     # ---- For Loop ----
-    def parse_for(self):
+    def parse_for(self) -> Node:
         self.expect(TT_KEYWORD, 'for')
         var_index = self.pos
         var = self.expect(TT_IDENT)[1]
@@ -193,7 +228,7 @@ class _StatementsMixin:
         return node
 
     # ---- While Loop ----
-    def parse_while(self):
+    def parse_while(self) -> Node:
         self.expect(TT_KEYWORD, 'while')
         cond = self.parse_expression()
         block = self.peek() == (TT_KEYWORD, 'begin')
@@ -202,13 +237,13 @@ class _StatementsMixin:
         else:
             stmt = self.parse_statement()
             body = [stmt] if stmt else []
-        node = {'type': 'while', 'cond': cond, 'body': body}
+        node: Node = {'type': 'while', 'cond': cond, 'body': body}
         if block:
             node['block'] = True
         return node
 
     # ---- Repeat..Until ----
-    def parse_repeat_until(self):
+    def parse_repeat_until(self) -> Node:
         self.expect(TT_KEYWORD, 'repeat')
         body = []
         while self.peek() != (TT_KEYWORD, 'until') and not self.at_end():
@@ -221,7 +256,7 @@ class _StatementsMixin:
         return {'type': 'repeat_until', 'body': body, 'cond': cond}
 
     # ---- Once ----
-    def parse_once(self):
+    def parse_once(self) -> Node:
         self.expect(TT_KEYWORD, 'once')
         block = self.peek() == (TT_KEYWORD, 'begin')
         if block:
@@ -229,13 +264,13 @@ class _StatementsMixin:
         else:
             stmt = self.parse_statement()
             body = [stmt] if stmt else []
-        node = {'type': 'once', 'body': body}
+        node: Node = {'type': 'once', 'body': body}
         if block:
             node['block'] = True
         return node
 
     # ---- Switch/Case ----
-    def parse_switch(self):
+    def parse_switch(self) -> Node:
         self.expect(TT_KEYWORD, 'switch')
         # Optional parens around expression
         has_paren = bool(self.match(TT_LPAREN))
@@ -280,7 +315,7 @@ class _StatementsMixin:
         return {'type': 'switch', 'expr': expr, 'cases': cases, 'default': default_body}
 
     # ---- Array Declaration ----
-    def parse_attribute(self):
+    def parse_attribute(self) -> Node:
         # Strategy/study attribute: [Name = Value] or [Name(args)] or [Name].
         # Parsed for completeness; semantically a no-op for the per-bar calc/trace
         # output (behaviour attributes like SameExitFromOneEntryOnce /
@@ -319,7 +354,7 @@ class _StatementsMixin:
             node['raw_args'] = raw_args
         return node
 
-    def parse_array_decl(self):
+    def parse_array_decl(self) -> Node:
         self.advance()  # consume 'arrays'/'array'
         self.match(TT_OP, ':')  # optional colon
         decls = []
@@ -354,7 +389,7 @@ class _StatementsMixin:
         return {'type': 'array_decl', 'decls': decls}
 
     # ---- Commentary ----
-    def parse_commentary(self):
+    def parse_commentary(self) -> Node:
         word = self.advance()[1]  # 'commentary' or 'commentarycl'
         self.expect(TT_LPAREN)
         msg = self.parse_expression()
@@ -363,7 +398,7 @@ class _StatementsMixin:
             extra.append(self.parse_expression())
         self.expect(TT_RPAREN)
         self.match(TT_SEMICOLON)
-        node = {'type': 'commentary', 'msg': msg}
+        node: Node = {'type': 'commentary', 'msg': msg}
         if extra:
             # Kept as separate arguments, not a `+` chain: MultiCharts
             # accepts numbers here, and "x=" + Close is not valid.
@@ -372,7 +407,7 @@ class _StatementsMixin:
             node['cl'] = True
         return node
 
-    def parse_commentary_block(self):
+    def parse_commentary_block(self) -> Node:
         begin_index = self.pos
         self.advance()  # '#begincmtry'
         stmts = []
@@ -391,7 +426,7 @@ class _StatementsMixin:
         return {'type': 'commentary_block', 'body': stmts}
 
     # ---- Order ----
-    def parse_order(self):
+    def parse_order(self) -> Node:
         action = self.advance()[1]  # buy/sell/sellshort/buytocover
         # Documented two-word EL forms: `Sell Short` == SellShort and
         # `Buy To Cover` == BuyToCover (unless the second word is a declared name).
@@ -404,7 +439,7 @@ class _StatementsMixin:
             self.advance()
             self.advance()
             action = 'buytocover'
-        label = ''
+        label: Union[str, Node] = ''
         quantity = None
         total = False
 
@@ -489,7 +524,7 @@ class _StatementsMixin:
         return node
 
     # ---- Risk Functions ----
-    def parse_risk_func(self):
+    def parse_risk_func(self) -> Node:
         name = self.advance()[1]
         if name == 'setexitonclose':
             # No args
@@ -526,7 +561,7 @@ class _StatementsMixin:
             return {'type': 'risk', 'func': name, 'arg': arg}
 
     # ---- Plot ----
-    def parse_plot(self):
+    def parse_plot(self) -> Node:
         name = self.advance()[1]  # plot1, plot2, etc.
         self.expect(TT_LPAREN)
         value = self.parse_expression()
@@ -551,7 +586,7 @@ class _StatementsMixin:
         return node
 
     # ---- Alert ----
-    def parse_alert(self):
+    def parse_alert(self) -> Node:
         self.advance()  # 'alert'
         self.expect(TT_LPAREN)
         msg = self.parse_expression()
@@ -560,7 +595,7 @@ class _StatementsMixin:
         return {'type': 'alert', 'msg': msg}
 
     # ---- Print ----
-    def parse_print_stmt(self):
+    def parse_print_stmt(self) -> Node:
         self.advance()  # 'print'
         self.expect(TT_LPAREN)
         args = [self.parse_expression()]
@@ -571,7 +606,7 @@ class _StatementsMixin:
         return {'type': 'print', 'args': args}
 
     # ---- Assignment or Expression Statement ----
-    def parse_assignment_or_expr(self):
+    def parse_assignment_or_expr(self) -> Node:
         # Lookahead: if we see IDENT = or IDENT := then it's assignment
         # We need to handle the case where IDENT could also be IDENT[...] =
         save_pos = self.pos

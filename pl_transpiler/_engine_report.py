@@ -16,13 +16,59 @@
 """Reporting methods of `engine.FillEngine` (a mixin): position and
 performance kwargs, MultiCharts trade export and trace injection."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 from pl_transpiler.bar_loop import _PERF_KWARGS
 from pl_transpiler.engine_dates import _el_to_ole
 from pl_transpiler.runtime.instrument_config import NQ
 
+if TYPE_CHECKING:
+    from pl_transpiler.runtime.instrument_config import InstrumentConfig
+
 
 class _ReportMixin:
-    def fill_pos_kwargs(self, d):
+    if TYPE_CHECKING:
+        # Host (FillEngine) state this mixin reads.
+        config: Optional[InstrumentConfig]
+        market_position: int
+        contracts: int
+        entry_price: float
+        avgentryprice: float
+        bars_since_entry: int
+        exit_price: float
+        bars_since_exit: int
+        open_position_profit: float
+        position_profit: float
+        net_profit: float
+        gross_profit: float
+        gross_loss: float
+        total_trades: int
+        max_contracts_held: int
+        max_id_drawdown: float
+        entry_date: int
+        entry_time: int
+        entry_name: str
+        fills: list[dict[str, Any]]
+        fills_v1: list[dict[str, Any]]
+        closed_trades: list[dict[str, Any]]
+        _entry_qtys: list[int]
+        _emit_gta6: bool
+        _pos_mfe_pc: float
+        _pos_mae_pc: float
+        _pos_max_contracts: int
+        _pos_entries: int
+        _st_nwin: int
+        _st_nlos: int
+        _st_neven: int
+        _st_lrgwin: float
+        _st_lrglos: float
+        _st_totbwin: int
+        _st_totblos: int
+        _st_totbeven: int
+        _st_maxcwin: int
+        _st_maxclos: int
+
+    def fill_pos_kwargs(self, d: dict[str, Any]) -> None:
         """Write position kwargs into *d* in place (no new dict)."""
         d['market_position'] = self.market_position
         d['current_contracts'] = self.contracts
@@ -49,48 +95,48 @@ class _ReportMixin:
     # Closed-trade performance words, read from the running aggregates kept at
     # trade close (_record_closed_trade); same values as _inject_gta6_stats.
     @property
-    def pct_profit(self):
+    def pct_profit(self) -> float:
         tt = self._st_nwin + self._st_nlos + self._st_neven
         return (self._st_nwin / tt * 100.0) if tt else 0.0
 
     @property
-    def avg_bars_win(self):
+    def avg_bars_win(self) -> float:
         return (self._st_totbwin / self._st_nwin) if self._st_nwin else 0.0
 
     @property
-    def avg_bars_los(self):
+    def avg_bars_los(self) -> float:
         return (self._st_totblos / self._st_nlos) if self._st_nlos else 0.0
 
     @property
-    def avg_bars_even(self):
+    def avg_bars_even(self) -> float:
         return (self._st_totbeven / self._st_neven) if self._st_neven else 0.0
 
     @property
-    def max_shares(self):
+    def max_shares(self) -> int:
         """MaxShares / MaxShares(0): most contracts held while the current
         position is open; 0 when flat."""
         return self._pos_max_contracts if self.market_position != 0 else 0
 
     @property
-    def open_entries_count(self):
+    def open_entries_count(self) -> int:
         """OpenEntriesCount: entries of the current position with contracts still
         open (a FIFO exit that uses up an entry removes it); 0 when flat."""
         return len(self._entry_qtys) if self.market_position != 0 else 0
 
-    def get_kwargs(self):
+    def get_kwargs(self) -> dict[str, Any]:
         """Return position kwargs to pass to strategy()."""
-        d = {}
+        d: dict[str, Any] = {}
         self.fill_pos_kwargs(d)
         return d
 
-    def get_mc_trades(self, v1=False):
+    def get_mc_trades(self, v1: bool = False) -> list[dict[str, Any]]:
         """Return list of MC-format trade dicts: order_no, type, signal, date, time, price, contracts.
 
         ``type`` is the order side: 'EntryLong' = buy side (Buy/BuyToCover),
         'ExitLong' = sell side (Sell/SellShort). See pl_oracle.fill_trade_types
         for the position-aware label. ``v1=True`` returns the pre-v2 log
         (no reversal open legs, no risk exits) for ``pl_oracle --digest-v1``."""
-        trades = []
+        trades: list[dict[str, Any]] = []
         for i, fill in enumerate(self.fills_v1 if v1 else self.fills):
             trades.append({
                 'order_no': i + 1,
@@ -103,7 +149,7 @@ class _ReportMixin:
             })
         return trades
 
-    def inject_trace(self, trace):
+    def inject_trace(self, trace: dict[str, Any]) -> None:
         """Inject position state into trace for CSV output."""
         trace['_market_position'] = self.market_position
         trace['current_contracts'] = self.contracts
@@ -127,7 +173,7 @@ class _ReportMixin:
             self._inject_gta6_stats(trace)
             self._inject_gta6_introspection(trace)
 
-    def _inject_gta6_introspection(self, trace):
+    def _inject_gta6_introspection(self, trace: dict[str, Any]) -> None:
         """GTA6 File-2 open-position + closed-trade introspection and entry/exit metadata.
 
         OpenEntry*(0) describes the CURRENT open position's (single) entry; PosTrade*(1,0)
@@ -201,7 +247,7 @@ class _ReportMixin:
         trace['descstr'] = cfg.descstr
         trace['expdate'] = cfg.expdate
 
-    def _inject_gta6_stats(self, trace):
+    def _inject_gta6_stats(self, trace: dict[str, Any]) -> None:
         """GTA6 File-2 strategy-performance stats, computed from the closed-trade
         ledger + the open position. Each cited to PowerLanguage Keyword Reference:
           NumWin/Los/EvenTrades, Largest{Win,Los}Trade, PercentProfit (pp.~ stats),

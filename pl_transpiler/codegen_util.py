@@ -14,12 +14,15 @@
 
 """Module-level helpers for the PowerLanguage code generator (re-exported by codegen)."""
 
+from typing import Any, Optional
+
+from ._types import Node
 from .codegen_tables import _SERIES_PARAMS
 
-_PL_TARGETS_CACHE = None
+_PL_TARGETS_CACHE: Optional[set[str]] = None
 
 
-def _available_pl_targets():
+def _available_pl_targets() -> set[str]:
     """Set of every callable pl_* name in the runtime (the names generated code can
     call). Cached after first use."""
     global _PL_TARGETS_CACHE
@@ -34,14 +37,14 @@ def _available_pl_targets():
 
 # Argument counts for builtins the signature catalog does not cover but codegen
 # relies on positionally: name -> (min, max).
-_EXTRA_ARITY = {
+_EXTRA_ARITY: dict[str, tuple[int, Optional[int]]] = {
     # Stochastic(High, Low, Close, Length, SmoothK, SmoothD, SmoothType,
     #            oFastK, oFastD, oSlowK, oSlowD)
     'stochastic': (11, 11),
 }
 
 
-def call_arity_problem(name, nargs):
+def call_arity_problem(name: str, nargs: int) -> Optional[str]:
     """Describe why calling EL builtin ``name`` with ``nargs`` arguments is
     malformed, or return None when the count is acceptable or unknown.
 
@@ -50,7 +53,7 @@ def call_arity_problem(name, nargs):
     arguments, and that is not a zero-arg property, cannot be called bare.
     Positive counts are not checked against the catalog because its
     ``min_arity`` overstates some variadic keywords (MaxList, MinList)."""
-    lo_hi = _EXTRA_ARITY.get(name)
+    lo_hi: Optional[tuple[int, Optional[int]]] = _EXTRA_ARITY.get(name)
     if lo_hi is None:
         if nargs:
             return None
@@ -71,10 +74,10 @@ def call_arity_problem(name, nargs):
     return 'takes %s, got %d' % (need, nargs)
 
 
-_RUNTIME_BARE_CACHE = None
+_RUNTIME_BARE_CACHE: Optional[set[str]] = None
 
 
-def _runtime_bound_bare_names():
+def _runtime_bound_bare_names() -> set[str]:
     """Bare (lowercased) identifiers that resolve at RUNTIME when emitted verbatim
     into the generated strategy() scope: the function params, the wrapper
     prologue's own locals, every public name pulled in by
@@ -116,7 +119,7 @@ _OHLCV_F32_NAMES = ('open', 'high', 'low', 'close', 'volume')
 _OHLCV_F32_LOCALS = frozenset('_' + n for n in _OHLCV_F32_NAMES)
 
 
-def _expr_already_f32(expr):
+def _expr_already_f32(expr: str) -> bool:
     """True if `expr` is a single f32(...) call or a hoisted OHLCV local.
 
     f32 is idempotent (f32(f32(x)) == f32(x) bit-for-bit), so wrapping again
@@ -138,7 +141,7 @@ def _expr_already_f32(expr):
     return False
 
 
-def _is_numeric_literal_node(node):
+def _is_numeric_literal_node(node: Any) -> bool:
     """True if `node` is a numeric literal (optional unary minus)."""
     if not isinstance(node, dict):
         return False
@@ -151,7 +154,7 @@ def _is_numeric_literal_node(node):
     return False
 
 
-def _f32_literal_const(node):
+def _f32_literal_const(node: Node) -> str:
     """Python source of ``f32(<literal>)`` as a folded constant.
 
     Bit-identical to calling ``pl_runtime.f32`` at run time. persist/trace use
@@ -178,10 +181,10 @@ _MANGLE_PREFIX = '_el_'
 # MarketPosition as `_market_position`). Declaring one cannot be told apart
 # from the built-in in the AST, so these are never renamed.
 _AST_BUILTIN_IDENTS = frozenset(_SERIES_PARAMS) | {'_market_position'}
-_RESERVED_CACHE = None
+_RESERVED_CACHE: Optional[frozenset[str]] = None
 
 
-def reserved_python_names():
+def reserved_python_names() -> frozenset[str]:
     """Lowercase names a user identifier must not take in generated code."""
     global _RESERVED_CACHE
     if _RESERVED_CACHE is None:
@@ -204,21 +207,21 @@ def reserved_python_names():
     return _RESERVED_CACHE
 
 
-def mangle_name(name):
+def mangle_name(name: str) -> str:
     """The Python name codegen emits for EL identifier `name`."""
     if name.startswith('_') or name in reserved_python_names():
         return _MANGLE_PREFIX + name
     return name
 
 
-def demangle_name(name):
+def demangle_name(name: str) -> str:
     """Inverse of mangle_name (used when reading generated Python back)."""
     if name.startswith(_MANGLE_PREFIX):
         return name[len(_MANGLE_PREFIX):]
     return name
 
 
-def mangle_user_names(ast, declared):
+def mangle_user_names(ast: Node, declared: set[str]) -> tuple[Node, dict[str, str]]:
     """Return (ast, originals): `ast` with every declared name that collides with
     a reserved Python name renamed (idents, declarations, for-loop vars), and a
     {mangled: original} map. Returns `ast` itself when nothing collides."""
@@ -227,7 +230,7 @@ def mangle_user_names(ast, declared):
     if not rename:
         return ast, {}
 
-    def walk(n):
+    def walk(n: Any) -> Any:
         if isinstance(n, list):
             return [walk(x) for x in n]
         if not isinstance(n, dict):

@@ -17,6 +17,7 @@
 to AST expression dicts (see `py_front`)."""
 
 import ast
+from typing import Optional, cast
 
 from pl_transpiler._py_front_common import (
     _BARE_COMPUTED_UNPARSE,
@@ -35,11 +36,12 @@ from pl_transpiler._py_front_common import (
     _num,
     _open_current,
 )
+from pl_transpiler._types import Node
 from pl_transpiler.codegen_el import _INV_MCKW, _INV_POSKW
 
 
 # --- expression inversion ---------------------------------------------------
-def inv_expr(node):
+def inv_expr(node: ast.expr) -> Node:
     """Invert a clean-dialect Python expression node into an AST expression dict.
     Raises PyFrontError on anything outside the dialect."""
     # ---- constants ----
@@ -99,8 +101,8 @@ def inv_expr(node):
     if isinstance(node, ast.BoolOp):
         word = 'and' if isinstance(node.op, ast.And) else 'or'
         acc = inv_expr(node.values[0])
-        for v in node.values[1:]:
-            acc = {'type': 'binop', 'op': word, 'left': acc, 'right': inv_expr(v)}
+        for operand in node.values[1:]:
+            acc = {'type': 'binop', 'op': word, 'left': acc, 'right': inv_expr(operand)}
         return acc
 
     # ---- binary arithmetic ----
@@ -137,7 +139,7 @@ def inv_expr(node):
     raise PyFrontError(f"cannot invert expression: {ast.dump(node)}{_ln(node)}{_DIALECT_HINT}")
 
 
-def _match_state_series(node):
+def _match_state_series(node: ast.expr) -> Optional[str]:
     """`(_state['X'] + [X])` -> 'X', else None (a codegen series-context shim)."""
     if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
             and isinstance(node.left, ast.Subscript)
@@ -145,20 +147,20 @@ def _match_state_series(node):
             and isinstance(node.left.slice, ast.Constant)
             and isinstance(node.right, ast.List) and len(node.right.elts) == 1
             and _is_name(node.right.elts[0])):
-        name = node.left.slice.value
+        name = cast(str, node.left.slice.value)  # str key: _state[...] subscripts are names
         if node.right.elts[0].id == name:
             return name
     return None
 
 
-def _strip_int(node):
+def _strip_int(node: ast.expr) -> ast.expr:
     """Strip a codegen `int(...)` bound/index wrapper, returning the inner node."""
     if _is_call(node, 'int') and len(node.args) == 1:
         return node.args[0]
     return node
 
 
-def _guard_index(operand):
+def _guard_index(operand: ast.expr) -> ast.expr:
     """From the `-(IDX + 1)` slice operand, return the index expression (IDX),
     stripping any `int(...)` wrapper. Raises if the shape is unexpected."""
     if not (isinstance(operand, ast.BinOp) and isinstance(operand.op, ast.Add)
@@ -167,7 +169,7 @@ def _guard_index(operand):
     return _strip_int(operand.left)
 
 
-def _match_guard_barref(node):
+def _match_guard_barref(node: ast.expr) -> Optional[Node]:
     """`(<s>[-(n+1)] if __builtin_len(<s>) > 1+n else open[-1])` -> bar_ref, else None."""
     if not isinstance(node, ast.IfExp):
         return None
@@ -183,7 +185,7 @@ def _match_guard_barref(node):
             'index': inv_expr(idx)}
 
 
-def _match_sign(node):
+def _match_sign(node: ast.expr) -> Optional[Node]:
     """`(1 if X>0 else (-1 if X<0 else 0))` -> Sign(X), else None."""
     if not (isinstance(node, ast.IfExp)
             and isinstance(node.body, ast.Constant) and node.body.value == 1
@@ -199,7 +201,7 @@ def _match_sign(node):
     return {'type': 'call', 'name': 'sign', 'args': [inv_expr(node.test.left)]}
 
 
-def _inv_subscript(node):
+def _inv_subscript(node: ast.Subscript) -> Node:
     """Invert Subscript forms: series current bar, bar_ref, and array element refs."""
     sl = node.slice
     # `<s>[-1]` -> ident <s> (current bar access of a data series or shim)
@@ -231,7 +233,7 @@ def _inv_subscript(node):
     raise PyFrontError(f"unsupported subscript: {ast.unparse(node)}{_ln(node)}{_DIALECT_HINT}")
 
 
-def _inv_binop(node):
+def _inv_binop(node: ast.BinOp) -> Node:
     op = node.op
     # FracPortion(X): (X - int(X))
     if isinstance(op, ast.Sub) and _is_call(node.right, 'int') \
@@ -252,7 +254,7 @@ def _inv_binop(node):
             'left': inv_expr(node.left), 'right': inv_expr(node.right)}
 
 
-def _match_datetime_expansion(node):
+def _match_datetime_expansion(node: ast.BinOp) -> Optional[Node]:
     """Invert the inline date/time arithmetic the codegen expands (codegen.py:
     1383-1433). Returns a call dict or None. Matched before generic binop handling
     because these expansions use `//` (FloorDiv), which is never emitted for plain
@@ -264,7 +266,7 @@ def _match_datetime_expansion(node):
             and isinstance(node.left.op, ast.Add)):
         add = node.left
 
-        def _int_x(m, opcls, mult_k):
+        def _int_x(m: ast.expr, opcls: type[ast.operator], mult_k: int) -> Optional[ast.expr]:
             if (isinstance(m, ast.BinOp) and isinstance(m.op, ast.Mult)
                     and isinstance(m.right, ast.Constant) and m.right.value == mult_k
                     and isinstance(m.left, ast.BinOp) and isinstance(m.left.op, opcls)
@@ -287,7 +289,7 @@ def _match_datetime_expansion(node):
     return None
 
 
-def _inv_joinedstr(node):
+def _inv_joinedstr(node: ast.JoinedStr) -> Node:
     """`f"{expr:.{prec}f}"` -> NumToStr(expr, prec)."""
     if len(node.values) != 1 or not isinstance(node.values[0], ast.FormattedValue):
         raise PyFrontError(f"unsupported f-string: {ast.unparse(node)}{_ln(node)}{_DIALECT_HINT}")
@@ -304,7 +306,7 @@ def _inv_joinedstr(node):
             'args': [inv_expr(fv.value), inv_expr(prec_fv.value)]}
 
 
-def _inv_call(node):
+def _inv_call(node: ast.Call) -> Node:
     """Invert a Python Call node: f32 wrapper, kwargs.get keyword/data forms, inline
     math/string builtins, and pl_* runtime functions."""
     func = node.func
@@ -373,7 +375,7 @@ def _inv_call(node):
     return _inv_pl_call(name, args)
 
 
-def _inv_kwargs_get(key, default):
+def _inv_kwargs_get(key: str, default: ast.expr) -> Node:
     """Invert a `kwargs.get(key, default)` value expression into position_kw / mc_kw /
     period-data call / data_of / capture-overridden call."""
     # Capture-overridden call: kwargs.get('name', pl_xxx(args)) -> the inner call.
@@ -423,7 +425,7 @@ _KWKEY_TO_NAMECALL = {
 }
 
 
-def _inv_pl_call(name, args):
+def _inv_pl_call(name: str, args: list[ast.expr]) -> Node:
     """Invert a `pl_*` (or inline-expansion) function call by name."""
     # crossesabove / crossesbelow -> call nodes (emit_el re-infixes them)
     if name == 'pl_crosses_above':
@@ -478,7 +480,7 @@ def _inv_pl_call(name, args):
     return {'type': 'call', 'name': el, 'args': [inv_expr(a) for a in args]}
 
 
-def _match_hist_funcref(name, args):
+def _match_hist_funcref(name: str, args: list[ast.expr]) -> Optional[Node]:
     """`pl_func(<series>[:-N], ...)[N]` is emitted for `Func(Series, ...)[N]`
     (codegen.py:1546-1561). Reverse: any sliced series arg -> bar_ref(call, N)."""
     offset = None

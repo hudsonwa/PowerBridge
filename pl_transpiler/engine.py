@@ -26,6 +26,9 @@ tests/run_gt.py re-imports these names (run_gt.FillEngine,
 run_gt.run_bar_loop, run_gt._parse_el_date, ...), so this module is the single
 definition of them.
 """
+from collections.abc import Iterable
+from typing import Any, Optional
+
 from pl_transpiler._engine_report import _ReportMixin
 from pl_transpiler._engine_stops import _StopsMixin
 from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
@@ -35,7 +38,10 @@ from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
 from pl_transpiler.engine_dates import _parse_el_date as _parse_el_date
 from pl_transpiler.engine_dates import _parse_el_time as _parse_el_time
 from pl_transpiler.runtime import _rt_core
-from pl_transpiler.runtime.instrument_config import NQ  # noqa: F401  (re-export)
+from pl_transpiler.runtime.instrument_config import (
+    NQ,  # noqa: F401  (re-export)
+    InstrumentConfig,
+)
 from pl_transpiler.runtime.pl_runtime import f32
 
 
@@ -53,7 +59,9 @@ class FillEngine(_StopsMixin, _ReportMixin):
       overrides it
     """
 
-    def __init__(self, point_value=20, tick=0.25, config=None, max_entries_per_direction=0):
+    def __init__(self, point_value: float = 20, tick: float = 0.25,
+                 config: Optional[InstrumentConfig] = None,
+                 max_entries_per_direction: int = 0) -> None:
         # Per-run instrument config (InstrumentConfig). When provided, it is the
         # single source of the chart/instrument constants — point_value (=$/point)
         # and tick are derived from it so the fill PnL responds to the injected
@@ -82,7 +90,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self.gross_loss = 0.0
         self.total_trades = 0
         self.max_contracts_held = 0
-        self.max_id_drawdown = 0.0
+        self.max_id_drawdown: float = 0.0
         self.entry_bar = 0
         self.exit_bar = 0
         self.point_value = point_value
@@ -96,31 +104,31 @@ class FillEngine(_StopsMixin, _ReportMixin):
         # which the reference strategy never engages — it computes its stops in
         # EL and exits via explicit Sell orders, so this does not affect parity.
         self.tick = tick
-        self._pending_orders = []   # List of (action, otype, qty, timing, label, price)
-        self._onclose_pending = []  # 'this bar on close' fills, applied at next before_bar
-        self._risk = {}             # Current money-management settings
+        self._pending_orders: list[tuple[Any, ...]] = []   # List of (action, otype, qty, timing, label, price)
+        self._onclose_pending: list[tuple[tuple[Any, ...], float, int, int, int]] = []  # 'this bar on close' fills, applied at next before_bar
+        self._risk: dict[str, Any] = {}             # Current money-management settings
         self._breakeven_triggered = False  # SetBreakEven has been triggered for current position
         self._peak_profit = 0.0     # Running max profit seen since entry (used by trailing/breakeven)
         # MC-format trade tracking
-        self.fills = []             # List of dicts: {type, signal, date, time, price, contracts}
+        self.fills: list[dict[str, Any]] = []             # List of dicts: {type, signal, date, time, price, contracts}
         # The pre-v2 fill log, kept only so `pl_oracle --digest-v1` reproduces
         # digests pinned before reversals and risk exits were recorded.
-        self.fills_v1 = []
+        self.fills_v1: list[dict[str, Any]] = []
         # FIFO entry-price queue: one entry per contract, in fill order.
         # Used to recalculate AvgEntryPrice after partial exits (TWAP scale-out).
-        self._entry_prices = []     # List of float, one per contract
+        self._entry_prices: list[float] = []     # List of float, one per contract
         # Open quantity of each entry of the current position, in fill order. FIFO
         # exits consume it; OpenEntriesCount counts the entries still above zero.
-        self._entry_qtys = []
+        self._entry_qtys: list[int] = []
         # Label of each entry in `_entry_qtys`, kept in step with it (#24).
-        self._entry_labels = []
+        self._entry_labels: list[str] = []
         # GTA6 File-2 strategy-performance stats: a per-closed-position ledger plus
         # the OPEN position's running excursions. Each closed-trade snapshot records
         # the realized pnl, bars-in-trade (exit_bar - entry_bar + 1), the max favorable
         # / adverse excursion PER CONTRACT (MaxPositionProfit/Loss, MaxContractProfit),
         # the max contracts held (MaxContracts/MaxShares), and the entry count
         # (MaxEntries). All cited to PowerLanguage Keyword Reference pp.797-808.
-        self.closed_trades = []     # list of dicts (one per closed position)
+        self.closed_trades: list[dict[str, Any]] = []     # list of dicts (one per closed position)
         # Incremental GTA6-stat aggregates, updated at trade CLOSE in
         # _record_closed_trade so _inject_gta6_stats reads O(1) running fields
         # instead of rescanning the entire growing ledger every bar (a rescan is
@@ -160,7 +168,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
         # tests and the oracle status line read it to prove the fast path fired.
         self.fast_path_hits = 0
 
-    def _has_active_risk(self):
+    def _has_active_risk(self) -> bool:
         """True iff any money-management / session risk setting is armed.
 
         Mirrors the native kernel's RiskSettings exactly (stop_loss,
@@ -179,7 +187,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
             return True
         return bool(r.get('exit_on_close', False))
 
-    def no_work_state(self):
+    def no_work_state(self) -> bool:
         """Exact predicate for the bar the engine can skip entirely.
 
         True iff the position is flat, no next-bar or on-close order is queued,
@@ -195,7 +203,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
                 and not self._onclose_pending
                 and not self._has_active_risk())
 
-    def before_bar(self, open_price, close_price, high, low, barnumber, date_str=0, time_str=0):
+    def before_bar(self, open_price: float, close_price: float, high: float, low: float,
+                   barnumber: int, date_str: int = 0, time_str: int = 0) -> None:
         """Process pending fills and compute PnL BEFORE strategy runs."""
         if self.no_work_state():
             self.fast_path_hits += 1
@@ -237,7 +246,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
             # (the pre-fill excursion is not yet owned by this position). Market and
             # on-close entries fill at a path endpoint, so this is a no-op for them
             # (OrderMode-0/3/4 unaffected); it corrects the limit/stop entry bar.
-            walk = path
+            walk: tuple[float, ...] = path
             if self.entry_bar == barnumber:
                 walk = self._post_entry_walk(path, self.entry_price)
             eqs = [self.net_profit + sign * (px - self.entry_price) * self.point_value * self.contracts
@@ -251,7 +260,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
                 self.max_id_drawdown = f32(-dd)
 
     @staticmethod
-    def _post_entry_walk(path, entry_price):
+    def _post_entry_walk(path: tuple[float, ...], entry_price: float) -> tuple[float, ...]:
         """Sub-path from an intrabar fill point to the bar close: the first path
         segment that straddles entry_price, then [entry_price, *remaining points]."""
         for i in range(len(path) - 1):
@@ -260,7 +269,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
                 return (entry_price,) + tuple(path[i + 1:])
         return tuple(path)
 
-    def after_bar(self, orders, risk, close_price, barnumber=0, date_str=0, time_str=0):
+    def after_bar(self, orders: Iterable[Any], risk: dict[str, Any], close_price: float,
+                  barnumber: int = 0, date_str: int = 0, time_str: int = 0) -> None:
         """Queue new orders AFTER strategy runs and compute end-of-bar PnL.
 
         "This bar on close" orders (OrderMode 3: `Buy/SellShort This Bar on Close`)
@@ -296,7 +306,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
         ('trailing_stop_pt', 'dollar_trailing'),
     )
 
-    def _resolve_point_risk(self, risk):
+    def _resolve_point_risk(self, risk: dict[str, Any]) -> dict[str, Any]:
         """Convert this bar's point-based risk settings to currency amounts.
 
         A ``*_pt`` amount is in price points, so it arms the same level as the
@@ -316,7 +326,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
             risk['percent_trailing'] = (pts * pv, pct)
         return risk
 
-    def _execute_onclose_pending(self):
+    def _execute_onclose_pending(self) -> None:
         """Apply any 'this bar on close' fills stashed at the previous bar's close.
         Called at the very start of before_bar, so the position flips between bars."""
         if not self._onclose_pending:
@@ -325,7 +335,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
             self._fill_close_order(order, price, bn, ds, ts)
         self._onclose_pending = []
 
-    def _entry_refused(self, action):
+    def _entry_refused(self, action: str) -> bool:
         """True when ``max_entries_per_direction`` blocks this entry: it adds
         in the open position's direction and the cap is already reached."""
         cap = self.max_entries_per_direction
@@ -335,7 +345,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
                     or (action == 'sellshort' and self.market_position < 0))
         return same_dir and self.open_entries_count >= cap
 
-    def _check_named_exit(self, order, action):
+    def _check_named_exit(self, order: tuple[Any, ...], action: str) -> None:
         """Fail loud on `Sell` / `BuyToCover ... from entry("X")` while more than
         one entry is open in the exit's direction and one of them is not named
         X (#24): the engine would close the whole position, and the per-entry
@@ -355,7 +365,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
             _rt_core.pl_named_exit_unverified(
                 'Sell' if action == 'sell' else 'BuyToCover', entry)
 
-    def _fill_close_order(self, order, close_price, barnumber, date_str=0, time_str=0):
+    def _fill_close_order(self, order: tuple[Any, ...], close_price: float, barnumber: int,
+                          date_str: int = 0, time_str: int = 0) -> None:
         """Fill a 'this bar on close' order at the stored (signal-bar) close price."""
         action = order[0].lower()
         if self._entry_refused(action):
@@ -371,14 +382,16 @@ class FillEngine(_StopsMixin, _ReportMixin):
                            close_price, prev_signed,
                            v1_qty=abs(self.contracts - prev_contracts) or qty)
 
-    def _is_valid_order(self, order):
+    def _is_valid_order(self, order: Any) -> bool:
         """Check that order tuple has expected structure."""
         if not isinstance(order, tuple) or len(order) < 5:
             return False
         return True
 
-    def _execute_pending_fills(self, open_price, barnumber, date_str=0, time_str=0,
-                               high=None, low=None, close_price=None):
+    def _execute_pending_fills(self, open_price: float, barnumber: int, date_str: int = 0,
+                               time_str: int = 0, high: Optional[float] = None,
+                               low: Optional[float] = None,
+                               close_price: Optional[float] = None) -> None:
         """Fill next-bar pending orders against THIS bar's prices.
 
         Order types (price at order[5]; the EL verb decides the trigger side):
@@ -395,7 +408,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
         """
         if not self._pending_orders:
             return
-        market_orders, cond_orders = [], []
+        market_orders: list[tuple[Any, ...]] = []
+        cond_orders: list[tuple[str, bool, tuple[Any, ...], float]] = []
         for order in self._pending_orders:
             otype = order[1].lower()
             timing = order[3].lower() if len(order) > 3 else 'next'
@@ -439,7 +453,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
                 self._fill_at(order, fpx, barnumber, date_str, time_str)
         self._pending_orders = []
 
-    def _fill_at(self, order, fill_price, barnumber, date_str=0, time_str=0):
+    def _fill_at(self, order: tuple[Any, ...], fill_price: float, barnumber: int,
+                 date_str: int = 0, time_str: int = 0) -> None:
         """Fill one order at the resolved price; record the fill. qty==0 (the
         OrderMode-4 exit orders emit 0) means exit the entire open position."""
         action = order[0].lower()
@@ -470,7 +485,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
                            fill_price, prev_signed,
                            v1_qty=abs(self.contracts - prev_contracts))
 
-    def _signed_position(self):
+    def _signed_position(self) -> int:
         """Open contracts, signed: + long, - short, 0 flat."""
         if self.market_position > 0:
             return self.contracts
@@ -478,7 +493,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
             return -self.contracts
         return 0
 
-    def _record_fills(self, buy_side, signal, date, time, price, prev_signed, v1_qty=0):
+    def _record_fills(self, buy_side: bool, signal: str, date: int, time: int, price: float,
+                      prev_signed: int, v1_qty: int = 0) -> None:
         """Append one record per contract the SIGNED position moved since
         prev_signed. A reversal (long 1 -> short 1) moves 2: the close leg and
         then the open leg, both on the order's side. 'type' is the buy/sell
@@ -492,7 +508,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
         for _ in range(v1_qty):
             self.fills_v1.append(dict(rec))
 
-    def _fill(self, action, qty, fill_price, barnumber, date=0, time=0, label='', cat=3):
+    def _fill(self, action: str, qty: int, fill_price: float, barnumber: int, date: int = 0,
+              time: int = 0, label: str = '', cat: int = 3) -> None:
         """Execute a fill: update position, handle trade close/open.
 
         Dispatch is strictly on the EL order verb, because the verb — not the
@@ -546,7 +563,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
             if self.market_position < 0:
                 self._close_short(fill_price, barnumber, date, time, label, cat)
 
-    def _open_or_add_long(self, qty, fill_price, barnumber, date=0, time=0, name='', cat=3):
+    def _open_or_add_long(self, qty: int, fill_price: float, barnumber: int, date: int = 0,
+                          time: int = 0, name: str = '', cat: int = 3) -> None:
         """Open a new long or add to an existing long (weighted avg entry)."""
         fill_price = f32(fill_price)
         old_value = f32(self.entry_price * self.contracts)
@@ -578,7 +596,8 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self._peak_profit = 0.0
         self.max_contracts_held = max(self.max_contracts_held, self.contracts)
 
-    def _open_or_add_short(self, qty, fill_price, barnumber, date=0, time=0, name='', cat=3):
+    def _open_or_add_short(self, qty: int, fill_price: float, barnumber: int, date: int = 0,
+                           time: int = 0, name: str = '', cat: int = 3) -> None:
         """Open a new short or add to an existing short (weighted avg entry)."""
         fill_price = f32(fill_price)
         old_value = f32(self.entry_price * abs(self.contracts))
@@ -607,14 +626,14 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self._peak_profit = 0.0
         self.max_contracts_held = max(self.max_contracts_held, self.contracts)
 
-    def _reset_position_stats(self):
+    def _reset_position_stats(self) -> None:
         """Reset the OPEN-position excursion/size trackers at the start of a new position."""
         self._pos_mfe_pc = 0.0
         self._pos_mae_pc = 0.0
         self._pos_max_contracts = 0
         self._pos_entries = 1
 
-    def update_excursion(self, high, low):
+    def update_excursion(self, high: float, low: float) -> None:
         """Update the open position's max favorable/adverse excursion PER CONTRACT
         using the current bar's high/low (MaxPositionProfit/Loss, MaxContractProfit
         are floored at 0 — pdf:11560,11520)."""
@@ -632,8 +651,9 @@ class FillEngine(_StopsMixin, _ReportMixin):
         if adv < self._pos_mae_pc:
             self._pos_mae_pc = adv
 
-    def _record_closed_trade(self, exit_bar, exit_price=0.0, size=0, islong=True,
-                             exit_date=0, exit_time=0, exit_name='', exit_cat=0):
+    def _record_closed_trade(self, exit_bar: int, exit_price: float = 0.0, size: int = 0,
+                             islong: bool = True, exit_date: int = 0, exit_time: int = 0,
+                             exit_name: str = '', exit_cat: int = 0) -> None:
         """Snapshot the just-closed position into the closed-trade ledger.
 
         Captures the per-position entry/exit context (price, bar, EL date/time,
@@ -707,8 +727,9 @@ class FillEngine(_StopsMixin, _ReportMixin):
             self._st_cwin = 0
             self._st_clos = 0
 
-    def _close_long_fifo(self, qty, fill_price, exit_bar=0, exit_date=0, exit_time=0,
-                         exit_name='', exit_cat=0):
+    def _close_long_fifo(self, qty: int, fill_price: float, exit_bar: int = 0,
+                         exit_date: int = 0, exit_time: int = 0,
+                         exit_name: str = '', exit_cat: int = 0) -> None:
         """Close `qty` long contracts FIFO; recompute avg entry on the remainder."""
         closed_qty = min(qty, self.contracts)
         closed_pnl = (fill_price - self.entry_price) * self.point_value * closed_qty
@@ -729,7 +750,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
                                       exit_date, exit_time, exit_name, exit_cat)
             self._reset_flat()
 
-    def _consume_entry_qtys(self, qty):
+    def _consume_entry_qtys(self, qty: int) -> None:
         """Take `qty` contracts off the oldest entries first (FIFO)."""
         qtys = self._entry_qtys
         while qty > 0 and qtys:
@@ -741,15 +762,15 @@ class FillEngine(_StopsMixin, _ReportMixin):
                 if self._entry_labels:
                     self._entry_labels.pop(0)
 
-    def _update_gross_pnl(self, pnl):
+    def _update_gross_pnl(self, pnl: float) -> None:
         """Track gross profit and loss (sum of winning/losing trades)."""
         if pnl > 0:
             self.gross_profit += pnl
         elif pnl < 0:
             self.gross_loss += pnl
 
-    def _close_short(self, fill_price, exit_bar=0, exit_date=0, exit_time=0,
-                     exit_name='', exit_cat=0):
+    def _close_short(self, fill_price: float, exit_bar: int = 0, exit_date: int = 0,
+                     exit_time: int = 0, exit_name: str = '', exit_cat: int = 0) -> None:
         """Close the entire short position at `fill_price`."""
         fill_price = f32(fill_price)
         prev = self.contracts
@@ -762,7 +783,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
                                   exit_date, exit_time, exit_name, exit_cat)
         self._reset_flat()
 
-    def _reset_flat(self):
+    def _reset_flat(self) -> None:
         """Reset all position/trade-tracking state to flat."""
         self.market_position = 0
         self.contracts = 0
@@ -779,7 +800,7 @@ class FillEngine(_StopsMixin, _ReportMixin):
         self.entry_name = ''
         self.entry_cat = 0
 
-    def _compute_pnl(self, close_price):
+    def _compute_pnl(self, close_price: float) -> None:
         """Mark-to-market: compute open position PnL at current close price."""
         if self.market_position == 0 or self.entry_bar == 0:
             self.open_position_profit = 0.0
