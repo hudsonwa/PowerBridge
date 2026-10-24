@@ -513,8 +513,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
            drawing_tape: Optional[dict[str, Any]] = None,
-           use_native: bool = False,
-           _python_path_notify: Optional[Callable[..., Any]] = None) -> dict[str, Any]:
+           use_native: bool = False) -> dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -581,6 +580,30 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     n_rows is still the emit count. n_warmup is the seeded-prefix length (0
     when the tape is sliced or no window is set).
     """
+    return _run_el(el_source, bars, config, trace_columns=trace_columns,
+                   partial=partial, row_sink=row_sink, header_sink=header_sink,
+                   retain_rows=retain_rows, from_date=from_date,
+                   from_bar=from_bar, seed_warmup=seed_warmup,
+                   max_bars_back=max_bars_back,
+                   max_entries_per_direction=max_entries_per_direction,
+                   drawings=drawings, drawing_case_id=drawing_case_id,
+                   drawing_tape=drawing_tape, use_native=use_native)
+
+
+def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
+            trace_columns: Optional[Sequence[str]] = None, partial: bool = False,
+            row_sink: Optional[Callable[[list[str]], Any]] = None,
+            header_sink: Optional[Callable[[list[str]], Any]] = None,
+            retain_rows: Optional[bool] = None,
+            from_date: Optional[int] = None, from_bar: Optional[int] = None,
+            seed_warmup: bool = True, max_bars_back: Union[int, str, None] = None,
+            max_entries_per_direction: Optional[int] = None,
+            drawings: bool = False, drawing_case_id: Optional[str] = None,
+            drawing_tape: Optional[dict[str, Any]] = None,
+            use_native: bool = False,
+            python_path_notify: Optional[Callable[..., Any]] = None) -> dict[str, Any]:
+    """run_el, plus the CLI's hook for the Python-path note (see
+    _notify_python_path); not part of the public signature."""
     max_bars_back = check_max_bars_back(max_bars_back, el_source)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     fallback_reason = None
@@ -648,7 +671,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     # Reported after the run, so a program that stops on a user error prints
     # only that error.
-    _notify_python_path(_python_path_notify, fallback_reason, use_native)
+    _notify_python_path(python_path_notify, fallback_reason, use_native)
     out = {
         'columns': collector.final_columns(),
         'rows': collector.rows,
