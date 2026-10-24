@@ -90,11 +90,13 @@ packages = ["pl_transpiler", "pl_transpiler.runtime", "pl_transpiler.tools", "pl
 files = ["pl_transpiler"]
 follow_imports = "normal"
 warn_unused_ignores = true
-
-[[tool.mypy.overrides]]
-# Names are injected via globals() at import time (mirrors the ruff F821 ignore).
-module = "pl_transpiler.builtins"
-disable_error_code = ["name-defined"]
+# Stricter checks that pass cleanly across the whole package (no per-module
+# exceptions). Not yet enabled because they need real typing work first:
+# warn_return_any, check_untyped_defs, disallow_any_generics, no_implicit_reexport.
+warn_redundant_casts = true
+warn_unreachable = true
+strict_equality = true
+extra_checks = true
 
 [[tool.mypy.overrides]]
 # Optional compiled extension; absent unless built with tools/build_accel.sh.
@@ -129,8 +131,6 @@ known-first-party = ["pl_transpiler"]
 "tests/**" = ["E402"]
 "tools/**" = ["E402"]
 "scripts/**" = ["E402"]
-# Populated at import time from the runtime's pl_* functions via globals().
-"pl_transpiler/builtins.py" = ["F821"]
 # Package re-export of the runtime's public names. Import order is behaviour
 # here and in pl_runtime.py (star-import precedence, loud stubs last), so
 # neither is import-sorted.

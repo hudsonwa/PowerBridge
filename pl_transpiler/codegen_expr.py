@@ -376,7 +376,7 @@ class _ExprMixin:
         return name in _runtime_bound_bare_names()
 
     def _require_pl_impl(self, name, node=None):
-        """Validate that a generic `pl_<name>` target resolves in pl_transpiler.builtins.
+        """Validate that a generic `pl_<name>` target resolves in the runtime.
         On a miss, RECORD the unimplemented keyword (name + nearest source line) into
         the per-generate collection and return the emittable `pl_<name>` target string
         so the walk continues — the whole program is scanned and every unimplemented
