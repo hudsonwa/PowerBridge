@@ -303,6 +303,14 @@ with code 2. Check [limitations](LIMITATIONS.md#unsupported-keywords) and
 the [keyword reference](reference/README.md), rewrite that line with
 supported keywords, or open an issue naming the keyword.
 
+Every statement and declaration (`Inputs:`, `Vars:`, `Arrays:`) ends with
+`;`, as EasyLanguage documents it, including the last statement before `End`
+and the `End;` that closes a block. Leave it out only before `Else`
+(`... Then x = 1 Else x = 2;`, `End Else Begin`). Attributes such as
+`[IntrabarOrderGeneration = False]` take none. *New in the next release:*
+a missing `;` is a syntax error with the line and a caret, exit code 2
+(`missing ';' at the end of the statement`); 0.10.0 accepted it.
+
 ## Python (mirror dialect) to EasyLanguage
 
 The round trip on the example: transpile to the mirror dialect, then emit

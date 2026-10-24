@@ -37,6 +37,11 @@ trust a backtest from partial output.
   anything else `error: internal error at line N: <type>: <message>`. Set
   `PB_DEBUG=1` for the full Python traceback. Whether MultiCharts stops on a
   division by zero or returns a value is unverified; PowerBridge stops.
+- **Statement terminators** (*new in the next release*): a missing `;` at the
+  end of a statement or declaration is a syntax error, as the EasyLanguage
+  syntax requires; only the omission before `Else` is accepted. This follows
+  the documented EL syntax; the exact set of places where the MultiCharts
+  compiler tolerates a missing `;` has not been checked against it.
 - **Negative array indexes** are not rejected. `A[-1]` reads `A[N]`, `A[-2]`
   reads `A[N-1]`, and so on down to `A[-(N+1)]`, which reads `A[0]`; only an index
   below that is an out-of-range error. MultiCharts documents array indexes as
