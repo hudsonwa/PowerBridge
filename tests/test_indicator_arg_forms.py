@@ -96,7 +96,7 @@ def _source(expr):
 @pytest.mark.parametrize("case", sorted(RUNS))
 def test_value_matches_hand_computed_reference(case):
     expr, first, ref = RUNS[case]
-    rows = run_el(_source(expr), BARS, NQ, trace_columns=["x"])["rows"]
+    rows = run_el(_source(expr), BARS, NQ, trace_columns=["x"], max_bars_back=0)["rows"]
     assert len(rows) == len(BARS)
     for i in range(first, len(BARS)):
         assert float(rows[i][0]) == pytest.approx(ref(i), rel=1e-6, abs=1e-6), (case, i)

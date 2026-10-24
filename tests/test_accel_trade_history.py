@@ -110,7 +110,7 @@ def test_program_is_native(name):
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_native_digest_equals_python(name, sample_bars):
-    want = run_oracle(PROGRAMS[name], sample_bars, NQ)
+    want = run_oracle(PROGRAMS[name], sample_bars, NQ, max_bars_back=0)
     assert want["closed_positions"] >= 5, "the program must close several positions"
     assert want["closed_positions"] < 60, "LOOP must reach past the oldest position"
     assert fills_sha256(run_native(PROGRAMS[name], sample_bars, NQ)) == want["sha256"]
@@ -122,8 +122,8 @@ def test_history_drives_the_orders(name, sample_bars):
     # digest parity above covers the values.
     plain = PROGRAMS[name].replace("(1)", "(0)").replace("[1]", "[0]")
     plain = plain.replace("TotalTrades + 1", "-1")
-    assert run_oracle(plain, sample_bars, NQ)["sha256"] != run_oracle(
-        PROGRAMS[name], sample_bars, NQ)["sha256"]
+    assert run_oracle(plain, sample_bars, NQ, max_bars_back=0)["sha256"] != run_oracle(
+        PROGRAMS[name], sample_bars, NQ, max_bars_back=0)["sha256"]
 
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
@@ -194,7 +194,7 @@ def test_keyword_form_is_native(name):
 
 @pytest.mark.parametrize("name", sorted(FORM_PROGRAMS))
 def test_keyword_form_digest_equals_python(name, sample_bars):
-    want = run_oracle(FORM_PROGRAMS[name], sample_bars, NQ)
+    want = run_oracle(FORM_PROGRAMS[name], sample_bars, NQ, max_bars_back=0)
     assert want["closed_positions"] >= 5
     assert fills_sha256(run_native(FORM_PROGRAMS[name], sample_bars, NQ)) == want["sha256"]
 
@@ -208,5 +208,5 @@ def test_keyword_form_trace_equals_python(name, sample_bars):
 def test_keyword_form_drives_the_orders(kw, form, sample_bars):
     program = _kw_loop_program(kw, form)
     plain = program.replace("TotalTrades + 1", "-1")
-    assert run_oracle(plain, sample_bars, NQ)["sha256"] != run_oracle(
-        program, sample_bars, NQ)["sha256"]
+    assert run_oracle(plain, sample_bars, NQ, max_bars_back=0)["sha256"] != run_oracle(
+        program, sample_bars, NQ, max_bars_back=0)["sha256"]

@@ -108,8 +108,11 @@ trust a backtest from partial output.
   read-only report keyword that is not in the bundled catalog can be treated as
   a local. Catalog-known names are still caught.
 - **Matching MultiCharts:** MultiCharts skips the first MaxBarsBack bars
-  (default 50); pass `--max-bars-back 50` to reproduce that. PowerBridge's
-  default is 0: every bar is evaluated, and a `Close[n]` read with too little
+  (auto-detected by default); pass your chart's value (such as
+  `--max-bars-back 50`) to reproduce a fixed setting. *New in the next
+  release:* PowerBridge's default is `auto`, a static estimate of the
+  lookback (0 when it cannot be estimated; 0 was the default on 0.10.0).
+  With 0, every bar is evaluated, and a `Close[n]` read with too little
   history returns that bar's Open (one stderr warning per run says so).
   Only literal lookbacks are checked for that warning; `Close[Length]` is not.
   To refuse repeat same-direction entries as MultiCharts' default setting

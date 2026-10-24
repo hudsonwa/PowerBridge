@@ -74,7 +74,7 @@ run_el(el_source: str, bars, config, *,
        header_sink: Callable[[list[str]], Any] | None = None,
        retain_rows: bool | None = None,
        from_date: int | None = None, from_bar: int | None = None,
-       seed_warmup: bool = True, max_bars_back: int = 0,
+       seed_warmup: bool = True, max_bars_back: int | str | None = None,
        max_entries_per_direction: int | None = None) -> dict
 ```
 
@@ -95,7 +95,7 @@ old paths keep working.
 | `from_date` | `None` | Inclusive window start as an EL date (`YYYMMDD`). Default is the full tape. |
 | `from_bar` | `None` | 0-based window start index. Mutually exclusive with `from_date`. |
 | `seed_warmup` | `True` | With a window, run the bars before it with fills suppressed so `Once`, lookbacks and Variables are primed. `False` slices them off instead. |
-| `max_bars_back` | `0` | Treat the first N bars as history only: no evaluation, no orders, no rows, and BarNumber starts at 1 on bar N+1. |
+| `max_bars_back` | `None` | Treat the first N bars as history only: no evaluation, no orders, no rows, and BarNumber starts at 1 on bar N+1. `"auto"` uses the lookback inferred from the source and raises `ValueError` when it cannot. *New in the next release:* the default `None` is `"auto"` falling back to 0 when the lookback cannot be inferred; on 0.10.0 the default is `0`, so pass `max_bars_back=0` to keep 0.10.0 results. |
 | `max_entries_per_direction` | `None` | `None`/`0`: every Buy/SellShort adds to the position. N ≥ 1: an entry in the open position's direction is refused while N entries are open. Reversals always fill. |
 
 The result is a dict:
@@ -145,7 +145,7 @@ run_oracle(el_source: str, bars, config, *,
            from_date: int | None = None, to_date: int | None = None,
            from_bar: int | None = None, seed_warmup: bool = False,
            use_native: bool = False, digest_version: int = 2,
-           max_bars_back: int = 0,
+           max_bars_back: int | str | None = None,
            max_entries_per_direction: int | None = None) -> dict
 ```
 
@@ -197,9 +197,12 @@ load_bars(path, prefer_pbar: bool = True, date_format: str | None = None)
 `run_oracle` take. The header must contain `date,time,open,high,low,close,volume`
 (any order, case-insensitive; extra columns are ignored). Dates are either EL
 integers (`1240102`) or slash dates (`2/1/2024`), and times are `HHMM` or
-`HH:MM[:SS]`; both are normalised to EL integers. Slash dates are day-first
-unless `date_format` is `"mdy"` or `"ymd"`. A bad row raises `ValueError`
-naming the line.
+`HH:MM[:SS]`; both are normalised to EL integers. `date_format` (`"dmy"`,
+`"mdy"` or `"ymd"`) sets the order of slash dates. *New in the next release:*
+the default `None` infers it from the whole file (a first field above 12 is
+day-first, a second field above 12 month-first) and raises `ValueError` when
+no field is above 12 or both orders occur; on 0.10.0 `None` reads day-first.
+A bad row raises `ValueError` naming the line.
 
 `load_bars` also reads `.pbar` files, a memory-mapped binary form that opens
 far faster than parsing a large CSV. Given a CSV path, it uses the sibling
@@ -345,10 +348,10 @@ display (see [`run_el`](#run_el)).
 | `--config NAME\|FILE` | Built-in instrument (`NQ`, `ES`) or a JSON config file. Default `NQ`. |
 | `-o FILE` | Write the CSV here (default: stdout). |
 | `--columns A,B,...` | Trace columns to emit. |
-| `--date-format dmy\|mdy\|ymd` | Field order of slash dates in the CSV. |
+| `--date-format dmy\|mdy\|ymd` | Field order of slash dates in the CSV. *New in the next release:* the default infers it from the file and stops with an error (exit 2) when it cannot tell; on 0.10.0 the default is `dmy`. |
 | `--from-date YYYMMDD` / `--from-bar N` | Start the output at a date or bar index, with seeded warmup. |
 | `--slice` | Drop the bars before the window instead of seeding warmup. |
-| `--max-bars-back N` | First N bars are history only. Default 0. |
+| `--max-bars-back N\|auto` | First N bars are history only; `auto` uses the lookback found in the source. *New in the next release:* the default is `auto`, or 0 with a stderr note when the lookback cannot be found; on 0.10.0 the default is 0. |
 | `--max-entries-per-direction N` | Refuse same-direction entries while N are open. Default unlimited. |
 | `--full-precision` | Do not round money and price cells. |
 | `--lenient` | Keep going instead of stopping on something not supported yet: an unimplemented builtin returns `0` (`''` for a text builtin), a missing bar column such as `Ticks` reads as `0`, and a `from entry` exit with several named entries open closes the whole position. A `WARNING` at the end names each one. Same as `PL_STRICT=0`. |

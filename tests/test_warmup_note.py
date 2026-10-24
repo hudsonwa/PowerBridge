@@ -15,7 +15,9 @@
 
 """The CLI warm-up note: pl_run and pl_oracle say once on stderr that fills
 may differ from MultiCharts during warm-up when a strategy reads past bars
-and --max-bars-back is 0. stdout and the library API stay silent."""
+and the default --max-bars-back auto cannot find the lookback (so it is 0).
+An explicit --max-bars-back, or a lookback auto can bound, prints no note.
+stdout and the library API stay silent."""
 import os
 import sys
 
@@ -33,6 +35,7 @@ from pl_transpiler.tools import pl_oracle, pl_run  # noqa: E402
 MA_CROSS = os.path.join(REPO, "examples", "ma_cross.el")
 SAMPLE = os.path.join(REPO, "examples", "NQ_sample_bars.csv")
 NOTE = "fills may differ from MultiCharts during warm-up"
+UNBOUNDED = "Vars: k(3);\nIf Close > Close[k] Then Buy next bar at market;\n"
 NO_LOOKBACK = 'If MarketPosition = 0 Then Buy ("LE") next bar at market;\n'
 
 
@@ -70,25 +73,38 @@ def test_of_zero_bars_ago_is_a_syntax_error():
     (pl_oracle, ["--python"]),
     (pl_run, ["--columns", "MarketPosition"]),
 ])
-def test_note_printed_once_and_stdout_unchanged(tool, extra, capsys):
-    assert tool.main([MA_CROSS, SAMPLE] + extra) == 0
+def test_note_printed_once_and_stdout_unchanged(tool, extra, tmp_path, capsys):
+    el = tmp_path / "unbounded.el"
+    el.write_text(UNBOUNDED)
+    assert tool.main([str(el), SAMPLE] + extra) == 0
     noted = capsys.readouterr()
     assert noted.err.count(NOTE) == 1
     assert NOTE not in noted.out
 
-    assert tool.main([MA_CROSS, SAMPLE, "-q"] + extra) == 0
+    assert tool.main([str(el), SAMPLE, "-q"] + extra) == 0
     quiet = capsys.readouterr()
     assert NOTE not in quiet.err
     assert quiet.out == noted.out
 
-    assert tool.main([MA_CROSS, SAMPLE, "--max-bars-back", "1"] + extra) == 0
+    assert tool.main([str(el), SAMPLE, "--max-bars-back", "0"] + extra) == 0
     assert NOTE not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("tool,extra", [
+    (pl_oracle, ["--python"]),
+    (pl_run, ["--columns", "MarketPosition"]),
+])
+def test_no_note_when_auto_finds_the_lookback(tool, extra, capsys):
+    assert tool.main([MA_CROSS, SAMPLE] + extra) == 0
+    err = capsys.readouterr().err
+    assert NOTE not in err
+    assert ", max-bars-back 21 (auto) [" in err
 
 
 def test_one_warning_when_short_history_also_fires(tmp_path, capsys):
     el = tmp_path / "dip.el"
     el.write_text("If Close < Close[3] Then Buy next bar at market;\n")
-    assert pl_oracle.main([str(el), SAMPLE, "--python"]) == 0
+    assert pl_oracle.main([str(el), SAMPLE, "--python", "--max-bars-back", "0"]) == 0
     err = capsys.readouterr().err
     assert "lookback past available history" in err
     assert NOTE not in err

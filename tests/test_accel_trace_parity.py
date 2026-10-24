@@ -114,7 +114,7 @@ def bars():
 def assert_trace_parity(source, bars):
     config = get_config("NQ")
     columns, rows, fills = run_native_trace(source, bars, config)
-    expected = run_el(source, bars, config)
+    expected = run_el(source, bars, config, max_bars_back=0)
     native = [[format_trace_cell(cell) for cell in row] for row in rows]
     assert columns == expected["columns"]
     assert len(native) == len(expected["rows"])
@@ -185,7 +185,7 @@ def test_pl_run_cli_native_csv_is_byte_identical(extra, tmp_path, capsys):
     got, err_nat = _cli([el, BARS_CSV] + extra, tmp_path, "nat.csv", capsys)
     assert got == want
     assert "[python]" in err_py and "pure-Python" not in err_py
-    assert "round-turns [native]" in err_nat and "pure-Python" not in err_nat
+    assert "[native]" in err_nat and "pure-Python" not in err_nat
 
 
 def test_pl_run_cli_unsupported_option_falls_back_loudly(monkeypatch, tmp_path, capsys):
@@ -222,7 +222,7 @@ def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, caps
 
 
 def test_run_el_native_result_matches_python(bars):
-    """run_el(use_native=True) returns the same trades, columns and rows as Python."""
+    """run_el(use_native=True, max_bars_back=0) returns the same trades, columns and rows as Python."""
     el = open(os.path.join(REPO, "examples", "ma_cross.el"), encoding="utf-8").read()
     config = get_config("NQ")
     py = run_el(el, bars, config, max_bars_back=21)

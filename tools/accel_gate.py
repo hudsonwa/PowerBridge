@@ -94,7 +94,7 @@ def _compare():
             "fallback digest, not a native digest"
         )
 
-    python_digest = run_oracle(el_source, bars, config)
+    python_digest = run_oracle(el_source, bars, config, max_bars_back=0)
     native_sha = fills_sha256(native_fills)
     if native_sha != python_digest["sha256"]:
         return FAIL, 1, (

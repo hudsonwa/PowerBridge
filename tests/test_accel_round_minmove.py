@@ -99,14 +99,14 @@ def test_program_is_native(name):
 @pytest.mark.parametrize("config", [NQ, CENTS], ids=["NQ", "cents"])
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_native_digest_equals_python(name, config, sample_bars):
-    want = run_oracle(PROGRAMS[name], sample_bars, config)
+    want = run_oracle(PROGRAMS[name], sample_bars, config, max_bars_back=0)
     assert want["fills"] > 0, "the program must trade for the digest to mean anything"
     assert fills_sha256(run_native(PROGRAMS[name], sample_bars, config)) == want["sha256"]
 
 
 def test_minmove_changes_the_digest(sample_bars):
-    nq = run_oracle(MINMOVE, sample_bars, NQ)["sha256"]
-    assert run_oracle(MINMOVE, sample_bars, CENTS)["sha256"] != nq
+    nq = run_oracle(MINMOVE, sample_bars, NQ, max_bars_back=0)["sha256"]
+    assert run_oracle(MINMOVE, sample_bars, CENTS, max_bars_back=0)["sha256"] != nq
 
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))

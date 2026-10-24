@@ -99,7 +99,7 @@ SETTERS = (
 def _run(src, **kwargs):
     return run_oracle(src, _bars(), ES, drawings=True,
                       drawing_case_id="g-x-157-anchor", drawing_tape=_TAPE,
-                      **kwargs)
+                      **kwargs, max_bars_back=0)
 
 
 def _off_tape(dump):
@@ -191,8 +191,8 @@ def test_native_matches_python(name):
 def test_native_plain_run_does_not_refuse_on_bar_one():
     _needs_native()
     src = PROGRAMS["out_of_history_and_session_end"]
-    python = run_oracle(src, _bars(), ES)
-    native = run_oracle(src, _bars(), ES, use_native=True)
+    python = run_oracle(src, _bars(), ES, max_bars_back=0)
+    native = run_oracle(src, _bars(), ES, use_native=True, max_bars_back=0)
     assert native["native"] is True, native.get("native_fallback_reason")
     assert native["sha256"] == python["sha256"]
 

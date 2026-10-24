@@ -100,8 +100,36 @@ def test_loader_date_format_and_line_number(tmp_path):
     path = _csv(tmp_path, ["01/02/2024,09:30:00,1,2,0,1,5",
                            "01/13/2024,09:31:00,1,2,0,1,5"])
     assert [b["date"] for b in load_bars_csv(path, date_format="mdy")] == [1240102, 1240113]
-    with pytest.raises(ValueError, match=r"line 3: bad date '01/13/2024'.*--date-format mdy"):
+    with pytest.raises(ValueError, match=r"line 3: bad date '01/13/2024'"):
+        load_bars_csv(path, date_format="dmy")
+
+
+@pytest.mark.parametrize("rows,want", [
+    (["01/02/2024", "01/13/2024"], [1240102, 1240113]),   # a second field > 12: mdy
+    (["01/02/2024", "13/02/2024"], [1240201, 1240213]),   # a first field > 12: dmy
+    (["02/02/2024", "03/03/2024"], [1240202, 1240303]),   # same either way
+    (["2024/01/02", "2024/01/13"], [1240102, 1240113]),   # year first
+    (["1240102", "1240113"], [1240102, 1240113]),
+])
+def test_loader_infers_slash_date_order(tmp_path, rows, want):
+    path = _csv(tmp_path, [r + ",09:30,1,2,0,1,5" for r in rows])
+    assert [b["date"] for b in load_bars_csv(path)] == want
+
+
+@pytest.mark.parametrize("rows,needle", [
+    (["01/02/2024", "01/03/2024"], "ambiguous"),
+    (["13/01/2024", "01/13/2024"], "disagree"),
+])
+def test_loader_refuses_undecidable_slash_dates(tmp_path, rows, needle):
+    path = _csv(tmp_path, [r + ",09:30,1,2,0,1,5" for r in rows])
+    with pytest.raises(ValueError, match=needle + ".*--date-format"):
         load_bars_csv(path)
+    # An explicit order always wins.
+    if needle == "ambiguous":
+        assert [b["date"] for b in load_bars_csv(path, date_format="mdy")] == [1240102, 1240103]
+    else:
+        with pytest.raises(ValueError, match=r"line 3: bad date '01/13/2024'"):
+            load_bars_csv(path, date_format="dmy")
 
 
 def test_shipped_sample_unchanged():
@@ -118,14 +146,14 @@ def _run(tool, *args):
 
 @pytest.mark.parametrize("tool", ["pl_run", "pl_oracle"])
 @pytest.mark.parametrize("row,needle", [
-    ("01/13/2024,09:30:00,1,2,0,1,5", "line 2: bad date '01/13/2024'"),
+    ("13/13/2024,09:30:00,1,2,0,1,5", "line 2: bad date '13/13/2024'"),
     ("31/04/2024,09:30:00,1,2,0,1,5", "day 31"),
     ("02/01/2024,24:00:00,1,2,0,1,5", "bad time '24:00:00'"),
     ("02/01/2024,09:30:05,1,2,0,1,5", "seconds"),
 ])
 def test_cli_one_line_error(tool, tmp_path, row, needle):
     path = _csv(tmp_path, [row])
-    proc = _run(tool, EL, path)
+    proc = _run(tool, EL, path, "--date-format", "dmy")
     assert proc.returncode == 2, proc.stderr
     lines = proc.stderr.strip().splitlines()
     assert len(lines) == 1, proc.stderr
@@ -160,6 +188,27 @@ def test_cli_date_format_same_digest(tmp_path, order):
     assert run.returncode == 0, run.stderr
 
 
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle"])
+def test_cli_ambiguous_slash_dates_stop(tool, tmp_path):
+    # Every bar in the sample is on 2 Jan, so D/M and M/D cannot be told apart.
+    path = _mc_copy(tmp_path, "dmy")
+    proc = _run(tool, EL, path)
+    assert proc.returncode == 2, proc.stderr
+    lines = proc.stderr.strip().splitlines()
+    assert len(lines) == 1, proc.stderr
+    assert "ambiguous" in lines[0] and "--date-format mdy" in lines[0], lines[0]
+
+
+def test_cli_infers_month_first(tmp_path):
+    path = _mc_copy(tmp_path, "mdy")
+    with open(path, "a") as fh:  # one bar on the 13th makes the order clear
+        fh.write("01/13/2024,09:30:00,1,1,1,1,1\n")
+    got = _run("pl_oracle", EL, path)
+    assert got.returncode == 0, got.stderr
+    explicit = _run("pl_oracle", EL, path, "--date-format", "mdy")
+    assert got.stdout == explicit.stdout
+
+
 def test_cli_rejects_unknown_date_format():
     proc = _run("pl_oracle", EL, BARS, "--date-format", "ydm")
     assert proc.returncode == 2 and "invalid choice" in proc.stderr
@@ -185,7 +234,7 @@ def test_cli_bars_out_of_order(tool, tmp_path):
     path = _csv(tmp_path, ["02/01/2024,09:30:00,1,2,0,1,5",
                            "02/01/2024,09:31:00,1,2,0,1,5",
                            "02/01/2024,09:29:00,1,2,0,1,5"])
-    proc = _run(tool, EL, path)
+    proc = _run(tool, EL, path, "--date-format", "dmy")
     assert proc.returncode == 2, proc.stderr
     lines = proc.stderr.strip().splitlines()
     assert lines == [tool + ": error: bad bars file " + path + ": bars out of order at line 4: "

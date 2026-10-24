@@ -74,7 +74,7 @@ class ConformanceMismatch(AssertionError):
 
 def python_trade_runner(el_source, bars):
     """Reference path: emitted Python + run_bar_loop + FillEngine."""
-    return run_oracle(el_source, bars, NQ)["records"]
+    return run_oracle(el_source, bars, NQ, max_bars_back=0)["records"]
 
 
 def accel_trade_runner(accel_module):

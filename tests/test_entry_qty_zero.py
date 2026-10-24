@@ -62,7 +62,7 @@ def test_bare_entry_fills_grow_linearly():
     """Fill count grows linearly with tape length, not as 2**n."""
     counts = {}
     for n in (8, 16, 32, 64):
-        counts[n] = run_oracle(BARE_ENTRY_EL, _bars(n), NQ)["fills"]
+        counts[n] = run_oracle(BARE_ENTRY_EL, _bars(n), NQ, max_bars_back=0)["fills"]
     # Decisive bound: fills stay <= bar count. The exponential bug produced
     # 2, 8, 32, 128, 512, 2048 on 4..14 bars, so 64 bars would have been 2**64.
     for n, c in counts.items():

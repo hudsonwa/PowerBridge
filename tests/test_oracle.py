@@ -149,7 +149,7 @@ def test_reference_audit_citation_constants():
 
 
 def test_empty_tape_digest():
-    d = run_oracle(COUNT_EL, [], NQ)
+    d = run_oracle(COUNT_EL, [], NQ, max_bars_back=0)
     assert d["fills"] == 0
     assert d["round_turns"] == 0
     assert d["n_bars"] == 0
@@ -161,12 +161,12 @@ def test_empty_tape_digest():
 
 def test_count_strategy_needs_persist():
     """Clean dialect would reset Count each bar; oracle uses persist=True."""
-    d = run_oracle(COUNT_EL, _bars(5), NQ)
+    d = run_oracle(COUNT_EL, _bars(5), NQ, max_bars_back=0)
     assert d["fills"] == 1, d["records"]
     assert d["round_turns"] == 0  # still open (fills//2)
     assert d["records"][0]["signal"] == "LE"
     assert d["records"][0]["type"] == "EntryLong"
-    a = run_oracle(COUNT_EL, _bars(5), NQ)
+    a = run_oracle(COUNT_EL, _bars(5), NQ, max_bars_back=0)
     assert a["text"] == d["text"]
     print("  [ok] Count=3 Buy: 1 fill, 0 round-turns, two runs identical")
 
@@ -216,13 +216,13 @@ def test_trade_type_reversal_splits():
 def test_fills_csv_keeps_digest_and_matches_native():
     el = open(GT2, encoding="utf-8").read()
     bars = load_bars_csv(SAMPLE)
-    py = run_oracle(el, bars, NQ, use_native=False)
+    py = run_oracle(el, bars, NQ, use_native=False, max_bars_back=0)
     assert py["text"] == GT2_SAMPLE_DIGEST
     labels = fill_trade_types(py["records"])
     assert labels == ["EntryShort", "ExitShort", "EntryLong", "ExitLong",
                       "EntryShort", "ExitShort", "EntryLong"], labels
     if accel_available():
-        nat = run_oracle(el, bars, NQ, use_native=True)
+        nat = run_oracle(el, bars, NQ, use_native=True, max_bars_back=0)
         assert nat["text"] == GT2_SAMPLE_DIGEST
         assert fill_trade_types(nat["records"]) == labels
     with tempfile.TemporaryDirectory() as tmp:
@@ -240,19 +240,19 @@ def test_fills_csv_keeps_digest_and_matches_native():
 def test_gt2_sample_digest_frozen():
     el = open(GT2, encoding="utf-8").read()
     bars = load_bars_csv(SAMPLE)
-    d = run_oracle(el, bars, NQ)
+    d = run_oracle(el, bars, NQ, max_bars_back=0)
     assert d["text"] == GT2_SAMPLE_DIGEST, d["text"]
     # persist min-emit must match the trace-mode run_el trade list.
-    traced = run_el(el, bars, NQ, retain_rows=False)
+    traced = run_el(el, bars, NQ, retain_rows=False, max_bars_back=0)
     assert traced["trades"] == d["records"]
     print("  [ok] GT2 sample digest frozen; persist trades == run_el trades")
 
 
 def test_window_identity_and_disagreement():
     bars = _dated_bars(5)  # 1240102 .. 1240106
-    full = run_oracle(DATE_EL, bars, NQ)
-    same = run_oracle(DATE_EL, bars, NQ, from_date=1240104)
-    different = run_oracle(DATE_EL, bars, NQ, from_date=1240105)
+    full = run_oracle(DATE_EL, bars, NQ, max_bars_back=0)
+    same = run_oracle(DATE_EL, bars, NQ, from_date=1240104, max_bars_back=0)
+    different = run_oracle(DATE_EL, bars, NQ, from_date=1240105, max_bars_back=0)
     assert same["text"] == full["text"], (same["records"], full["records"])
     assert same["n_bars"] == 3
     assert different["text"] != full["text"]
@@ -286,7 +286,7 @@ def test_cli_digest_and_compare():
             rc = oracle_main([el_path, bars_path, "-o", out_path, "--dump", dump_path])
         assert rc == 0
         text = open(out_path, encoding="utf-8").read()
-        lib = run_oracle(COUNT_EL, bars, NQ)
+        lib = run_oracle(COUNT_EL, bars, NQ, max_bars_back=0)
         assert text == lib["text"]
         assert buf.getvalue() == text
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -356,9 +356,9 @@ def test_python_path_consumes_data2_bars():
 
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        via_bars = run_oracle(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape)
-    via_closes = run_oracle(DATA2_SOURCE, bars, NQ, data2_closes=data2_closes)
-    dropped = run_oracle(DATA2_SOURCE, bars, NQ)
+        via_bars = run_oracle(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape, max_bars_back=0)
+    via_closes = run_oracle(DATA2_SOURCE, bars, NQ, data2_closes=data2_closes, max_bars_back=0)
+    dropped = run_oracle(DATA2_SOURCE, bars, NQ, max_bars_back=0)
 
     assert via_bars["text"] == via_closes["text"], (
         "python data2_bars= diverged from python data2_closes=: "
@@ -428,8 +428,8 @@ def test_reference_audit_python_data2_bars_matches_closes():
 
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        via_bars = run_oracle(el, w_bars, NQ, data2_bars=w_d2, digest_version=1)
-    via_closes = run_oracle(el, w_bars, NQ, data2_closes=w_closes, digest_version=1)
+        via_bars = run_oracle(el, w_bars, NQ, data2_bars=w_d2, digest_version=1, max_bars_back=0)
+    via_closes = run_oracle(el, w_bars, NQ, data2_closes=w_closes, digest_version=1, max_bars_back=0)
 
     assert via_bars["fills"] == AUDIT_REF_3_WINDOW_FILLS, (
         f"window data2_bars= gave {via_bars['fills']} fills "
@@ -446,8 +446,8 @@ def test_reference_audit_python_data2_bars_matches_closes():
     assert err.getvalue() == ""
 
     full_closes = [float(x) for x in ohlcv_columns(data2)["close"]]
-    full_bars = run_oracle(el, bars, NQ, data2_bars=data2, digest_version=1)
-    full_closes_d = run_oracle(el, bars, NQ, data2_closes=full_closes, digest_version=1)
+    full_bars = run_oracle(el, bars, NQ, data2_bars=data2, digest_version=1, max_bars_back=0)
+    full_closes_d = run_oracle(el, bars, NQ, data2_closes=full_closes, digest_version=1, max_bars_back=0)
     assert full_bars["fills"] == AUDIT_REF_3_FILLS
     assert full_bars["sha256"] == AUDIT_REF_3_SHA256
     assert full_bars["text"] == AUDIT_REF_3_DIGEST
@@ -467,11 +467,11 @@ def check_gt2_capture_oracle(max_bars=20000):
     from tests.test_general_entrypoint import _resolve_gt2_bars
     bars, _ = _resolve_gt2_bars(max_bars)
     el = open(GT2, encoding="utf-8").read()
-    a = run_oracle(el, bars, NQ)
-    b = run_oracle(el, bars, NQ)
+    a = run_oracle(el, bars, NQ, max_bars_back=0)
+    b = run_oracle(el, bars, NQ, max_bars_back=0)
     if a["text"] != b["text"]:
         return False, "two persist runs produced different digests"
-    traced = run_el(el, bars, NQ, retain_rows=False)
+    traced = run_el(el, bars, NQ, retain_rows=False, max_bars_back=0)
     if traced["trades"] != a["records"]:
         return False, (
             f"persist fills {a['fills']} != run_el trades {len(traced['trades'])}")

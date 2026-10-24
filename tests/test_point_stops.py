@@ -82,7 +82,7 @@ End ;
 
 
 def _trades(el):
-    return run_oracle(el, BARS, NQ)["records"]
+    return run_oracle(el, BARS, NQ, max_bars_back=0)["records"]
 
 
 DOLLARS = PTS * NQ.bigpointvalue

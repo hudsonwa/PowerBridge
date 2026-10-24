@@ -141,14 +141,14 @@ def test_native_digest_equals_python(name, bars):
     source = PROGRAMS[name]
     fills = run_native(source, bars, NQ)
     assert fills, f"{name}: no fills, the program exercises nothing"
-    assert fills_sha256(fills) == run_oracle(source, bars, NQ)["sha256"]
+    assert fills_sha256(fills) == run_oracle(source, bars, NQ, max_bars_back=0)["sha256"]
 
 
 def test_undeclared_matches_explicit_declaration(bars):
     """An undeclared ValueN/ConditionN is `Vars: ValueN(0), ConditionN(false);`."""
     declared = "Vars: Value1(0), Condition1(false);\n" + ACCUMULATE
-    want = run_oracle(declared, bars, NQ)["sha256"]
-    assert run_oracle(ACCUMULATE, bars, NQ)["sha256"] == want
+    want = run_oracle(declared, bars, NQ, max_bars_back=0)["sha256"]
+    assert run_oracle(ACCUMULATE, bars, NQ, max_bars_back=0)["sha256"] == want
     assert fills_sha256(run_native(ACCUMULATE, bars, NQ)) == want
 
 
@@ -157,7 +157,7 @@ def test_native_trace_equals_python(name, bars):
     """Scratch variables are trace columns, as declared variables are."""
     source = PROGRAMS[name]
     columns, rows, _fills = run_native_trace(source, bars, NQ)
-    expected = run_el(source, bars, NQ)
+    expected = run_el(source, bars, NQ, max_bars_back=0)
     assert columns == expected["columns"]
     assert "value1" in columns or "condition1" in columns or "value3" in columns
     assert [[format_trace_cell(c) for c in row] for row in rows] == expected["rows"]
@@ -170,5 +170,5 @@ def test_crosses_over_scratch_refused_like_declared(bars):
     for source in (body, "Vars: Value3(0); " + body):
         with pytest.raises(AccelRefused, match="expected a series"):
             run_native(source, bars, NQ)
-    assert run_oracle(body, bars, NQ)["sha256"] == run_oracle(
-        "Vars: Value3(0); " + body, bars, NQ)["sha256"]
+    assert run_oracle(body, bars, NQ, max_bars_back=0)["sha256"] == run_oracle(
+        "Vars: Value3(0); " + body, bars, NQ, max_bars_back=0)["sha256"]

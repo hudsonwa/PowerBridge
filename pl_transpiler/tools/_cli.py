@@ -85,8 +85,10 @@ def add_date_format_arg(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--date-format", dest="date_format", default=None,
                     choices=("dmy", "mdy", "ymd"),
                     help="field order of slash dates in the bars CSV: dmy "
-                         "(D/M/YYYY, the default), mdy (M/D/YYYY) or ymd "
-                         "(YYYY/M/D). EL integer dates (1240102) need no option.")
+                         "(D/M/YYYY), mdy (M/D/YYYY) or ymd (YYYY/M/D). Default: "
+                         "inferred from the file (a field above 12), an error "
+                         "when it cannot tell. EL integer dates (1240102) need "
+                         "no option.")
 
 
 def _non_negative_int(text: str) -> int:
@@ -110,22 +112,35 @@ def _max_bars_back(text: str) -> Union[int, str]:
 
 def add_max_bars_back_arg(ap: argparse.ArgumentParser) -> None:
     """The shared ``--max-bars-back N|auto`` option (MultiCharts MaxBarsBack)."""
-    ap.add_argument("--max-bars-back", dest="max_bars_back", default=0,
+    ap.add_argument("--max-bars-back", dest="max_bars_back", default=None,
                     type=_max_bars_back, metavar="N|auto",
                     help="treat the first N bars as history only: no strategy "
                          "evaluation and no orders, and BarNumber starts at 1 on "
                          "bar N+1. 'auto' uses the longest lookback found in the "
-                         "strategy source (an error if it cannot be found). "
-                         "MultiCharts skips MaxBarsBack bars (default 50); pass "
-                         "50 to reproduce that. Default: 0.")
+                         "strategy source (an error if it cannot be found); 0 "
+                         "evaluates every bar. Default: auto, or 0 with a note "
+                         "when the lookback cannot be found (MultiCharts "
+                         "auto-detects it by default).")
 
 
 def check_max_bars_back(args: argparse.Namespace, el_source: str) -> str:
     """Resolve ``args.max_bars_back`` in place (``auto`` -> a number).
 
     Returns the status-line suffix: ``", max-bars-back N (auto)"`` for auto,
-    else ``""`` so the line is unchanged."""
+    else ``""`` so the line is unchanged. With no ``--max-bars-back`` the
+    default is auto, falling back to 0 when the lookback cannot be inferred;
+    ``args.max_bars_back_fallback`` records that fallback for the warm-up note."""
+    from pl_transpiler.lookback import LookbackUnknown, infer_max_bars_back
     from pl_transpiler.lookback import check_max_bars_back as resolve
+    args.max_bars_back_fallback = False
+    if args.max_bars_back is None:
+        try:
+            args.max_bars_back = infer_max_bars_back(el_source)
+        except LookbackUnknown:
+            args.max_bars_back = 0
+            args.max_bars_back_fallback = True
+            return ""
+        return ", max-bars-back %d (auto)" % args.max_bars_back if args.max_bars_back else ""
     if args.max_bars_back != "auto":
         return ""
     try:

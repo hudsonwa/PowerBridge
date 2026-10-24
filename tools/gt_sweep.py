@@ -107,10 +107,10 @@ def _worker_execute(source, bars_path, config_name, mode):
         config = get_config(config_name)
         if mode == "traced":
             output = run_el(
-                source, bars, config, retain_rows=False)
+                source, bars, config, retain_rows=False, max_bars_back=0)
             result = _execution_result(output["trades"])
         elif mode == "untraced":
-            output = run_oracle(source, bars, config)
+            output = run_oracle(source, bars, config, max_bars_back=0)
             result = {
                 "status": "OK",
                 "fills": output["fills"],

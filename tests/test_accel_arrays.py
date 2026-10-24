@@ -202,7 +202,7 @@ def native_sha(source, bars):
 def test_native_digest_equals_python(name, bars):
     source = SYNTHETIC[name]
     fills, sha = native_sha(source, bars)
-    python = run_oracle(source, bars, NQ)
+    python = run_oracle(source, bars, NQ, max_bars_back=0)
     assert len(fills) > 10, "the fixture must trade"
     assert sha == python["sha256"]
 
@@ -216,7 +216,7 @@ def test_loop_that_may_not_run_refuses_the_trace(bars):
     with pytest.raises(AccelRefused, match=r"trace of i: .*\(int or float\)"):
         run_native_trace(EMPTY_RANGE, bars, NQ)
     _, sha = native_sha(EMPTY_RANGE, bars)
-    assert sha == run_oracle(EMPTY_RANGE, bars, NQ)["sha256"]
+    assert sha == run_oracle(EMPTY_RANGE, bars, NQ, max_bars_back=0)["sha256"]
 
 
 def test_array_programs_refuse_the_trace(bars):
@@ -252,7 +252,7 @@ else Sell next bar at market;
 
 def test_sum_with_ints_after_a_float_matches_python(bars):
     """Regression for #124: ints after the first float follow this Python's sum()."""
-    assert native_sha(MIXED_INT_SUMS, bars)[1] == run_oracle(MIXED_INT_SUMS, bars, NQ)["sha256"]
+    assert native_sha(MIXED_INT_SUMS, bars)[1] == run_oracle(MIXED_INT_SUMS, bars, NQ, max_bars_back=0)["sha256"]
 
 
 def test_sum_of_elements_of_unknown_type_needs_python_before_312(bars):
@@ -269,7 +269,7 @@ if S > 4 then Buy next bar at market else Sell next bar at market;
         with pytest.raises(AccelRefused, match="Python 3.12\\+ sums floats"):
             run_native(source, bars, NQ)
     else:
-        assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ)["sha256"]
+        assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ, max_bars_back=0)["sha256"]
 
 
 # x cycles 1e16, 1, -1e16, 1, so every Average(x, 4) window sums to 2 when
@@ -290,7 +290,7 @@ else Sell next bar at market;
 def test_average_precision_follows_the_running_python(bars):
     """Regression for #124: native Average sums its window like this Python's sum()."""
     fills, sha = native_sha(AVERAGE_PRECISION, bars)
-    assert sha == run_oracle(AVERAGE_PRECISION, bars, NQ)["sha256"]
+    assert sha == run_oracle(AVERAGE_PRECISION, bars, NQ, max_bars_back=0)["sha256"]
     signals = {fill["signal"] for fill in fills if fill["signal"].startswith("A")}
     if sys.version_info >= (3, 12):
         assert signals == {"A0.00", "A0.50"}
@@ -311,7 +311,7 @@ if A > 4 then Buy next bar at market else Sell next bar at market;
         with pytest.raises(AccelRefused, match="Average over a series"):
             run_native(source, bars, NQ)
     else:
-        assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ)["sha256"]
+        assert native_sha(source, bars)[1] == run_oracle(source, bars, NQ, max_bars_back=0)["sha256"]
 
 
 def test_out_of_range_index_fails_both_paths(bars):
@@ -319,7 +319,7 @@ def test_out_of_range_index_fails_both_paths(bars):
     with pytest.raises(AccelRefused, match="array index 6 out of range for buf"):
         run_native(source, bars, NQ)
     with pytest.raises(IndexError):
-        run_el(source, bars, NQ)
+        run_el(source, bars, NQ, max_bars_back=0)
 
 
 @pytest.mark.parametrize("threads", [None, 2])
@@ -399,7 +399,7 @@ def test_python_errors_in_loops_and_arrays_refuse(name, bars):
     body, error = RAISING_IN_LOOPS[name]
     source = body + f"If Date >= {bars[-1]['date']} Then Buy next bar at market;\n"
     with pytest.raises(error):
-        run_oracle(source, bars, NQ)
+        run_oracle(source, bars, NQ, max_bars_back=0)
     with pytest.raises(AccelRefused, match="the Python path raises"):
         run_native(source, bars, NQ)
 
@@ -412,4 +412,4 @@ def test_arrays_and_loops_match_python_on_a_long_random_walk():
     source = LOOP_ARITHMETIC
     fills, sha = native_sha(source, long_bars)
     assert len(fills) > 100, "the program must trade on the long tape"
-    assert sha == run_oracle(source, long_bars, NQ)["sha256"]
+    assert sha == run_oracle(source, long_bars, NQ, max_bars_back=0)["sha256"]

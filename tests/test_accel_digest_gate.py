@@ -20,7 +20,7 @@ canonical digest for the same program over the same tape, AND the native path
 must actually have been taken.
 
 The false-green this test exists to prevent: a digest that silently came from
-the Python fallback. ``run_oracle(use_native=True)`` can fall back to Python and
+the Python fallback. ``run_oracle(use_native=True, max_bars_back=0)`` can fall back to Python and
 still return a digest — comparing two such digests is trivially green while
 proving nothing about the native kernel. Here the native fills come straight
 from ``run_native`` (which raises ``AccelUnavailable`` / ``AccelRefused`` rather
@@ -78,7 +78,7 @@ def test_native_and_python_digest_identical_with_native_taken():
         "Python fallback digest (false green)"
     )
 
-    python_digest = run_oracle(el_source, bars, NQ)
+    python_digest = run_oracle(el_source, bars, NQ, max_bars_back=0)
 
     native_sha = fills_sha256(native_fills)
     assert native_sha == python_digest["sha256"], "native/Python fill sha256 differs"
@@ -113,6 +113,6 @@ def test_deeply_nested_ir_loads_natively_and_digest_matches_python():
     except AccelRefused as exc:
         assert "program_ir" not in str(exc), f"native IR load failed: {exc}"
 
-    native_digest = run_oracle(el_source, bars, NQ, data2_bars=bars, use_native=True)
-    python_digest = run_oracle(el_source, bars, NQ, data2_bars=bars)
+    native_digest = run_oracle(el_source, bars, NQ, data2_bars=bars, use_native=True, max_bars_back=0)
+    python_digest = run_oracle(el_source, bars, NQ, data2_bars=bars, max_bars_back=0)
     assert native_digest["text"] == python_digest["text"]

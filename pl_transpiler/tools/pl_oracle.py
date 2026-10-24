@@ -123,7 +123,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _cli.add_max_bars_back_arg(ap)
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="hide the warm-up note printed when a strategy reads "
-                         "past bars and --max-bars-back is not set (other "
+                         "past bars, --max-bars-back is not set and auto "
+                         "cannot find the lookback (other "
                          "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--data2", default=None,
@@ -312,7 +313,8 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         write_fills_csv(args.fills_csv, result["records"], tick=config.tick)
 
     # After the run, so a failing run still prints a single error line.
-    note_warmup(el_source, args.max_bars_back, "pl_oracle", quiet=args.quiet,
+    note_warmup(el_source, args.max_bars_back, "pl_oracle",
+                quiet=args.quiet or not args.max_bars_back_fallback,
                 n_bars=ohlcv_columns(bars)["n"])
     warmup_note = (f" ({result['n_warmup']} warmup)" if result.get("n_warmup") else "")
     path_note = ("native" if result.get("native") else "python")

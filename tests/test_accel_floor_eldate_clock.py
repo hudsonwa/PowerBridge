@@ -109,7 +109,7 @@ def test_program_is_native(name):
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_native_digest_equals_python(name, sample_bars, fixed_clock):
-    want = run_oracle(PROGRAMS[name], sample_bars, NQ)
+    want = run_oracle(PROGRAMS[name], sample_bars, NQ, max_bars_back=0)
     assert want["fills"] > 0, "the program must trade for the digest to mean anything"
     assert fills_sha256(run_native(PROGRAMS[name], sample_bars, NQ)) == want["sha256"]
 
@@ -126,7 +126,7 @@ def test_clock_follows_the_patched_time(sample_bars, monkeypatch):
         now = FIXED_NOW.replace(second=second)
         monkeypatch.setattr(_rt_datetime, "_clock_now", lambda now=now: now)
         native = fills_sha256(run_native(CLOCK, sample_bars, NQ))
-        assert native == run_oracle(CLOCK, sample_bars, NQ)["sha256"]
+        assert native == run_oracle(CLOCK, sample_bars, NQ, max_bars_back=0)["sha256"]
         digests.append(native)
     assert digests[0] != digests[1]
 

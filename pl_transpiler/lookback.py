@@ -131,15 +131,10 @@ _CURRENT_BAR_AT_1 = frozenset((
     'lowestbar', 'summation', 'waverage', 'weightedaverage', 'xaverage'))
 
 
-WARMUP_NOTE = ("note: {tool}: strategy reads past bars and --max-bars-back is 0; "
+WARMUP_NOTE = ("note: {tool}: strategy reads past bars and the default "
+               "--max-bars-back auto cannot find the lookback, so it is 0; "
                "fills may differ from MultiCharts during warm-up "
                "(set --max-bars-back N, or -q to hide this)")
-
-# The same note when infer_max_bars_back() finds a number.
-WARMUP_NOTE_AUTO = ("note: {tool}: strategy reads up to {n} past bars and "
-                    "--max-bars-back is 0; fills may differ from MultiCharts "
-                    "during warm-up (set --max-bars-back auto (= {n}), or -q "
-                    "to hide this)")
 
 
 def _base_name(name: str) -> str:
@@ -188,6 +183,7 @@ def note_warmup(el_source: str, max_bars_back: int, tool: str, quiet: bool = Fal
                 n_bars: Optional[int] = None) -> bool:
     """CLI only: print the once-per-run warm-up note on stderr when the
     strategy uses lookbacks and MaxBarsBack is 0. Returns True if printed.
+    The tools call it only when the default auto could not find the lookback.
 
     Skipped when the run will print the short-history warning (same cause),
     so one run never prints both. ``quiet`` hides only this note."""
@@ -199,9 +195,7 @@ def note_warmup(el_source: str, max_bars_back: int, tool: str, quiet: bool = Fal
     if (n_bars is not None and max_bars_back < n_bars
             and short_history_bar(el_source, max_bars_back) is not None):
         return False
-    n = n if isinstance(n, int) else 0
-    note = WARMUP_NOTE_AUTO if n else WARMUP_NOTE
-    print(note.format(tool=tool, n=n), file=sys.stderr)
+    print(WARMUP_NOTE.format(tool=tool), file=sys.stderr)
     return True
 
 
@@ -495,7 +489,14 @@ def check_max_bars_back(max_bars_back: Union[int, str, None], el_source: Optiona
     """Validate and normalise a ``max_bars_back`` argument.
 
     ``"auto"`` resolves to ``infer_max_bars_back(el_source)``; when that
-    cannot bound the lookback it raises ValueError rather than guess."""
+    cannot bound the lookback it raises ValueError rather than guess.
+    ``None`` (the default) is auto too, but falls back to 0 when the lookback
+    cannot be inferred."""
+    if max_bars_back is None:
+        try:
+            return infer_max_bars_back(el_source) if el_source is not None else 0
+        except LookbackUnknown:
+            return 0
     if isinstance(max_bars_back, str) and max_bars_back.strip().lower() == 'auto':
         try:
             return infer_max_bars_back(el_source)  # type: ignore[arg-type]  # auto needs the source

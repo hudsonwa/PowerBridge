@@ -135,7 +135,8 @@ def test_pl_oracle_status_line_has_no_jargon():
     proc = _run("pl_oracle", EL, BARS, "--python")
     assert proc.returncode == 0, proc.stderr
     summary = [ln for ln in proc.stderr.splitlines() if ln.startswith("[pl_oracle]")]
-    assert summary == ["[pl_oracle] 140 bars, 3 fills, 1 round-turns [python]"], proc.stderr
+    assert summary == ["[pl_oracle] 140 bars, 3 fills, 1 round-turns, "
+                       "max-bars-back 21 (auto) [python]"], proc.stderr
 
 
 def test_pl_oracle_verbose_explains_skipped_bars():
@@ -149,7 +150,8 @@ def test_pl_oracle_verbose_explains_skipped_bars():
 def test_pl_oracle_accel_internals_need_vv():
     pytest.importorskip("pl_transpiler._accel", reason="native kernel not built")
     for flag, shown in (("-v", False), ("-vv", True)):
-        proc = _run("pl_oracle", EL, BARS, "--native", flag, env_extra={"PB_ACCEL_VERBOSE": ""})
+        proc = _run("pl_oracle", EL, BARS, "--native", flag,
+                    "--max-bars-back", "0", env_extra={"PB_ACCEL_VERBOSE": ""})
         assert proc.returncode == 0, proc.stderr
         assert any(ln.startswith("[accel] ") for ln in proc.stderr.splitlines()) is shown, \
             (flag, proc.stderr)

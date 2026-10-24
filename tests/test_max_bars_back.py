@@ -37,7 +37,7 @@ PROGRAMS = {
     "ma_cross": os.path.join(REPO, "examples", "ma_cross.el"),
     "GT2": os.path.join(REPO, "ground_truth", "GT2_strategy_orders_position.txt"),
 }
-# Default (max_bars_back=0) digests: unchanged by MaxBarsBack support.
+# max_bars_back=0 digests: unchanged by MaxBarsBack support.
 DEFAULT_SHA = {
     "ma_cross": "f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da",
     "GT2": "ac9898885cfb87aca896ea2ade1e36ef52c9d689dd179913674262c475d9a5f7",
@@ -96,7 +96,8 @@ def test_negative_max_bars_back_is_refused():
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_default_digests_unchanged(name):
     bars = load_bars(SAMPLE)
-    assert run_oracle(_src(name), bars, NQ)["sha256"] == DEFAULT_SHA[name]
+    assert (run_oracle(_src(name), bars, NQ)["sha256"]
+            == run_oracle(_src(name), bars, NQ, max_bars_back="auto")["sha256"])
     assert run_oracle(_src(name), bars, NQ, max_bars_back=0)["sha256"] == DEFAULT_SHA[name]
 
 
@@ -134,14 +135,14 @@ def test_older_kernel_falls_back_to_python(monkeypatch):
 def test_short_lookback_warns_once(capsys):
     el = "Vars: x(0);\nx = Close[5];\nIf Close > Close[3] Then Buy next bar at market;\n"
     bars = _tape()
-    a = run_el(el, bars, NQ)
+    a = run_el(el, bars, NQ, max_bars_back=0)
     err = capsys.readouterr().err
     assert err.count(WARNING) == 1
     assert "--max-bars-back" in err
     b = run_el(el, bars, NQ, max_bars_back=5)
     assert WARNING not in capsys.readouterr().err
     # The warning never changes values.
-    c = run_el(el, bars, NQ)
+    c = run_el(el, bars, NQ, max_bars_back=0)
     capsys.readouterr()
     assert a["rows"] == c["rows"] and a["trades"] == c["trades"]
     assert b["n_rows"] == len(bars) - 5

@@ -23,7 +23,7 @@ Proves, when ``pl_transpiler._accel`` is built:
   * a supported Data2 program runs natively and matches Python bit-for-bit;
   * on refusal the caller raises loudly (``AccelRefused``) and ``run_oracle``
     falls back to Python with a stderr note — never a partial trade list;
-  * ``run_oracle(use_native=True)`` and the pure-Python path produce the same
+  * ``run_oracle(use_native=True, max_bars_back=0)`` and the pure-Python path produce the same
     digest text.
 
 Every native-path test skips cleanly (``pytest.skip``) when the extension is
@@ -101,7 +101,7 @@ def test_native_path_one_ffi_crossing_and_bit_identical():
     assert data2 is None
     assert config["name"] == "NQ"
 
-    python_records = run_oracle(gt2, bars, NQ)["records"]
+    python_records = run_oracle(gt2, bars, NQ, max_bars_back=0)["records"]
     assert trade_difference(python_records, native_fills) is None
     assert fills_sha256(native_fills) == fills_sha256(python_records)
 
@@ -115,7 +115,7 @@ def test_native_data2_matches_python_bit_exactly():
 
     python_records = run_oracle(
         DATA2_SOURCE, bars, NQ, data2_closes=data2_closes
-    )["records"]
+    , max_bars_back=0)["records"]
     native_fills = run_native(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape)
 
     assert trade_difference(python_records, native_fills) is None
@@ -134,10 +134,10 @@ def test_python_data2_bars_matches_native_data2_bars():
     bars = _sample_bars()
     data2_tape = [dict(b, close=b["close"] + 3.0) for b in bars]
 
-    python = run_oracle(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape)
+    python = run_oracle(DATA2_SOURCE, bars, NQ, data2_bars=data2_tape, max_bars_back=0)
     native = run_oracle(
         DATA2_SOURCE, bars, NQ, data2_bars=data2_tape, use_native=True,
-    )
+     max_bars_back=0)
     assert python["native"] is False
     assert native["native"] is True
     assert python["text"] == native["text"]
@@ -154,7 +154,7 @@ def test_refusal_is_loud_and_python_still_runs():
     with pytest.raises(AccelRefused):
         run_native(DATA2_SOURCE, bars, NQ)
 
-    python_digest = run_oracle(DATA2_SOURCE, bars, NQ)
+    python_digest = run_oracle(DATA2_SOURCE, bars, NQ, max_bars_back=0)
     assert python_digest["native"] is False
     assert python_digest["text"].startswith("powerbridge-trade-digest v2\n")
 
@@ -184,13 +184,13 @@ def test_run_oracle_forwards_data2_on_native_path():
             DATA2_SOURCE, bars, NQ,
             data2_closes=data2_closes, data2_bars=data2_tape,
             use_native=True,
-        )
-        python = run_oracle(DATA2_SOURCE, bars, NQ, data2_closes=data2_closes)
+         max_bars_back=0)
+        python = run_oracle(DATA2_SOURCE, bars, NQ, data2_closes=data2_closes, max_bars_back=0)
     finally:
         accel.run_program = real_run_program
 
     assert result["native"] is True, (
-        "run_oracle(use_native=True, data2_bars=…) must take the native path, "
+        "run_oracle(use_native=True, data2_bars=…, max_bars_back=0) must take the native path, "
         "not silently fall back"
     )
     assert len(calls) == 1
@@ -206,8 +206,8 @@ def test_run_oracle_use_native_digest_identical():
     gt2 = open(GT2, encoding="utf-8").read()
     bars = _sample_bars()
 
-    native = run_oracle(gt2, bars, NQ, use_native=True)
-    python = run_oracle(gt2, bars, NQ, use_native=False)
+    native = run_oracle(gt2, bars, NQ, use_native=True, max_bars_back=0)
+    python = run_oracle(gt2, bars, NQ, use_native=False, max_bars_back=0)
 
     assert native["native"] is True
     assert python["native"] is False
@@ -220,7 +220,7 @@ def test_run_oracle_use_native_falls_back_loudly_on_refusal(capsys):
     bars = _sample_bars()
     # Native refuses (Data2 without a Data2 tape); use_native must fall back to
     # the Python path loudly rather than returning a partial trade list.
-    result = run_oracle(DATA2_SOURCE, bars, NQ, use_native=True)
+    result = run_oracle(DATA2_SOURCE, bars, NQ, use_native=True, max_bars_back=0)
 
     assert result["native"] is False
     assert result["native_fallback_reason"].startswith("native path refused:")
@@ -228,7 +228,7 @@ def test_run_oracle_use_native_falls_back_loudly_on_refusal(capsys):
     assert "native path refused" in stderr
     assert "using the pure-Python engine" in stderr
     # The fallback digest agrees with a pure-Python run (identical trade list).
-    assert result["text"] == run_oracle(DATA2_SOURCE, bars, NQ)["text"]
+    assert result["text"] == run_oracle(DATA2_SOURCE, bars, NQ, max_bars_back=0)["text"]
 
 
 def test_unavailable_is_loud_not_a_trade_list(monkeypatch):

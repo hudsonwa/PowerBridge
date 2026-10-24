@@ -66,10 +66,10 @@ def bars():
 
 
 def _runs(source, bars, **kwargs):
-    python = run_oracle(source, bars, NQ, **kwargs)
+    python = run_oracle(source, bars, NQ, **kwargs, max_bars_back=0)
     assert python["fills"] > 0
     if accel_available():
-        native = run_oracle(source, bars, NQ, use_native=True, **kwargs)
+        native = run_oracle(source, bars, NQ, use_native=True, **kwargs, max_bars_back=0)
         assert native["sha256"] == python["sha256"]
     return python
 
@@ -101,5 +101,5 @@ def test_dynamic_out_of_history_lookback_matches_constant(bars):
 
 @pytest.mark.skipif(not accel_available(), reason=ACCEL_SKIP)
 def test_native_runs_the_lookback_program(bars):
-    native = run_oracle(_lookback_source("Date", 200), bars, NQ, use_native=True)
+    native = run_oracle(_lookback_source("Date", 200), bars, NQ, use_native=True, max_bars_back=0)
     assert native["native"] is True, native.get("native_fallback_reason")
