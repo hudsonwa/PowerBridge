@@ -11,6 +11,7 @@ there is enough new content to justify one.
 
 ### Added
 
+- `pl_oracle --summary` prints a short performance summary of the closed trades to stderr after the run: net profit, gross profit and loss, number of trades, winners, losers, win rate, max drawdown of closed-trade equity and contracts still open. P&L uses the instrument's big point value, before commission and slippage. The text is the same on the native and Python paths, and the digest on stdout is unchanged.
 - `tools/dev_setup.sh` sets up a full development environment in the active virtual environment: it upgrades pip, installs `.[dev]` in editable mode, builds the native kernel when `cargo` is available (or says why it skipped it), and ends with the kernel status. CONTRIBUTING leads with it and lists what a default `pytest` run still skips after it; CI runs it in a fresh venv (#188).
 
 - CONTRIBUTING now upgrades pip before the editable install, so contributor setup works on Python 3.9's bundled pip, and CI runs that setup on Python 3.9 (#175).
