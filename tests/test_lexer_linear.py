@@ -51,8 +51,7 @@ def _outcome(fn, src):
 
 
 def _new(src):
-    tokens, positions = lexer.tokenise(src)
-    return tokens, positions, [dict(c) for c in lexer.last_comments]
+    return lexer.tokenise_with_comments(src)
 
 
 CASES = {

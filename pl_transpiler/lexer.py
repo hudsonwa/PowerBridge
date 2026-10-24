@@ -40,13 +40,12 @@ TT_NEWLINE   = 'NEWLINE'
 TT_EOF       = 'EOF'
 TT_COMMENT   = 'COMMENT'
 
-# Side-channel: the verbatim comments stripped by the most recent tokenise() call.
-# Comments ride here (NOT the token stream), so the token stream — and therefore all
+# Comments never enter the token stream, so the token stream — and therefore all
 # forward-transpiled behaviour — is byte-identical whether or not comments are read.
-# Each entry: {'text': verbatim incl. delimiters, 'line', 'col' (1-based), 'trailing':
-# bool (True iff non-whitespace precedes the comment on its line)}. Consumers should
-# prefer collect_comments(source) (a pure function of source) over reading this global.
-last_comments: list[dict[str, Any]] = []
+# tokenise_with_comments() returns them as a side list, one entry per comment:
+# {'text': verbatim incl. delimiters, 'line', 'col' (1-based), 'trailing': bool
+# (True iff non-whitespace precedes the comment on its line)}. Nothing is kept at
+# module level, so concurrent calls cannot see each other's comments.
 
 KEYWORDS = {
     'if','then','else','begin','end','for','to','downto','next',
@@ -103,12 +102,20 @@ _WORD_RE = re.compile(r'[A-Za-z_#][A-Za-z0-9_.]*')
 
 
 def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
+    """Tokenise PL source; see `tokenise_with_comments` (this drops the comments)."""
+    tokens, positions, _comments = tokenise_with_comments(source)
+    return tokens, positions
+
+
+def tokenise_with_comments(source: str) -> tuple[list[Token], list[tuple[int, int]],
+                                                  list[dict[str, Any]]]:
     """Tokenise PL source. PL is case-insensitive — all tokens lowercased.
 
-    Returns (tokens, positions) where `tokens` is a list of (type, value) pairs
-    and `positions` is a parallel list
+    Returns (tokens, positions, comments) where `tokens` is a list of (type, value)
+    pairs, `positions` is a parallel list
     of (line, col) 1-based source positions, one per token (the EOF token gets
-    the position just past the end of the source).
+    the position just past the end of the source), and `comments` is the verbatim
+    comment side list described above.
     """
     tokens: list[Token] = []
     positions: list[tuple[int, int]] = []
@@ -269,21 +276,16 @@ def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
 
     tokens.append((TT_EOF, ''))
     positions.append(_pos(len(src)))
-    # Expose the collected comments on the side channel; the return value stays
-    # exactly (tokens, positions).
-    last_comments.clear()
-    last_comments.extend(comments)
-    return tokens, positions
+    return tokens, positions, comments
 
 
 def collect_comments(source: str) -> list[dict[str, Any]]:
     """Verbatim comment side-list for `source` (a pure function of the text).
 
-    Runs the lexer purely for its comment side-channel and returns a fresh copy of
-    the collected comments (see `last_comments`). The parser uses this to attach
-    `_comments` to the program node without any change to the token stream."""
-    tokenise(source)
-    return [dict(c) for c in last_comments]
+    Runs the lexer purely for its comment side list (see `tokenise_with_comments`).
+    The parser uses this to attach `_comments` to the program node without any
+    change to the token stream."""
+    return tokenise_with_comments(source)[2]
 
 
 def source_line_at(source: str, line: int) -> str:
