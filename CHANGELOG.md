@@ -41,6 +41,12 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   `ELRuntimeError` (with `.line`), which is also an instance of the original
   exception type, so `except IndexError` keeps working. `PB_DEBUG=1` shows the traceback. Programs
   that ran before give the same fills and digests.
+- The `--help` descriptions of `pl_oracle`, `pl_run`, `pl_transpile`, `el_emit` and
+  `pl_examples` are now written in plain language for first-time users. The
+  `--lenient` help now says exactly what it does: an unimplemented builtin returns
+  0 (or '' for a text builtin), a missing bar column reads as 0, and a
+  `from entry` exit with several named entries open closes the whole position.
+  Option names and behaviour are unchanged.
 - `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
   `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
   define them (`engine_dates`, `runtime.instrument_config`). These were never part

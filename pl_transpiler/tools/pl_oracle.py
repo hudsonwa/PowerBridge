@@ -669,8 +669,11 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_oracle",
-        description="Exact trade-list digest: persist=True min-emit run of EL "
-                    "over a tape. Prints a canonical digest to stdout.")
+        description="Run an EasyLanguage strategy over a file of price bars and "
+                    "print a short fingerprint (digest) of every trade it makes. "
+                    "Two runs with the same digest made exactly the same trades, "
+                    "so use it to check that results have not changed "
+                    "(see --compare).")
     ap.add_argument("el_file", help="EL/PowerLanguage source file.")
     ap.add_argument("bars_csv", nargs="?", default=None,
                     help="plain OHLCV CSV (date,time,open,high,low,close,volume) "
@@ -709,8 +712,14 @@ def _build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--python", dest="use_native", action="store_false",
                     help="force the pure-Python path (reference / debugging).")
     ap.add_argument("--lenient", action="store_true",
-                    help="treat EasyLanguage builtins the runtime does not implement "
-                         "as 0/'' and warn, instead of stopping (same as PL_STRICT=0).")
+                    help="keep going instead of stopping when the strategy needs "
+                         "something PowerBridge does not support yet (same as "
+                         "PL_STRICT=0): an unimplemented builtin returns 0 (or '' "
+                         "for a text builtin), a missing bar column such as Ticks "
+                         "reads as 0, and a 'from entry' exit with several named "
+                         "entries open closes the whole position. A WARNING at the "
+                         "end names each one; results that depend on them may not "
+                         "match MultiCharts.")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write digest here as well as stdout.")
     ap.add_argument("--compare", default=None,
