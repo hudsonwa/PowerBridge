@@ -8,6 +8,7 @@
 
 Skipped when ``pl_transpiler._accel`` is not built.
 """
+import dataclasses
 import os
 import sys
 
@@ -121,6 +122,20 @@ def test_tiny_el_packet_matches_run_native_fills():
     assert TRANSITION_SIZE == 104
     expected = 256 + header["transition_count"] * 104 + header["trade_count"] * 88
     assert len(packet) == expected
+
+
+def test_round_turn_cost_comes_from_config():
+    _require_accel()
+    bars = load_bars_csv(SAMPLES)
+    cheap = dataclasses.replace(NQ, round_turn_cost=4.5)
+    base = decode(run_native_audit_packet(TINY, bars, NQ))
+    custom = decode(run_native_audit_packet(TINY, bars, cheap))
+    assert NQ.round_turn_cost == 25.0
+    assert custom["transitions"] == base["transitions"]
+    assert custom["header"]["hash_fills"] == base["header"]["hash_fills"]
+    (b,), (c,) = base["trades"], custom["trades"]
+    assert c["net_profit"] == b["net_profit"] + 25.0 - 4.5
+    assert c["cumulative_net"] == b["cumulative_net"] + 25.0 - 4.5
 
 
 def test_packet_does_not_require_dropped_slots():

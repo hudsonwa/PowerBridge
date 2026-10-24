@@ -498,7 +498,9 @@ sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 JSON file. The file's keys are exactly the fields of
 `InstrumentConfig` in
 [`pl_transpiler/runtime/instrument_config.py`](../pl_transpiler/runtime/instrument_config.py);
-`category` is optional (default 0). The built-ins ship as
+`category` is optional (default 0), and so is `round_turn_cost`, the $ per
+contract that the audit packet subtracts from each trade's gross profit
+(default 25.0, must be >= 0). The built-ins ship as
 [`examples/configs/NQ.json`](../examples/configs/NQ.json) and
 [`examples/configs/ES.json`](../examples/configs/ES.json): copy one and edit
 `bigpointvalue` ($ per full point per contract), `pointvalue`, `minmove`,

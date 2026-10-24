@@ -12,5 +12,6 @@
   "symalt": "@ES#C",
   "descstr": "E-MINI S&P 500",
   "expdate": 1130331,
-  "category": 0
+  "category": 0,
+  "round_turn_cost": 25.0
 }

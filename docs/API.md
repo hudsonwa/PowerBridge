@@ -236,9 +236,9 @@ price scale, session start, symbol names) and drives fill prices and profit.
 `get_config` returns a built-in config (`"NQ"`, `"ES"`) or, given a path ending
 in `.json` or naming an existing file, loads it with `load_config_file`.
 `load_config_file` reads a JSON object whose keys are exactly the
-`InstrumentConfig` fields (`category` optional); unknown or missing keys and
-wrong types raise `ConfigFileError`. `examples/configs/NQ.json` and `ES.json`
-are templates.
+`InstrumentConfig` fields (`category` and `round_turn_cost` optional); unknown
+or missing keys, wrong types and a negative `round_turn_cost` raise
+`ConfigFileError`. `examples/configs/NQ.json` and `ES.json` are templates.
 
 ```python
 from pl_transpiler import get_config, load_config_file
