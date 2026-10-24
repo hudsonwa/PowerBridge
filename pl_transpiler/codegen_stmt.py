@@ -14,7 +14,10 @@
 
 """Statement generation for CodeGen (mixin; see codegen.py)."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 from . import catalog as _catalog
+from ._types import Node
 from .codegen_util import (
     _expr_already_f32,
     _f32_literal_const,
@@ -35,13 +38,40 @@ _EL_RESERVED_NOT_IN_CATALOG = frozenset((
 
 
 class _StmtMixin:
-    def _emit_comment(self, text):
+    if TYPE_CHECKING:
+        # Host interface provided by CodeGen / _ExprMixin (see codegen.py).
+        lines: list[str]
+        indent: int
+        has_once: bool
+        trace: bool
+        persist: bool
+        _series_context: bool
+        _partial: bool
+        _need_f32_import: bool
+        _cur_stmt_line: Optional[int]
+        _trace_vars: set[str]
+        _stateful_vars: set[str]
+        _numeric_vars: set[str]
+        _double_accum_vars: set[str]
+        _history_vars: set[str]
+        _array_vars: set[str]
+        _hoisted_input_names: set[str]
+        _cmt_lead: dict[int, list[str]]
+        _cmt_trail: dict[int, list[str]]
+        _unimpl_errors: list[dict[str, Any]]
+
+        def emit(self, line: str) -> None: ...
+        def _el_name(self, name: str) -> str: ...
+        def gen_expr(self, node: Node) -> str: ...
+        def _is_known_bare_ident(self, name: str) -> bool: ...
+
+    def _emit_comment(self, text: str) -> None:
         """Emit a verbatim EL comment as `#| ` line(s) (clean mode only). A
         multi-line `{...}` comment keeps its internal newlines, one `#|` line each."""
         for phys in text.split('\n'):
             self.emit('#| ' + phys)
 
-    def gen_stmt(self, node):
+    def gen_stmt(self, node: Node) -> None:
         for txt in self._cmt_lead.get(id(node), ()):
             self._emit_comment(txt)
         start = len(self.lines)          # first physical line this statement emits
@@ -68,14 +98,14 @@ class _StmtMixin:
                 for txt in trail:
                     self._emit_comment(txt)
 
-    def gen_attribute(self, node):
+    def gen_attribute(self, node: Node) -> None:
         # Strategy/study attribute (e.g. [SameExitFromOneEntryOnce = True]) — a
         # declaration with no effect on the per-bar dumped column values, so it
         # emits nothing. Recorded as a comment for traceability.
         self.emit(f"# attribute [{node.get('name')}] (no-op for calc/trace)")
 
     # ---- Variable Declarations ----
-    def gen_var_decl(self, node):
+    def gen_var_decl(self, node: Node) -> None:
         for d in node['decls']:
             name = d['name']
             init_val = self.gen_expr(d['init'])
@@ -102,7 +132,7 @@ class _StmtMixin:
                     self.emit(f"{name} = {init_val}")
 
     # ---- Input Declarations ----
-    def gen_input_decl(self, node):
+    def gen_input_decl(self, node: Node) -> None:
         for d in node['decls']:
             name = d['name']
             if name in self._hoisted_input_names:
@@ -117,7 +147,7 @@ class _StmtMixin:
             if self.trace and name in self._trace_vars:
                 self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
-    def _gen_block(self, stmts):
+    def _gen_block(self, stmts: list[Node]) -> None:
         """Emit an indented statement body, or `pass` when it produced no code.
         A body can be non-empty yet emit nothing (e.g. only a redeclaration of a
         top-level variable), and comment lines alone are not a Python block."""
@@ -128,7 +158,7 @@ class _StmtMixin:
             self.emit('pass')
 
     # ---- If Statement ----
-    def gen_if(self, node):
+    def gen_if(self, node: Node) -> None:
         cond = self.gen_expr(node['cond'])
         self.emit(f"if {cond}:")
         self.indent += 1
@@ -142,7 +172,7 @@ class _StmtMixin:
             self.indent -= 1
 
     # ---- For Loop ----
-    def gen_for(self, node):
+    def gen_for(self, node: Node) -> None:
         var = node['var']
         start = self.gen_expr(node['start'])
         end = self.gen_expr(node['end'])
@@ -156,7 +186,7 @@ class _StmtMixin:
         self.indent -= 1
 
     # ---- While Loop ----
-    def gen_while(self, node):
+    def gen_while(self, node: Node) -> None:
         cond = self.gen_expr(node['cond'])
         self.emit(f"while {cond}:")
         self.indent += 1
@@ -164,7 +194,7 @@ class _StmtMixin:
         self.indent -= 1
 
     # ---- Repeat..Until ----
-    def gen_repeat_until(self, node):
+    def gen_repeat_until(self, node: Node) -> None:
         cond = self.gen_expr(node['cond'])
         self.emit("while True:")
         self.indent += 1
@@ -178,7 +208,7 @@ class _StmtMixin:
         self.indent -= 1
 
     # ---- Once ----
-    def gen_once(self, node):
+    def gen_once(self, node: Node) -> None:
         self.has_once = True
         self.emit("if _first_bar:")
         self.indent += 1
@@ -188,7 +218,7 @@ class _StmtMixin:
         self.indent -= 1
 
     # ---- Switch/Case ----
-    def gen_switch(self, node):
+    def gen_switch(self, node: Node) -> None:
         expr = self.gen_expr(node['expr'])
         # FAIL-CLOSED: the switch subject is otherwise emitted ONLY inside the
         # per-case `if/elif <expr> == <val>:` lines. With ZERO case labels
@@ -221,7 +251,7 @@ class _StmtMixin:
             self.indent -= 1
 
     # ---- Array Declaration ----
-    def gen_array_decl(self, node):
+    def gen_array_decl(self, node: Node) -> None:
         for d in node['decls']:
             name = d['name']
             init = self.gen_expr(d['init'])
@@ -241,7 +271,7 @@ class _StmtMixin:
                 self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
     # ---- Commentary ----
-    def gen_commentary(self, node):
+    def gen_commentary(self, node: Node) -> None:
         extra = node.get('extra_args') or []
         if not extra:
             self.emit(f"_commentary = {self.gen_expr(node['msg'])}")
@@ -252,7 +282,7 @@ class _StmtMixin:
         parts = ', '.join(self.gen_expr(a) for a in [node['msg'], *extra])
         self.emit(f"_commentary = ''.join(str(_a) for _a in ({parts},))")
 
-    def gen_commentary_block(self, node):
+    def gen_commentary_block(self, node: Node) -> None:
         # #BeginCmtry … #End is not executed. PowerBridge has no
         # commentary-on mode. The statements stay in the AST so
         # el_emit can round-trip them; they do not affect trades or drawings.
@@ -260,20 +290,20 @@ class _StmtMixin:
             raise ValueError("commentary_block body must be a list")
 
     # ---- Break / Continue ----
-    def gen_break(self, node):
+    def gen_break(self, node: Node) -> None:
         self.emit('break')
 
-    def gen_continue(self, node):
+    def gen_continue(self, node: Node) -> None:
         self.emit('continue')
 
     # ---- Abort ----
-    def gen_abort(self, node):
+    def gen_abort(self, node: Node) -> None:
         # EL Abort halts the run-time calculation. In transpiled traces it is
         # only reached in never-true compile-coverage branches, so emit a no-op.
         self.emit('pass  # Abort (no-op for calc/trace)')
 
     # ---- Assignment ----
-    def gen_assign(self, node):
+    def gen_assign(self, node: Node) -> None:
         before = len(self._unimpl_errors)
         target = self.gen_expr(node['target'])
         # A plain identifier on the LEFT of `=` that is neither declared nor an EL
@@ -336,7 +366,7 @@ class _StmtMixin:
             if vname in self._trace_vars:
                 self.emit(f"_trace[{self._el_name(vname)!r}] = {vname}")
 
-    def _gen_stochastic_assign(self, target, call_node):
+    def _gen_stochastic_assign(self, target: str, call_node: Node) -> None:
         """Generate multi-statement unpacking for Stochastic's (status, FastK, FastD, SlowK, SlowD) tuple."""
         # Args: high, low, close, length, smoothk, smoothd, smoothtype, oFastK, oFastD, oSlowK, oSlowD
         if call_arity_problem('stochastic', len(call_node['args'])) is not None:
@@ -375,11 +405,11 @@ class _StmtMixin:
                 self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
 
     # ---- Expression Statement ----
-    def gen_expr_stmt(self, node):
+    def gen_expr_stmt(self, node: Node) -> None:
         self.emit(self.gen_expr(node['expr']))
 
     # ---- Order ----
-    def gen_order(self, node):
+    def gen_order(self, node: Node) -> None:
         action = node['action']
         otype = node['order_type']
         label = node.get('label', '')
@@ -423,7 +453,7 @@ class _StmtMixin:
                 self.emit(f"_orders.append(('{action}', '{otype}', {qty_expr}, '{timing}', {label_expr}{total_suffix}))")
 
     # ---- Risk ----
-    def gen_risk(self, node):
+    def gen_risk(self, node: Node) -> None:
         func = node['func']
         if func == 'setstoploss':
             self.emit(f"_risk['stop_loss'] = {self.gen_expr(node['arg'])}")
@@ -465,7 +495,7 @@ class _StmtMixin:
             self.emit(f"_risk['trailing_stop_pt'] = {self.gen_expr(node['arg'])}")
 
     # ---- Plot ----
-    def gen_plot(self, node):
+    def gen_plot(self, node: Node) -> None:
         name = node['name']
         value = self.gen_expr(node['value'])
         self.emit(f"_plots.setdefault('{name}', []).append({value})")
@@ -479,10 +509,10 @@ class _StmtMixin:
                 self.emit(f"_plots['{name}_label'] = '{label}'")
 
     # ---- Alert ----
-    def gen_alert(self, node):
+    def gen_alert(self, node: Node) -> None:
         self.emit(f"_alerts.append({self.gen_expr(node['msg'])})")
 
     # ---- Print ----
-    def gen_print(self, node):
+    def gen_print(self, node: Node) -> None:
         args = ', '.join(self.gen_expr(a) for a in node['args'])
         self.emit(f"print({args})")

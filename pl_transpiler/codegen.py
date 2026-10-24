@@ -15,6 +15,11 @@
 """PowerLanguage Code Generator — walks AST and emits Python source."""
 
 
+from collections.abc import Sequence
+from typing import Any, Optional
+
+from ._types import Node
+
 # Re-exported so existing `from pl_transpiler.codegen import UnimplementedKeywordError`
 # imports keep working; the class itself now lives in pl_transpiler.errors.
 from .codegen_expr import _BARE_COMPUTED_PRICES, _ExprMixin
@@ -43,8 +48,9 @@ from .semantic import _collect_declared, add_scratch_decls
 
 
 class CodeGen(_ExprMixin, _StmtMixin):
-    def __init__(self, trace=False, partial=False, persist=None):
-        self.lines = []
+    def __init__(self, trace: bool = False, partial: bool = False,
+                 persist: Optional[bool] = None) -> None:
+        self.lines: list[str] = []
         self.indent = 1  # start inside function body
         self.has_once = False
         self.has_math = False
@@ -56,36 +62,36 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # persist=True with trace=False is the runnable no-trace dialect:
         # cross-bar `_state` without the per-bar `_trace[...]` stores.
         self.persist = bool(trace) if persist is None else bool(persist)
-        self._trace_vars = set()  # user-declared variable names to trace
-        self._stateful_vars = set()  # vars needing cross-bar persistence (var_decl only)
-        self._numeric_vars = set()  # user-declared numeric (not string) vars
-        self._double_accum_vars = set()  # self-referential numeric accumulators (kept double, not f32)
+        self._trace_vars: set[str] = set()  # user-declared variable names to trace
+        self._stateful_vars: set[str] = set()  # vars needing cross-bar persistence (var_decl only)
+        self._numeric_vars: set[str] = set()  # user-declared numeric (not string) vars
+        self._double_accum_vars: set[str] = set()  # self-referential numeric accumulators (kept double, not f32)
         self._lag_sites = 0  # Func(series)[n] call sites, numbered for _pb_lag
-        self._history_vars = set()  # stateful vars that need a lookback list (Var[n] / series-fn arg)
+        self._history_vars: set[str] = set()  # stateful vars that need a lookback list (Var[n] / series-fn arg)
         self._series_state = False  # runnable output seeds `_state` as a SeriesState
-        self._slot_vars = []  # sorted unindexed persist vars packed into `_state['__pb_slots']`
-        self._array_vars = set()  # user-declared array variable names
+        self._slot_vars: list[str] = []  # sorted unindexed persist vars packed into `_state['__pb_slots']`
+        self._array_vars: set[str] = set()  # user-declared array variable names
         self._need_f32_import = False  # set True when f32/el_round emitted
-        self._state_inits = {}  # name -> string initial value for first-bar state seed
-        self._input_inits = []  # (name, default_ast) for top-level Inputs (persist hoist)
-        self._hoisted_input_names = set()  # names bound from _state['__pb_inputs']
-        self._data_refs = {}  # name -> data_ref AST node (Data2-tied vars)
-        self._cmt_lead = {}   # id(stmt) -> [verbatim EL comment, ...] (clean mode)
-        self._cmt_trail = {}  # id(stmt) -> [verbatim EL comment, ...] (clean mode)
-        self._cur_stmt_line = None  # nearest enclosing statement's EL line (for error messages)
-        self._unimpl_errors = []  # collect-all: {'name','line'} for every unimplemented keyword
+        self._state_inits: dict[str, str] = {}  # name -> string initial value for first-bar state seed
+        self._input_inits: list[tuple[str, Node]] = []  # (name, default_ast) for top-level Inputs (persist hoist)
+        self._hoisted_input_names: set[str] = set()  # names bound from _state['__pb_inputs']
+        self._data_refs: dict[str, Node] = {}  # name -> data_ref AST node (Data2-tied vars)
+        self._cmt_lead: dict[int, list[str]] = {}   # id(stmt) -> [verbatim EL comment, ...] (clean mode)
+        self._cmt_trail: dict[int, list[str]] = {}  # id(stmt) -> [verbatim EL comment, ...] (clean mode)
+        self._cur_stmt_line: Optional[int] = None  # nearest enclosing statement's EL line (for error messages)
+        self._unimpl_errors: list[dict[str, Any]] = []  # collect-all: {'name','line'} for every unimplemented keyword
         self._partial = partial  # opt-in partial mode (unimplemented -> exec-time stubs)
-        self._declared_all = set()  # EVERY var/input/array/for name at ANY depth (bare-keyword flagging)
-        self._el_names = {}  # mangled Python name -> original EL name (see mangle_user_names)
+        self._declared_all: set[str] = set()  # EVERY var/input/array/for name at ANY depth (bare-keyword flagging)
+        self._el_names: dict[str, str] = {}  # mangled Python name -> original EL name (see mangle_user_names)
 
-    def _el_name(self, name):
+    def _el_name(self, name: str) -> str:
         """The user-visible EL name (trace column, input key) for Python `name`."""
         return self._el_names.get(name, name)
 
-    def emit(self, line):
+    def emit(self, line: str) -> None:
         self.lines.append('    ' * self.indent + line)
 
-    def gen_program(self, node):
+    def gen_program(self, node: Node) -> str:
         # Reset the collect-all diagnostics for this generate() (no cross-call leak).
         self._unimpl_errors = []
         # Collect EVERY declared name (Variables:/Inputs:/Arrays:/for-loop vars) at
@@ -95,7 +101,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # declared identifier" oracle; a shallow (top-level-only) pass would wrongly
         # flag nested-declared vars as unimplemented. _collect_declared already walks
         # every nested body recursively, so it is the single source of truth here.
-        from pl_transpiler.parser import _collect_declared
+        from pl_transpiler.semantic import _collect_declared
         self._declared_all = _collect_declared(node)
         # A bare ident that is ASSIGNED anywhere (at any depth) can be a legitimate
         # local — a plain `x = ...` statement DEFINES x for the emitted Python, exactly
@@ -122,9 +128,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # assignment (target not read on its own RHS) BEFORE their first read in
         # evaluation order — exactly the flattened nested-`Variables:` locals the
         # reverse path emits as bare `x = 0; ... = x`.
-        _assigned = set()
+        _assigned: set[str] = set()
         self._collect_assigned_targets(node, _assigned)
-        _read = set()
+        _read: set[str] = set()
         self._collect_read_names(node, _read)
         self._declared_all |= self._rescuable_assign_locals(node, _assigned & _read)
         # Collect user-declared var names first (before codegen body)
@@ -248,9 +254,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # that history; any other operand (a function call, a literal, an
         # offset like Close[3]) gets a hidden per-site history, filled at the
         # top of every bar exactly as if it were assigned to a variable there.
-        self._cross_sites = {}
-        self._arg_sites = {}
-        self._call_sites = {}
+        self._cross_sites: dict[int, tuple[int, Node]] = {}
+        self._arg_sites: dict[int, tuple[int, Node]] = {}
+        self._call_sites: dict[int, int] = {}
         if self.persist:
             self._collect_cross_sites(node['body'])
             self._collect_arg_sites(node['body'])
@@ -328,9 +334,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # modes omit them (dumped values / runtime shape must stay stable).
         # Maps are read by gen_stmt; header/footer emitted here.
         self._cmt_lead, self._cmt_trail = {}, {}
-        _ftr = ()
+        _ftr: Sequence[str] = ()
         if not self.trace and not self.persist:
-            from pl_transpiler.codegen_el import _anchor_comments
+            from pl_transpiler._codegen_el_layout import _anchor_comments
             _hdr, _lead, _trail, _ftr = _anchor_comments(
                 node['body'], node.get('_comments') or [])
             self._cmt_lead, self._cmt_trail = _lead, _trail
@@ -476,7 +482,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             )
         return out
 
-    def _expr_refs(self, node, names):
+    def _expr_refs(self, node: Any, names: set[Optional[str]]) -> None:
         """Collect into `names` every user-variable referenced in expr `node`
         (bare ident `Var` and bar-ref `Var[n]`)."""
         if not isinstance(node, dict):
@@ -498,7 +504,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             for child in node.get(key, []) or []:
                 self._expr_refs(child, names)
 
-    def _collect_double_accums(self, stmts):
+    def _collect_double_accums(self, stmts: Optional[list[Any]]) -> None:
         """Walk all statements; mark numeric vars assigned from an expression that
         references themselves (self-referential cross-bar accumulators)."""
         for stmt in stmts or []:
@@ -509,7 +515,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 if target.get('type') == 'ident':
                     tname = target.get('name')
                     if tname in self._numeric_vars:
-                        refs = set()
+                        refs: set[Optional[str]] = set()
                         self._expr_refs(stmt.get('value'), refs)
                         if tname in refs:
                             self._double_accum_vars.add(tname)
@@ -517,7 +523,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             for key in ('body', 'else_body'):
                 self._collect_double_accums(stmt.get(key))
 
-    def _collect_history_vars(self, node, series_context=False):
+    def _collect_history_vars(self, node: Any, series_context: bool = False) -> None:
         """Mark stateful vars whose persist slot must stay a lookback list.
 
         Mirrors gen_expr: a bare ident emitted under `_series_context` becomes
@@ -561,14 +567,14 @@ class CodeGen(_ExprMixin, _StmtMixin):
             if isinstance(v, (dict, list)):
                 self._collect_history_vars(v, series_context)
 
-    def _is_series_operand(self, node):
+    def _is_series_operand(self, node: Node) -> bool:
         """True if a crosses operand already has a bar history in persist
         output: a data column or a declared (stateful) variable."""
         return (node.get('type') == 'ident'
                 and (node.get('name') in _SERIES_PARAMS
                      or node.get('name') in self._stateful_vars))
 
-    def _is_bar_pure(self, node, computed=False):
+    def _is_bar_pure(self, node: Node, computed: bool = False) -> bool:
         """True if an expression's value depends only on bar data and inputs,
         so evaluating it at the top of the bar gives the value it has where it
         is written. Variables, position state and the like can change within
@@ -598,7 +604,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     and all(self._is_bar_pure(a, computed) for a in node.get('args') or []))
         return False
 
-    def _collect_cross_sites(self, node, line='?'):
+    def _collect_cross_sites(self, node: Any, line: Any = '?') -> None:
         """Number every non-series crosses operand (a hidden history site), in
         source order. An operand whose value can change within the bar cannot
         be given a faithful history this way: raise instead of guessing."""
@@ -629,7 +635,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
     _CONDITIONAL_STMTS = frozenset((
         'for', 'while', 'repeat_until', 'once', 'switch', 'commentary_block'))
 
-    def _collect_arg_sites(self, node, cond=False):
+    def _collect_arg_sites(self, node: Any, cond: bool = False) -> None:
         """Number every price argument of a series function that needs a
         hidden history (see ``_needs_arg_site``). One whose value depends only
         on bar data is filled at the top of the bar (``_arg_sites``). One that
@@ -656,7 +662,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
                 elif not cond:
                     self._call_sites[id(args[0])] = len(self._call_sites) + 1
 
-    def _is_conditional_part(self, node, t, key):
+    def _is_conditional_part(self, node: Node, t: Optional[str], key: str) -> bool:
         """True if child ``key`` of ``node`` may be skipped or repeated in a
         bar: an If's branches, a loop, Once or Switch, the right side of
         ``and`` / ``or`` and every argument of IFF (the condition too, to keep
@@ -671,7 +677,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return True
         return False
 
-    def _persist_var_seed(self, name):
+    def _persist_var_seed(self, name: str) -> str:
         """First-bar seed expression for one persist var (scalar slot or list)."""
         init_val = self._state_inits.get(name, '0')
         if self._data_refs.get(name):
@@ -683,7 +689,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return seed
         return self._persist_seed_expr(name, init_val)
 
-    def _persist_seed_expr(self, name, init_val):
+    def _persist_seed_expr(self, name: str, init_val: str) -> str:
         """First-bar seed for a persist var.
 
         Numeric non-accumulators are f32-narrowed at seed so the per-bar load
@@ -697,7 +703,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return f"f32({init_val})"
         return init_val
 
-    def _collect_assigned_targets(self, node, out):
+    def _collect_assigned_targets(self, node: Any, out: set[str]) -> None:
         """Recursively add into `out` the name of every ident that appears as an
         assignment TARGET anywhere in the AST (at any nesting depth). Used by the
         bare-keyword flag so a name defined purely by assignment (never declared) is
@@ -721,7 +727,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             for x in node:
                 self._collect_assigned_targets(x, out)
 
-    def _collect_read_names(self, node, out):
+    def _collect_read_names(self, node: Any, out: set[str]) -> None:
         """Recursively add into `out` every identifier that appears in a READ (value)
         position anywhere in the AST — a bare ident, or the series name of a bar_ref.
         An assignment TARGET is a WRITE, not a read, so its target ident is skipped
@@ -756,7 +762,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             for x in node:
                 self._collect_read_names(x, out)
 
-    def _ordered_ident_events(self, node, events):
+    def _ordered_ident_events(self, node: Any, events: list[tuple[str, str]]) -> None:
         """Append (kind, name) identifier events in EVALUATION order. kind is
         'read' for an identifier used as a value; 'cleandef' for an assignment
         whose target ident is NOT read on its own RHS (a defining write that
@@ -789,7 +795,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if t == 'assign':
             # RHS is evaluated (reads) before the target is assigned.
             self._ordered_ident_events(node.get('value'), events)
-            rhs_reads = set()
+            rhs_reads: set[str] = set()
             self._collect_read_names(node.get('value'), rhs_reads)
             tgt = node.get('target')
             if isinstance(tgt, dict) and tgt.get('type') == 'ident' and tgt.get('name'):
@@ -808,7 +814,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
         for v in node.values():
             self._ordered_ident_events(v, events)
 
-    def _rescuable_assign_locals(self, node, assigned_and_read):
+    def _rescuable_assign_locals(self, node: Node, assigned_and_read: set[str]) -> set[str]:
         """From the set of names that are BOTH assigned and read (`_assigned &
         _read`), return only those safe to treat as genuine locals-by-assignment.
 
@@ -825,8 +831,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if not assigned_and_read:
             return set()
         from pl_transpiler import catalog
-        from pl_transpiler.parser import BUILTIN_FUNC_MAP, _is_known_name  # noqa: F811
-        candidates = set()
+        from pl_transpiler.parser_tables import BUILTIN_FUNC_MAP  # noqa: F811
+        from pl_transpiler.semantic import _is_known_name
+        candidates: set[str] = set()
         for name in assigned_and_read:
             # FAIL-CLOSED: a name that is a RECOGNIZED EL keyword
             # (catalog signature present — e.g. a strategy-performance / report
@@ -845,10 +852,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
             candidates.add(name)
         if not candidates:
             return set()
-        events = []
+        events: list[tuple[str, str]] = []
         self._ordered_ident_events(node, events)
-        clean_defined = set()
-        broken = set()
+        clean_defined: set[str] = set()
+        broken: set[str] = set()
         for kind, name in events:
             if name not in candidates:
                 continue
@@ -860,7 +867,8 @@ class CodeGen(_ExprMixin, _StmtMixin):
         return (candidates & clean_defined) - broken
 
 
-def generate(ast, trace=False, partial=False, persist=None):
+def generate(ast: Node, trace: bool = False, partial: bool = False,
+             persist: Optional[bool] = None) -> str:
     """Walk AST and emit Python source string.
     If trace=True, generated code captures per-bar variable values into _trace dict.
     persist: cross-bar `_state` container. None (default) follows `trace`.

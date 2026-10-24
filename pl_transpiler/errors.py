@@ -14,6 +14,7 @@
 
 """Transpile-time diagnostic exceptions for the PowerLanguage code generator."""
 import re
+from typing import Any, Optional
 
 
 class UnimplementedKeywordError(Exception):
@@ -31,12 +32,12 @@ class UnimplementedKeywordError(Exception):
     declared), deduplicated by ``(name, line)``
     and sorted by ``(line, name)`` with ``None`` lines last."""
 
-    def __init__(self, message, errors=None):
+    def __init__(self, message: str, errors: Optional[list[dict[str, Any]]] = None) -> None:
         super().__init__(message)
         self.errors = errors if errors is not None else []
 
 
-def format_error_lines(errors):
+def format_error_lines(errors: list[dict[str, Any]]) -> list[str]:
     """Render collect-all diagnostics (a list of ``{'name','line'}`` dicts, already
     deduped/sorted by the codegen) as ``"'<name>' at line <L>"`` strings — the
     per-keyword line format, reused by the CLI diagnostic reports and the
@@ -44,7 +45,7 @@ def format_error_lines(errors):
     return [_describe(e) for e in errors]
 
 
-def format_labelled_error_lines(errors):
+def format_labelled_error_lines(errors: list[dict[str, Any]]) -> list[str]:
     """Like :func:`format_error_lines`, but each unimplemented keyword is
     labelled ``"unimplemented EL keyword '<name>' at line <L>"`` so every item
     of a mixed-kind error report says what is wrong on its own."""
@@ -52,7 +53,7 @@ def format_labelled_error_lines(errors):
             for e in errors]
 
 
-def _describe(e):
+def _describe(e: dict[str, Any]) -> str:
     line = e.get('line')
     where = f" at line {line}" if line else ""
     if e.get('kind') == 'undeclared':
@@ -67,7 +68,7 @@ def _describe(e):
     return f"'{e['name']}'{where}"
 
 
-def unimplemented_message(errors):
+def unimplemented_message(errors: list[dict[str, Any]]) -> str:
     """The one-line UnimplementedKeywordError message for ``errors``. A single
     unimplemented keyword uses the short one-line format."""
     if len(errors) == 1:
@@ -83,7 +84,7 @@ def unimplemented_message(errors):
             + "; ".join(_describe(e) for e in errors))
 
 
-def restore_spelling(errors, source):
+def restore_spelling(errors: list[dict[str, Any]], source: str) -> None:
     """Record each undeclared variable's spelling in ``source`` under the
     ``'spelling'`` key (the lexer lowercases ``'name'``). Mutates ``errors``."""
     lines = source.splitlines()

@@ -17,6 +17,9 @@
 wrapping, comment anchoring and compact-form tests). None of them emits a
 statement or expression, so this module never imports codegen_el."""
 
+from typing import Any, Optional
+
+from ._types import Node
 
 # --- statement layout ------------------------------------------------------
 _TAB = "\t"
@@ -33,18 +36,18 @@ _DECL_STMT_TYPES = {"var_decl", "input_decl", "array_decl"}
 _WRAP_WIDTH = 100
 
 
-def _ind(level):
+def _ind(level: int) -> str:
     return _TAB * level
 
 
-def _max_line(node):
+def _max_line(node: Any) -> Optional[int]:
     """Largest `_line` value anywhere in `node`'s subtree, or None.
 
     Statement nodes carry `_line` (parser.parse_statement); this returns the last
     original source line the statement occupied (its deepest inner statement), so
     blank-line preservation can measure the gap to the NEXT statement's start line
     rather than mis-measuring across a multi-line block's own span."""
-    best = None
+    best: Optional[int] = None
     if isinstance(node, dict):
         v = node.get("_line")
         if isinstance(v, int):
@@ -63,7 +66,7 @@ def _max_line(node):
     return best
 
 
-def _blank_between(prev, cur):
+def _blank_between(prev: Any, cur: Any) -> bool:
     """True iff one blank line should separate consecutive statements `prev`/`cur`.
 
     Round-trip case (both carry `_line`): a blank line existed in the original iff
@@ -81,7 +84,7 @@ def _blank_between(prev, cur):
     return False
 
 
-def _emit_decl_block(keyword, parts, pad):
+def _emit_decl_block(keyword: str, parts: list[str], pad: str) -> str:
     """Emit an Inputs:/Vars:/Arrays: declaration block.
 
     A single declaration stays inline (`Keyword: Name( init ) ;`); a multi-item
@@ -98,11 +101,13 @@ def _emit_decl_block(keyword, parts, pad):
 
 
 # --- long-line wrapping (whitespace-only; lexer-invisible) ------------------
-def _split_atoms(s):
+def _split_atoms(s: str) -> list[str]:
     """Split a line's content into space-separated atoms, keeping each quoted
     string (which may itself contain spaces) intact as ONE atom so a wrap never
     lands inside a string literal."""
-    atoms, cur, i, n = [], [], 0, len(s)
+    atoms: list[str] = []
+    cur: list[str] = []
+    i, n = 0, len(s)
     while i < n:
         c = s[i]
         if c == '"':
@@ -126,7 +131,7 @@ def _split_atoms(s):
     return atoms
 
 
-def _wrap_line(line, width=_WRAP_WIDTH):
+def _wrap_line(line: str, width: int = _WRAP_WIDTH) -> list[str]:
     """Wrap one emitted line to <= width chars by breaking at inter-atom spaces
     (a newline where a space was is lexer-invisible, so re-lex is unchanged).
     Continuation lines get one extra tab of indent. A line with a single atom
@@ -139,7 +144,9 @@ def _wrap_line(line, width=_WRAP_WIDTH):
     if len(atoms) <= 1:
         return [line]
     cont = indent + _TAB
-    out, cur, cur_indent, cur_len = [], [], indent, len(indent)
+    out: list[str] = []
+    cur: list[str] = []
+    cur_indent, cur_len = indent, len(indent)
     for a in atoms:
         extra = len(a) + (1 if cur else 0)
         if cur and cur_len + extra > width:
@@ -153,7 +160,7 @@ def _wrap_line(line, width=_WRAP_WIDTH):
     return out
 
 
-def _comment_start(line):
+def _comment_start(line: str) -> Optional[int]:
     """Index where an EL comment (`{` block or `//` run) begins on `line`, respecting
     string literals so a `{`/`//` inside a "..." string is never mistaken for a
     comment; None if the line carries no comment. Used to keep wrapping away from
@@ -176,14 +183,14 @@ def _comment_start(line):
     return None
 
 
-def _wrap_all(text):
+def _wrap_all(text: str) -> str:
     """Apply _wrap_line to every physical line of the emitted program, but NEVER wrap
     comment text: a `//` run must not be split (it would terminate early and
     reappear as code tokens), and comment text is emitted verbatim (no reflowing).
     Multi-line `{...}` blocks pass through untouched; a code line carrying a trailing
     comment has only its code prefix wrapped, the comment re-appended to the last
     wrapped segment."""
-    out = []
+    out: list[str] = []
     in_brace = False               # inside an unclosed multi-line `{ ... }` block
     for line in text.split("\n"):
         if in_brace:
@@ -210,7 +217,7 @@ def _wrap_all(text):
     return "\n".join(out)
 
 
-def _collect_line_stmts(body, out):
+def _collect_line_stmts(body: list[Any], out: list[Node]) -> list[Node]:
     """The statement nodes of `body`, in emission order, following ONLY statement-
     sequence positions (block bodies / else / switch cases / default).
 
@@ -239,7 +246,9 @@ def _collect_line_stmts(body, out):
     return out
 
 
-def _anchor_comments(body, comments):
+def _anchor_comments(
+    body: list[Any], comments: list[dict[str, Any]],
+) -> tuple[list[str], dict[int, list[str]], dict[int, list[str]], list[str]]:
     """Distribute `comments` (each {'text','line','col','trailing'}) over the
     statements in `body`. Returns (header, leading_by_id, trailing_by_id, footer):
 
@@ -250,8 +259,10 @@ def _anchor_comments(body, comments):
 
     When no statement carries a line (e.g. a py_front-synthesised AST), every comment
     falls to the header block — placement is lost but not one comment is dropped."""
-    leading, trailing = {}, {}
-    header, footer = [], []
+    leading: dict[int, list[str]] = {}
+    trailing: dict[int, list[str]] = {}
+    header: list[str] = []
+    footer: list[str] = []
     ordered = sorted(comments, key=lambda c: (c.get('line', 0), c.get('col', 0)))
     line_stmts = _collect_line_stmts(body, [])
     if not line_stmts:
@@ -277,7 +288,7 @@ def _anchor_comments(body, comments):
     return header, leading, trailing, footer
 
 
-def _comment_lines(texts, pad):
+def _comment_lines(texts: list[str], pad: str) -> list[str]:
     """Verbatim comment `texts` as physical output lines at indentation `pad`. A
     multi-line `{...}` block keeps its internal newlines (each physical line padded);
     text is never reflowed.
@@ -290,7 +301,7 @@ def _comment_lines(texts, pad):
     The Python leg splits a block into one recaptured entry per physical line, so the
     strip must apply to every line, not just continuations; a line's own content beyond
     `pad` (e.g. a hanging-indent alignment) is preserved."""
-    out = []
+    out: list[str] = []
     for text in texts:
         for phys in text.split('\n'):
             if pad and phys.startswith(pad):
@@ -305,7 +316,7 @@ def _comment_lines(texts, pad):
 # leg whose flag says NO Begin/End is emitted in the compact `If C Then <stmt>` form;
 # multi-statement or flagged legs keep Begin/End. An AST synthesised by py_front
 # carries no flag, so its single-statement legs default to compact.
-def _dangles(stmt):
+def _dangles(stmt: Any) -> bool:
     """True if `stmt`, emitted per the compact rules below, ends in an open `Then`
     that a following `Else` would re-associate to (the dangling-else hazard). The
     reparse-fixpoint gate is the arbiter — when this is True the caller must keep
@@ -328,12 +339,12 @@ def _dangles(stmt):
     return False
 
 
-def _is_comment_line(line):
+def _is_comment_line(line: str) -> bool:
     s = line.lstrip()
     return s.startswith('{') or s.startswith('//')
 
 
-def _then_compact(node):
+def _then_compact(node: Node) -> bool:
     body = node.get('body') or []
     if len(body) != 1 or node.get('then_block'):
         return False
@@ -343,11 +354,11 @@ def _then_compact(node):
     return True
 
 
-def _else_compact(node):
+def _else_compact(node: Node) -> bool:
     eb = node.get('else_body')
     return eb is not None and len(eb) == 1 and not node.get('else_block')
 
 
-def _loop_compact(node):
+def _loop_compact(node: Node) -> bool:
     body = node.get('body') or []
     return len(body) == 1 and not node.get('block')

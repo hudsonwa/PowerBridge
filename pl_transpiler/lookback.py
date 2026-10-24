@@ -15,8 +15,11 @@
 """lookback.py -- MaxBarsBack helpers: the static price-series lookback scan
 behind the one-time "lookback past available history" warning."""
 import sys
+from collections.abc import Callable, Iterable
+from typing import Any, Optional, Union
 
 from pl_transpiler import catalog
+from pl_transpiler._types import Node
 from pl_transpiler.codegen_tables import BUILTIN_FUNC_MAP
 from pl_transpiler.parser import parse_source, tokenise_source
 
@@ -26,13 +29,13 @@ _PRICE_SERIES = frozenset(
     ('close', 'high', 'low', 'open', 'volume', 'ticks', 'upticks', 'downticks'))
 
 
-def max_price_lookback(ast):
+def max_price_lookback(ast: Node) -> int:
     """Largest constant ``n`` in a ``Close[n]``-style read of a price series.
 
     Only literal indexes are counted; ``Close[Length]`` is not resolved.
     """
     best = 0
-    stack = [ast]
+    stack: list[Any] = [ast]
     while stack:
         node = stack.pop()
         if isinstance(node, dict):
@@ -51,7 +54,7 @@ def max_price_lookback(ast):
     return best
 
 
-def _windowed_calls():
+def _windowed_calls() -> frozenset[str]:
     """Builtins that read a window of past bars and return 0 (or a partial
     value) until it is full. Lower-cased call names.
 
@@ -94,7 +97,7 @@ _WINDOWED_CALLS = _windowed_calls()
 # evaluated bar already has a full window. _Scan.window adds what the table
 # cannot say: LinearRegValue's TgtBar, and ADX / ADXR, whose Wilder smoothing
 # returns 0 and then 50 until 2 * Length (ADXR: 3 * Length - 1) bars.
-_LENGTH_ARGS = {
+_LENGTH_ARGS: dict[str, Union[int, tuple[tuple[int, ...], ...]]] = {
     **dict.fromkeys((
         'average', 'averagefc', 'averagetfc', 'bollingerband', 'countif',
         'highest', 'highestbar', 'linearregangle',
@@ -139,19 +142,19 @@ WARMUP_NOTE_AUTO = ("note: {tool}: strategy reads up to {n} past bars and "
                     "to hide this)")
 
 
-def _base_name(name):
+def _base_name(name: str) -> str:
     """``name`` with a trailing ``FC`` dropped when that names a windowed call."""
     if name not in _WINDOWED_CALLS and name not in _LENGTH_ARGS and name.endswith('fc'):
         return name[:-2]
     return name
 
 
-def _is_windowed(name):
+def _is_windowed(name: str) -> bool:
     name = _base_name(name)
     return name in _WINDOWED_CALLS or name in _LENGTH_ARGS or name in _NOT_IMPLEMENTED
 
 
-def _is_number(node, pred):
+def _is_number(node: Any, pred: Callable[[float], bool]) -> bool:
     if not (isinstance(node, dict) and node.get('type') == 'number'):
         return False
     try:
@@ -160,7 +163,7 @@ def _is_number(node, pred):
         return False
 
 
-def _bars_ago(tokens):
+def _bars_ago(tokens: Iterable[tuple[Any, Any]]) -> bool:
     """True for the ``X of N bar(s) ago`` form, N > 0 (kept out of the AST)."""
     words = [(kind, str(text).lower()) for kind, text in tokens]
     for i in range(len(words) - 3):
@@ -171,7 +174,7 @@ def _bars_ago(tokens):
     return False
 
 
-def uses_lookback(el_source):
+def uses_lookback(el_source: str) -> bool:
     """True if the strategy may read past bars: it indexes a series (``x[n]``
     with n not a literal 0, or ``x of n bars ago``), uses TrueRange, calls a
     windowed builtin (Average, Highest, an ``*FC`` variant, ...) with a length
@@ -181,7 +184,8 @@ def uses_lookback(el_source):
     return _scan(el_source) != 0
 
 
-def note_warmup(el_source, max_bars_back, tool, quiet=False, n_bars=None):
+def note_warmup(el_source: str, max_bars_back: int, tool: str, quiet: bool = False,
+                n_bars: Optional[int] = None) -> bool:
     """CLI only: print the once-per-run warm-up note on stderr when the
     strategy uses lookbacks and MaxBarsBack is 0. Returns True if printed.
 
@@ -205,7 +209,7 @@ class LookbackUnknown(ValueError):
     """``infer_max_bars_back`` could not bound the strategy's lookback."""
 
 
-def _input_defaults(ast):
+def _input_defaults(ast: Node) -> dict[str, float]:
     """Lower-cased input name -> numeric literal default."""
     out = {}
     for stmt in ast.get('body') or []:
@@ -217,7 +221,7 @@ def _input_defaults(ast):
     return out
 
 
-def _const(arg, inputs):
+def _const(arg: Any, inputs: dict[str, float]) -> Optional[float]:
     """A number, an input's default, or either negated; else None."""
     if isinstance(arg, dict) and arg.get('type') == 'unaryop' and arg.get('op') == '-':
         value = _const(arg.get('operand'), inputs)
@@ -232,18 +236,18 @@ def _const(arg, inputs):
 class _Scan:
     """One walk of a parsed strategy; see infer_max_bars_back."""
 
-    def __init__(self, ast, source):
+    def __init__(self, ast: Node, source: str) -> None:
         self.inputs = _input_defaults(ast)
         self.lines = source.splitlines()
         self.line = None
         # Variable -> past price bars its assignments read (0 if none).
-        self.var_need = {}
+        self.var_need: dict[str, int] = {}
         self.vars_pass = True
         # Declared arrays (anywhere): ``Arr[i]`` parses to a bar_ref but is an
         # element read, not a past-bar read.
-        self.arrays = set()
+        self.arrays: set[str] = set()
         assigns = []
-        stack = [ast]
+        stack: list[Any] = [ast]
         while stack:
             node = stack.pop()
             if isinstance(node, dict):
@@ -280,7 +284,7 @@ class _Scan:
                 break
         self.vars_pass = False
 
-    def array_series(self, node):
+    def array_series(self, node: Any) -> Optional[str]:
         """The lower-cased array name when ``node`` is an ``Arr[i]`` element."""
         if isinstance(node, dict) and node.get('type') == 'bar_ref':
             series = node.get('series')
@@ -290,7 +294,7 @@ class _Scan:
                     return name
         return None
 
-    def assigned(self, node):
+    def assigned(self, node: Any) -> Optional[str]:
         """The lower-cased variable or array an ``assign`` node writes, else None."""
         if not (isinstance(node, dict) and node.get('type') == 'assign'):
             return None
@@ -299,7 +303,7 @@ class _Scan:
             return str(target.get('name', '')).lower()
         return self.array_series(target)
 
-    def name(self, node):
+    def name(self, node: Node) -> str:
         """The identifier as written in the source (``FastD``, ``File``)."""
         line, col = node.get('_line'), node.get('_col')
         text = str(node.get('_ident') or node.get('name', ''))
@@ -309,18 +313,18 @@ class _Scan:
                 return word
         return text
 
-    def unknown(self, what):
+    def unknown(self, what: str) -> LookbackUnknown:
         where = f" on line {self.line}" if self.line else ""
         return LookbackUnknown(f"{what}{where}")
 
-    def index(self, node, what):
+    def index(self, node: Any, what: str) -> int:
         """A non-negative whole [n] or length: a number or an input's default."""
         value = _const(node, self.inputs)
         if value is None or value < 0 or value != int(value):
             raise self.unknown(what)
         return int(value)
 
-    def window(self, node, args):
+    def window(self, node: Node, args: list[Any]) -> int:
         """Past bars a windowed builtin call reads, from _LENGTH_ARGS."""
         label = self.name(node)
         name = _base_name(str(node.get('name', '')).lower())
@@ -348,7 +352,7 @@ class _Scan:
             n = 3 * n - 1  # ADX now and Length - 1 bars ago
         return n
 
-    def var_in(self, node):
+    def var_in(self, node: Any) -> Optional[str]:
         """The source name of a variable that reads past bars, when ``node``
         is just that variable; else None."""
         if (isinstance(node, dict) and node.get('type') == 'ident'
@@ -356,7 +360,7 @@ class _Scan:
             return self.name(node)
         return None
 
-    def need(self, node):
+    def need(self, node: Any) -> int:
         """Past bars an expression reads (see infer_max_bars_back)."""
         if isinstance(node, list):
             return max((self.need(n) for n in node), default=0)
@@ -368,7 +372,7 @@ class _Scan:
         name = str(node.get('name', '')).lower()
         if kind == 'assign':
             # The target is written, not read; an array target's index is read.
-            target = node.get('target')
+            target: Any = node.get('target')
             n = self.need(node.get('value'))
             if self.array_series(target):
                 n = max(n, self.need(target.get('index')))
@@ -376,7 +380,7 @@ class _Scan:
         if kind == 'bar_ref' and self.array_series(node):
             # An element read: what the array holds plus what its index reads.
             inner = self.need(node.get('index'))
-            held = self.var_need.get(self.array_series(node), 0)
+            held = self.var_need.get(self.array_series(node) or '', 0)
             return max(inner, held if self.vars_pass else 0)
         if kind == 'bar_ref':
             series = node.get('series')
@@ -404,10 +408,10 @@ class _Scan:
                 n = self.window(node, args)
                 if n and not self.vars_pass:
                     for arg in args:
-                        var = self.var_in(arg)
-                        if var:
+                        var_name = self.var_in(arg)
+                        if var_name:
                             raise self.unknown(
-                                f"the variable {var} reads past bars and "
+                                f"the variable {var_name} reads past bars and "
                                 f"{self.name(node)}() reads its past values")
                 return n + inner
             if not _is_builtin(name):
@@ -421,7 +425,7 @@ class _Scan:
         return self.need([v for k, v in node.items() if not str(k).startswith('_')])
 
 
-def _is_builtin(name):
+def _is_builtin(name: str) -> bool:
     """A call codegen handles itself (BUILTIN_FUNC_MAP, a runtime ``pl_<name>``
     such as File or FileAppend, or a catalog keyword), not a user function."""
     from pl_transpiler.codegen_util import _available_pl_targets
@@ -429,7 +433,7 @@ def _is_builtin(name):
             or catalog.get(name) is not None)
 
 
-def _scan(el_source):
+def _scan(el_source: str) -> Union[int, LookbackUnknown]:
     """The one lookback scan behind the warm-up note and ``auto``: the
     longest lookback (an int, 0 if none) or the LookbackUnknown raised when
     it cannot be bounded."""
@@ -444,7 +448,7 @@ def _scan(el_source):
         return exc
 
 
-def infer_max_bars_back(el_source):
+def infer_max_bars_back(el_source: str) -> int:
     """The MaxBarsBack that ``--max-bars-back auto`` uses: the longest
     lookback found by a static scan, or 0 if ``uses_lookback`` is False.
 
@@ -467,7 +471,7 @@ def infer_max_bars_back(el_source):
     return n
 
 
-def short_history_bar(el_source, max_bars_back):
+def short_history_bar(el_source: str, max_bars_back: int) -> Optional[int]:
     """BarNumber of the first evaluated bar whose price lookback runs past the
     available history (and silently reads Open), or None if none does."""
     ast = parse_source(el_source)
@@ -476,7 +480,7 @@ def short_history_bar(el_source, max_bars_back):
     return None
 
 
-def warn_short_history(el_source, max_bars_back, n_bars, tool):
+def warn_short_history(el_source: str, max_bars_back: int, n_bars: int, tool: str) -> Optional[int]:
     """Print the one-per-run lookback warning on stderr. Values are unchanged."""
     if max_bars_back >= n_bars:
         return None
@@ -487,14 +491,14 @@ def warn_short_history(el_source, max_bars_back, n_bars, tool):
     return bar
 
 
-def check_max_bars_back(max_bars_back, el_source=None):
+def check_max_bars_back(max_bars_back: Union[int, str, None], el_source: Optional[str] = None) -> int:
     """Validate and normalise a ``max_bars_back`` argument.
 
     ``"auto"`` resolves to ``infer_max_bars_back(el_source)``; when that
     cannot bound the lookback it raises ValueError rather than guess."""
     if isinstance(max_bars_back, str) and max_bars_back.strip().lower() == 'auto':
         try:
-            return infer_max_bars_back(el_source)
+            return infer_max_bars_back(el_source)  # type: ignore[arg-type]  # auto needs the source
         except LookbackUnknown as exc:
             raise ValueError(
                 f"max_bars_back auto: cannot infer the lookback ({exc}); "
@@ -505,7 +509,7 @@ def check_max_bars_back(max_bars_back, el_source=None):
     return mbb
 
 
-def check_max_entries_per_direction(max_entries_per_direction):
+def check_max_entries_per_direction(max_entries_per_direction: Optional[int]) -> int:
     """Validate and normalise a ``max_entries_per_direction`` argument.
 
     ``None`` or 0 means unlimited (the default); otherwise it must be >= 1.

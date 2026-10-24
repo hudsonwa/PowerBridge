@@ -42,6 +42,7 @@ the lowercase fallback is always compile-safe.
 """
 import json
 import os
+from typing import Any, Optional
 
 from pl_transpiler._codegen_el_layout import (  # noqa: F401  (re-export)
     _DECL_STMT_TYPES,
@@ -64,6 +65,7 @@ from pl_transpiler._codegen_el_layout import (  # noqa: F401  (re-export)
     _wrap_all,
     _wrap_line,
 )
+from pl_transpiler._types import Node
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SIG_PATH = os.path.join(_HERE, "tools", "pl_signatures.jsonl")
@@ -79,7 +81,7 @@ class ELEmitError(Exception):
     reproduce as compile-safe EL. Fail-loud: never emit a guess."""
 
 
-def _eln(node):
+def _eln(node: Any) -> str:
     """`" at line N"` when the AST dict `node` carries an EL source line, else ``""``.
     Never fabricates a line — best-effort position info for error messages."""
     if isinstance(node, dict):
@@ -90,9 +92,9 @@ def _eln(node):
 
 
 # --- canonical casing ------------------------------------------------------
-def _load_sig_map():
+def _load_sig_map() -> dict[str, str]:
     """lowercase keyword -> canonical-cased keyword, from pl_signatures.jsonl."""
-    m = {}
+    m: dict[str, str] = {}
     with open(_SIG_PATH, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -106,7 +108,7 @@ def _load_sig_map():
 _SIG = _load_sig_map()
 
 
-def _canon(name):
+def _canon(name: str) -> str:
     """Canonical casing for a keyword/builtin; lowercase fallback is compile-safe."""
     return _SIG.get(name.lower(), name)
 
@@ -251,8 +253,8 @@ _MC_KEYWORDS = {
 }
 
 
-def _invert_first_wins(d):
-    inv = {}
+def _invert_first_wins(d: dict[str, str]) -> dict[str, str]:
+    inv: dict[str, str] = {}
     for el_name, kwarg in d.items():
         inv.setdefault(kwarg, el_name)
     return inv
@@ -269,7 +271,7 @@ _INV_MCKW = _invert_first_wins(_MC_KEYWORDS)
 _IDENT_REVERSE = {'_market_position': 'MarketPosition'}
 
 
-def el_keyword(name):
+def el_keyword(name: str) -> Optional[str]:
     """EL spelling of a parser-internal keyword name (``entry_time`` ->
     ``EntryTime``), or None when ``name`` is not one."""
     if name in _IDENT_REVERSE:
@@ -295,7 +297,7 @@ _BINOP_WORD = {
 # Higher binds tighter. Mirrors parser.py: parse_or < parse_and < parse_not <
 # parse_comparison < parse_addition < parse_multiplication < parse_unary <
 # primary.
-def _prec(node):
+def _prec(node: Any) -> int:
     if not isinstance(node, dict):
         return 100
     t = node.get('type')
@@ -319,7 +321,7 @@ def _prec(node):
     return 100
 
 
-def _operand(node, parent_prec, is_right):
+def _operand(node: Any, parent_prec: int, is_right: bool) -> str:
     """Emit `node` as an operand under a parent of `parent_prec`, adding parens
     only where the parser's precedence would otherwise re-group it. Extra parens
     are always fixpoint-safe (the parser strips them), so this errs toward
@@ -332,7 +334,7 @@ def _operand(node, parent_prec, is_right):
 
 
 # --- expression emission ---------------------------------------------------
-def _emit_string(value):
+def _emit_string(value: str) -> str:
     if '"' in value or '\n' in value or '\r' in value:
         raise ELEmitError(
             "string literal contains a double-quote or newline, which EL cannot "
@@ -340,7 +342,7 @@ def _emit_string(value):
     return f'"{value}"'
 
 
-def emit_expr(node):
+def emit_expr(node: Any) -> str:
     """Emit an expression node as EL text (no surrounding parens; callers wrap)."""
     if not isinstance(node, dict):
         raise ELEmitError(f"expression node is not a dict: {node!r}")
@@ -350,7 +352,8 @@ def emit_expr(node):
         sym = node.get('_symbol')
         if sym is not None:
             return _canon(sym)          # faithful color/style token name
-        return node['value']            # VERBATIM original literal string
+        value: str = node['value']
+        return value                    # VERBATIM original literal string
 
     if t == 'string':
         return _emit_string(node['value'])
@@ -362,7 +365,7 @@ def emit_expr(node):
         name = node.get('name', '')
         if name in _IDENT_REVERSE:
             return _IDENT_REVERSE[name]
-        ident = node.get('_ident')
+        ident: Optional[str] = node.get('_ident')
         if ident is not None:               # user identifier's original casing
             return ident
         return _canon(name)
@@ -437,10 +440,10 @@ def emit_expr(node):
 
 
 # --- statement emission ----------------------------------------------------
-def _emit_seq(stmts, level):
+def _emit_seq(stmts: list[Node], level: int) -> list[str]:
     """Emit a statement sequence as lines, inserting one blank line between
     consecutive statements per `_blank_between` (blank-line preservation)."""
-    out = []
+    out: list[str] = []
     prev = None
     for s in stmts:
         if prev is not None and _blank_between(prev, s):
@@ -450,12 +453,12 @@ def _emit_seq(stmts, level):
     return out
 
 
-def _emit_block(stmts, level):
+def _emit_block(stmts: list[Node], level: int) -> list[str]:
     """Emit `stmts` as indented lines (one entry per statement, blank lines kept)."""
     return _emit_seq(stmts, level)
 
 
-def _emit_decl_init(init):
+def _emit_decl_init(init: Node) -> str:
     return emit_expr(init)
 
 
@@ -468,7 +471,7 @@ _LEADING: dict[int, list[str]] = {}    # id(stmt) -> [verbatim comment text, ...
 _TRAILING: dict[int, list[str]] = {}   # id(stmt) -> [verbatim comment text, ...]  (appended to the stmt's line)
 
 
-def _inline_leg(stmt, level, prefix):
+def _inline_leg(stmt: Node, level: int, prefix: str) -> list[str]:
     """Emit `stmt` as the compact body of a leg: its text with the leading indent of
     its first line replaced by `<pad><prefix>` (e.g. `If C Then `). Comments anchored
     to `stmt` are preserved — leading comments emit on their own lines before the
@@ -500,7 +503,7 @@ def _inline_leg(stmt, level, prefix):
     return out
 
 
-def emit_stmt(node, level):
+def emit_stmt(node: Node, level: int) -> str:
     """Emit a statement with any anchored comments interleaved: leading comments on
     their own lines before it, trailing comments appended to its final line."""
     text = _emit_stmt_core(node, level)
@@ -517,7 +520,7 @@ def emit_stmt(node, level):
     return '\n'.join(lines)
 
 
-def _emit_stmt_core(node, level):
+def _emit_stmt_core(node: Any, level: int) -> str:
     """Emit a statement node as a fully-indented (possibly multi-line) string."""
     if not isinstance(node, dict):
         raise ELEmitError(f"statement node is not a dict: {node!r}")
@@ -686,7 +689,7 @@ def _emit_stmt_core(node, level):
     raise ELEmitError(f"cannot emit statement node of type {t!r}: {node!r}{_eln(node)}")
 
 
-def _emit_order(node):
+def _emit_order(node: Node) -> str:
     action = _ORDER_ACTION.get(node['action'])
     if action is None:
         raise ELEmitError(f"order with unknown action {node['action']!r}{_eln(node)}")
@@ -730,7 +733,7 @@ def _emit_order(node):
     return " ".join(out) + " ;"
 
 
-def _emit_risk(node):
+def _emit_risk(node: Node) -> str:
     name = _canon(node['func'])
     if 'args' in node:
         inner = ", ".join(emit_expr(a) for a in node['args'])
@@ -740,7 +743,7 @@ def _emit_risk(node):
     return f"{name} ;"
 
 
-def _emit_plot(node):
+def _emit_plot(node: Node) -> str:
     name = _canon(node['name'])
     args = [emit_expr(node['value'])]
     label = node.get('label')
@@ -755,7 +758,7 @@ def _emit_plot(node):
 
 
 # --- public entrypoint -----------------------------------------------------
-def emit_el(ast):
+def emit_el(ast: Any) -> str:
     """Emit compile-safe EL for a full program AST (the shared IR dict).
 
     Takes the AST ONLY — no source text. Raises ELEmitError on any node it

@@ -17,9 +17,14 @@
 lookup tables and small Python-AST predicates (see `py_front`)."""
 
 import ast
+from typing import TYPE_CHECKING, Any, Optional
 
+from pl_transpiler._types import Node
 from pl_transpiler.codegen import BUILTIN_FUNC_MAP, COMPARE_OPS
 from pl_transpiler.codegen_tables import CANONICAL_EL_NAME
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeGuard
 
 
 class PyFrontError(Exception):
@@ -32,7 +37,7 @@ class PyFrontError(Exception):
 _DIALECT_HINT = " (construct outside the mirror dialect?)"
 
 
-def _ln(node):
+def _ln(node: object) -> str:
     """`" at line N"` when the Python AST `node` carries a source line, else ``""``.
     Never fabricates a line — best-effort position info for error messages."""
     ln = getattr(node, 'lineno', None)
@@ -107,22 +112,22 @@ _ORDER_ACTIONS = {'buy', 'sell', 'sellshort', 'buytocover'}
 
 
 # --- small ast helpers ------------------------------------------------------
-def _is_name(node, ident=None):
+def _is_name(node: object, ident: Optional[str] = None) -> 'TypeGuard[ast.Name]':
     return isinstance(node, ast.Name) and (ident is None or node.id == ident)
 
 
-def _is_call(node, func_name=None):
+def _is_call(node: object, func_name: Optional[str] = None) -> 'TypeGuard[ast.Call]':
     return (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             and (func_name is None or node.func.id == func_name))
 
 
-def _is_attr_call(node, obj_name, attr):
+def _is_attr_call(node: object, obj_name: str, attr: str) -> 'TypeGuard[ast.Call]':
     """Match `<obj_name>.<attr>(...)`."""
     return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             and node.func.attr == attr and _is_name(node.func.value, obj_name))
 
 
-def _kwargs_get(node):
+def _kwargs_get(node: object) -> Optional[tuple[str, ast.expr]]:
     """If `node` is `kwargs.get(<key>, <default>)`, return (key_str, default_node),
     else None."""
     if _is_attr_call(node, 'kwargs', 'get') and len(node.args) == 2:
@@ -132,33 +137,33 @@ def _kwargs_get(node):
     return None
 
 
-def _const_str(node):
+def _const_str(node: object) -> 'TypeGuard[ast.Constant]':
     return isinstance(node, ast.Constant) and isinstance(node.value, str)
 
 
-def _neg_one(node):
+def _neg_one(node: object) -> bool:
     """Match the Python literal `-1` (UnaryOp USub of Constant 1)."""
     return (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)
             and isinstance(node.operand, ast.Constant) and node.operand.value == 1)
 
 
-def _open_current(node):
+def _open_current(node: object) -> bool:
     """Match `open[-1]` (the first-bar guard's else branch)."""
     return (isinstance(node, ast.Subscript) and _is_name(node.value, 'open')
             and _neg_one_index(node.slice))
 
 
-def _neg_one_index(sl):
+def _neg_one_index(sl: object) -> bool:
     return (isinstance(sl, ast.UnaryOp) and isinstance(sl.op, ast.USub)
             and isinstance(sl.operand, ast.Constant) and sl.operand.value == 1)
 
 
 # --- number reconstruction --------------------------------------------------
-def _num(value_str):
+def _num(value_str: str) -> Node:
     return {'type': 'number', 'value': value_str}
 
 
-def _const_to_num(value):
+def _const_to_num(value: Any) -> Node:
     """A numeric Python constant -> a 'number' node with a faithful literal string.
     Booleans are handled earlier (bool is an int subclass)."""
     if isinstance(value, int):
