@@ -7,6 +7,22 @@ developed privately. They were cut over a few days, one as each batch of
 verified features landed. From here, releases are spaced out and made when
 there is enough new content to justify one.
 
+## Versioning and stability
+
+PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
+
+- A **patch** release (0.x.Y) only fixes bugs; existing strategies give the same
+  fills and the same digests.
+- A **minor** release (0.X.0) may add features. It may also change behaviour,
+  but only with a note under "Changed" saying what changed and why.
+- The stable surface is the `pl_*` command-line flags, the names documented in
+  [docs/API.md](docs/API.md) and the `pl_oracle` digest format. Anything else
+  (modules not listed there, `_accel` internals) can change without notice.
+- Something on the stable surface is removed only after one minor release in
+  which it still works and emits a `DeprecationWarning` (or a CLI warning).
+
+1.0 will freeze that surface under the usual SemVer rules.
+
 ## Unreleased
 
 ### Added
