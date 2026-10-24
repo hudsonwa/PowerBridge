@@ -52,7 +52,7 @@ class _ReportMixin:
         fills_v1: list[dict[str, Any]]
         closed_trades: list[dict[str, Any]]
         _entry_qtys: list[int]
-        _emit_gta6: bool
+        _capture_stats: bool
         _pos_mfe_pc: float
         _pos_mae_pc: float
         _pos_max_contracts: int
@@ -93,7 +93,7 @@ class _ReportMixin:
             d[k] = getattr(self, a)
 
     # Closed-trade performance words, read from the running aggregates kept at
-    # trade close (_record_closed_trade); same values as _inject_gta6_stats.
+    # trade close (_record_closed_trade); same values as _inject_trade_stats.
     @property
     def pct_profit(self) -> float:
         tt = self._st_nwin + self._st_nlos + self._st_neven
@@ -166,15 +166,15 @@ class _ReportMixin:
         trace['totaltrades'] = self.total_trades
         trace['maxcontractsheld'] = self.max_contracts_held
         trace['maxiddrawdown'] = self.max_id_drawdown
-        # Skip the (now O(1)) GTA6 stat/introspection injection for captures whose
-        # header contains none of those columns — pure overhead avoidance; it never
-        # changes a value that IS in a header (see _emit_gta6 setup in run_gt).
-        if self._emit_gta6:
-            self._inject_gta6_stats(trace)
-            self._inject_gta6_introspection(trace)
+        # Skip the (O(1)) trade-stat/introspection injection when no consumer
+        # reads those keys — pure overhead avoidance; it never changes a value
+        # that is read (see FillEngine.set_capture_stats).
+        if self._capture_stats:
+            self._inject_trade_stats(trace)
+            self._inject_trade_introspection(trace)
 
-    def _inject_gta6_introspection(self, trace: dict[str, Any]) -> None:
-        """GTA6 File-2 open-position + closed-trade introspection and entry/exit metadata.
+    def _inject_trade_introspection(self, trace: dict[str, Any]) -> None:
+        """Open-position + closed-trade introspection and entry/exit metadata.
 
         OpenEntry*(0) describes the CURRENT open position's (single) entry; PosTrade*(1,0)
         and Exit*(1) describe the most recently CLOSED position (PosBack=1, pdf:11918).
@@ -247,8 +247,8 @@ class _ReportMixin:
         trace['descstr'] = cfg.descstr
         trace['expdate'] = cfg.expdate
 
-    def _inject_gta6_stats(self, trace: dict[str, Any]) -> None:
-        """GTA6 File-2 strategy-performance stats, computed from the closed-trade
+    def _inject_trade_stats(self, trace: dict[str, Any]) -> None:
+        """Strategy-performance stats, computed from the closed-trade
         ledger + the open position. Each cited to PowerLanguage Keyword Reference:
           NumWin/Los/EvenTrades, Largest{Win,Los}Trade, PercentProfit (pp.~ stats),
           MaxConsec{Winners,Losers} (pdf:10550), AvgBars*/TotalBars* trade,

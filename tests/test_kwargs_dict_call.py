@@ -73,7 +73,7 @@ def test_run_bar_loop_passes_same_dict():
         return {"orders": [], "risk": {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=5,
@@ -99,7 +99,7 @@ def test_starstar_strategies_still_run():
         return {"orders": [], "risk": {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=2,
@@ -143,7 +143,7 @@ def test_persist_via_run_bar_loop_fires_on_bar_3():
     exec(compile(py, "<kwdict-loop>", "exec"), ns)
     strat = ns["strategy"]
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     n = 8
     run_bar_loop(
         strat,

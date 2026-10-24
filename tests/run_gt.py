@@ -192,16 +192,16 @@ GT1_COLUMN_MAP = {
 }
 
 
-# Trace keys emitted by FillEngine._inject_gta6_stats + _inject_gta6_introspection.
+# Trace keys emitted by FillEngine._inject_trade_stats + _inject_trade_introspection.
 # Used to decide per-run whether a capture needs GTA6 injection at all: if none of
 # these keys are mapped from the capture header, the injection is pure overhead and
 # is skipped (it can never change a value that IS in the header).
 GTA6_TRACE_KEYS = frozenset({
-    # _inject_gta6_stats
+    # _inject_trade_stats
     'nwin', 'nlos', 'neven', 'lrgwin', 'lrglos', 'pctprofit', 'maxcwin', 'maxclos',
     'totbwin', 'totblos', 'totbeven', 'avgbwin', 'avgblos', 'avgbeven', 'maxctrprofit',
     'maxposprofit', 'maxposloss', 'maxctr', 'maxentr', 'maxshr', 'maxshrheld', 'maxposago',
-    # _inject_gta6_introspection
+    # _inject_trade_introspection
     'oecount', 'oeprice', 'oeprofit', 'oemaxprofit', 'oeminprofit', 'oedate', 'oetime',
     'oecontracts', 'oeprofitpc', 'oemaxprofitpc', 'oeminprofitpc', 'ennm', 'endate',
     'entime', 'endtm', 'curentr', 'curshr', 'execoff', 'ptcount', 'ptprofit', 'ptsize',
@@ -649,7 +649,7 @@ def run_gt(gt_label, max_bars=None, output_path=None, warmup=0):
     # Skip GTA6 stat/introspection injection entirely when this capture's header
     # maps to NONE of those trace keys (e.g. GT2) — avoids per-bar dict writes that
     # would never be read into an output column.
-    fill_engine._emit_gta6 = bool(set(col_map.values()) & GTA6_TRACE_KEYS)
+    fill_engine.set_capture_stats(bool(set(col_map.values()) & GTA6_TRACE_KEYS))
     # Precompute the date-column index once so SessionLastBar can read the next
     # bar's date directly instead of rebuilding dict(zip(cap_header, ...)) per bar.
     _date_idx = cap_header.index('date') if 'date' in cap_header else None
