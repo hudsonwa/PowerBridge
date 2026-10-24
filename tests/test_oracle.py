@@ -528,7 +528,11 @@ def _fill(side, price, contracts=1):
 
 def test_trade_summary_fifo_long_short_and_drawdown():
     from pl_transpiler.tools.pl_oracle import (
-        BUY_SIDE, SELL_SIDE, format_summary, trade_summary)
+        BUY_SIDE,
+        SELL_SIDE,
+        format_summary,
+        trade_summary,
+    )
     fills = [
         _fill(BUY_SIDE, 100.0, 2),   # long 2
         _fill(SELL_SIDE, 103.0),     # +3
