@@ -205,7 +205,8 @@ proves.
   instruments listed in [LIMITATIONS.md](LIMITATIONS.md). Other instruments and timeframes are
   untested.
 - **Simplified execution model.** There is no commission or slippage,
-  MaxBarsBack warm-up is opt-in (`--max-bars-back`, default 0), and the session
+  MaxBarsBack warm-up is a static estimate (`--max-bars-back`, default `auto`
+  in the next release, 0 on 0.10.0), and the session
   end is fixed. These are documented in
   [USAGE.md](USAGE.md#what-the-engine-assumes) rather than half-modelled.
 - **Kernel coverage.** The kernel does not yet run strategies that declare

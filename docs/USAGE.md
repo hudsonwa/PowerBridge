@@ -542,13 +542,17 @@ value; profit figures do.
 
 ## Warm-up and MaxBarsBack
 
-PowerBridge evaluates every bar from bar 1, so `Average(Close, 21)` returns 0
-for the first 20 bars; MultiCharts skips its MaxBarsBack bars (default 50)
-instead. Pass `--max-bars-back 50` (or your chart's value) to `pl_oracle` /
-`pl_run` to match. Without it, both print a `note:` on stderr when a strategy
-reads past bars (or the `lookback past available history` warning instead,
-when that applies); `-q` hides only the note. The note never changes the
-output on stdout.
+MultiCharts skips its MaxBarsBack bars before evaluating a strategy, and by
+default it finds that number itself (auto-detect, as MultiCharts documents
+it; not verified against a capture here). *New in the next release:*
+`pl_oracle` and `pl_run` default to `--max-bars-back auto` too (below), and
+the status line on stderr shows the number used (`max-bars-back 21 (auto)`).
+When `auto` cannot bound the lookback, the default falls back to 0 and prints
+a `note:` on stderr saying so; `-q` hides only the note, which never changes
+the output on stdout. Pass `--max-bars-back N` for a chart with a fixed
+setting (such as 50), or `--max-bars-back 0` to evaluate every bar from bar 1,
+so that `Average(Close, 21)` returns 0 for the first 20 bars (the 0.10.0
+default; on 0.10.0 the note prints whenever a strategy reads past bars).
 
 On the bars before MaxBarsBack history exists, a price lookback past the
 start of the tape (`Close[5]` on bar 1) reads the current bar's Open, and
@@ -556,8 +560,9 @@ start of the tape (`Close[5]` on bar 1) reads the current bar's Open, and
 
 In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
 (a 21-bar average, compared with its previous value by `crosses`), so the demo
-prints no note. The default is 0; pass your chart's value (the MultiCharts
-default is 50) to match MultiCharts.
+prints no note. It is the number the new default `auto` finds for it, so the
+same command without the flag gives the same output apart from the status
+line.
 
 `--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`) uses the longest lookback PowerBridge finds in the strategy source, the same
 number the warm-up note reports. `X[k]` counts k bars plus whatever `X` reads,
@@ -573,7 +578,8 @@ array, and an assignment's target never counts.
 `Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
 stderr shows the value it chose (`max-bars-back 21 (auto)`).
 
-When the scan cannot bound the lookback, `auto` stops with an error that
+When the scan cannot bound the lookback, an explicit `--max-bars-back auto`
+(or `max_bars_back="auto"`) stops with an error that
 names the construct and its line, and asks for a number instead of guessing
 (a silent 0 would give the warm-up fills `auto` exists to avoid). It does so
 for a non-constant index such as `Close[Value2]`, a length that is an
@@ -587,11 +593,10 @@ length, but the variable's own history still starts on the first evaluated
 bar, so that average is not full on the first bars. Builtins such as `File`,
 `NumToStr` and the string functions read no past bars and never stop `auto`.
 
-Without `--max-bars-back auto` nothing changes: stdout, trade digests and
-traces are the same as before. Only the stderr warm-up note reads
-differently: it names the number of past bars found and suggests
-`--max-bars-back auto`. It is also no longer printed for a program whose
-only "lookback" was a call such as `File` or `NumToStr`.
+The default (no `--max-bars-back`, or `max_bars_back=None` in the library)
+falls back to 0 in those cases instead of stopping. With an explicit
+`--max-bars-back 0`, stdout, trade digests and traces are the same as on
+0.10.0 without the flag.
 
 `auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
 time, raising it and restarting the calculation when a study reads further back

@@ -51,6 +51,27 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   whose tape is not shipped) moved from `pl_transpiler.oracle` and
   `pl_transpiler.tools.pl_oracle` to `tests/reference_pins.py`, since only
   the tests use them.
+- **Behaviour change:** `--max-bars-back` on `pl_run` and `pl_oracle` now
+  defaults to `auto`, and `max_bars_back` in `run_el` / `run_oracle` to `None`
+  (auto). MultiCharts auto-detects MaxBarsBack by default, and with 0 a
+  strategy's warm-up bars traded where MultiCharts' would not, so every run
+  printed a warm-up note and the quickstart needed `--max-bars-back 21`. When
+  the lookback cannot be inferred, the default falls back to 0 and prints that
+  note (an explicit `--max-bars-back auto` still stops with an error); the
+  note is no longer printed otherwise. The status line shows the number used
+  (`max-bars-back 21 (auto)`). Pass `--max-bars-back 0` (`max_bars_back=0`)
+  for the old results: digests with an explicit value are unchanged, on the
+  Python and native engines. `ma_cross.el` infers 21, so the README
+  quickstart output is unchanged.
+- **Behaviour change:** without `--date-format` (`date_format=None` in
+  `load_bars_csv` / `load_bars`), the order of slash dates in a bars CSV is
+  inferred from the whole file: a first field above 12 means day-first, a
+  second field above 12 month-first. When no field is above 12 (and the two
+  orders give different dates), or both orders occur, the run stops with one
+  line asking for `--date-format mdy` or `dmy`, and exit 2. Before, slash dates
+  were read day-first, so a US month-first file holding only days 1-12 was
+  silently read with day and month swapped. An explicit `--date-format`
+  always wins; EL integer dates (as in the bundled sample) load as before.
 - **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars`
   (CSV input) now stop on bars that go back in time, with one line naming the
   CSV line, such as `bars out of order at line 4: 2024-01-02 09:29 comes after

@@ -232,7 +232,8 @@ capture is labelled "documented behaviour, unverified" wherever it appears.
 - **Validated scope.** 1-minute bars on the instruments above. Other instruments
   and timeframes are untested.
 - **Execution model.** No commission, no slippage, fixed session end. MaxBarsBack
-  warm-up is opt-in (`--max-bars-back`, default 0).
+  warm-up defaults to the inferred lookback (`--max-bars-back auto`; new in the
+  next release, 0 on 0.10.0).
 - **Entries.** Same-direction entries add by default; `--max-entries-per-direction 1`
   matches MultiCharts' documented default (unverified). `Sell from entry("A")` with
   another named entry open stops the run; the documented EL meaning (close only
