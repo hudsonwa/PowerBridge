@@ -146,14 +146,14 @@ def test_codegen_emits_lag_not_slice():
 @pytest.mark.parametrize('name', sorted(CASES))
 def test_per_bar_equal_to_old_slicing(monkeypatch, name):
     src, bars, cfg = CASES[name], _bars(1500), get_config('NQ')
-    new = pl_run.run_el(src, bars, cfg)
+    new = pl_run.run_el(src, bars, cfg, max_bars_back=0)
     orig = pl_run.transpile
 
     def old_transpile(*a, **kw):
         return _old_slices(orig(*a, **kw))
 
     monkeypatch.setattr(pl_run, 'transpile', old_transpile)
-    old = pl_run.run_el(src, bars, cfg)
+    old = pl_run.run_el(src, bars, cfg, max_bars_back=0)
     assert new['columns'] == old['columns']
     assert len(new['rows']) == len(bars)
     assert new['rows'] == old['rows']
@@ -164,14 +164,14 @@ def _seconds(src, bars, cfg):
     best = float('inf')
     for _ in range(2):
         t0 = time.perf_counter()
-        run_oracle(src, bars, cfg)
+        run_oracle(src, bars, cfg, max_bars_back=0)
         best = min(best, time.perf_counter() - t0)
     return best
 
 
 def test_breakout_scales_linearly():
     cfg = get_config('NQ')
-    run_oracle(BREAKOUT_EL, _bars(500), cfg)  # warm imports
+    run_oracle(BREAKOUT_EL, _bars(500), cfg, max_bars_back=0)  # warm imports
     small = _seconds(BREAKOUT_EL, _bars(5000), cfg)
     large = _seconds(BREAKOUT_EL, _bars(20000), cfg)
     # 4x the bars: linear is ~4x; the old per-bar slice was ~10x or more here.
@@ -192,7 +192,7 @@ def test_lagged_recursive_pair_matches_recompute():
     from pl_transpiler.runtime.pl_runtime import f32, pl_rsi, pl_xaverage
 
     bars = _bars(300)
-    out = pl_run.run_el(SHARED_CACHE_EL, bars, get_config('NQ'))
+    out = pl_run.run_el(SHARED_CACHE_EL, bars, get_config('NQ'), max_bars_back=0)
     cols = out['columns']
     ie, ir = cols.index('e'), cols.index('r')
     hi = [b['high'] for b in bars]

@@ -479,7 +479,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            header_sink: Optional[Callable[[list[str]], Any]] = None,
            retain_rows: Optional[bool] = None,
            from_date: Optional[int] = None, from_bar: Optional[int] = None,
-           seed_warmup: bool = True, max_bars_back: Union[int, str] = 0,
+           seed_warmup: bool = True, max_bars_back: Union[int, str, None] = None,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
            drawing_tape: Optional[dict[str, Any]] = None,
@@ -519,9 +519,11 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     equivalent when the trade-list oracle agrees.
     max_bars_back : skip the first N bars as history only (MultiCharts
                     MaxBarsBack): no evaluation, no orders, no rows, and
-                    BarNumber starts at 1 on bar N+1. Default 0 evaluates every
-                    bar. ``"auto"`` uses lookback.infer_max_bars_back(el_source)
-                    (ValueError if it cannot be inferred). With too little
+                    BarNumber starts at 1 on bar N+1. Default None: the
+                    lookback inferred from the source
+                    (lookback.infer_max_bars_back), or 0 when it cannot be
+                    inferred. 0 evaluates every bar. ``"auto"`` also infers,
+                    but raises ValueError if it cannot. With too little
                     history for a ``Close[n]`` read, one warning is printed on
                     stderr; values are unchanged.
     max_entries_per_direction : None/0 (default): every Buy/SellShort adds

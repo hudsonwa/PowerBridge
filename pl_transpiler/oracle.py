@@ -395,7 +395,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                from_date: Optional[int] = None, to_date: Optional[int] = None,
                from_bar: Optional[int] = None, seed_warmup: bool = False,
                use_native: bool = False, digest_version: int = 2,
-               max_bars_back: Union[int, str] = 0,
+               max_bars_back: Union[int, str, None] = None,
                max_entries_per_direction: Optional[int] = None,
                drawings: bool = False, drawing_case_id: Optional[str] = None,
                drawing_tape: Optional[dict[str, Any]] = None) -> dict[str, Any]:
@@ -436,9 +436,10 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     digest is identical whichever path runs.
     max_bars_back : skip the first N bars (after any window) as history only:
                     no evaluation, no orders, BarNumber starts at 1 on bar N+1
-                    (MultiCharts MaxBarsBack). Default 0 evaluates every bar.
-                    ``"auto"`` uses lookback.infer_max_bars_back(el_source)
-                    (ValueError if it cannot be inferred).
+                    (MultiCharts MaxBarsBack). Default None: the lookback
+                    inferred from the source (lookback.infer_max_bars_back),
+                    or 0 when it cannot be inferred. 0 evaluates every bar.
+                    ``"auto"`` also infers, but raises ValueError if it cannot.
     max_entries_per_direction : None/0 (default): every Buy/SellShort adds
                     to the position. N >= 1: an entry in the open position's
                     direction is refused while N entries are open (N=1 is

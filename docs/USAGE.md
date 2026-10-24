@@ -145,7 +145,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 
 ```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns [python] -> out/run_out.csv
+[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns, max-bars-back 21 (auto) [python] -> out/run_out.csv
 ```
 
 That status line goes to stderr. With the optional
@@ -524,7 +524,7 @@ pl_run examples/ma_cross.el examples/NQ_sample_bars.csv \
 ```
 
 ```
-[pl_run] 140 bars, 140 rows, 3 fills, 1 round-turns [python] -> out/es_out.csv
+[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns, max-bars-back 21 (auto) [python] -> out/es_out.csv
 ```
 
 <!-- readme-test: file out/es_out.csv -->

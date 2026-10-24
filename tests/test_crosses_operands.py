@@ -74,8 +74,8 @@ def _variable(x, swap):
 @pytest.mark.parametrize('operand', OPERANDS)
 def test_non_series_operand_trades_like_variable(operand, swap):
     cfg = get_config('NQ')
-    inline = run_oracle(_inline(operand, swap), BARS, cfg)
-    variable = run_oracle(_variable(operand, swap), BARS, cfg)
+    inline = run_oracle(_inline(operand, swap), BARS, cfg, max_bars_back=0)
+    variable = run_oracle(_variable(operand, swap), BARS, cfg, max_bars_back=0)
     assert variable['round_turns'] > 5  # the case actually crosses
     assert inline['sha256'] == variable['sha256']
     assert inline['round_turns'] == variable['round_turns']
@@ -87,8 +87,8 @@ def test_literal_on_both_sides():
     var = "Vars: A(0), B(0);\nA = Close[1]; B = 15000;\n" \
           "If A crosses above B then Buy next bar at market;\n"
     cfg = get_config('NQ')
-    assert (run_oracle(src, BARS, cfg)['sha256']
-            == run_oracle(var, BARS, cfg)['sha256'])
+    assert (run_oracle(src, BARS, cfg, max_bars_back=0)['sha256']
+            == run_oracle(var, BARS, cfg, max_bars_back=0)['sha256'])
 
 
 def test_hoisted_operand_is_evaluated_every_bar():
@@ -101,8 +101,8 @@ def test_hoisted_operand_is_evaluated_every_bar():
            "If MarketPosition = 0 and Close crosses above A then Buy next bar at market;\n"
            "If MarketPosition = 1 and Close crosses below A then Sell next bar at market;\n")
     cfg = get_config('NQ')
-    assert (run_oracle(gated, BARS, cfg)['sha256']
-            == run_oracle(var, BARS, cfg)['sha256'])
+    assert (run_oracle(gated, BARS, cfg, max_bars_back=0)['sha256']
+            == run_oracle(var, BARS, cfg, max_bars_back=0)['sha256'])
 
 
 @pytest.mark.parametrize('operand', ['Value1 + 1', 'Average(Value1, 5)', 'MarketPosition'])
@@ -127,9 +127,9 @@ def test_value_scratch_vars_cross_like_declared_vars():
     scratch = body.format(a='Value1', b='Value2')
     declared = "Vars: A(0), B(0);\n" + body.format(a='A', b='B')
     cfg = get_config('NQ')
-    want = run_oracle(declared, BARS, cfg)
+    want = run_oracle(declared, BARS, cfg, max_bars_back=0)
     assert want['round_turns'] > 5
-    assert run_oracle(scratch, BARS, cfg)['sha256'] == want['sha256']
+    assert run_oracle(scratch, BARS, cfg, max_bars_back=0)['sha256'] == want['sha256']
 
 
 def test_runtime_refuses_a_scalar():

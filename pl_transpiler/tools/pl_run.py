@@ -120,7 +120,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _cli.add_max_bars_back_arg(ap)
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="hide the warm-up note printed when a strategy reads "
-                         "past bars and --max-bars-back is not set (other "
+                         "past bars, --max-bars-back is not set and auto "
+                         "cannot find the lookback (other "
                          "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
@@ -227,7 +228,8 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         out_f.close()
 
     # After the run, so a failing run still prints a single error line.
-    note_warmup(el_source, args.max_bars_back, "pl_run", quiet=args.quiet,
+    note_warmup(el_source, args.max_bars_back, "pl_run",
+                quiet=args.quiet or not args.max_bars_back_fallback,
                 n_bars=ohlcv_columns(bars)["n"])
     warmup_note = (f", {result['n_warmup']} warmup" if result.get("n_warmup") else "")
     # Local import: only the summary line needs the oracle module.

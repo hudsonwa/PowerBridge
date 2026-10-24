@@ -154,11 +154,20 @@ def test_bad_values_rejected(tool, bad, capsys):
     assert "auto" in err
 
 
-def test_warmup_note_suggests_auto(capsys):
-    assert pl_oracle.main([MA_CROSS, SAMPLE]) == 0
-    err = capsys.readouterr().err
-    assert "reads up to 21 past bars" in err
-    assert "--max-bars-back auto (= 21)" in err
+def test_default_is_auto(capsys):
+    assert pl_oracle.main([MA_CROSS, SAMPLE, "--python"]) == 0
+    default = capsys.readouterr()
+    assert pl_oracle.main([MA_CROSS, SAMPLE, "--python", "--max-bars-back", "auto"]) == 0
+    auto = capsys.readouterr()
+    assert default.out == auto.out
+    assert ", max-bars-back 21 (auto) [" in default.err
+    assert "warm-up" not in default.err
+
+
+def test_default_falls_back_to_0_when_auto_cannot_infer(capsys):
+    bars = pl_run.load_bars(SAMPLE)
+    assert (pl_oracle.run_oracle(UNKNOWN, bars, NQ)["text"]
+            == pl_oracle.run_oracle(UNKNOWN, bars, NQ, max_bars_back=0)["text"])
 
 
 # Multi-argument builtins: the length is taken by position, not the last arg.

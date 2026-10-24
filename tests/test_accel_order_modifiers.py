@@ -98,14 +98,14 @@ def test_program_is_native(name):
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
 def test_native_digest_equals_python(name, sample_bars):
-    want = run_oracle(PROGRAMS[name], sample_bars, NQ)
+    want = run_oracle(PROGRAMS[name], sample_bars, NQ, max_bars_back=0)
     assert want["fills"] > 0, "the program must trade for the digest to mean anything"
     assert fills_sha256(run_native(PROGRAMS[name], sample_bars, NQ)) == want["sha256"]
 
 
 def test_total_is_a_no_op(sample_bars):
     plain = TOTAL.replace(" total", "")
-    assert run_oracle(plain, sample_bars, NQ)["sha256"] == run_oracle(TOTAL, sample_bars, NQ)["sha256"]
+    assert run_oracle(plain, sample_bars, NQ, max_bars_back=0)["sha256"] == run_oracle(TOTAL, sample_bars, NQ, max_bars_back=0)["sha256"]
 
 
 @pytest.mark.parametrize("name", sorted(PROGRAMS))
@@ -122,8 +122,8 @@ def test_named_exit_with_two_entries_falls_back_lenient(monkeypatch, sample_bars
     monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
     _rt_core.pl_unimplemented_reset()
     try:
-        want = run_oracle(TWO_LONG, sample_bars[:40], NQ)
-        got = run_oracle(TWO_LONG, sample_bars[:40], NQ, use_native=True)
+        want = run_oracle(TWO_LONG, sample_bars[:40], NQ, max_bars_back=0)
+        got = run_oracle(TWO_LONG, sample_bars[:40], NQ, use_native=True, max_bars_back=0)
     finally:
         _rt_core.pl_unimplemented_reset()
     assert got["sha256"] == want["sha256"]

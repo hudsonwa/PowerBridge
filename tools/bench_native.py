@@ -70,7 +70,7 @@ def main(argv=None):
     py_times, rs_times = [], []
     for _ in range(args.reps):
         t0 = time.perf_counter()
-        python_fills = run_el(source, bars, config)["trades"]
+        python_fills = run_el(source, bars, config, max_bars_back=0)["trades"]
         py_times.append(time.perf_counter() - t0)
         t0 = time.perf_counter()
         native_fills = run_native(source, bars, config)

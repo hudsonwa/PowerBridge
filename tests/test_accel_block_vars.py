@@ -106,7 +106,7 @@ def test_native_digest_equals_python(name, bars):
     before = fallback_count()
     fills = run_native(source, bars, NQ)
     assert fallback_count() == before, "the kernel fell back to Python"
-    want = run_oracle(source, bars, NQ)
+    want = run_oracle(source, bars, NQ, max_bars_back=0)
     assert want["fills"] > 10, "the program must trade for the digest to mean anything"
     assert fills_sha256(fills) == want["sha256"]
 
@@ -208,5 +208,5 @@ def test_explain_lists_the_average_unknown_type_refusal(bars):
             run_native(AVERAGE_UNKNOWN, bars, NQ)
     else:
         assert refusals == []
-        want = run_oracle(AVERAGE_UNKNOWN, bars, NQ)["sha256"]
+        want = run_oracle(AVERAGE_UNKNOWN, bars, NQ, max_bars_back=0)["sha256"]
         assert fills_sha256(run_native(AVERAGE_UNKNOWN, bars, NQ)) == want

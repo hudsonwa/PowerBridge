@@ -125,9 +125,9 @@ def tape():
 
 
 def _assert_digest_parity(source, bars):
-    native = run_oracle(source, bars, NQ, use_native=True)
+    native = run_oracle(source, bars, NQ, use_native=True, max_bars_back=0)
     assert native['native'], native.get('native_fallback_reason')
-    python = run_oracle(source, bars, NQ)
+    python = run_oracle(source, bars, NQ, max_bars_back=0)
     assert native['fills'] == python['fills']
     assert native['text'] == python['text']
     return native['fills']
@@ -142,7 +142,7 @@ def test_lookback_digest_and_trace_match_python(accel, tape, name):
     _assert_digest_parity(source, tape)
 
     columns, rows, _ = run_native_trace(source, tape, NQ)
-    python = run_el(source, tape, NQ)
+    python = run_el(source, tape, NQ, max_bars_back=0)
     # The Python trace also lists inputs; compare every native column.
     assert set(columns) <= set(python['columns'])
     pick = [python['columns'].index(c) for c in columns]

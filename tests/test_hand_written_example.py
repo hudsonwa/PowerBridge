@@ -69,14 +69,14 @@ def test_el_emit_to_stdout_names_the_input(capsys):
 
 def test_python_runner_backtests_the_emitted_el():
     el, bars = _el(), load_bars(SAMPLE)
-    assert run_oracle(el, bars, NQ, use_native=False)["sha256"] == SHA
-    out = run_el(el, bars, NQ, trace_columns=["MarketPosition"])
+    assert run_oracle(el, bars, NQ, use_native=False, max_bars_back=0)["sha256"] == SHA
+    out = run_el(el, bars, NQ, trace_columns=["MarketPosition"], max_bars_back=0)
     assert len(out["trades"]) == 6
 
 
 @pytest.mark.skipif(not accel_available(), reason="native kernel not built")
 def test_native_path_gives_the_same_digest():
-    result = run_oracle(_el(), load_bars(SAMPLE), NQ, use_native=True)
+    result = run_oracle(_el(), load_bars(SAMPLE), NQ, use_native=True, max_bars_back=0)
     assert result.get("native") and result["sha256"] == SHA
 
 
@@ -85,7 +85,7 @@ def test_emitted_el_round_trips():
     back = py_to_el(transpile(el, dialect="mirror"))
     assert _lines(back) == _lines(el)
     bars = load_bars(SAMPLE)
-    assert run_oracle(back, bars, NQ, use_native=False)["sha256"] == SHA
+    assert run_oracle(back, bars, NQ, use_native=False, max_bars_back=0)["sha256"] == SHA
 
 
 @pytest.mark.parametrize("body,message", [

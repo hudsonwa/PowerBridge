@@ -123,7 +123,7 @@ def test_corpus_reaches_float_edge_values():
         division.bars,
         NQ,
         trace_columns=["intdiv", "floatdiv"],
-    )["rows"]
+     max_bars_back=0)["rows"]
     assert all(tuple(map(float, row)) == (2.5, 2.5) for row in rows)
 
     boundary = cases["f32-rounding-boundary"]
@@ -132,7 +132,7 @@ def test_corpus_reaches_float_edge_values():
         boundary.bars,
         NQ,
         trace_columns=["rounded", "boundary"],
-    )["rows"]
+     max_bars_back=0)["rows"]
     assert all(
         tuple(map(float, row)) == (16777216.0, 16777216.0)
         for row in rows
@@ -144,7 +144,7 @@ def test_corpus_reaches_float_edge_values():
         overflow.bars,
         NQ,
         trace_columns=["extreme"],
-    )["rows"]
+     max_bars_back=0)["rows"]
     assert any(math.isinf(float(row[0])) for row in values)
 
     nan_case = cases["nan-arithmetic"]
@@ -153,7 +153,7 @@ def test_corpus_reaches_float_edge_values():
         nan_case.bars,
         NQ,
         trace_columns=["notanumber"],
-    )["rows"]
+     max_bars_back=0)["rows"]
     assert any(math.isnan(float(row[0])) for row in values)
 
     denormal = cases["denormal-underflow"]
@@ -162,7 +162,7 @@ def test_corpus_reaches_float_edge_values():
         denormal.bars,
         NQ,
         trace_columns=["denormal"],
-    )["rows"]
+     max_bars_back=0)["rows"]
     tiny_index = next(
         index
         for index, bar in enumerate(denormal.bars)

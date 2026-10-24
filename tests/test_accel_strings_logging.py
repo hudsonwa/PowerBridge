@@ -84,9 +84,9 @@ def bars():
 
 @pytest.mark.parametrize("source", [LOG, SHAPES], ids=["log", "shapes"])
 def test_native_digest_equals_python(source, bars):
-    want = run_oracle(source, bars, NQ)
+    want = run_oracle(source, bars, NQ, max_bars_back=0)
     assert want["fills"] > 0, "the program must trade for the digest to mean anything"
-    got = run_oracle(source, bars, NQ, use_native=True)
+    got = run_oracle(source, bars, NQ, use_native=True, max_bars_back=0)
     assert got["native"] is True, got.get("native_fallback_reason")
     assert got["text"] == want["text"]
     assert fills_sha256(run_native(source, bars, NQ)) == want["sha256"]
@@ -99,8 +99,8 @@ def test_native_trace_equals_python(source, bars):
 
 def test_native_drawings_equal_python_including_text_color(bars):
     kwargs = dict(drawings=True, drawing_case_id="g-x-001-strings", drawing_tape=TAPE)
-    python = run_oracle(LOG, bars, NQ, **kwargs)
-    native = run_oracle(LOG, bars, NQ, use_native=True, **kwargs)
+    python = run_oracle(LOG, bars, NQ, **kwargs, max_bars_back=0)
+    native = run_oracle(LOG, bars, NQ, use_native=True, **kwargs, max_bars_back=0)
     assert native["native"] is True, native.get("native_fallback_reason")
     assert native["sha256"] == python["sha256"]
     native["drawings"]["producer"] = python["drawings"]["producer"]
@@ -111,11 +111,11 @@ def test_native_drawings_equal_python_including_text_color(bars):
 
 def test_file_calls_write_nothing_on_either_path(bars, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    python = run_oracle(LOG, bars, NQ)
-    native = run_oracle(LOG, bars, NQ, use_native=True)
+    python = run_oracle(LOG, bars, NQ, max_bars_back=0)
+    native = run_oracle(LOG, bars, NQ, use_native=True, max_bars_back=0)
     assert native["native"] is True
     assert native["sha256"] == python["sha256"]
-    late = run_oracle(LATE_REFUSAL, bars, NQ, use_native=True)
+    late = run_oracle(LATE_REFUSAL, bars, NQ, use_native=True, max_bars_back=0)
     assert late["native"] is False
     assert "no live text with id 999" in late["native_fallback_reason"]
     assert late["sha256"] == python["sha256"]
