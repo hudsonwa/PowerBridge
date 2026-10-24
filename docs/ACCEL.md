@@ -58,8 +58,8 @@ pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<fi
 The second line says whether the kernel will be used:
 
 ```text
-pl_oracle 0.9.0
-native kernel: powerbridge-accel 0.9.0 (available)
+pl_oracle 0.10.0
+native kernel: powerbridge-accel 0.10.0 (available)
 ```
 
 If it says `not available`, the reason follows in brackets: `not installed`,
