@@ -483,7 +483,7 @@ def _drive_bars(
     hist: _History,
     call_kwargs: dict[str, Any],
     const_defaults: dict[str, Any],
-    state: Any,
+    state: SeriesState,
     *,
     n_bars: int,
     get_ohlcv: Callable[[int], Any],

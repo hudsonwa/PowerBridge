@@ -235,7 +235,6 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self.persist:
             self._collect_history_vars(node['body'])
 
-
     def _seed_partial_stubs(self, node: Node) -> None:
         """Partial persist mode: seed vars whose initializer is unimplemented with a stub."""
         if not (self._partial and self.persist):
@@ -275,7 +274,6 @@ class CodeGen(_ExprMixin, _StmtMixin):
                     e = self._unimpl_errors[before]
                     self._state_inits[name] = (
                         f"pl_partial_stub({e['name']!r}, {e['line']!r})()")
-
 
     def _emit_state_prologue(self, node: Node) -> None:
         """Persist/trace: emit the first-bar `_state` seed and per-bar unpack."""
@@ -418,7 +416,6 @@ class CodeGen(_ExprMixin, _StmtMixin):
         if self.trace:
             for name in sorted(self._trace_vars, key=self._el_name):
                 self.emit(f"_trace[{self._el_name(name)!r}] = {name}")
-
 
     def _function_header(self) -> str:
         """The `def strategy(...)` signature and per-bar prologue text."""
