@@ -13,8 +13,11 @@
 # limitations under the License.
 
 """bar_loop.py -- the per-bar execution core (:func:`run_bar_loop`)."""
+import datetime as _dt
 import os
 import traceback
+from collections import Counter
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from pl_transpiler.engine_dates import _el_date_to_day_of_week
@@ -110,6 +113,266 @@ def _is_mirror_dialect(strategy_fn: Any, code: Any) -> bool:
             and "_state" not in code.co_varnames)
 
 
+def _validate_window(trade_from: int, max_bars_back: Union[int, str],
+                     n_bars: int) -> tuple[int, int]:
+    """Normalise and range-check ``trade_from`` and ``max_bars_back``."""
+    trade_from = int(trade_from or 0)
+    if trade_from < 0:
+        raise ValueError(f"trade_from must be >= 0, got {trade_from}")
+    if trade_from > n_bars:
+        raise ValueError(f"trade_from {trade_from} exceeds n_bars {n_bars}")
+    max_bars_back = int(max_bars_back or 0)
+    if max_bars_back < 0:
+        raise ValueError(f"max_bars_back must be >= 0, got {max_bars_back}")
+    return trade_from, max_bars_back
+
+
+def _takes_kwargs_dict(strategy_fn: Any) -> bool:
+    """True when *strategy_fn* takes the kwargs dict as its 8th positional.
+
+    Raises ValueError for mirror-dialect output, which has no cross-bar state.
+    """
+    # Persist/trace generated strategy() takes the kwargs dict as the 8th
+    # positional (`kwargs=None, **_kw`). Passing call_kwargs by reference
+    # skips a ~40-key **unpack copy every bar. Hand-written `**kwargs`
+    # strategies (tests, custom runners) keep the copy path.
+    _fn_code = getattr(strategy_fn, "__code__", None)
+    _pass_kw_dict = (
+        _fn_code is not None
+        and _fn_code.co_argcount >= 8
+        and _fn_code.co_varnames[7] == "kwargs"
+    )
+    if _is_mirror_dialect(strategy_fn, _fn_code):
+        raise ValueError(
+            "strategy is mirror-dialect transpiler output (no cross-bar _state, "
+            "so Vars reset every bar); transpile it with the default "
+            "dialect='runnable' instead of dialect='mirror' / --no-persist")
+    return _pass_kw_dict
+
+
+@dataclass(frozen=True)
+class _KwargNeeds:
+    """Which per-bar kwargs the strategy reads (all True for ``**kwargs``)."""
+
+    datetime: bool = True
+    daily: bool = True
+    session_last: bool = True
+    currentsession: bool = True
+    all_pos: bool = True
+    mp: bool = False
+    cc: bool = False
+    pos_extra: tuple[tuple[str, str], ...] = ()
+    current_date: bool = True
+    current_time: bool = True
+    currentbar: bool = True
+    barnumber: bool = True
+    outpath: bool = True
+    first_bar: bool = True
+
+
+def _kwarg_needs(strategy_fn: Any, pass_kw_dict: bool) -> _KwargNeeds:
+    """Decide which per-bar kwargs to compute for *strategy_fn*."""
+    # Persist/trace 8-arg path: skip unused kwargs work when the generated
+    # body never names the key. **kwargs callers (tests, dumps) always compute.
+    if not pass_kw_dict:
+        return _KwargNeeds()
+    _pos_needed = tuple(
+        (k, a) for k, a in _POS_KWARGS
+        if _code_has_const(strategy_fn, k)
+    )
+    _need_all_pos = len(_pos_needed) == len(_POS_KWARGS)
+    return _KwargNeeds(
+        datetime=_code_has_const(strategy_fn, "datetime"),
+        daily=any(_code_has_const(strategy_fn, k) for k in _DAILY_OHLC_KEYS),
+        session_last=_code_has_const(strategy_fn, "session_last_bar"),
+        currentsession=_code_has_const(strategy_fn, "currentsession"),
+        all_pos=_need_all_pos,
+        mp=(not _need_all_pos) and any(
+            k == "market_position" for k, _a in _pos_needed),
+        cc=(not _need_all_pos) and any(
+            k == "current_contracts" for k, _a in _pos_needed),
+        pos_extra=tuple(
+            p for p in _pos_needed
+            if p[0] not in ("market_position", "current_contracts")
+        ),
+        current_date=_code_has_const(strategy_fn, "current_date"),
+        current_time=_code_has_const(strategy_fn, "current_time"),
+        currentbar=_code_has_const(strategy_fn, "currentbar"),
+        barnumber=_code_has_const(strategy_fn, "barnumber"),
+        outpath=_code_has_const(strategy_fn, "outpath"),
+        first_bar=_code_has_const(strategy_fn, "_first_bar"),
+    )
+
+
+_History = tuple[list[Any], list[Any], list[Any], list[Any],
+                 list[Any], list[Any], list[Any]]
+
+
+def _init_history(init_hist: Optional[dict[str, list[Any]]]) -> _History:
+    """The growing o/h/l/c/v/d/t history lists the strategy reads."""
+    # Growing-history buffers. PAD=1 leading zero mirrors run_gt; init_hist lets a
+    # caller pre-seed real pre-capture warmup bars (GTA5 Data1).
+    # These stay Python lists. Isolated FAST-LANE (856,914 bars):
+    # array.array append+[-1] is ~1.2× slower (re-boxes a float on every read);
+    # a Python __getitem__ wrapper is ~2.7× slower; MaxBarsBack pop(0) cap is
+    # noise on the reference strategy. strategy() wants Python floats; list.append stores the
+    # tape's existing PyFloat. A contiguous buffer is the right FFI layout for
+    # the optional accel extra — do not silently switch this path.
+    if init_hist is not None:
+        return (init_hist['o'], init_hist['h'], init_hist['l'], init_hist['c'],
+                init_hist['v'], init_hist['d'], init_hist['t'])
+    PAD = 1
+    o_hist, h_hist, l_hist, c_hist = ([0.0] * PAD for _ in range(4))
+    v_hist, d_hist, t_hist = ([0] * PAD for _ in range(3))
+    return o_hist, h_hist, l_hist, c_hist, v_hist, d_hist, t_hist
+
+
+def _infer_session_end_tm(dates: Any, times: Any, n_bars: int) -> Optional[int]:
+    """Most common time-of-day at a day boundary, or None if there is none.
+
+    Classifies the FINAL bar's SessionLastBar (no next bar to compare).
+    Derived from the date/time series so it stays instrument-agnostic.
+    """
+    if n_bars <= 1:
+        return None
+    _se: Counter[Any] = Counter()
+    for _j in range(n_bars - 1):
+        if dates[_j] != dates[_j + 1]:
+            _se[times[_j]] += 1
+    if _se:
+        return _se.most_common(1)[0][0]  # type: ignore[no-any-return]
+    return None
+
+
+def _lastcalc_kwargs(dates: Any, times: Any, n_bars: int) -> dict[str, Any]:
+    """LastCalc* keys: datetime of the FINAL bar (constant across bars)."""
+    if n_bars <= 0:
+        return {}
+    try:
+        _ld = int(dates[n_bars - 1]); _lt = int(times[n_bars - 1])
+        _yr = 1900 + _ld // 10000; _mo = (_ld // 100) % 100; _dy = _ld % 100
+        _hh = _lt // 100; _mn = _lt % 100
+        _jdate = (_dt.date(_yr, _mo, _dy) - _dt.date(1899, 12, 30)).days
+        _secs = _hh * 3600 + _mn * 60
+        return {
+            'lastcalcjdate': _jdate,
+            'lastcalcdatetime': _jdate + _secs / 86400.0,
+            'lastcalcmmtime': _hh * 60 + _mn,
+            'lastcalcsstime': _secs,
+            'lastcalcmstime': _secs * 1000,
+        }
+    except (ValueError, TypeError):
+        return {}
+
+
+def _const_defaults(config: Any, lastcalc_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Per-run constant kwargs, restored after ``per_bar_extra`` overrides them."""
+    # Constants never change unless extra overrides them. Restore only those
+    # keys next bar (old path re-wrote all 10 + lastcalc every bar).
+    defaults = {
+        'sess1starttime': config.sess1starttime,
+        'barinterval': config.barinterval,
+        'bartype': 1,
+        'tradedate': 101,
+        'pointvalue': config.pointvalue,
+        'bigpointvalue': config.bigpointvalue,
+        'minmove': config.minmove,
+        'pricescale': config.pricescale,
+        'symbol': config.symalt,
+        'symbolname': config.symnm,
+        'description': config.descstr,
+        'category': config.category,
+        'symbolcurrencycode': config.symccy,
+        'expirationdate': config.expdate,
+    }
+    if lastcalc_kwargs:
+        defaults.update(lastcalc_kwargs)
+    return defaults
+
+
+def _initial_call_kwargs(config: Any, lastcalc_kwargs: dict[str, Any],
+                         state: SeriesState,
+                         closed_trades: list[Any]) -> dict[str, Any]:
+    """The single kwargs dict reused (overwritten in place) on every bar."""
+    # One kwargs dict for the whole run. Per-bar keys, constants, and position
+    # fields are overwritten in place (no new dict, one **-unpack). A fresh
+    # dict + double **-unpack every bar was ~1.5 s isolated over 2.32M dummy calls.
+    call_kwargs = {
+        # OutPath is blanked so a strategy's Print(File(OutPath)) never writes to
+        # the path in its source (sandbox). Other input names are not touched.
+        'outpath': '',
+        'sess1starttime': config.sess1starttime,
+        'barinterval': config.barinterval,
+        'bartype': 1,
+        'tradedate': 101,
+        'pointvalue': config.pointvalue,
+        'bigpointvalue': config.bigpointvalue,
+        'minmove': config.minmove,
+        'pricescale': config.pricescale,
+        'symbol': config.symalt,
+        'symbolname': config.symnm,
+        'description': config.descstr,
+        'category': config.category,
+        'symbolcurrencycode': config.symccy,
+        'expirationdate': config.expdate,
+        'current_date': 0,
+        'current_time': 0,
+        'datetime': 0.0,
+        'opend_0': 0.0,
+        'highd_0': 0.0,
+        'lowd_0': 0.0,
+        'closed_0': 0.0,
+        'closed_1': -1,
+        'currentsession': 2,  # dummy; recomputed on the first bar
+        'currentbar': 0,
+        'session_last_bar': 0,
+        'barnumber': 0,
+        '_first_bar': True,
+        '_state': state,
+        # Closed-position ledger for EntryDate(n)/ExitPrice(n)/... (pl_pos_ago).
+        # The engine appends to this list in place, so one reference suffices.
+        '_closed_trades': closed_trades,
+        'time_s': 0,
+        'market_position': 0,
+        'current_contracts': 0,
+        'entry_price': 0,
+        'avgentryprice': 0,
+        'bars_since_entry': 0,
+        'exit_price': 0,
+        'bars_since_exit': 0,
+        'open_position_profit': 0,
+        'position_profit': 0,
+        'net_profit': 0,
+        'gross_profit': 0,
+        'gross_loss': 0,
+        'totaltrades': 0,
+        'maxcontractsheld': 0,
+        'maxiddrawdown': 0,
+        'maxshares': 0,
+        'openentriescount': 0,
+    }
+    if lastcalc_kwargs:
+        call_kwargs.update(lastcalc_kwargs)
+    return call_kwargs
+
+
+def _exit_on_close(fill_engine: "FillEngine", prev_close: Any, barnumber: int,
+                   prev_dt: Any, prev_tm: Any) -> None:
+    """SetExitOnClose at a date change: flatten at the previous bar's close."""
+    # A 'this bar on close' order placed on the prior (last session) bar fills
+    # FIRST at that close — it may REVERSE the position — and THEN exit-on-close
+    # flattens whatever remains. MC counts BOTH (verified o3 bn66595->66596:
+    # SE_CLS reverses long->short (+1 trade), exit-on-close closes the short
+    # (+1), session ends flat with tot 2526->2528). Both fills price at the
+    # last bar's close. _execute_onclose_pending clears its own queue, so the
+    # subsequent before_bar call is a no-op.
+    fill_engine._execute_onclose_pending()
+    if fill_engine.market_position != 0:
+        fill_engine._close_at_stop(prev_close, 'exit_on_close', barnumber - 1,
+                                   exit_date=prev_dt, exit_time=prev_tm,
+                                   exit_name='End of Day Exit', exit_cat=4)
+
+
 def run_bar_loop(
     strategy_fn: Callable[..., Any],
     *,
@@ -188,133 +451,81 @@ def run_bar_loop(
     still gets DateTime, daily OHLC, session, every position field, and
     the bar-id keys every bar.
     """
-    import datetime as _dt
-    from collections import Counter
     if strict is None:
         strict = os.environ.get("PL_STRICT", "").strip().lower() not in (
             "", "0", "false", "no", "off")
-
-    trade_from = int(trade_from or 0)
-    if trade_from < 0:
-        raise ValueError(f"trade_from must be >= 0, got {trade_from}")
-    if trade_from > n_bars:
-        raise ValueError(f"trade_from {trade_from} exceeds n_bars {n_bars}")
-    max_bars_back = int(max_bars_back or 0)
-    if max_bars_back < 0:
-        raise ValueError(f"max_bars_back must be >= 0, got {max_bars_back}")
-
-    # Persist/trace generated strategy() takes the kwargs dict as the 8th
-    # positional (`kwargs=None, **_kw`). Passing call_kwargs by reference
-    # skips a ~40-key **unpack copy every bar. Hand-written `**kwargs`
-    # strategies (tests, custom runners) keep the copy path.
-    _fn_code = getattr(strategy_fn, "__code__", None)
-    _pass_kw_dict = (
-        _fn_code is not None
-        and _fn_code.co_argcount >= 8
-        and _fn_code.co_varnames[7] == "kwargs"
-    )
-    if _is_mirror_dialect(strategy_fn, _fn_code):
-        raise ValueError(
-            "strategy is mirror-dialect transpiler output (no cross-bar _state, "
-            "so Vars reset every bar); transpile it with the default "
-            "dialect='runnable' instead of dialect='mirror' / --no-persist")
-    # Persist/trace 8-arg path: skip unused kwargs work when the generated
-    # body never names the key. **kwargs callers (tests, dumps) always compute.
-    if not _pass_kw_dict:
-        _need_datetime = True
-        _need_daily = True
-        _need_session_last = True
-        _need_currentsession = True
-        _need_all_pos = True
-        _need_mp = False
-        _need_cc = False
-        _pos_extra: tuple[tuple[str, str], ...] = ()
-        _need_current_date = True
-        _need_current_time = True
-        _need_currentbar = True
-        _need_barnumber = True
-        _need_outpath = True
-        _need_first_bar = True
-    else:
-        _need_datetime = _code_has_const(strategy_fn, "datetime")
-        _need_daily = any(
-            _code_has_const(strategy_fn, k) for k in _DAILY_OHLC_KEYS)
-        _need_session_last = _code_has_const(strategy_fn, "session_last_bar")
-        _need_currentsession = _code_has_const(strategy_fn, "currentsession")
-        _pos_needed = tuple(
-            (k, a) for k, a in _POS_KWARGS
-            if _code_has_const(strategy_fn, k)
-        )
-        _need_all_pos = len(_pos_needed) == len(_POS_KWARGS)
-        _need_mp = (not _need_all_pos) and any(
-            k == "market_position" for k, _a in _pos_needed)
-        _need_cc = (not _need_all_pos) and any(
-            k == "current_contracts" for k, _a in _pos_needed)
-        _pos_extra = tuple(
-            p for p in _pos_needed
-            if p[0] not in ("market_position", "current_contracts")
-        )
-        _need_current_date = _code_has_const(strategy_fn, "current_date")
-        _need_current_time = _code_has_const(strategy_fn, "current_time")
-        _need_currentbar = _code_has_const(strategy_fn, "currentbar")
-        _need_barnumber = _code_has_const(strategy_fn, "barnumber")
-        _need_outpath = _code_has_const(strategy_fn, "outpath")
-        _need_first_bar = _code_has_const(strategy_fn, "_first_bar")
-    _track_daily = _need_daily or _need_currentsession
-
-    # Growing-history buffers. PAD=1 leading zero mirrors run_gt; init_hist lets a
-    # caller pre-seed real pre-capture warmup bars (GTA5 Data1).
-    # These stay Python lists. Isolated FAST-LANE (856,914 bars):
-    # array.array append+[-1] is ~1.2× slower (re-boxes a float on every read);
-    # a Python __getitem__ wrapper is ~2.7× slower; MaxBarsBack pop(0) cap is
-    # noise on the reference strategy. strategy() wants Python floats; list.append stores the
-    # tape's existing PyFloat. A contiguous buffer is the right FFI layout for
-    # the optional accel extra — do not silently switch this path.
-    if init_hist is not None:
-        o_hist = init_hist['o']; h_hist = init_hist['h']; l_hist = init_hist['l']
-        c_hist = init_hist['c']; v_hist = init_hist['v']
-        d_hist = init_hist['d']; t_hist = init_hist['t']
-    else:
-        PAD = 1
-        o_hist, h_hist, l_hist, c_hist = ([0.0] * PAD for _ in range(4))
-        v_hist, d_hist, t_hist = ([0] * PAD for _ in range(3))
-
-    # Canonical session-end time-of-day (most common time-of-day at a day boundary),
-    # used to classify the FINAL bar's SessionLastBar (no next bar to compare).
-    # Derived from the date/time series so it stays instrument-agnostic.
-    # Skipped when the 8-arg persist body never names session_last_bar.
-    if _need_session_last and session_end_tm is None and n_bars > 1:
-        _se: Counter[Any] = Counter()
-        for _j in range(n_bars - 1):
-            if dates[_j] != dates[_j + 1]:
-                _se[times[_j]] += 1
-        if _se:
-            session_end_tm = _se.most_common(1)[0][0]
-
-    # LastCalc*: datetime of the FINAL bar of the dataset (constant across bars).
+    trade_from, max_bars_back = _validate_window(trade_from, max_bars_back, n_bars)
+    pass_kw_dict = _takes_kwargs_dict(strategy_fn)
+    needs = _kwarg_needs(strategy_fn, pass_kw_dict)
+    hist = _init_history(init_hist)
+    if needs.session_last and session_end_tm is None:
+        session_end_tm = _infer_session_end_tm(dates, times, n_bars)
     if lastcalc_kwargs is None:
-        lastcalc_kwargs = {}
-        if n_bars > 0:
-            try:
-                _ld = int(dates[n_bars - 1]); _lt = int(times[n_bars - 1])
-                _yr = 1900 + _ld // 10000; _mo = (_ld // 100) % 100; _dy = _ld % 100
-                _hh = _lt // 100; _mn = _lt % 100
-                _jdate = (_dt.date(_yr, _mo, _dy) - _dt.date(1899, 12, 30)).days
-                _secs = _hh * 3600 + _mn * 60
-                lastcalc_kwargs = {
-                    'lastcalcjdate': _jdate,
-                    'lastcalcdatetime': _jdate + _secs / 86400.0,
-                    'lastcalcmmtime': _hh * 60 + _mn,
-                    'lastcalcsstime': _secs,
-                    'lastcalcmstime': _secs * 1000,
-                }
-            except (ValueError, TypeError):
-                lastcalc_kwargs = {}
+        lastcalc_kwargs = _lastcalc_kwargs(dates, times, n_bars)
+    # O(1) `_state['x'] + [x]` lookback views; see runtime/_rt_history.
+    state = SeriesState()
+    const_defaults = _const_defaults(config, lastcalc_kwargs)
+    call_kwargs = _initial_call_kwargs(
+        config, lastcalc_kwargs, state, fill_engine.closed_trades)
+    return _drive_bars(
+        strategy_fn, pass_kw_dict, needs, hist, call_kwargs, const_defaults,
+        state, n_bars=n_bars, get_ohlcv=get_ohlcv, dates=dates, times=times,
+        fill_engine=fill_engine, emit_row=emit_row, warmup=warmup,
+        per_bar_extra=per_bar_extra, session_end_tm=session_end_tm,
+        strict=strict, trade_from=trade_from, emit_trace=emit_trace,
+        max_bars_back=max_bars_back, on_bar=on_bar)
+
+
+def _drive_bars(
+    strategy_fn: Callable[..., Any],
+    pass_kw_dict: bool,
+    needs: _KwargNeeds,
+    hist: _History,
+    call_kwargs: dict[str, Any],
+    const_defaults: dict[str, Any],
+    state: Any,
+    *,
+    n_bars: int,
+    get_ohlcv: Callable[[int], Any],
+    dates: Any,
+    times: Any,
+    fill_engine: "FillEngine",
+    emit_row: Callable[[int, int, dict[str, Any]], Any],
+    warmup: int,
+    per_bar_extra: Optional[Callable[[int], Optional[dict[str, Any]]]],
+    session_end_tm: Optional[int],
+    strict: bool,
+    trade_from: int,
+    emit_trace: bool,
+    max_bars_back: int,
+    on_bar: Optional[Callable[[int], Any]],
+) -> tuple[int, int, Optional[str]]:
+    """The per-bar loop: history, fills, kwargs, strategy call, emit.
+
+    Hot path: every flag and buffer is bound to a local up front, and the
+    body stays inline (no per-bar helper calls) to keep the loop fast.
+    """
+    o_hist, h_hist, l_hist, c_hist, v_hist, d_hist, t_hist = hist
+    _pass_kw_dict = pass_kw_dict
+    _need_datetime = needs.datetime
+    _need_daily = needs.daily
+    _need_session_last = needs.session_last
+    _need_currentsession = needs.currentsession
+    _need_all_pos = needs.all_pos
+    _need_mp = needs.mp
+    _need_cc = needs.cc
+    _pos_extra = needs.pos_extra
+    _need_current_date = needs.current_date
+    _need_current_time = needs.current_time
+    _need_currentbar = needs.currentbar
+    _need_barnumber = needs.barnumber
+    _need_outpath = needs.outpath
+    _need_first_bar = needs.first_bar
+    _track_daily = _need_daily or _need_currentsession
+    _const_defaults = const_defaults
 
     barnumber = 0
     first_bar = True
-    # O(1) `_state['x'] + [x]` lookback views; see runtime/_rt_history.
-    state = SeriesState()
     _throw_count = 0
     _total_strategy_calls = 0
     _first_traceback: Optional[str] = None
@@ -332,88 +543,8 @@ def run_bar_loop(
     prev_day_close: float = -1  # CloseD(1): yesterday's close; -1 when no prior day
     current_session = 2  # dummy; recomputed on first bar below
 
-    # One kwargs dict for the whole run. Per-bar keys, constants, and position
-    # fields are overwritten in place (no new dict, one **-unpack). A fresh
-    # dict + double **-unpack every bar was ~1.5 s isolated over 2.32M dummy calls.
-    call_kwargs = {
-        # OutPath is blanked so a strategy's Print(File(OutPath)) never writes to
-        # the path in its source (sandbox). Other input names are not touched.
-        'outpath': '',
-        'sess1starttime': config.sess1starttime,
-        'barinterval': config.barinterval,
-        'bartype': 1,
-        'tradedate': 101,
-        'pointvalue': config.pointvalue,
-        'bigpointvalue': config.bigpointvalue,
-        'minmove': config.minmove,
-        'pricescale': config.pricescale,
-        'symbol': config.symalt,
-        'symbolname': config.symnm,
-        'description': config.descstr,
-        'category': config.category,
-        'symbolcurrencycode': config.symccy,
-        'expirationdate': config.expdate,
-        'current_date': 0,
-        'current_time': 0,
-        'datetime': 0.0,
-        'opend_0': 0.0,
-        'highd_0': 0.0,
-        'lowd_0': 0.0,
-        'closed_0': 0.0,
-        'closed_1': -1,
-        'currentsession': current_session,
-        'currentbar': 0,
-        'session_last_bar': 0,
-        'barnumber': 0,
-        '_first_bar': True,
-        '_state': state,
-        # Closed-position ledger for EntryDate(n)/ExitPrice(n)/... (pl_pos_ago).
-        # The engine appends to this list in place, so one reference suffices.
-        '_closed_trades': fill_engine.closed_trades,
-        'time_s': 0,
-        'market_position': 0,
-        'current_contracts': 0,
-        'entry_price': 0,
-        'avgentryprice': 0,
-        'bars_since_entry': 0,
-        'exit_price': 0,
-        'bars_since_exit': 0,
-        'open_position_profit': 0,
-        'position_profit': 0,
-        'net_profit': 0,
-        'gross_profit': 0,
-        'gross_loss': 0,
-        'totaltrades': 0,
-        'maxcontractsheld': 0,
-        'maxiddrawdown': 0,
-        'maxshares': 0,
-        'openentriescount': 0,
-    }
-    if lastcalc_kwargs:
-        call_kwargs.update(lastcalc_kwargs)
     _engine_keys = frozenset(call_kwargs)
     _hook_only: list[str] = []
-
-    # Constants never change unless extra overrides them. Restore only those
-    # keys next bar (old path re-wrote all 10 + lastcalc every bar).
-    _const_defaults = {
-        'sess1starttime': config.sess1starttime,
-        'barinterval': config.barinterval,
-        'bartype': 1,
-        'tradedate': 101,
-        'pointvalue': config.pointvalue,
-        'bigpointvalue': config.bigpointvalue,
-        'minmove': config.minmove,
-        'pricescale': config.pricescale,
-        'symbol': config.symalt,
-        'symbolname': config.symnm,
-        'description': config.descstr,
-        'category': config.category,
-        'symbolcurrencycode': config.symccy,
-        'expirationdate': config.expdate,
-    }
-    if lastcalc_kwargs:
-        _const_defaults.update(lastcalc_kwargs)
     _restore_consts: tuple[str, ...] = ()
 
     for i in range(n_bars):
@@ -440,18 +571,8 @@ def run_bar_loop(
         if (trading and prev_date is not None and cur_date != prev_date and
                 fill_engine._risk.get('exit_on_close', False) and
                 prev_close_for_exit is not None):
-            # A 'this bar on close' order placed on the prior (last session) bar fills
-            # FIRST at that close — it may REVERSE the position — and THEN exit-on-close
-            # flattens whatever remains. MC counts BOTH (verified o3 bn66595->66596:
-            # SE_CLS reverses long->short (+1 trade), exit-on-close closes the short
-            # (+1), session ends flat with tot 2526->2528). Both fills price at the
-            # last bar's close. _execute_onclose_pending clears its own queue, so the
-            # subsequent before_bar call is a no-op.
-            fill_engine._execute_onclose_pending()
-            if fill_engine.market_position != 0:
-                fill_engine._close_at_stop(prev_close_for_exit, 'exit_on_close', barnumber - 1,
-                                           exit_date=prev_dt_for_exit, exit_time=prev_tm_for_exit,
-                                           exit_name='End of Day Exit', exit_cat=4)
+            _exit_on_close(fill_engine, prev_close_for_exit, barnumber,
+                           prev_dt_for_exit, prev_tm_for_exit)
 
         # Track daily OHLC for OpenD/HighD/LowD/CloseD / CurrentSession.
         # Persist 8-arg path skips this when the body never names those keys.
