@@ -25,6 +25,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Added
+
+- Each GitHub Release now carries a `SHA256SUMS` file over every sdist and wheel and a build provenance attestation for each file, so a download can be checked with `sha256sum -c` and `gh attestation verify`; see SECURITY.md (#251).
+
 ### Changed
 
 - The release workflow now tests the built wheels before anything is attached or published: the `powerbridge` wheel runs the public tier from a clean venv, and each `powerbridge-accel` wheel runs a native-vs-Python digest check on the examples on its own platform runner (#246).

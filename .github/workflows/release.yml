@@ -2,12 +2,14 @@ name: release
 
 # Builds the release artifacts and attaches them to a GitHub Release.
 #
-#   * release published  -> build, test the wheels, attach everything to that
+#   * release published  -> build, test the wheels, write SHA256SUMS, attest
+#                           build provenance, attach everything to that
 #                           GitHub Release, then publish both projects to PyPI
 #                           (if PYPI_PUBLISH is `true`).
-#   * workflow_dispatch  -> dry run: build and test the wheels only; the files are
-#                           kept as workflow artifacts. Nothing is attached to
-#                           a release and nothing goes to PyPI.
+#   * workflow_dispatch  -> dry run: build and test the wheels and write
+#                           SHA256SUMS; the files are kept as workflow
+#                           artifacts. Nothing is attested, nothing is
+#                           attached to a release and nothing goes to PyPI.
 #   * workflow_dispatch with `tag` -> re-publish an existing release: nothing
 #                           is rebuilt; the files already attached to that
 #                           GitHub Release are uploaded to PyPI (if
@@ -218,19 +220,62 @@ jobs:
             echo "OK: $el digests match"
           done
 
-  github-release:
-    name: attach to GitHub Release
-    if: github.event_name == 'release'
+  # SHA256SUMS covers every sdist and wheel. It is written on every build
+  # (a dry run keeps it as a workflow artifact so it can be checked).
+  checksums:
+    name: SHA256SUMS
     needs: [core, accel, test-core, test-accel]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
+
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum -- *.tar.gz *.whl > ../SHA256SUMS
+          cat ../SHA256SUMS
+          test "$(wc -l < ../SHA256SUMS)" -eq "$(ls -1 | wc -l)"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sha256sums
+          path: SHA256SUMS
+
+  github-release:
+    name: attest and attach to GitHub Release
+    if: github.event_name == 'release'
+    needs: [core, accel, test-core, test-accel, checksums]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sha256sums
+          path: dist
+
+      - name: Check SHA256SUMS
+        working-directory: dist
+        run: sha256sum -c SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.whl
 
       - name: Upload to the release
         env:
