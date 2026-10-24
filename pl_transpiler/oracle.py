@@ -59,7 +59,6 @@ CLI (pl_transpiler.tools.pl_oracle):
 """
 from __future__ import annotations
 
-import contextlib
 import csv
 import hashlib
 import os
@@ -72,18 +71,17 @@ if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
 
 from pl_transpiler import transpile
-from pl_transpiler.engine import FillEngine, run_bar_loop
-from pl_transpiler.errors import UnimplementedKeywordError, el_runtime_error
+from pl_transpiler.engine import FillEngine
 from pl_transpiler.lookback import (
     check_max_bars_back,
     check_max_entries_per_direction,
     warn_short_history,
 )
 from pl_transpiler.run import (
+    _run_strategy_loop,
     resolve_trade_from,
     tick_decimals,
 )
-from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
 from pl_transpiler.runtime.accel import (
     AccelRefused,
     AccelUnavailable,
@@ -473,12 +471,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     warn_short_history(el_source, max_bars_back, ohlcv_columns(bars)["n"], "pl_oracle")
     drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     if drawings:
-        from pl_transpiler.runtime._rt_drawing import (
-            DrawingRecorder,
-            make_dump,
-            resolve_drawing_request,
-        )
-        from pl_transpiler.runtime.drawing_dump import build_dump
+        from pl_transpiler.runtime._rt_drawing import resolve_drawing_request
         drawing_meta = resolve_drawing_request(
             drawing_case_id, drawing_tape, config.tick)
     fallback_reason = None
@@ -494,19 +487,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         if native_digest is not None:
             objects = native_digest.pop("_native_drawings", None)
             if drawings:
-                # The kernel recorded the objects; the envelope is built the
-                # same way as on the Python path.
-                cols = ohlcv_columns(bars)
-                native_digest["drawings"] = build_dump(
-                    objects or [],
-                    case_id=drawing_meta[0], tape_name=drawing_meta[1],
-                    tape_sha256=drawing_meta[2],
-                    n_bars=len(cols["date"]),
-                    first=(cols["date"][0], cols["time"][0]),
-                    last=(cols["date"][-1], cols["time"][-1]),
-                    tick=drawing_meta[3],
-                    producer_kind="pb-native",
-                )
+                native_digest["drawings"] = _native_drawing_dump(
+                    objects, bars, drawing_meta)
             return native_digest
 
     if from_date is not None and from_bar is not None:
@@ -516,91 +498,14 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         pl_unimplemented_warn,
     )
     pl_unimplemented_reset()
-    trade_from = 0
-    n_warmup = 0
-    if seed_warmup:
-        # Keep the head for warmup; still honour to_date as a tail slice.
-        bars, data2_closes = window_bars(
-            bars, from_date=None, to_date=to_date, extra=data2_closes)
-        trade_from = resolve_trade_from(
-            bars, from_date=from_date, from_bar=from_bar)
-        n_warmup = trade_from
-    else:
-        if from_bar is not None:
-            cut = resolve_trade_from(bars, from_bar=from_bar)
-            bars = bars[cut:]
-            if data2_closes is not None:
-                data2_closes = data2_closes[cut:]
-        bars, data2_closes = window_bars(
-            bars, from_date=from_date, to_date=to_date, extra=data2_closes)
-
-    # data2_bars is a (date, time) lookup table, not a positional extra, so it
-    # is joined AFTER the Data1 window. Deriving before the slice would require
-    # data2_bars to be 1:1 with the unsliced tape.
-    if data2_closes is None and data2_bars is not None:
-        data2_closes = data2_closes_from_bars(bars, data2_bars)
-
-    reset_indicator_caches()
-    py_code = transpile(el_source, persist=True)
-    ns: dict[str, Any] = {}
-    exec(compile(py_code, "<oracle>", "exec"), ns)
-    strategy_fn = ns["strategy"]
-
-    cols = ohlcv_columns(bars)
-    n = cols["n"]
-    o_arr, h_arr, l_arr = cols["open"], cols["high"], cols["low"]
-    c_arr, v_arr = cols["close"], cols["volume"]
-    dates, times = cols["date"], cols["time"]
-
-    fill_engine = FillEngine(config=config,
-                             max_entries_per_direction=max_entries_per_direction)
-    fill_engine._emit_gta6 = False
-
-    extra = None
-    if data2_closes is not None:
-        d2 = data2_closes
-
-        def extra(i: int) -> dict[str, float]:
-            return {"data2_close": d2[i]}
-
-    def emit_row(_i: int, _barnumber: int, _trace: Any) -> None:
-        return None
-
-    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
-        return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
-
-    # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
-    # digest. Same discard as run_el.
-    recorder = None
-    if drawings:
-        recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
-    with open(os.devnull, "w", encoding="utf-8") as _devnull, \
-            contextlib.redirect_stdout(_devnull), \
-            (recorder if recorder is not None else contextlib.nullcontext()):
-        try:
-            run_bar_loop(
-                strategy_fn,
-                n_bars=n,
-                get_ohlcv=get_ohlcv,
-                dates=dates,
-                times=times,
-                config=config,
-                fill_engine=fill_engine,
-                emit_row=emit_row,
-                per_bar_extra=extra,
-                strict=True,
-                trade_from=trade_from,
-                emit_trace=False,
-                max_bars_back=max_bars_back,
-                on_bar=None if recorder is None else recorder.set_bar,
-            )
-        except (UnimplementedBuiltinError, UnimplementedKeywordError):
-            raise
-        except Exception as exc:
-            el_exc = el_runtime_error(exc, py_code, "<oracle>", el_source)
-            if el_exc is None:
-                raise
-            raise el_exc from exc
+    bars, data2_closes, trade_from = _window_python_run(
+        bars, data2_closes, data2_bars, from_date=from_date, to_date=to_date,
+        from_bar=from_bar, seed_warmup=seed_warmup)
+    fill_engine, recorder, cols = _run_oracle_python(
+        el_source, bars, config, data2_closes, trade_from=trade_from,
+        max_bars_back=max_bars_back,
+        max_entries_per_direction=max_entries_per_direction,
+        drawing_tick=drawing_meta[3] if drawings else None)
     # Reported after the run, so a program that stops on a user error
     # prints only that error.
     if fallback_reason is not None and fallback_reason.startswith("native path refused"):
@@ -618,8 +523,9 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         "round_turns": len(records) // 2 if v1 else count_round_turns(records),
         "closed_positions": len(fill_engine.closed_trades),
         "sha256": fills_sha256(records, digest_version),
-        "n_bars": n,
-        "n_warmup": n_warmup,
+        "n_bars": cols["n"],
+        # seed_warmup ran the prefix up to trade_from; otherwise it was sliced off.
+        "n_warmup": trade_from,
         "fast_path_hits": fill_engine.fast_path_hits,
         "records": records,
         "native": False,
@@ -633,10 +539,111 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         version=digest_version,
     )
     if drawings:
+        from pl_transpiler.runtime._rt_drawing import make_dump
         digest["drawings"] = make_dump(
-            recorder, dates, times,
+            recorder, cols["date"], cols["time"],
             case_id=drawing_meta[0], tape_name=drawing_meta[1],
             tape_sha256=drawing_meta[2], tick=drawing_meta[3],
             producer_kind="pb-python",
         )
     return digest
+
+
+def _native_drawing_dump(objects: Optional[list[Any]], bars: Bars,
+                         drawing_meta: tuple[Any, ...]) -> dict[str, Any]:
+    """Drawing dump for a native run.
+
+    The kernel recorded the objects; the envelope is built the same way as on
+    the Python path.
+    """
+    from pl_transpiler.runtime.drawing_dump import build_dump
+    cols = ohlcv_columns(bars)
+    return build_dump(
+        objects or [],
+        case_id=drawing_meta[0], tape_name=drawing_meta[1],
+        tape_sha256=drawing_meta[2],
+        n_bars=len(cols["date"]),
+        first=(cols["date"][0], cols["time"][0]),
+        last=(cols["date"][-1], cols["time"][-1]),
+        tick=drawing_meta[3],
+        producer_kind="pb-native",
+    )
+
+
+def _window_python_run(bars: Bars, data2_closes: Optional[Sequence[float]],
+                       data2_bars: Optional[Bars], *, from_date: Optional[int],
+                       to_date: Optional[int], from_bar: Optional[int],
+                       seed_warmup: bool
+                       ) -> tuple[Bars, Optional[Sequence[float]], int]:
+    """Apply the bar window for the Python path.
+
+    Returns ``(bars, data2_closes, trade_from)``. Without ``seed_warmup`` the
+    window is a slice and ``trade_from`` is 0; with it the head is kept as
+    warmup and ``trade_from`` is the first trading bar.
+    """
+    trade_from = 0
+    if seed_warmup:
+        # Keep the head for warmup; still honour to_date as a tail slice.
+        bars, data2_closes = window_bars(
+            bars, from_date=None, to_date=to_date, extra=data2_closes)
+        trade_from = resolve_trade_from(
+            bars, from_date=from_date, from_bar=from_bar)
+    else:
+        if from_bar is not None:
+            cut = resolve_trade_from(bars, from_bar=from_bar)
+            bars = bars[cut:]
+            if data2_closes is not None:
+                data2_closes = data2_closes[cut:]
+        bars, data2_closes = window_bars(
+            bars, from_date=from_date, to_date=to_date, extra=data2_closes)
+
+    # data2_bars is a (date, time) lookup table, not a positional extra, so it
+    # is joined AFTER the Data1 window. Deriving before the slice would require
+    # data2_bars to be 1:1 with the unsliced tape.
+    if data2_closes is None and data2_bars is not None:
+        data2_closes = data2_closes_from_bars(bars, data2_bars)
+    return bars, data2_closes, trade_from
+
+
+def _run_oracle_python(el_source: str, bars: Bars, config: InstrumentConfig,
+                       data2_closes: Optional[Sequence[float]], *,
+                       trade_from: int, max_bars_back: int,
+                       max_entries_per_direction: int,
+                       drawing_tick: Any) -> tuple[FillEngine, Any, dict[str, Any]]:
+    """Transpile (persist) and run the bar loop on the pure-Python engine.
+
+    ``drawing_tick`` is None unless drawings are recorded. Returns the fill
+    engine, the drawing recorder (or None) and the ``ohlcv_columns`` of *bars*.
+    """
+    reset_indicator_caches()
+    py_code = transpile(el_source, persist=True)
+    ns: dict[str, Any] = {}
+    exec(compile(py_code, "<oracle>", "exec"), ns)
+    strategy_fn = ns["strategy"]
+
+    cols = ohlcv_columns(bars)
+    fill_engine = FillEngine(config=config,
+                             max_entries_per_direction=max_entries_per_direction)
+    fill_engine._emit_gta6 = False
+
+    extra = None
+    if data2_closes is not None:
+        d2 = data2_closes
+
+        def extra(i: int) -> dict[str, float]:
+            return {"data2_close": d2[i]}
+
+    def emit_row(_i: int, _barnumber: int, _trace: Any) -> None:
+        return None
+
+    # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
+    # digest; the loop discards it, as for run_el.
+    recorder = None
+    if drawing_tick is not None:
+        from pl_transpiler.runtime._rt_drawing import DrawingRecorder
+        recorder = DrawingRecorder(cols["date"], cols["time"], tick=drawing_tick)
+    _run_strategy_loop(
+        strategy_fn, py_code, el_source, "<oracle>", cols, config, fill_engine,
+        emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
+        recorder=recorder, per_bar_extra=extra, emit_trace=False)
+    return fill_engine, recorder, cols

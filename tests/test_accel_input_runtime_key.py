@@ -87,9 +87,10 @@ COLLIDING = [k for k in INPUT_KEYS if k not in PARSED_AS_KEYWORD | {"outpath"}]
 
 def _oracle_extra_keys():
     """Keys pl_oracle's per_bar_extra hook adds (it only has one with Data2)."""
-    import pl_transpiler.oracle as oracle
+    # run_oracle drives the loop through pl_transpiler.run's shared helper.
+    import pl_transpiler.run as run_mod
     seen = set()
-    real = oracle.run_bar_loop
+    real = run_mod.run_bar_loop
 
     def spy(*args, per_bar_extra=None, **kwargs):
         if per_bar_extra is not None:
@@ -97,11 +98,11 @@ def _oracle_extra_keys():
         return real(*args, per_bar_extra=per_bar_extra, **kwargs)
 
     bars = load_bars_csv(BARS_CSV)
-    oracle.run_bar_loop = spy
+    run_mod.run_bar_loop = spy
     try:
         run_oracle("Value1 = Close;", bars, NQ, data2_closes=[b["close"] for b in bars])
     finally:
-        oracle.run_bar_loop = real
+        run_mod.run_bar_loop = real
     return seen
 
 
