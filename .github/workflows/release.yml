@@ -2,10 +2,10 @@ name: release
 
 # Builds the release artifacts and attaches them to a GitHub Release.
 #
-#   * release published  -> build, smoke-test, attach everything to that
+#   * release published  -> build, test the wheels, attach everything to that
 #                           GitHub Release, then publish both projects to PyPI
 #                           (if PYPI_PUBLISH is `true`).
-#   * workflow_dispatch  -> dry run: build and smoke-test only; the files are
+#   * workflow_dispatch  -> dry run: build and test the wheels only; the files are
 #                           kept as workflow artifacts. Nothing is attached to
 #                           a release and nothing goes to PyPI.
 #   * workflow_dispatch with `tag` -> re-publish an existing release: nothing
@@ -131,10 +131,97 @@ jobs:
           name: dist-accel-${{ matrix.name }}
           path: accel/dist/*.whl
 
+  test-core:
+    name: test powerbridge wheel (public tier)
+    needs: [core]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist-core
+          path: dist
+
+      - name: Install the wheel into a clean venv
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install dist/*.whl
+
+      - name: Public tier against the installed package
+        # The tier puts the repo root on sys.path and some members read
+        # package files by path, so the source package is replaced by a
+        # link to the installed one: every import and every file read then
+        # comes from the wheel.
+        run: |
+          site=$("$RUNNER_TEMP/venv/bin/python" -c "import pathlib, pl_transpiler; print(pathlib.Path(pl_transpiler.__file__).parent)")
+          case "$site" in *site-packages*) ;; *) echo "pl_transpiler not from the wheel: $site"; exit 1;; esac
+          rm -rf pl_transpiler
+          ln -s "$site" pl_transpiler
+          "$RUNNER_TEMP/venv/bin/python" tests/run_public_tier.py
+
+  test-accel:
+    name: test powerbridge-accel wheel (${{ matrix.name }})
+    needs: [core, accel]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macos-arm64, os: macos-14 }
+          - { name: macos-x86_64, os: macos-15-intel }
+          - { name: windows-x64, os: windows-latest }
+          - { name: linux-x86_64, os: ubuntu-latest }
+          - { name: linux-aarch64, os: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.9"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist-core
+          path: dist
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist-accel-${{ matrix.name }}
+          path: dist
+
+      - name: Native-vs-Python digest on the examples
+        # Runs from outside the repo so only the installed wheels are
+        # imported. The native run must take the native path and give the
+        # same digest as the pure-Python run.
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -x "$RUNNER_TEMP/venv/Scripts/python.exe" ]; then py="$RUNNER_TEMP/venv/Scripts/python.exe"; else py="$RUNNER_TEMP/venv/bin/python"; fi
+          "$py" -m pip install dist/powerbridge-*.whl dist/powerbridge_accel-*.whl
+          ex="$GITHUB_WORKSPACE/examples"
+          cd "$RUNNER_TEMP"
+          for el in "$ex"/*.el; do
+            "$py" -m pl_transpiler.tools.pl_oracle "$el" "$ex/NQ_sample_bars.csv" --native -q -o native.txt 2> native.err
+            cat native.err
+            grep -q '\[native\]' native.err || { echo "FAIL: $el did not take the native path"; exit 1; }
+            "$py" -m pl_transpiler.tools.pl_oracle "$el" "$ex/NQ_sample_bars.csv" --python -q -o python.txt
+            diff native.txt python.txt || { echo "FAIL: $el native and Python digests differ"; exit 1; }
+            echo "OK: $el digests match"
+          done
+
   github-release:
     name: attach to GitHub Release
     if: github.event_name == 'release'
-    needs: [core, accel]
+    needs: [core, accel, test-core, test-accel]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -158,7 +245,7 @@ jobs:
   # event and a re-publish by tag upload exactly the same files.
   pypi:
     name: publish powerbridge to PyPI
-    needs: [github-release]
+    needs: [github-release, test-core, test-accel]
     if: >-
       always() && vars.PYPI_PUBLISH == 'true' &&
       ((github.event_name == 'release' && needs.github-release.result == 'success') ||
@@ -186,7 +273,7 @@ jobs:
 
   pypi-accel:
     name: publish powerbridge-accel to PyPI
-    needs: [github-release]
+    needs: [github-release, test-core, test-accel]
     if: >-
       always() && vars.PYPI_PUBLISH == 'true' &&
       ((github.event_name == 'release' && needs.github-release.result == 'success') ||

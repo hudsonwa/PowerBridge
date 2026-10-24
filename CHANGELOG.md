@@ -25,6 +25,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Changed
+
+- The release workflow now tests the built wheels before anything is attached or published: the `powerbridge` wheel runs the public tier from a clean venv, and each `powerbridge-accel` wheel runs a native-vs-Python digest check on the examples on its own platform runner (#246).
+
 ### Fixed
 
 - Mirror-dialect output (`pl_transpile --dialect mirror`) no longer reads `_state` when a Variable is passed to `CrossesAbove` / `CrossesBelow` or another series function; it passes the bare variable, as the docs say. `el_emit` gives the same EasyLanguage as before, and runnable output is unchanged (#242).
