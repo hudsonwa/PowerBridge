@@ -16,10 +16,10 @@
 //!
 //! This module owns the *types and boundaries* the downstream modules build
 //! against: the bar/series shapes, the order/fill/position surface, the
-//! closed-position ledger, the output/report surface,
-//! the session/engine/interpreter seams, and the explicit instrument config.
-//! Nothing here executes a strategy — the fill engine, the IR interpreter and
-//! the harness are separate modules that consume these types.
+//! output/report surface, the interpreter seam, and the explicit instrument
+//! config. Nothing here executes a strategy — the fill engine (`kernel`) and
+//! the IR interpreter (`strategy`) are separate modules that consume these
+//! types.
 //!
 //! Contract rules (see `docs/dev/ACCEL-INTERFACE-V2.md`):
 //!
@@ -109,7 +109,6 @@ pub(crate) struct Bar {
     /// INVARIANT — `volume` is carried through the tape unchanged for the
     /// engine; no current fill logic reads it. Kept because the FFI
     /// `series` bundle includes it.
-    #[allow(dead_code)]
     pub(crate) volume: f64,
     pub(crate) date: i64,
     pub(crate) time: i64,
@@ -220,11 +219,7 @@ impl BarTape {
 /// Order direction (the `Action` enum of the Python `FillEngine`).
 ///
 /// INVARIANT — every fill type recorded is derived from this enum via
-/// [`fill_side_type`]. Variants are constructed by the kernel engine,
-/// which is dormant in production until an owner-approved strategy contract
-/// lands (`#[allow(dead_code)] mod kernel` in `lib.rs`) and is exercised by the
-/// unit tests; that is the only reason this enum carries `#[allow(dead_code)]`.
-#[allow(dead_code)]
+/// [`fill_side_type`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
     Buy,
@@ -254,10 +249,7 @@ pub(crate) fn fill_side_type(buy_side: bool) -> &'static str {
 /// Order execution style.
 ///
 /// INVARIANT — `Close` is the this-bar-on-close queuing style; `Market` /
-/// `Limit` / `Stop` are next-bar styles. Variants are constructed by the
-/// dormant kernel engine (see [`Action`] for why this carries
-/// `#[allow(dead_code)]`).
-#[allow(dead_code)]
+/// `Limit` / `Stop` are next-bar styles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OrderType {
     Market,
@@ -451,113 +443,18 @@ pub(crate) struct StrategyOutput {
     pub(crate) risk: RiskUpdate,
 }
 
-/// One closed-position snapshot — the `_record_closed_trade` ledger record.
-///
-/// INVARIANT — mirrors the Python `FillEngine._record_closed_trade` dict
-/// (`engine.py:529-574`) field-for-field. It is the consumer of the engine's
-/// currently write-only `position_mfe_per_contract` /
-/// `position_mae_per_contract` excursion state: at close time
-/// `mfe_pc`/`mae_pc` fold in the exit excursion at `f32(exit_price)`, because
-/// the exit fill is part of the held period. `contracts` is the MAX `isize`
-/// contracts held while open (`_pos_max_contracts`), `entries` the
-/// separate-entry count (`_pos_entries`), and `size` the contracts closed at
-/// the exit fill — a scale-in ladder is ONE closed position (counted here)
-/// with many fill records (counted by `round_turns`), which is exactly why
-/// `closed_positions` is NOT part of the trade digest. Entry context is
-/// snapshotted BEFORE `_reset_flat`.
-///
-/// Not yet constructed by any code in this crate: the engine populates
-/// it via [`SessionEngine::record_closed_trade`].
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ClosedPosition {
-    pub(crate) pnl: f64,
-    pub(crate) bars: i64,
-    pub(crate) mfe_pc: f64,
-    pub(crate) mae_pc: f64,
-    pub(crate) contracts: isize,
-    pub(crate) entries: i64,
-    pub(crate) size: isize,
-    pub(crate) islong: bool,
-    pub(crate) entry_px: f64,
-    pub(crate) exit_px: f64,
-    pub(crate) entry_bar: i64,
-    pub(crate) exit_bar: i64,
-    pub(crate) entry_date: i64,
-    pub(crate) entry_time: i64,
-    pub(crate) exit_date: i64,
-    pub(crate) exit_time: i64,
-    pub(crate) entry_name: String,
-    pub(crate) exit_name: String,
-    pub(crate) entry_cat: i64,
-    pub(crate) exit_cat: i64,
-}
-
-/// The open position's running aggregates (`_pos_entries` / `_pos_max_contracts`)
-/// plus its per-contract excursions (`_pos_mfe_pc` / `_pos_mae_pc`).
-///
-/// INVARIANT — `max_contracts` is the max contracts held while open
-/// (non-negative by construction but `isize` per the signed-size contract);
-/// `entries` counts separate entry fills; `mfe_pc`/`mae_pc` are `$` per
-/// contract with `mae_pc <= 0`. These are the aggregates the GTA6 report
-/// columns read O(1) instead of rescanning the ledger.
-///
-/// Maintained by the engine; not yet constructed by this crate.
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct PositionAggregates {
-    pub(crate) entries: i64,
-    pub(crate) max_contracts: isize,
-    pub(crate) mfe_pc: f64,
-    pub(crate) mae_pc: f64,
-}
-
-/// Incremental GTA6 session/strategy statistics (`_st_*`), updated at trade
-/// close so the report columns are O(1) reads, never rescans of the ledger.
-///
-/// INVARIANT — every closed trade is exactly one of win (`pnl > 0`), loss
-/// (`pnl < 0`) or even (`pnl == 0`), so
-/// `n_win + n_loss + n_even == closed_positions.len()` and the running totals
-/// reproduce a full ledger rescan byte-for-byte — the equivalence the Python
-/// `_st_*` fields rely on (`engine.py:575-602`). `largest_win`/`largest_loss`
-/// floor at 0.0 like Python.
-///
-/// Maintained by the engine; not yet constructed by this crate.
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct SessionStats {
-    pub(crate) n_win: i64,           // _st_nwin      NumWinTrades
-    pub(crate) n_loss: i64,          // _st_nlos      NumLosTrades
-    pub(crate) n_even: i64,          // _st_neven     NumEvenTrades
-    pub(crate) largest_win: f64,     // _st_lrgwin   LargestWinTrade
-    pub(crate) largest_loss: f64,    // _st_lrglos   LargestLosTrade
-    pub(crate) total_bars_win: i64,  // _st_totbwin   TotalBarsWinTrades
-    pub(crate) total_bars_loss: i64, // _st_totblos   TotalBarsLosTrades
-    pub(crate) total_bars_even: i64, // _st_totbeven  TotalBarsEvenTrades
-    pub(crate) cur_win_run: i64,     // _st_cwin      current consecutive-winners run
-    pub(crate) cur_loss_run: i64,    // _st_clos      current consecutive-losers run
-    pub(crate) max_win_run: i64,     // _st_maxcwin   MaxConsecWinners
-    pub(crate) max_loss_run: i64,    // _st_maxclos   MaxConsecLosers
-}
-
 /// The per-run output surface (contract v2 `run_program` return).
 ///
 /// INVARIANT — `fills` is the ordered trade list in the `FillEngine.fills`
-/// shape `pl_oracle` hashes; `closed_positions` is the closed-position ledger whose LENGTH
-/// is the `closed_positions` count `pl_oracle` reads
-/// (`closed_positions = len(FillEngine.closed_trades)`) — a scale-in ladder is
-/// one closed position, many fills. `position` is the final per-bar
-/// observation, and `total_trades` / `max_id_drawdown` are the report columns
-/// the caller consumes. The per-bar trace/report COLUMNS are the [`TraceReport`]
-/// surface; `fills` here and `closed_positions` here are the two ledgers the
-/// caller reads out.
+/// shape `pl_oracle` hashes. `position` is the final per-bar observation, and
+/// `total_trades` / `max_id_drawdown` are the report columns the caller
+/// consumes. The per-bar trace is `strategy::trace::TypedTrace`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct KernelOutcome {
     pub(crate) fills: Vec<Fill>,
     pub(crate) position: PositionView,
     pub(crate) total_trades: usize,
     pub(crate) max_id_drawdown: f64,
-    pub(crate) closed_positions: Vec<ClosedPosition>,
     /// Bars the kernel did not evaluate because a skip-region proof showed they
     /// cannot emit an order. Zero when the skip was unprovable (full eval).
     pub(crate) skipped_bars: usize,
@@ -565,87 +462,17 @@ pub(crate) struct KernelOutcome {
     pub(crate) fast_path_hits: usize,
 }
 
-/// The per-bar trace/report surface the caller reads (`pl_run` CSV columns +
-/// rows).
-///
-/// INVARIANT — mirrors `pl_run`/`run_el` output: `columns` are the first bar's
-/// sorted trace keys; there is one `rows` entry per emitted bar with a cell
-/// per column. Cell format is unchanged from the Python path: a
-/// missing/`None` value renders as `'0'`, every other value as `str(value)`.
-/// These columns are what the caller actually consumes — leaving them out of
-/// the original bars-only `run()` contract was the gap interface v2
-/// closes.
-///
-/// Produced by the interpreter/engine; not yet constructed by this crate.
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct TraceReport {
-    pub(crate) columns: Vec<String>,
-    pub(crate) rows: Vec<Vec<String>>,
-}
-
 /// One trading-session boundary, in EL HHmm (NQ: 0830 -> 1515).
 ///
 /// INVARIANT — session bounds are EXPLICIT config, never derived or guessed
 /// natively (interface v2: a program that reads session words must run
 /// against the right session, or be refused — never silently against the
-/// wrong one). The engine module owns the session logic (`SetExitOnClose`
+/// wrong one). The kernel owns the session logic (`SetExitOnClose`
 /// rollover, `SessionLastBar`) built on these bounds.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Session {
     pub(crate) start: i64,
     pub(crate) end: i64,
-}
-
-/// The fill-engine boundary the `accel/engine/` module implements and the bar
-/// loop drives.
-///
-/// INVARIANT — this is the single engine contract the engine and strategy modules share, so
-/// they cannot invent a parallel fill-engine type: the per-bar lifecycle
-/// (`before_bar` / `after_bar`), the strategy-observable [`PositionView`], the
-/// ordered trade list, and the closed-position ledger with its
-/// `_record_closed_trade` entry point. `record_closed_trade` snapshots the
-/// just-closed position BEFORE the flat reset, exactly like Python; the engine
-/// wires the engine's close paths to call it and to maintain
-/// [`PositionAggregates`] / [`SessionStats`].
-///
-/// Not implemented yet: the existing `kernel::FillEngine` predates the ledger and is
-/// the base the engine module extends.
-#[allow(dead_code)]
-pub(crate) trait SessionEngine {
-    fn before_bar(&mut self, bar: Bar, bar_number: usize) -> Result<(), KernelError>;
-    fn after_bar(
-        &mut self,
-        output: StrategyOutput,
-        bar: Bar,
-        bar_number: usize,
-    ) -> Result<(), KernelError>;
-    fn position(&self) -> PositionView;
-    fn fills(&self) -> &[Fill];
-    fn closed_positions(&self) -> &[ClosedPosition];
-    fn position_aggregates(&self) -> &PositionAggregates;
-    fn session_stats(&self) -> &SessionStats;
-
-    /// The `_record_closed_trade` entry point: snapshot the just-closed
-    /// position into the ledger. `exit_bar`/`exit_price`/`size`/`islong`/
-    /// `exit_date`/`exit_time`/`exit_name`/`exit_cat` are the close-time
-    /// context; the entry context is read from the engine's open-position
-    /// state, which is still set at this point. The 8 parameters mirror the
-    /// Python signature verbatim (`engine.py:529`), so the `too_many_arguments`
-    /// lint is deliberately allowed rather than collapsing the contract.
-    #[allow(clippy::too_many_arguments)]
-    fn record_closed_trade(
-        &mut self,
-        exit_bar: i64,
-        exit_price: f64,
-        size: isize,
-        islong: bool,
-        exit_date: i64,
-        exit_time: i64,
-        exit_name: &str,
-        exit_cat: i64,
-    );
 }
 
 /// One closed position as the positions-ago keywords (`EntryDate(n)`,
@@ -800,8 +627,7 @@ impl From<&Config> for Instrument {
 /// and warmup seed. [`From<&Config> for Instrument`] pins the narrowing-free
 /// mapping the engine consumes (`point_value = bigpointvalue`).
 ///
-/// Consumed by the FFI layer; not yet constructed by this crate.
-#[allow(dead_code)]
+/// Built from the FFI `config` dict by `extract_config` in `lib.rs`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Config {
     pub(crate) name: String,
@@ -830,13 +656,12 @@ pub(crate) struct Config {
 // END OF SHARED TYPES. Everything above is the interface both implementation
 // modules build against:
 //
-//   ENGINE   (accel/src/engine/**)   — fill engine, bar loop, session state
+//   KERNEL   (accel/src/kernel.rs)   — fill engine, bar loop, session state
 //   STRATEGY (accel/src/strategy/**) — the generated-strategy interpreter
 //
-// We keep these types in one place so the engine and the interpreter cannot
+// We keep these types in one place so the kernel and the interpreter cannot
 // drift into two incompatible views of the same order/fill/trace surface;
-// widening them is a deliberate interface change, not a local edit. The
-// trace/report surface the caller consumes is `TraceReport` (see above).
+// widening them is a deliberate interface change, not a local edit.
 // ============================================================================
 
 // ===== ENGINE-LANE REGION — append below this line only =====

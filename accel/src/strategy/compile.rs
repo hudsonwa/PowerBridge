@@ -64,19 +64,6 @@ impl Series {
     pub(crate) fn is_ohlcv(self) -> bool {
         !matches!(self, Series::Date | Series::Time)
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Series::Open => "open",
-            Series::High => "high",
-            Series::Low => "low",
-            Series::Close => "close",
-            Series::Volume => "volume",
-            Series::Date => "date",
-            Series::Time => "time",
-        }
-    }
 }
 
 /// A series argument resolved zero-copy for `average` / `crosses`.
@@ -501,7 +488,7 @@ pub(crate) enum Instr {
     },
     /// Numeric binop with baked LHS (TOS is the right operand). Refuses a zero
     /// divisor (see `pynum`).
-    #[allow(dead_code)]
+    #[allow(dead_code)] // no compile pass emits it yet; interp/skip/pynum already handle it
     BinopCLhs {
         op: Binop,
         lhs: f64,
@@ -512,7 +499,7 @@ pub(crate) enum Instr {
         rhs: f64,
     },
     /// Compare a baked numeric LHS with TOS (right). Pushes Bool.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // no compile pass emits it yet; interp/skip already handle it
     CompareCLhs {
         cmp: Cmp,
         lhs: f64,

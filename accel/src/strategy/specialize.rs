@@ -50,7 +50,7 @@ pub(crate) struct Specialized {
 /// Read by the bench via Interpreter::specialize_stats; unused on the
 /// production on_bar path, so the lib target would otherwise warn.
 #[derive(Debug, Clone, Copy, Default)]
-#[allow(dead_code)]
+#[allow(dead_code)] // fields read only by the cfg(test) bench (see above)
 pub(crate) struct Stats {
     pub(crate) instrs_before: usize,
     pub(crate) instrs_after: usize,
