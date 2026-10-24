@@ -21,6 +21,7 @@ from collections.abc import Callable as _Callable
 from collections.abc import Iterator as _Iterator
 from contextlib import contextmanager as _contextmanager
 from contextvars import ContextVar as _ContextVar
+from numbers import Real as _Real
 
 from ._rt_color import UnmeasuredColorError  # noqa: F401  (re-export)
 from ._rt_core import f32
@@ -585,15 +586,20 @@ def _capture_prints(sink: '_Callable[[str], object] | None' = None) -> '_Iterato
 
 
 def _print_part(value) -> str:
+    """One ``Print`` value as text; never raises, so printing cannot stop a run."""
     if isinstance(value, _PrintFile):
         return ''
     if isinstance(value, str):
         return value
-    if isinstance(value, bool):
+    # numpy's bool_ is neither a bool nor a numbers.Real.
+    if isinstance(value, bool) or getattr(getattr(value, 'dtype', None), 'kind', None) == 'b':
         return 'TRUE' if value else 'FALSE'
-    if isinstance(value, (int, float)):
+    if isinstance(value, _Real):
         return f"{float(value):.2f}"
-    raise TypeError(f"Print cannot show a {type(value).__name__} value")
+    try:
+        return str(value)
+    except Exception:  # noqa: BLE001 - a broken __str__ must not stop the run
+        return object.__repr__(value)
 
 
 def pl_print(*args):
