@@ -54,6 +54,21 @@ pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@vX.Y.Z"
 pip install https://github.com/hudsonwa/PowerBridge/releases/download/vX.Y.Z/<file>.whl
 ```
 
+**Verify the download (optional).** Releases after v0.11.0 carry a `SHA256SUMS` file covering every sdist and
+wheel, and a GitHub build provenance attestation for each of those files.
+Download the file you want and `SHA256SUMS` from the same release into one
+folder, then run:
+
+<!-- readme-test: skip (needs downloaded release files and the gh CLI) -->
+```bash
+sha256sum -c SHA256SUMS --ignore-missing   # macOS: shasum -a 256 -c SHA256SUMS --ignore-missing
+gh attestation verify <file> --repo hudsonwa/PowerBridge
+```
+
+The first checks the file was not changed after the release was built; the
+second checks it was built by this repository's `release.yml` workflow.
+v0.11.0 and earlier have neither.
+
 **Check your install.** Run `pl_oracle --version` (or `pl_run --version`).
 The second line says whether the kernel will be used:
 
