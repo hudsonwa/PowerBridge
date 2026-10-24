@@ -18,6 +18,7 @@ ground_truth/captures/*
 !examples/**
 !ground_truth/**
 !tests/fixtures/emitted/**
+!pl_transpiler/_examples/**
 # ...but captures stay private: re-ignore them after the folder-wide re-allow above.
 ground_truth/captures/*
 !ground_truth/captures/MANIFEST.md

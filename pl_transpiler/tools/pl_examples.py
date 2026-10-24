@@ -34,9 +34,8 @@ _PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _data_dir() -> str:
-    """Where the bundled files live: pl_transpiler/_examples/ in a wheel
-    install, or the repo's examples/ (their only source, mapped into the
-    wheel by pyproject.toml) in a source checkout or editable install."""
+    """Where the bundled files live: pl_transpiler/_examples/ (shipped in the
+    wheel; a copy of the repo's examples/ files), else the repo's examples/."""
     for d in (os.path.join(_PKG_DIR, "_examples"),
               os.path.join(os.path.dirname(_PKG_DIR), "examples")):
         if all(os.path.isfile(os.path.join(d, n)) for n in EXAMPLE_FILES):

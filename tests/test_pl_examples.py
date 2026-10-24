@@ -61,6 +61,14 @@ def test_missing_bundled_file_is_a_clear_error(tmp_path, monkeypatch, capsys):
 def test_package_data_declared():
     with open(os.path.join(REPO, "pyproject.toml")) as f:
         text = f.read()
-    assert '"pl_transpiler._examples" = "examples"' in text
     assert '"pl_transpiler._examples" = ["ma_cross.el", "NQ_sample_bars.csv"]' in text
     assert 'pl_examples = "pl_transpiler.tools.pl_examples:main"' in text
+
+
+@pytest.mark.parametrize("name", pl_examples.EXAMPLE_FILES)
+def test_bundled_copy_matches_repo_examples(name):
+    """pl_transpiler/_examples/ ships in the wheel; it must match examples/."""
+    with open(os.path.join(REPO, "pl_transpiler", "_examples", name), "rb") as f:
+        bundled = f.read()
+    with open(os.path.join(REPO, "examples", name), "rb") as f:
+        assert bundled == f.read()
