@@ -34,9 +34,6 @@ use pyo3::types::{PyBytes, PyDict, PyList};
 /// config.
 pub(crate) mod types;
 
-// The native bar loop and fill engine every `run_program*` call runs on.
-// Module-wide allow, narrowed to item level in the follow-up cleanup.
-#[allow(dead_code)]
 mod kernel;
 
 mod audit;

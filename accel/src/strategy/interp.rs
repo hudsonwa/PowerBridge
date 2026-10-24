@@ -52,7 +52,7 @@ pub(crate) struct Interpreter<'a> {
     /// Specialised stream for this variant's Inputs. Shared via
     /// `Arc` so `run` can borrow it without `mem::take` of the opcode vec.
     code: Arc<Specialized>,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // read only by the cfg(test) bench
     specialize_stats: SpecializeStats,
     vars: Vec<Option<Value>>,
     var_numeric: Vec<bool>,
@@ -205,7 +205,7 @@ impl<'a> Interpreter<'a> {
     }
 
     /// Specialisation cost and stream size (reported separately from the loop).
-    #[allow(dead_code)]
+    #[allow(dead_code)] // called only by the cfg(test) bench
     pub(crate) fn specialize_stats(&self) -> SpecializeStats {
         self.specialize_stats
     }
@@ -1336,26 +1336,26 @@ pub(crate) struct Data2Aligned<'a> {
     /// `i`, or [`DATA2_MISSING`].
     index: Vec<u32>,
     /// Wall time to build `index` (nanoseconds). Diagnostic; not a fill input.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // alignment diagnostic; no caller reads it yet
     setup_ns: u128,
     /// True when both tapes were non-decreasing and the two-pointer path ran.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // alignment diagnostic; no caller reads it yet
     used_two_pointer: bool,
 }
 
 impl<'a> Data2Aligned<'a> {
     /// Bytes owned by the alignment index (not the borrowed Data2 tape).
-    #[allow(dead_code)]
+    #[allow(dead_code)] // alignment diagnostic; no caller reads it yet
     pub(crate) fn payload_bytes(&self) -> usize {
         self.index.len() * std::mem::size_of::<u32>()
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // alignment diagnostic; no caller reads it yet
     pub(crate) fn setup_ns(&self) -> u128 {
         self.setup_ns
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // alignment diagnostic; no caller reads it yet
     pub(crate) fn used_two_pointer(&self) -> bool {
         self.used_two_pointer
     }

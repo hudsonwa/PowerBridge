@@ -149,7 +149,6 @@ pub(crate) fn num_to_str(x: f64, decimals: f64) -> Result<String, KernelError> {
 }
 
 /// CPython `float.hex()` for finite normals/zeros (the fill-digest format).
-#[allow(dead_code)]
 pub(crate) fn python_float_hex(x: f64) -> String {
     if x.is_nan() {
         return "nan".to_string();
@@ -180,7 +179,6 @@ pub(crate) fn python_float_hex(x: f64) -> String {
 }
 
 /// One canonical fill line in the `pl_oracle.canonical_fill_line` shape.
-#[allow(dead_code)]
 pub(crate) fn canonical_fill_line(fill: &Fill) -> String {
     format!(
         "{}\t{}\t{}\t{}\t{}\t{}",

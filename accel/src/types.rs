@@ -109,7 +109,6 @@ pub(crate) struct Bar {
     /// INVARIANT — `volume` is carried through the tape unchanged for the
     /// engine; no current fill logic reads it. Kept because the FFI
     /// `series` bundle includes it.
-    #[allow(dead_code)]
     pub(crate) volume: f64,
     pub(crate) date: i64,
     pub(crate) time: i64,
@@ -449,7 +448,7 @@ pub(crate) struct StrategyOutput {
 /// INVARIANT — `fills` is the ordered trade list in the `FillEngine.fills`
 /// shape `pl_oracle` hashes. `position` is the final per-bar observation, and
 /// `total_trades` / `max_id_drawdown` are the report columns the caller
-/// consumes. The per-bar trace/report COLUMNS are the [`TraceReport`] surface.
+/// consumes. The per-bar trace is `strategy::trace::TypedTrace`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct KernelOutcome {
     pub(crate) fills: Vec<Fill>,
@@ -463,25 +462,6 @@ pub(crate) struct KernelOutcome {
     pub(crate) fast_path_hits: usize,
 }
 
-/// The per-bar trace/report surface the caller reads (`pl_run` CSV columns +
-/// rows).
-///
-/// INVARIANT — mirrors `pl_run`/`run_el` output: `columns` are the first bar's
-/// sorted trace keys; there is one `rows` entry per emitted bar with a cell
-/// per column. Cell format is unchanged from the Python path: a
-/// missing/`None` value renders as `'0'`, every other value as `str(value)`.
-/// These columns are what the caller actually consumes — leaving them out of
-/// the original bars-only `run()` contract was the gap interface v2
-/// closes.
-///
-/// Produced by the interpreter/engine; not yet constructed by this crate.
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct TraceReport {
-    pub(crate) columns: Vec<String>,
-    pub(crate) rows: Vec<Vec<String>>,
-}
-
 /// One trading-session boundary, in EL HHmm (NQ: 0830 -> 1515).
 ///
 /// INVARIANT — session bounds are EXPLICIT config, never derived or guessed
@@ -489,7 +469,6 @@ pub(crate) struct TraceReport {
 /// against the right session, or be refused — never silently against the
 /// wrong one). The kernel owns the session logic (`SetExitOnClose`
 /// rollover, `SessionLastBar`) built on these bounds.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Session {
     pub(crate) start: i64,
@@ -648,8 +627,7 @@ impl From<&Config> for Instrument {
 /// and warmup seed. [`From<&Config> for Instrument`] pins the narrowing-free
 /// mapping the engine consumes (`point_value = bigpointvalue`).
 ///
-/// Consumed by the FFI layer; not yet constructed by this crate.
-#[allow(dead_code)]
+/// Built from the FFI `config` dict by `extract_config` in `lib.rs`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Config {
     pub(crate) name: String,
@@ -683,8 +661,7 @@ pub(crate) struct Config {
 //
 // We keep these types in one place so the kernel and the interpreter cannot
 // drift into two incompatible views of the same order/fill/trace surface;
-// widening them is a deliberate interface change, not a local edit. The
-// trace/report surface the caller consumes is `TraceReport` (see above).
+// widening them is a deliberate interface change, not a local edit.
 // ============================================================================
 
 // ===== ENGINE-LANE REGION — append below this line only =====

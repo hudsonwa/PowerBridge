@@ -51,8 +51,7 @@ pub(crate) enum Cell {
 }
 
 /// The stable typed trace surface: `columns` are the sorted column names
-/// emitted by the first bar, `rows` one typed row per emitted bar. This is the
-/// typed counterpart of `crate::types::TraceReport`.
+/// emitted by the first bar, `rows` one typed row per emitted bar.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypedTrace {
     pub(crate) columns: Vec<String>,
