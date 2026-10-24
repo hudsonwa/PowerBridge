@@ -64,21 +64,6 @@ round_turns: 1
 sha256: f2ab719a0985319cad5109e9ba8879a0fd6eac4849725920ba817c13fe0474da
 ```
 
-To see the trades themselves, add `--fills-csv FILE`; it writes one row per fill:
-
-```bash
-pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --fills-csv fills.csv
-```
-
-`fills.csv`:
-
-```
-order_no,trade_type,side,signal,date,time,price,contracts,position_after
-1,EntryLong,buy,LE,1240102,1030,14961.08,1,1
-2,ExitLong,sell,LX,1240102,1105,15028.27,1,0
-3,EntryLong,buy,LE,1240102,1141,14972.51,1,1
-```
-
 To see the run bar by bar (`pl_run` executes generated Python, so only run
 files you trust):
 
@@ -98,122 +83,34 @@ MarketPosition,NetProfit,TotalTrades
 
 The `[pl_run]` line is a status line on stderr. Which output goes where, the
 `[python]` / `[native]` engine tag and why `--max-bars-back 21` matters are in
-[the usage guide](docs/USAGE.md#walkthrough).
+[the usage guide](docs/USAGE.md#walkthrough), which also covers
+`--fills-csv` and [your own strategy and bars](docs/USAGE.md#your-own-strategy).
 
-## Your own strategy
+## Verified how
 
-Put your EasyLanguage in a `.el` (or `.txt`) file and your bars in a CSV with
-this header, in any order and any case (extra columns are ignored), one bar per
-row, oldest first:
+`pl_oracle` prints a SHA-256 digest of the exact trade list; digests on the
+shipped sample bars are pinned in the tests and match on the native and Python
+paths, and parity with MultiCharts is checked against licensed per-bar
+captures that cannot ship here ([verification](docs/verification.md)).
 
-<!-- readme-test: file examples/NQ_sample_bars.csv -->
-```
-date,time,open,high,low,close,volume
-1240102,930,14997.50,15005.00,14992.50,15000.00,125
-...
-```
+## Documentation
 
-`date` is an EL integer (`1240102` is 2 Jan 2024) or `D/M/YYYY` / `YYYY-MM-DD`
-(`--date-format mdy` for US month-first dates); `time` is `HHMM` or `HH:MM`.
-The [full rules](docs/USAGE.md#your-own-data) cover the edge cases.
+| Doc | What it covers |
+|---|---|
+| [Usage guide](docs/USAGE.md) | The example step by step, your own strategy and bars, Python to EasyLanguage, other instruments |
+| [Writing a strategy in Python](docs/PYTHON_STRATEGIES.md) | The mirror dialect from scratch |
+| [Architecture](docs/ARCHITECTURE.md) | How it works: pipeline, bar loop, native kernel |
+| [Design decisions](docs/DESIGN.md) | Why it is built this way |
+| [Verification](docs/verification.md) | What you can check yourself; the trade digest |
+| [Limitations](docs/LIMITATIONS.md) | Validation scope, unsupported keywords, known gaps |
+| [API and CLI reference](docs/API.md) | Library API and every command's flags |
+| [Keyword reference](docs/reference/README.md) | Every covered builtin |
+| [Native fast path](docs/ACCEL.md) | Install, speed, fallback |
+| [Contributing](CONTRIBUTING.md) | Running the tests, opening changes |
+| [Changelog](CHANGELOG.md) | Release history |
 
-For example, save this as `out/breakout.el` (run `mkdir -p out` first):
-
-<!-- readme-test: write out/breakout.el -->
-```
-Inputs: Len(10);
-If MarketPosition = 0 and Close > Highest(High, Len)[1] Then
-    Buy ("BO") Next Bar At Market;
-If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
-```
-
-It buys a 10-bar breakout when flat and sells five bars later:
-
-```bash
-pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto
-```
-
-```
-powerbridge-trade-digest v2
-fills: 6
-round_turns: 3
-sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
-```
-
-```bash
-pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto -o out/breakout_trace.csv
-```
-
-```
-[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns, max-bars-back 11 (auto) [python] -> out/breakout_trace.csv
-```
-
-A round turn is an exit fill, so a strategy that only adds entries reports
-`0 round-turns`. Without the `MarketPosition = 0` check, every new high would
-add another contract: same-direction entries pyramid by default
-(`--max-entries-per-direction 1` caps them).
-
-`--max-bars-back auto` skips the bars the strategy needs before its first
-signal: the longest lookback it reads, here 11 for `Highest(High, 10)[1]`
-(without it the run gives 8 fills, not 6). The status line shows the value it
-chose; pass a number instead to match your chart
-([details](docs/USAGE.md#warm-up-and-maxbarsback)). Use `--config ES` or
-`--config my_instrument.json` for an instrument other than NQ
-([other instruments](docs/USAGE.md#other-instruments)).
-
-If the file uses a keyword PowerBridge does not implement, nothing runs: the
-command prints `error: unimplemented EL keyword '...' at line N` and exits
-with code 2. Check [limitations](docs/LIMITATIONS.md#unsupported-keywords) and
-the [keyword reference](docs/reference/README.md), rewrite that line with
-supported keywords, or open an issue naming the keyword.
-
-## How it works
-
-```text
-EL source ─► lexer ─► parser ─► semantic ─► codegen ─► Python strategy ─► runtime (bar loop + fills)
-                                    │                                                │
-                                    └─► ir.serialise_ir ─► native Rust kernel (accel/) ┴─► trade digest
-```
-
-Each stage is a module in `pl_transpiler/`; `runtime/` holds the bar loop and
-the fill engine, and `accel/` the optional Rust kernel. The kernel either
-reproduces the Python trade list exactly or hands the run back to Python with
-a visible note.
-
-**Verification.** `pl_oracle` prints a digest of the exact trade list. Digests
-on the shipped sample bars (for example the GT2 program in `ground_truth/`) are
-pinned in the tests, so anyone can rerun them on a fresh clone and check native
-against Python with no extra data. Parity with MultiCharts itself is checked against per-bar captures from
-MultiCharts, which are licensed and cannot ship in this repository; those
-tests skip here. See [docs/verification.md](docs/verification.md).
-
-**Speed.** On the GT2 sample strategy the native kernel runs about 5x faster
-than Python with identical fills (0.42 s vs 2.34 s on 100,000 synthetic bars,
-median of 3 runs with `tools/bench_native.py`, Apple M4); see
-[docs/ACCEL.md](docs/ACCEL.md#speed). Measure your own strategy before relying
-on a ratio.
-
-Start reading the code at [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Next steps
-
-- [Usage guide](docs/USAGE.md): the example step by step, the
-  [round trip back to EasyLanguage](docs/USAGE.md#python-mirror-dialect-to-easylanguage),
-  the library API, your own bar data, other instruments and what the engine
-  assumes.
-- [Writing a strategy in Python](docs/PYTHON_STRATEGIES.md): the mirror
-  dialect from scratch, with a worked example in `examples/hand_written.py`.
-- [Limitations](docs/LIMITATIONS.md): validation scope, unsupported keywords and
-  known gaps.
-- [Native fast path](docs/ACCEL.md): install, speed and how the fallback works.
-- [API and CLI reference](docs/API.md) and the
-  [keyword reference](docs/reference/README.md).
-- [Verification](docs/verification.md): what you can check yourself, and the
-  trade digest.
-- [Bars and captures](docs/CAPTURES.md), [LLM dialect notes](docs/LLM_DIALECT.md),
-  [AGENTS.md](AGENTS.md) for agents and scripts.
-- [Architecture](docs/ARCHITECTURE.md) and [design decisions](docs/DESIGN.md).
-- [CHANGELOG](CHANGELOG.md).
+Also: [bars and captures](docs/CAPTURES.md), [LLM dialect notes](docs/LLM_DIALECT.md),
+[AGENTS.md](AGENTS.md) for agents and scripts.
 
 ## Licence
 

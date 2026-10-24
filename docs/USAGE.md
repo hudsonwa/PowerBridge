@@ -211,8 +211,90 @@ native kernel refuses (no bars CSV needed, nothing runs):
 can still be refused at run time. Details are in
 [ACCEL.md](ACCEL.md#which-constructs-the-kernel-refuses).
 
+To see the trades themselves, add `--fills-csv FILE`; it writes one row per fill:
+
+```bash
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --fills-csv fills.csv
+```
+
+`fills.csv`:
+
+```
+order_no,trade_type,side,signal,date,time,price,contracts,position_after
+1,EntryLong,buy,LE,1240102,1030,14961.08,1,1
+2,ExitLong,sell,LX,1240102,1105,15028.27,1,0
+3,EntryLong,buy,LE,1240102,1141,14972.51,1,1
+```
+
 What you can verify yourself, digest gating and captures are in
 [verification.md](verification.md).
+
+## Your own strategy
+
+Put your EasyLanguage in a `.el` (or `.txt`) file and your bars in a CSV with
+this header, in any order and any case (extra columns are ignored), one bar per
+row, oldest first:
+
+<!-- readme-test: file examples/NQ_sample_bars.csv -->
+```
+date,time,open,high,low,close,volume
+1240102,930,14997.50,15005.00,14992.50,15000.00,125
+...
+```
+
+`date` is an EL integer (`1240102` is 2 Jan 2024) or `D/M/YYYY` / `YYYY-MM-DD`
+(`--date-format mdy` for US month-first dates); `time` is `HHMM` or `HH:MM`.
+The [full rules](#your-own-data) cover the edge cases.
+
+For example, save this as `out/breakout.el` (run `mkdir -p out` first):
+
+<!-- readme-test: write out/breakout.el -->
+```
+Inputs: Len(10);
+If MarketPosition = 0 and Close > Highest(High, Len)[1] Then
+    Buy ("BO") Next Bar At Market;
+If BarsSinceEntry >= 5 Then Sell ("BX") Next Bar At Market;
+```
+
+It buys a 10-bar breakout when flat and sells five bars later:
+
+```bash
+pl_oracle out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto
+```
+
+```
+powerbridge-trade-digest v2
+fills: 6
+round_turns: 3
+sha256: 856a5cb26942203c8f757fa91e620b1eaebbdef0b511ab42952563e23c57225c
+```
+
+```bash
+pl_run out/breakout.el examples/NQ_sample_bars.csv --max-bars-back auto -o out/breakout_trace.csv
+```
+
+```
+[pl_run] 140 bars, 129 rows, 6 fills, 3 round-turns, max-bars-back 11 (auto) [python] -> out/breakout_trace.csv
+```
+
+A round turn is an exit fill, so a strategy that only adds entries reports
+`0 round-turns`. Without the `MarketPosition = 0` check, every new high would
+add another contract: same-direction entries pyramid by default
+(`--max-entries-per-direction 1` caps them).
+
+`--max-bars-back auto` skips the bars the strategy needs before its first
+signal: the longest lookback it reads, here 11 for `Highest(High, 10)[1]`
+(without it the run gives 8 fills, not 6). The status line shows the value it
+chose; pass a number instead to match your chart
+([details](#warm-up-and-maxbarsback)). Use `--config ES` or
+`--config my_instrument.json` for an instrument other than NQ
+([other instruments](#other-instruments)).
+
+If the file uses a keyword PowerBridge does not implement, nothing runs: the
+command prints `error: unimplemented EL keyword '...' at line N` and exits
+with code 2. Check [limitations](LIMITATIONS.md#unsupported-keywords) and
+the [keyword reference](reference/README.md), rewrite that line with
+supported keywords, or open an issue naming the keyword.
 
 ## Python (mirror dialect) to EasyLanguage
 

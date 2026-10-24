@@ -21,6 +21,23 @@ contributors. For usage, see the [README](../README.md). For the native kernel's
 interface, see [ACCEL.md](ACCEL.md) and
 [dev/ACCEL-INTERFACE-V2.md](dev/ACCEL-INTERFACE-V2.md).
 
+## At a glance
+
+```text
+EL source ─► lexer ─► parser ─► semantic ─► codegen ─► Python strategy ─► runtime (bar loop + fills)
+                                    │                                                │
+                                    └─► ir.serialise_ir ─► native Rust kernel (accel/) ┴─► trade digest
+```
+
+Each stage is a module in `pl_transpiler/`; `runtime/` holds the bar loop and
+the fill engine, and `accel/` the optional Rust kernel. The kernel either
+reproduces the Python trade list exactly or hands the run back to Python with
+a visible note.
+
+How parity is checked is [below](#how-parity-is-established) and in
+[verification.md](verification.md); measured speed is in
+[ACCEL.md](ACCEL.md#speed).
+
 ## The one rule
 
 Every design choice below follows from one rule: **match MultiCharts exactly,
