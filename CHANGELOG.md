@@ -50,7 +50,7 @@ Highlights:
 - The library code behind `pl_run` and `pl_oracle` moved to `pl_transpiler.run` and `pl_transpiler.oracle`; the CLI modules are thin argument parsers and the old import paths still work (#227).
 - The `--help` text of every command is in plain language, with maintainer options listed last under "advanced options"; option names and behaviour are unchanged (#225, #229).
 - `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`, `NQ`, ...); import them from `engine_dates` and `runtime.instrument_config` (#217).
-- The `AUDIT_REF_3_*` pinned-digest constants moved to `tests/reference_pins.py`, since only the tests use them.
+- The `AUDIT_REF_3_*` pinned-digest constants moved to `tests/reference_pins.py`, since only the tests use them (#233).
 - Internal: the native kernel has one Rust fill engine; the unused copy in `accel/src/engine/` is gone. Fills and digests are identical (#231).
 - The dev tools are pinned in the `dev` extra and CI installs it, so `pip install -e '.[dev]'` gives the same lint, type-check and test results as CI (#221). The core modules are fully type-annotated and mypy runs with `check_untyped_defs` (#215).
 
