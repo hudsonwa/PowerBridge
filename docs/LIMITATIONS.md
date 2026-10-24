@@ -30,14 +30,13 @@ trust a backtest from partial output.
 
 ## Known gaps
 
-- **Run-time errors** (*new in the next release*; on 0.10.0 they end in a
-  Python traceback and exit 1) stop the run on both paths with one line and exit 2,
+- **Run-time errors** stop the run on both paths with one line and exit 2,
   naming the EL line: `error: array index 4 out of range for 'a' (max index 3)
   at line 2`, `error: division by zero at line 2` (`/` and `Mod`), and for
   anything else `error: internal error at line N: <type>: <message>`. Set
   `PB_DEBUG=1` for the full Python traceback. Whether MultiCharts stops on a
   division by zero or returns a value is unverified; PowerBridge stops.
-- **Statement terminators** (*new in the next release*): a missing `;` at the
+- **Statement terminators**: a missing `;` at the
   end of a statement or declaration is a syntax error, as the EasyLanguage
   syntax requires; only the omission before `Else` is accepted. This follows
   the documented EL syntax; the exact set of places where the MultiCharts
@@ -109,9 +108,9 @@ trust a backtest from partial output.
   a local. Catalog-known names are still caught.
 - **Matching MultiCharts:** MultiCharts skips the first MaxBarsBack bars
   (auto-detected by default); pass your chart's value (such as
-  `--max-bars-back 50`) to reproduce a fixed setting. *New in the next
-  release:* PowerBridge's default is `auto`, a static estimate of the
-  lookback (0 when it cannot be estimated; 0 was the default on 0.10.0).
+  `--max-bars-back 50`) to reproduce a fixed setting. PowerBridge's default is `auto`, a static
+  estimate of the lookback (0 when it cannot be estimated; 0 was the default
+  before 0.11.0).
   With 0, every bar is evaluated, and a `Close[n]` read with too little
   history returns that bar's Open (one stderr warning per run says so).
   Only literal lookbacks are checked for that warning; `Close[Length]` is not.

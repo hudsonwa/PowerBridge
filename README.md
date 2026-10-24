@@ -19,24 +19,24 @@ PowerBridge covers: 254 run, and 7 transpile but stop at run time.
 
 Python 3.9 or newer. In a fresh virtual environment (on Windows activate with
 `.venv\Scripts\activate`), install the wheel attached to the
-[v0.10.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.10.0):
+[v0.11.0 GitHub Release](https://github.com/hudsonwa/PowerBridge/releases/tag/v0.11.0):
 
 <!-- readme-test: skip (creates a venv and installs over the network) -->
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 python -m pip install -U pip
-pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.10.0/powerbridge-0.10.0-py3-none-any.whl
+pip install https://github.com/hudsonwa/PowerBridge/releases/download/v0.11.0/powerbridge-0.11.0-py3-none-any.whl
 ```
 
 Or install the tagged release straight from the repository:
 
 <!-- readme-test: skip (installs over the network) -->
 ```bash
-pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.10.0"
+pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.11.0"
 ```
 
 The optional native fast path is a separate wheel per platform,
-`powerbridge_accel-0.10.0-cp39-abi3-<platform>.whl` on the same release page;
+`powerbridge_accel-0.11.0-cp39-abi3-<platform>.whl` on the same release page;
 see [the platform table](docs/ACCEL.md#install). Releases are distributed
 through GitHub Releases, not PyPI.
 
@@ -54,7 +54,7 @@ pl_examples
 Backtest the example strategy on the synthetic bars and print its trade digest:
 
 ```bash
-pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv
 ```
 
 ```
@@ -68,11 +68,11 @@ To see the run bar by bar (`pl_run` executes generated Python, so only run
 files you trust):
 
 ```bash
-pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --columns MarketPosition,NetProfit,TotalTrades
+pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --columns MarketPosition,NetProfit,TotalTrades
 ```
 
 ```
-[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns [python]
+[pl_run] 140 bars, 119 rows, 3 fills, 1 round-turns, max-bars-back 21 (auto) [python]
 MarketPosition,NetProfit,TotalTrades
 0,0.00,0
 ...
@@ -82,7 +82,7 @@ MarketPosition,NetProfit,TotalTrades
 ```
 
 The `[pl_run]` line is a status line on stderr. Which output goes where, the
-`[python]` / `[native]` engine tag and why `--max-bars-back 21` matters are in
+`[python]` / `[native]` engine tag and the warm-up bars it skips are in
 [the usage guide](docs/USAGE.md#walkthrough), which also covers
 `--fills-csv` and [your own strategy and bars](docs/USAGE.md#your-own-strategy).
 
