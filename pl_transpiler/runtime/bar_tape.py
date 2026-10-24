@@ -324,7 +324,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("pbar_path", help="output .pbar path")
     p.add_argument("--date-format", dest="date_format", default=None,
                    choices=("dmy", "mdy", "ymd"),
-                   help="field order of slash dates (default: dmy)")
+                   help="field order of slash dates (default: inferred "
+                        "from the file, an error when it cannot tell)")
     args = ap.parse_args(argv)
     if args.cmd == "csv2pbar":
         n = csv_to_pbar(args.csv_path, args.pbar_path, args.date_format)

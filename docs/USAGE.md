@@ -442,20 +442,21 @@ Extra columns are ignored. One row is one bar, oldest first.
 
 | Column | Accepted forms |
 | --- | --- |
-| `date` | EL integer date, (year - 1900) × 10000 + month × 100 + day, so `1YYMMDD` for 2000-2099 (`1240102` is 2 Jan 2024), or three numbers separated by `/` or `-`: `D/M/YYYY` by default, `YYYY-MM-DD` (a 4-digit first field), or the order set by `--date-format` |
+| `date` | EL integer date, (year - 1900) × 10000 + month × 100 + day, so `1YYMMDD` for 2000-2099 (`1240102` is 2 Jan 2024), or three numbers separated by `/` or `-`: `D/M/YYYY` or `M/D/YYYY` (inferred from the file, see below), `YYYY-MM-DD` (a 4-digit first field), or the order set by `--date-format` |
 | `time` | EL integer `HHMM` (`930`, `1515`) or `HH:MM` / `HH:MM:SS` |
 | `open` ... `volume` | numbers |
 
 Rules:
 
-- Slash dates are day-first by default, which is how the MultiCharts ASCII
-  export writes them on a day-first Windows locale. `01/02/2024` is therefore
-  1 February. For month-first data (US locale) pass `--date-format mdy`; for
-  `YYYY/MM/DD` pass `--date-format ymd`.
-- With the default, a date whose second field is above 12 (`01/13/2024`)
-  stops the run with a hint to pass `--date-format mdy`. That catches most
-  month-first files on the first day past the 12th, but a file that only holds
-  days 1-12 cannot be told apart: check your export's date order.
+- *New in the next release:* the order of slash dates is read from the file.
+  A first field above 12 anywhere (`13/01/2024`) means day-first, a second
+  field above 12 (`01/13/2024`) month-first. When no field is above 12, so
+  `01/02/2024` could be 2 January or 1 February, the run stops with one
+  `error:` line asking for `--date-format mdy` (M/D/YYYY) or `dmy`
+  (D/M/YYYY); a file holding both orders stops too. `--date-format` always
+  wins, and `--date-format ymd` reads `YYYY/MM/DD`. On 0.10.0 slash dates are
+  read day-first unless `--date-format` is given, and only a second field
+  above 12 stops the run.
 - Months must be 1-12, days must exist in that month, and times must be
   00:00-23:59. Bar times have minute resolution, so a time with non-zero
   seconds (`09:31:05`) is an error rather than being rounded.
@@ -467,8 +468,9 @@ Rules:
 - Any bad value stops the run with one `error:` line naming the file, the CSV
   line and the value, and exit code 2.
 
-For example, the bundled bars in MultiCharts export form give the same trade
-digest as the EL-integer original:
+For example, the bundled bars in MultiCharts' day-first export form give the
+same trade digest as the EL-integer original. Every bar is on 2 January, so
+the order must be given:
 
 ```python
 import csv
@@ -490,7 +492,7 @@ print(open("out/my_bars.csv").readlines()[1].strip())
 ```
 
 ```bash
-pl_oracle examples/ma_cross.el out/my_bars.csv
+pl_oracle examples/ma_cross.el out/my_bars.csv --date-format dmy
 ```
 
 ```

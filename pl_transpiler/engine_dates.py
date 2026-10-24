@@ -16,6 +16,7 @@
 import calendar
 import functools
 import re
+from collections.abc import Iterable
 from typing import Optional, Union
 
 # Field orders for slash/dash dates. MultiCharts' ASCII export writes the date
@@ -34,6 +35,46 @@ def _check_ymd(date_str: str, y: int, m: int, d: int) -> int:
         raise ValueError("bad date %r: day %d is not valid for %04d-%02d"
                          % (date_str, d, y, m))
     return (y - 1900) * 10000 + m * 100 + d
+
+
+def infer_date_format(date_strs: Iterable[str]) -> Optional[str]:
+    """The slash-date field order of a whole file, for ``date_format=None``.
+
+    Looks at every ``A/B/YYYY`` (or ``A-B-YYYY``) date whose first field is
+    not a 4-digit year: an ``A`` above 12 means day-first (``'dmy'``), a ``B``
+    above 12 month-first (``'mdy'``). Returns None when there is nothing to
+    decide (no such dates, or every one reads the same either way). Raises
+    ValueError when both orders occur, or when no field is above 12 and the
+    two orders give different dates, so the caller must pass the order.
+    """
+    first_big = second_big = ambiguous = None
+    for date_str in date_strs:
+        parts = re.split(r'[/-]', date_str)
+        if len(parts) != 3 or len(parts[0].strip()) == 4:
+            continue
+        try:
+            a, b = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue  # parse_el_date reports it
+        if a > 12 and first_big is None:
+            first_big = date_str
+        elif b > 12 and second_big is None:
+            second_big = date_str
+        elif a != b and ambiguous is None:
+            ambiguous = date_str
+    if first_big is not None and second_big is not None:
+        raise ValueError("slash dates disagree on the field order (%r is day-first, "
+                         "%r month-first); pass --date-format dmy or mdy"
+                         % (first_big, second_big))
+    if first_big is not None:
+        return 'dmy'
+    if second_big is not None:
+        return 'mdy'
+    if ambiguous is not None:
+        raise ValueError("slash dates are ambiguous (no day above 12, e.g. %r); "
+                         "pass --date-format mdy (M/D/YYYY) or dmy (D/M/YYYY)"
+                         % ambiguous)
+    return None
 
 
 @functools.lru_cache(maxsize=4096)

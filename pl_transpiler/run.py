@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import itertools
 import logging
 import math
 import os
@@ -66,7 +67,7 @@ from pl_transpiler._types import Node
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
 from pl_transpiler.engine import FillEngine, run_bar_loop
-from pl_transpiler.engine_dates import parse_el_date, parse_el_time
+from pl_transpiler.engine_dates import infer_date_format, parse_el_date, parse_el_time
 from pl_transpiler.errors import (
     UnimplementedKeywordError,
     el_runtime_error,
@@ -172,23 +173,21 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
     Header must contain: date,time,open,high,low,close,volume (case-insensitive).
     date/time accept either MultiCharts ASCII export form (D/M/YYYY, HH:MM[:SS]) or
     the EL integer form (YYYMMDD, HHMM); both are normalized to EL integers.
-    ``date_format`` ('dmy', 'mdy' or 'ymd') sets the field order of slash dates;
-    the default is day-first. Invalid dates/times raise ValueError naming the line
-    and value (see ``engine_dates.parse_el_date``). Bars must be oldest first:
-    a bar older than the one before it raises ValueError naming the line.
+    ``date_format`` ('dmy', 'mdy' or 'ymd') sets the field order of slash dates.
+    The default None infers it from the whole file (a first field above 12 is
+    day-first, a second field above 12 month-first) and raises ValueError when
+    the file cannot tell (see ``engine_dates.infer_date_format``). Invalid
+    dates/times raise ValueError naming the line and value (see
+    ``engine_dates.parse_el_date``). Bars must be oldest first: a bar older
+    than the one before it raises ValueError naming the line.
     """
+    if date_format is None:
+        # 'dmy' is what None already reads, so only 'mdy' needs passing on.
+        date_format = _infer_csv_date_format(path)
     bars = []
     with open(path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
-        try:
-            header = [h.strip().lower() for h in next(reader)]
-        except StopIteration as err:
-            raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS)) from err
-        missing = [name for name in _CSV_COLUMNS if name not in header]
-        if missing:
-            raise ValueError("header is missing column(s) %s (want: %s)"
-                             % (",".join(missing), ",".join(_CSV_COLUMNS)))
-        idx = {name: header.index(name) for name in _CSV_COLUMNS}
+        idx = _csv_header(reader)
         prev: Optional[tuple[int, int]] = None
         for row in reader:
             if not row:
@@ -207,6 +206,37 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
             prev = stamp
             bars.append(bar)
     return bars
+
+
+def _csv_header(reader: Any) -> dict[str, int]:
+    """Read the header row -> column name -> index, or raise ValueError."""
+    try:
+        header = [h.strip().lower() for h in next(reader)]
+    except StopIteration as err:
+        raise ValueError("empty file (want a header: %s)" % ",".join(_CSV_COLUMNS)) from err
+    missing = [name for name in _CSV_COLUMNS if name not in header]
+    if missing:
+        raise ValueError("header is missing column(s) %s (want: %s)"
+                         % (",".join(missing), ",".join(_CSV_COLUMNS)))
+    return {name: header.index(name) for name in _CSV_COLUMNS}
+
+
+def _infer_csv_date_format(path: Union[str, os.PathLike[str]]) -> Optional[str]:
+    """``'mdy'`` when the file's slash dates are month-first, else None.
+
+    A file whose first bar has an EL integer date is not scanned again."""
+    with open(path, newline='', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        try:
+            col = _csv_header(reader)['date']
+        except ValueError:
+            return None  # load_bars_csv reports it
+        dates = (row[col].strip() for row in reader if len(row) > col)
+        first = next(dates, '')
+        if not re.search(r'[/-]', first):
+            return None
+        fmt = infer_date_format(itertools.chain((first,), dates))
+    return 'mdy' if fmt == 'mdy' else None
 
 
 def _fmt_stamp(stamp: tuple[int, int]) -> str:

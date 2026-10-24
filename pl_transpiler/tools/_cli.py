@@ -85,8 +85,10 @@ def add_date_format_arg(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--date-format", dest="date_format", default=None,
                     choices=("dmy", "mdy", "ymd"),
                     help="field order of slash dates in the bars CSV: dmy "
-                         "(D/M/YYYY, the default), mdy (M/D/YYYY) or ymd "
-                         "(YYYY/M/D). EL integer dates (1240102) need no option.")
+                         "(D/M/YYYY), mdy (M/D/YYYY) or ymd (YYYY/M/D). Default: "
+                         "inferred from the file (a field above 12), an error "
+                         "when it cannot tell. EL integer dates (1240102) need "
+                         "no option.")
 
 
 def _non_negative_int(text: str) -> int:
