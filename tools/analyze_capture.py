@@ -25,7 +25,7 @@ It answers the question "did the strategy trade?" deterministically from three s
 and sanity-checks the capture: column-count consistency, Data2 columns populated, repeated
 header rows (the Print(File()) appender concatenates runs if the file wasn't deleted first).
 
-Usage:  python pl_transpiler/tools/analyze_capture.py <capture.csv>
+Usage:  python tools/analyze_capture.py <capture.csv>
 Exit:   0 if the file parsed; 2 on usage/IO error. (It reports findings; it does not judge pass/fail.)
 """
 import csv
@@ -208,6 +208,6 @@ def main(path):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("usage: python pl_transpiler/tools/analyze_capture.py <capture.csv>")
+        print("usage: python tools/analyze_capture.py <capture.csv>")
         sys.exit(2)
     sys.exit(main(sys.argv[1]))

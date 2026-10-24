@@ -34,6 +34,7 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 ### Changed
 
 - `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
+- The maintainer-only capture reader `analyze_capture.py` moved from `pl_transpiler/tools/` to the repository's `tools/`, so the wheel no longer ships it; the unused `tools/measure_audit_packet.py` is gone, and `ground_truth/captures/MANIFEST.md` is now a short data card (#248).
 
 ## 0.11.0 — 2026-10-24
 
