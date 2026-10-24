@@ -139,3 +139,15 @@ def test_generated_source_is_unchanged_text():
     src = transpile(LITERAL_INDEX, persist=True)
     assert isinstance(src, str) and str(src) == src
     assert set(src.el_line_map.values()) == {1, 2}  # the declaration and the assignment
+
+
+def test_el_runtime_error_pickles():
+    import pickle
+
+    from pl_transpiler.errors import ELRuntimeError, _el_error_class
+    exc = _el_error_class(IndexError)("array index out of range at line 2", 2)
+    back = pickle.loads(pickle.dumps(exc))
+    assert isinstance(back, ELRuntimeError) and isinstance(back, IndexError)
+    assert (str(back), back.line) == (str(exc), 2)
+    plain = pickle.loads(pickle.dumps(ELRuntimeError("boom", 5)))
+    assert (str(plain), plain.line) == ("boom", 5)

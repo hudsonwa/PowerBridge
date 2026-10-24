@@ -131,6 +131,13 @@ class ELRuntimeError(Exception):
     def __str__(self) -> str:  # not the mixed-in base's own formatting
         return self.message
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # The mixed-in classes are made at run time, so pickle by base type.
+        for base, cls in _combined.items():
+            if cls is type(self) and cls is not ELRuntimeError:
+                return (_rebuild_el_error, (base, self.message, self.line))
+        return (type(self), (self.message, self.line))
+
 
 _combined: dict[type, type[ELRuntimeError]] = {}
 
@@ -147,6 +154,11 @@ def _el_error_class(exc_type: type) -> type[ELRuntimeError]:
             cls = ELRuntimeError
         _combined[exc_type] = cls
     return cls
+
+
+def _rebuild_el_error(base: type, message: str,
+                      line: Optional[int]) -> ELRuntimeError:
+    return _el_error_class(base)(message, line)
 
 
 # `A[i]` is emitted as `a[-(int(i) + 1)]` (or `a[-(3 + 1)]` for a literal index).
