@@ -113,17 +113,20 @@ def _build_parser() -> argparse.ArgumentParser:
                          "(default: NQ).")
     window = ap.add_mutually_exclusive_group()
     window.add_argument("--from-date", dest="from_date", default=None, type=int,
-                        help="inclusive EL-date lower bound (YYYMMDD). Tape slice "
+                        help="first date to include, as an EL date (1YYMMDD: "
+                             "1240102 is 2 Jan 2024). Earlier bars are dropped "
                              "unless --seed-warmup.")
     window.add_argument("--from-bar", dest="from_bar", default=None, type=int,
-                        help="0-based tape-index lower bound. Tape slice unless "
-                             "--seed-warmup. Mutually exclusive with --from-date.")
+                        help="first bar number to include (0 = first bar). Earlier "
+                             "bars are dropped unless --seed-warmup. Cannot be "
+                             "combined with --from-date.")
     ap.add_argument("--to-date", dest="to_date", default=None, type=int,
-                    help="inclusive EL-date upper bound (YYYMMDD). Tape slice only.")
+                    help="last date to include, in the same form as --from-date. "
+                         "Later bars are dropped.")
     ap.add_argument("--seed-warmup", dest="seed_warmup", action="store_true",
-                    help="run the discarded prefix with fills suppressed "
-                         "(Once/lookback/Variables stay primed) instead of "
-                         "dropping it. A disagreeing digest fails the check.")
+                    help="run the bars before --from-date / --from-bar with fills "
+                         "turned off, so Variables, Once blocks and past-bar "
+                         "values are set up, instead of dropping them.")
     _cli.add_date_format_arg(ap)
     _cli.add_max_bars_back_arg(ap)
     ap.add_argument("-q", "--quiet", action="store_true",
@@ -132,9 +135,9 @@ def _build_parser() -> argparse.ArgumentParser:
                          "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
     ap.add_argument("--data2", default=None,
-                    help="aligned Data2 OHLCV CSV/.pbar; its close column drives "
-                         "data2_close per bar on the Python path, and the full "
-                         "tape is forwarded to the native kernel under --native.")
+                    help="a second bars file (CSV or .pbar) for Data2, with one "
+                         "bar for each bar of the main file. The Python path "
+                         "reads its close; the native kernel gets every column.")
     ap.add_argument("--native", dest="use_native", action="store_true", default=None,
                     help="use the Rust kernel (the DEFAULT when it is installed); "
                          "falls back to Python loudly when it cannot serve the run.")
@@ -153,27 +156,11 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="write digest here as well as stdout.")
     ap.add_argument("--compare", default=None,
                     help="exit 1 if the produced digest differs from this file.")
-    ap.add_argument("--dump", default=None,
-                    help="write the hashed payload (version line + canonical fill lines) here. "
-                         "Their first field is the buy/sell side, not a position label.")
     ap.add_argument("-v", "--verbose", action="count", default=0,
                     help="-v: also print the 'accel not installed' note and how many "
                          "bars skipped fill processing to stderr. -vv: also print "
                          "native-kernel internals ([accel] lines, e.g. the skip-region "
                          "plan); PB_DEBUG=1 does the same for those.")
-    ap.add_argument("--drawings-json", default=None,
-                    help="write a powerbridge-drawing-dump v1 file. Requires "
-                         "--drawing-case. Does not change the digest on stdout.")
-    ap.add_argument("--drawing-case", default=None,
-                    help="case id stored in --drawings-json "
-                         "(g-<family>-<NNN>-<slug>).")
-    ap.add_argument("--tape-name", default=None,
-                    help="tape name stored in the drawing dump "
-                         "(default: the bars file stem).")
-    ap.add_argument("--tape-sha", default=None,
-                    help="64-hex sha256 of the tape the dump is compared "
-                         "against (default: sha256 of the bars file bytes, "
-                         "decompressed when the path ends in .gz).")
     ap.add_argument("--fills-csv", dest="fills_csv", default=None,
                     help="write a readable fill log CSV with a position-aware "
                          "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
@@ -182,16 +169,35 @@ def _build_parser() -> argparse.ArgumentParser:
                          "closed trades (net profit, trades, winners/losers, "
                          "win rate, gross profit/loss, max drawdown) to stderr; "
                          "the digest on stdout is unchanged.")
-    ap.add_argument("--digest-v1", dest="digest_v1", action="store_true",
+    _cli.add_version(ap, "pl_oracle")
+    adv = ap.add_argument_group(
+        "advanced options",
+        "for maintainers and drawing checks; most users do not need these.")
+    adv.add_argument("--dump", default=None,
+                    help="write the hashed payload (version line + canonical fill lines) here. "
+                         "Their first field is the buy/sell side, not a position label.")
+    adv.add_argument("--drawings-json", default=None,
+                    help="write a powerbridge-drawing-dump v1 file. Requires "
+                         "--drawing-case. Does not change the digest on stdout.")
+    adv.add_argument("--drawing-case", default=None,
+                    help="case id stored in --drawings-json "
+                         "(g-<family>-<NNN>-<slug>).")
+    adv.add_argument("--tape-name", default=None,
+                    help="name of the bars stored in the drawing dump "
+                         "(default: the bars file name without its extension).")
+    adv.add_argument("--tape-sha", default=None,
+                    help="64-hex sha256 of the bars the dump is compared "
+                         "against (default: sha256 of the bars file bytes, "
+                         "decompressed when the path ends in .gz).")
+    adv.add_argument("--digest-v1", dest="digest_v1", action="store_true",
                     help="emit the pre-v2 digest (for pinned v1 digests): no "
                          "reversal open legs or risk exits. Python path only.")
-    ap.add_argument("--explain-native", dest="explain_native", action="store_true",
+    adv.add_argument("--explain-native", dest="explain_native", action="store_true",
                     help="list every construct the native kernel would refuse in "
                          "EL_FILE, one 'kind name line' per line sorted by line, "
                          "then exit 0 without running anything (no bars CSV "
                          "needed). A compile-time check: a run can still be "
                          "refused at run time. Exits 2 if the native kernel is not installed.")
-    _cli.add_version(ap, "pl_oracle")
     return ap
 
 

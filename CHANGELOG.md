@@ -62,6 +62,13 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   0 (or '' for a text builtin), a missing bar column reads as 0, and a
   `from entry` exit with several named entries open closes the whole position.
   Option names and behaviour are unchanged.
+- `pl_oracle --help` and `pl_run --help` drop the remaining jargon: the window
+  options talk about the bars file, bar numbers (0 = first bar) and EL dates
+  written `1YYMMDD`, instead of a "tape slice", a "0-based tape-index" and
+  `YYYMMDD`. Maintainer and drawing-check options (`--dump`, `--drawings-json`,
+  `--drawing-case`, `--tape-name`, `--tape-sha`, `--digest-v1`,
+  `--explain-native`, and `pl_run --partial`) are listed last under "advanced
+  options". Option names and behaviour are unchanged.
 - `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
   `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
   define them (`engine_dates`, `runtime.instrument_config`). These were never part

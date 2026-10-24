@@ -105,20 +105,18 @@ def _build_parser() -> argparse.ArgumentParser:
                          "entries open closes the whole position. A WARNING at the "
                          "end names each one; results that depend on them may not "
                          "match MultiCharts.")
-    ap.add_argument("--partial", action="store_true",
-                    help="opt-in partial mode: unimplemented constructs become "
-                         "execution-time stubs (raise only if evaluated); the stub "
-                         "manifest is printed loudly to stderr. NOT FAITHFUL.")
     window = ap.add_mutually_exclusive_group()
     window.add_argument("--from-date", dest="from_date", default=None, type=int,
-                        help="inclusive EL-date window start (YYYMMDD). Opt-in; "
-                             "default is the full tape. Seeded warmup unless --slice.")
+                        help="first date to write, as an EL date (1YYMMDD: "
+                             "1240102 is 2 Jan 2024). Default: the whole bars "
+                             "file. Earlier bars still run as warm-up unless --slice.")
     window.add_argument("--from-bar", dest="from_bar", default=None, type=int,
-                        help="0-based tape-index window start. Opt-in. "
-                             "Mutually exclusive with --from-date.")
+                        help="first bar number to write (0 = first bar). Cannot "
+                             "be combined with --from-date.")
     ap.add_argument("--slice", dest="slice_tape", action="store_true",
-                    help="drop the prefix instead of seeding warmup. Only "
-                         "equivalent when the trade-list oracle agrees.")
+                    help="drop the bars before --from-date / --from-bar instead "
+                         "of running them as warm-up. Gives the same trades only "
+                         "when pl_oracle's digest agrees.")
     _cli.add_max_bars_back_arg(ap)
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="hide the warm-up note printed when a strategy reads "
@@ -138,6 +136,12 @@ def _build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--python", dest="use_native", action="store_false",
                     help="force the pure-Python path (reference / debugging).")
     _cli.add_version(ap, "pl_run")
+    adv = ap.add_argument_group(
+        "advanced options", "most users do not need these.")
+    adv.add_argument("--partial", action="store_true",
+                    help="opt-in partial mode: unimplemented constructs become "
+                         "execution-time stubs (raise only if evaluated); the stub "
+                         "manifest is printed loudly to stderr. NOT FAITHFUL.")
     return ap
 
 
