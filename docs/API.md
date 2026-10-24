@@ -75,7 +75,10 @@ run_el(el_source: str, bars, config, *,
        retain_rows: bool | None = None,
        from_date: int | None = None, from_bar: int | None = None,
        seed_warmup: bool = True, max_bars_back: int | str | None = None,
-       max_entries_per_direction: int | None = None) -> dict
+       max_entries_per_direction: int | None = None,
+       drawings: bool = False, drawing_case_id: str | None = None,
+       drawing_tape: dict | None = None,
+       use_native: bool = False) -> dict
 ```
 
 Transpiles `el_source`, runs it over `bars` with the instrument `config`, and
@@ -96,6 +99,16 @@ returns the per-bar trace and the trade list. This is the library form of
 | `seed_warmup` | `True` | With a window, run the bars before it with fills suppressed so `Once`, lookbacks and Variables are primed. `False` slices them off instead. |
 | `max_bars_back` | `None` | Treat the first N bars as history only: no evaluation, no orders, no rows, and BarNumber starts at 1 on bar N+1. `"auto"` uses the lookback inferred from the source and raises `ValueError` when it cannot. The default `None` is `"auto"` falling back to 0 when the lookback cannot be inferred; pass `max_bars_back=0` for the results of 0.10.0 and earlier. |
 | `max_entries_per_direction` | `None` | `None`/`0`: every Buy/SellShort adds to the position. N ≥ 1: an entry in the open position's direction is refused while N entries are open. Reversals always fill. |
+| `drawings` | `False` | `True` adds a `drawings` key: a powerbridge-drawing-dump v1 dict of the trendlines, arrows and text the run created. Needs `drawing_case_id` and `drawing_tape`. |
+| `drawing_case_id` | `None` | Case id stored in the drawing dump. |
+| `drawing_tape` | `None` | `{"name": ..., "sha256": ...}` identifying the tape, stored in the drawing dump. |
+| `use_native` | `False` | Try the optional Rust kernel first. It serves full-tape runs without `partial` or `drawings`, with rows byte-identical to the Python engine's; any other run uses Python, and `native_fallback_reason` says why. `pl_run` uses the kernel by default when it is installed (`--python` turns it off). |
+
+`seed_warmup` defaults differ on purpose: `run_el` defaults to `True` (prime
+the strategy on the bars before the window, as `pl_run` does unless
+`--slice`), while `run_oracle` defaults to `False` (slice the tape, as
+`pl_oracle` does unless `--seed-warmup`). Pass it explicitly when you compare
+the two.
 
 The result is a dict:
 
@@ -107,6 +120,9 @@ The result is a dict:
 | `n_rows` | `int` | Rows emitted, whether or not they were retained. |
 | `n_warmup` | `int` | Bars run as seeded warmup (0 without a window or with `seed_warmup=False`). |
 | `unimplemented` | `dict[str, int]` | Builtins the runtime does not implement that the run evaluated as `0`/`''` (only when strict mode is off, e.g. `PL_STRICT=0`), with call counts. Empty in the default strict mode, which stops instead. |
+| `native` | `bool` | The Rust kernel produced the rows. |
+| `native_fallback_reason` | `str \| None` | Why a `use_native=True` run fell back to Python, else `None`. |
+| `drawings` | `dict` | Only with `drawings=True`: the drawing dump. |
 
 Every cell in `rows` is a string: `str(value)` of the traced value, and `"0"`
 for a value that is missing on that bar. Strings keep the full precision of
@@ -145,7 +161,9 @@ run_oracle(el_source: str, bars, config, *,
            from_bar: int | None = None, seed_warmup: bool = False,
            use_native: bool = False, digest_version: int = 2,
            max_bars_back: int | str | None = None,
-           max_entries_per_direction: int | None = None) -> dict
+           max_entries_per_direction: int | None = None,
+           drawings: bool = False, drawing_case_id: str | None = None,
+           drawing_tape: dict | None = None) -> dict
 ```
 
 Runs the strategy without per-bar tracing and returns a canonical digest of
@@ -159,8 +177,9 @@ Import it from the package root, or as
 with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel
 and falls back to Python with a stderr note when it cannot serve the run; the
 digest is the same either way. `digest_version=1` reproduces the older v1
-digest. `max_bars_back` and `max_entries_per_direction` mean the same as in
-`run_el`.
+digest. `max_bars_back`, `max_entries_per_direction` and the three `drawing*`
+keywords mean the same as in `run_el`. Note that `seed_warmup` defaults to
+`False` here but to `True` in `run_el` (see above).
 
 The result has `text` (the digest as printed by `pl_oracle`), `sha256` (str),
 `fills` and `round_turns` (int), `n_bars` and `n_warmup` (int), `records`
@@ -325,8 +344,7 @@ EasyLanguage → Python. Writes the runnable dialect (the same as `transpile()`)
 |---|---|
 | `-o FILE` | Write Python here (default: stdout). |
 | `--trace` | Emit trace-mode Python (per-bar variable capture). |
-| `--no-persist` | Emit the mirror dialect, the input for `el_emit`; not runnable as a backtest. |
-| `--dialect {runnable,mirror}` | Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest (the same as `--no-persist`, which stays as an alias). `--trace` always emits `runnable`. |
+| `--dialect {runnable,mirror}` | Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest (`--no-persist` is an older alias for `--dialect mirror`). `--trace` always emits `runnable`. |
 | `--partial` | Unimplemented constructs become execution-time stubs under a NOT-FAITHFUL watermark. |
 
 ```sh
@@ -405,7 +423,7 @@ verified `numeric` parameter and the argument's type is certain). `-o FILE` writ
 instead of stdout.
 
 ```sh
-pl_transpile --no-persist examples/ma_cross.el -o ma_mirror.py
+pl_transpile --dialect mirror examples/ma_cross.el -o ma_mirror.py
 el_emit ma_mirror.py | head -8
 ```
 
