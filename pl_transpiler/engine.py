@@ -31,9 +31,9 @@ from pl_transpiler._engine_stops import _StopsMixin
 from pl_transpiler.engine_dates import (  # noqa: F401  (re-export)
     _el_date_to_day_of_week,
     _el_to_ole,
-    _parse_el_date,
-    _parse_el_time,
 )
+from pl_transpiler.engine_dates import _parse_el_date as _parse_el_date
+from pl_transpiler.engine_dates import _parse_el_time as _parse_el_time
 from pl_transpiler.runtime import _rt_core
 from pl_transpiler.runtime.instrument_config import NQ  # noqa: F401  (re-export)
 from pl_transpiler.runtime.pl_runtime import f32
@@ -793,5 +793,5 @@ from pl_transpiler.bar_loop import (  # noqa: E402,F401  (re-export)
     _PERF_KWARGS,
     _POS_KWARGS,
     _code_has_const,
-    run_bar_loop,
 )
+from pl_transpiler.bar_loop import run_bar_loop as run_bar_loop  # noqa: E402

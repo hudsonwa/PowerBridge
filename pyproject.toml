@@ -98,6 +98,7 @@ warn_unreachable = true
 strict_equality = true
 extra_checks = true
 warn_return_any = true
+no_implicit_reexport = true
 
 [[tool.mypy.overrides]]
 # Optional compiled extension; absent unless built with tools/build_accel.sh.

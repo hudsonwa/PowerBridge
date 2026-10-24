@@ -24,10 +24,10 @@ from .codegen_stmt import _StmtMixin
 # they are re-exported here so `from pl_transpiler.codegen import ...` finds them.
 from .codegen_tables import (  # noqa: F401
     _SERIES_PARAMS,
-    BUILTIN_FUNC_MAP,
-    COMPARE_OPS,
-    DIALECT_VERSION,
 )
+from .codegen_tables import BUILTIN_FUNC_MAP as BUILTIN_FUNC_MAP
+from .codegen_tables import COMPARE_OPS as COMPARE_OPS
+from .codegen_tables import DIALECT_VERSION as DIALECT_VERSION
 from .codegen_util import (  # noqa: F401
     _OHLCV_F32_LOCALS,
     _OHLCV_F32_NAMES,

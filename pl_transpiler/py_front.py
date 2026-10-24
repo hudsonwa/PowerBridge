@@ -94,7 +94,6 @@ from pl_transpiler._py_front_common import (  # noqa: F401  (re-exported)
     _PROLOGUE_TARGETS,
     _PY_TO_EL_CMP,
     _RISK_KEY_TO_FUNC,
-    PyFrontError,
     _const_str,
     _const_to_num,
     _el,
@@ -109,6 +108,7 @@ from pl_transpiler._py_front_common import (  # noqa: F401  (re-exported)
     _open_current,
     _py,
 )
+from pl_transpiler._py_front_common import PyFrontError as PyFrontError
 from pl_transpiler._py_front_expr import (  # noqa: F401  (re-exported)
     _KWKEY_TO_IDENT,
     _KWKEY_TO_NAMECALL,

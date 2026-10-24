@@ -678,12 +678,12 @@ def _find_first_valid(series):
     return len(series)
 
 
+from ._rt_trend import _adx_engine as _adx_engine  # noqa: E402
+from ._rt_trend import _calc_dmi as _calc_dmi  # noqa: E402
+from ._rt_trend import _compute_adx_series as _compute_adx_series  # noqa: E402
+from ._rt_trend import _tr_rma as _tr_rma  # noqa: E402
+from ._rt_trend import _true_range_for_adx as _true_range_for_adx  # noqa: E402
 from ._rt_trend import (  # noqa: E402,F401  (re-export)
-    _adx_engine,
-    _calc_dmi,
-    _compute_adx_series,
-    _tr_rma,
-    _true_range_for_adx,
     pl_adx,
     pl_adxr,
     pl_bollinger_band,
