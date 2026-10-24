@@ -337,7 +337,7 @@ def _install_loud_stubs():
             return _unimplemented(nm)
         _loud.__name__ = nm
         _loud.__doc__ = "Unimplemented EL builtin (loud stub): records call; raises unless PL_STRICT=0."
-        _loud._pl_loud_stub = True
+        _loud._pl_loud_stub = True  # type: ignore[attr-defined]  # marker read by tests
         return _loud
 
     for nm in names:

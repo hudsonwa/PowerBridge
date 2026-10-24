@@ -16,6 +16,7 @@
 import calendar
 import functools
 import re
+from typing import Optional, Union
 
 # Field orders for slash/dash dates. MultiCharts' ASCII export writes the date
 # in the Windows regional format; the exports this project was built against
@@ -24,7 +25,7 @@ DATE_FORMATS = ('dmy', 'mdy', 'ymd')
 DEFAULT_DATE_FORMAT = 'dmy'
 
 
-def _check_ymd(date_str, y, m, d):
+def _check_ymd(date_str: str, y: int, m: int, d: int) -> int:
     if not 1 <= m <= 12:
         raise ValueError("bad date %r: month %d is not 1-12" % (date_str, m))
     if not 1900 <= y <= 2899:
@@ -36,7 +37,7 @@ def _check_ymd(date_str, y, m, d):
 
 
 @functools.lru_cache(maxsize=4096)
-def _parse_el_date(date_str, date_format=None):
+def _parse_el_date(date_str: str, date_format: Optional[str] = None) -> int:
     """Parse a bar date -> EL integer date YYYMMDD.
 
     EL Date format = YYYMMDD = (year - 1900) * 10000 + month * 100 + day.
@@ -79,7 +80,7 @@ def _parse_el_date(date_str, date_format=None):
     return _check_ymd(date_str, 1900 + v // 10000, (v // 100) % 100, v % 100)
 
 
-def _parse_el_time(time_str):
+def _parse_el_time(time_str: str) -> int:
     """Parse HH:MM[:SS] or an EL integer HHMM -> EL integer time HHMM.
 
     EL bar times have minute resolution, so a non-zero seconds field is an
@@ -107,7 +108,7 @@ def _parse_el_time(time_str):
     return h * 100 + mi
 
 
-def _el_to_ole(el_date, el_time):
+def _el_to_ole(el_date: Optional[float], el_time: Optional[float]) -> float:
     """Convert an EL date (YYMMDD) + EL time (HHMM) to a MultiCharts DateTime serial
     (OLE automation date = days since 1899-12-30 + fraction-of-day). This is the value
     PosTradeEntry/ExitDateTime, EntryDateTime, ExitDateTime emit (pdf:12085 et al).
@@ -129,7 +130,7 @@ def _el_to_ole(el_date, el_time):
     return days + (hh * 3600 + mn * 60) / 86400.0
 
 
-def _el_date_to_day_of_week(el_date):
+def _el_date_to_day_of_week(el_date: Union[float, str]) -> int:
     """Return day-of-week (1=Mon..5=Fri) from an EL date integer (YYMMDD).
     
     EL CurrentSession(1) returns the day-of-week session number.

@@ -29,12 +29,14 @@ import argparse
 import os
 import sys
 import tempfile
+from collections.abc import Sequence
+from typing import Optional
 
 from pl_transpiler.reverse import el_roundtrip, py_to_el
 from pl_transpiler.tools import _cli, mc_ground_check
 
 
-def main(argv=None):
+def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Emit canonical EL from Python or EL")
     ap.add_argument("input", help="input file (.py => py_to_el; else parse+emit)")
     ap.add_argument("-o", "--output", default=None,
@@ -44,7 +46,7 @@ def main(argv=None):
     return _cli.run("el_emit", _main, args)
 
 
-def _main(args):
+def _main(args: argparse.Namespace) -> int:
     output = _cli.output_path(args.output)
     with open(args.input, encoding="utf-8") as f:
         src = f.read()

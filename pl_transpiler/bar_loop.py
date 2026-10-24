@@ -15,10 +15,14 @@
 """bar_loop.py -- the per-bar execution core (:func:`run_bar_loop`)."""
 import os
 import traceback
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from pl_transpiler.engine_dates import _el_date_to_day_of_week
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
 from pl_transpiler.runtime._rt_history import SeriesState
+
+if TYPE_CHECKING:
+    from pl_transpiler.engine import FillEngine
 
 # FillEngine.fill_pos_kwargs keys → attribute names. Persist 8-arg path
 # writes only the keys the strategy names; **kwargs still writes the full set.
@@ -65,7 +69,7 @@ _POS_KWARGS = _POS_KWARGS + _PERF_KWARGS
 _DAILY_OHLC_KEYS = ('opend_0', 'highd_0', 'lowd_0', 'closed_0', 'closed_1')
 
 
-def _code_has_const(fn, name):
+def _code_has_const(fn: Any, name: str) -> bool:
     """True if *name* is a string constant in *fn* or a nested code object.
 
     Generated persist/trace reads kwargs via ``kwargs.get('key', default)``, so
@@ -76,7 +80,7 @@ def _code_has_const(fn, name):
     if code is None:
         return True
     stack = [code]
-    seen = set()
+    seen: set[Any] = set()
     while stack:
         c = stack.pop()
         if c in seen:
@@ -94,7 +98,7 @@ def _code_has_const(fn, name):
 _MIRROR_PARAMS = ("open", "high", "low", "close", "volume", "date", "time")
 
 
-def _is_mirror_dialect(strategy_fn, code):
+def _is_mirror_dialect(strategy_fn: Any, code: Any) -> bool:
     """True for a strategy emitted by transpile(..., dialect='mirror'): the
     generated module marker plus `(open, ..., time, **kwargs)` with no `_state`."""
     if code is None or not code.co_flags & 0x08:  # CO_VARKEYWORDS
@@ -107,26 +111,26 @@ def _is_mirror_dialect(strategy_fn, code):
 
 
 def run_bar_loop(
-    strategy_fn,
+    strategy_fn: Callable[..., Any],
     *,
-    n_bars,
-    get_ohlcv,
-    dates,
-    times,
-    config,
-    fill_engine,
-    emit_row,
-    warmup=0,
-    init_hist=None,
-    per_bar_extra=None,
-    lastcalc_kwargs=None,
-    session_end_tm=None,
-    strict=None,
-    trade_from=0,
-    emit_trace=True,
-    max_bars_back=0,
-    on_bar=None,
-):
+    n_bars: int,
+    get_ohlcv: Callable[[int], Any],
+    dates: Any,
+    times: Any,
+    config: Any,
+    fill_engine: "FillEngine",
+    emit_row: Callable[[int, int, dict[str, Any]], Any],
+    warmup: int = 0,
+    init_hist: Optional[dict[str, list[Any]]] = None,
+    per_bar_extra: Optional[Callable[[int], Optional[dict[str, Any]]]] = None,
+    lastcalc_kwargs: Optional[dict[str, Any]] = None,
+    session_end_tm: Optional[int] = None,
+    strict: Optional[bool] = None,
+    trade_from: int = 0,
+    emit_trace: bool = True,
+    max_bars_back: Union[int, str] = 0,
+    on_bar: Optional[Callable[[int], Any]] = None,
+) -> tuple[int, int, Optional[str]]:
     """Shared per-bar execution core used by BOTH run_gt (the GT capture harness)
     and the general entrypoint (tools/pl_run.run_el).
 
@@ -224,7 +228,7 @@ def run_bar_loop(
         _need_all_pos = True
         _need_mp = False
         _need_cc = False
-        _pos_extra = ()
+        _pos_extra: tuple[tuple[str, str], ...] = ()
         _need_current_date = True
         _need_current_time = True
         _need_currentbar = True
@@ -280,7 +284,7 @@ def run_bar_loop(
     # Derived from the date/time series so it stays instrument-agnostic.
     # Skipped when the 8-arg persist body never names session_last_bar.
     if _need_session_last and session_end_tm is None and n_bars > 1:
-        _se = Counter()
+        _se: Counter[Any] = Counter()
         for _j in range(n_bars - 1):
             if dates[_j] != dates[_j + 1]:
                 _se[times[_j]] += 1
@@ -313,7 +317,7 @@ def run_bar_loop(
     state = SeriesState()
     _throw_count = 0
     _total_strategy_calls = 0
-    _first_traceback = None
+    _first_traceback: Optional[str] = None
 
     prev_close_for_exit = None
     prev_dt_for_exit = 0
@@ -325,7 +329,7 @@ def run_bar_loop(
     day_high = 0.0
     day_low = 0.0
     day_close = 0.0
-    prev_day_close = -1  # CloseD(1): yesterday's close; -1 when no prior day
+    prev_day_close: float = -1  # CloseD(1): yesterday's close; -1 when no prior day
     current_session = 2  # dummy; recomputed on first bar below
 
     # One kwargs dict for the whole run. Per-bar keys, constants, and position
@@ -388,7 +392,7 @@ def run_bar_loop(
     if lastcalc_kwargs:
         call_kwargs.update(lastcalc_kwargs)
     _engine_keys = frozenset(call_kwargs)
-    _hook_only = []
+    _hook_only: list[str] = []
 
     # Constants never change unless extra overrides them. Restore only those
     # keys next bar (old path re-wrote all 10 + lastcalc every bar).
@@ -410,7 +414,7 @@ def run_bar_loop(
     }
     if lastcalc_kwargs:
         _const_defaults.update(lastcalc_kwargs)
-    _restore_consts = ()
+    _restore_consts: tuple[str, ...] = ()
 
     for i in range(n_bars):
         o, h, l, c, v = get_ohlcv(i)

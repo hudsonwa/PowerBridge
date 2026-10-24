@@ -25,6 +25,7 @@ Creation colours and arrow/text styles are the MultiCharts defaults measured
 on the golden corpus (g-tl-001-new, g-arw-001-new, g-text-001-new).
 """
 import contextvars
+from typing import Any, Optional
 
 from ._rt_core import UnimplementedBuiltinError
 from .drawing_dump import barkey, blank_object
@@ -38,7 +39,8 @@ class DrawingGetterError(UnimplementedBuiltinError):
         NotImplementedError.__init__(self, detail)
 
 
-_RECORDER = contextvars.ContextVar("pb_drawing_recorder", default=None)
+_RECORDER: "contextvars.ContextVar[Optional[DrawingRecorder]]" = contextvars.ContextVar(
+    "pb_drawing_recorder", default=None)
 
 # Process-wide fallback used only when no recorder is active. A recorder
 # resets per run and does not touch this counter.
@@ -79,7 +81,7 @@ class DrawingRecorder:
         self.tick = float(tick)
         self._dates = dates
         self._times = times
-        self._bn_of = {}
+        self._bn_of: dict[tuple[int, int], int] = {}
         for index, (date, time) in enumerate(zip(dates, times)):
             key = (int(date), int(time))
             if key in self._bn_of:
@@ -90,7 +92,7 @@ class DrawingRecorder:
         self.objects = []
         self._by_id = {}
         self._ids = {"tl": 0, "arw": 0, "text": 0}
-        self._token = None
+        self._token: Any = None
 
     def set_bar(self, index):
         """0-based tape index of the bar about to be evaluated."""

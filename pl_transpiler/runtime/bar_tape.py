@@ -40,6 +40,7 @@ import struct
 import sys
 from array import array
 from collections.abc import Sequence
+from typing import Any, Literal, Optional
 
 MAGIC = b"PBARS01\n"
 VERSION = 1
@@ -52,14 +53,14 @@ _F64 = 8
 BYTES_PER_BAR = _I32 + _I32 + 5 * _F64  # 48
 
 
-def _require_little_endian():
+def _require_little_endian() -> None:
     if sys.byteorder != "little":
         raise OSError(
             "PBARS01 is little-endian; this host is %s" % sys.byteorder
         )
 
 
-def _require_native_sizes():
+def _require_native_sizes() -> None:
     if array("i").itemsize != _I32 or array("d").itemsize != _F64:
         raise RuntimeError(
             "native array('i')/%s or array('d')/%s is not 4/8 bytes"
@@ -80,7 +81,8 @@ class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stay
         "date", "time", "open", "high", "low", "close", "volume", "_mm",
     )
 
-    def __init__(self, *, date, time, open, high, low, close, volume, _mm=None):
+    def __init__(self, *, date: Any, time: Any, open: Any, high: Any, low: Any, close: Any,
+                 volume: Any, _mm: Optional[mmap.mmap] = None) -> None:
         n = len(date)
         if not (len(time) == len(open) == len(high) == len(low)
                 == len(close) == len(volume) == n):
@@ -95,16 +97,16 @@ class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stay
         self._mm = _mm
 
     @property
-    def n(self):
+    def n(self) -> int:
         return len(self.date)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.date)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "BarTape(n=%d)" % len(self)
 
-    def release(self):
+    def release(self) -> None:
         """Drop column views and close the mmap, if any.
 
         Column attributes become empty tuples so the mapping is no longer
@@ -128,14 +130,14 @@ class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stay
             # Another BarTape slice still exports this mapping.
             pass
 
-    def __enter__(self):
+    def __enter__(self) -> BarTape:
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *exc: object) -> Literal[False]:
         self.release()
         return False
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             if step != 1:
@@ -166,12 +168,12 @@ class BarTape(Sequence):  # type: ignore[type-arg]  # rows are tuples; base stay
             "volume": float(self.volume[i]),
         }
 
-    def as_dicts(self):
+    def as_dicts(self) -> list[dict[str, Any]]:
         """Eager list[dict] copy. Prefer columns for a run."""
         return [self[i] for i in range(len(self))]
 
 
-def ohlcv_columns(bars):
+def ohlcv_columns(bars: Any) -> dict[str, Any]:
     """Unpack bars into column dict ``n, open, high, low, close, volume, date, time``.
 
     BarTape: the existing column views (no copy).
@@ -200,7 +202,7 @@ def ohlcv_columns(bars):
     }
 
 
-def _as_array(col, typecode, n):
+def _as_array(col: Any, typecode: str, n: int) -> array[Any]:
     if isinstance(col, array) and col.typecode == typecode and len(col) == n:
         return col
     out = array(typecode, col)
@@ -209,7 +211,7 @@ def _as_array(col, typecode, n):
     return out
 
 
-def write_pbar(path, bars):
+def write_pbar(path: str | os.PathLike[str], bars: Any) -> int:
     """Write ``bars`` (BarTape or sequence of dicts) as a ``.pbar`` file.
 
     Values are stored as parsed: int32 EL date/time, float64 OHLC/volume.
@@ -218,7 +220,7 @@ def write_pbar(path, bars):
     _require_little_endian()
     _require_native_sizes()
     cols = ohlcv_columns(bars)
-    n = cols["n"]
+    n: int = cols["n"]
     date = _as_array(cols["date"], "i", n)
     time = _as_array(cols["time"], "i", n)
     open_ = _as_array(cols["open"], "d", n)
@@ -239,7 +241,7 @@ def write_pbar(path, bars):
     return n
 
 
-def load_pbar(path) -> BarTape:
+def load_pbar(path: str | os.PathLike[str]) -> BarTape:
     """Memory-map a ``.pbar`` into a BarTape (zero-copy columns).
 
     The returned tape holds the ``mmap`` object; keep it alive while using
@@ -275,7 +277,7 @@ def load_pbar(path) -> BarTape:
         mv = memoryview(mm)
         off = HEADER_SIZE
 
-        def _take(nbytes, fmt):
+        def _take(nbytes: int, fmt: Literal["i", "d"]) -> memoryview[Any]:
             nonlocal off
             sl = mv[off:off + nbytes]
             off += nbytes
@@ -299,7 +301,8 @@ def load_pbar(path) -> BarTape:
         raise
 
 
-def csv_to_pbar(csv_path, pbar_path, date_format=None):
+def csv_to_pbar(csv_path: str | os.PathLike[str], pbar_path: str | os.PathLike[str],
+                date_format: Optional[str] = None) -> int:
     """Parse an OHLCV CSV with ``load_bars_csv`` and write a ``.pbar``.
 
     Same parse, same float64 values. Returns the bar count.
@@ -308,7 +311,7 @@ def csv_to_pbar(csv_path, pbar_path, date_format=None):
     return write_pbar(pbar_path, load_bars_csv(csv_path, date_format))
 
 
-def main(argv=None):
+def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         prog="python -m pl_transpiler.runtime.bar_tape",
         description="Convert an OHLCV CSV to a compact little-endian .pbar "
@@ -329,7 +332,6 @@ def main(argv=None):
               file=sys.stderr)
         return 0
     ap.error("unknown command")
-    return 2
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ import csv
 import os
 import sys
 from collections import Counter
+from typing import Optional
 
 
 def num(s):
@@ -79,7 +80,7 @@ def main(path):
         distinct_bars = 0      # bn is monotonic within a pass; count transitions
         bn_resets = 0          # bn decreasing => a concatenated re-run pass
         prev_bn = None
-        tags = Counter()
+        tags: Counter[str] = Counter()
         mp_values = set()
         mp_changes = 0
         bars_in_pos = 0
@@ -89,7 +90,8 @@ def main(path):
         cc_max = None
         tt_last = None
         np_last = None
-        first_stamp = last_stamp = None
+        first_stamp: Optional[tuple[str, str, str]] = None
+        last_stamp: Optional[tuple[str, str, str]] = None
 
         for row in rdr:
             if len(row) != ncol:
@@ -168,7 +170,7 @@ def main(path):
         print(f"distinct bars    : {distinct_bars:,}{note}")
         if bn_resets:
             print(f"bn resets        : {bn_resets}  (bn decreased - concatenated re-run passes in the file)")
-    if first_stamp:
+    if first_stamp and last_stamp:
         print(f"first bar        : bn={first_stamp[0]} date={first_stamp[1]} time={first_stamp[2]}")
         print(f"last  bar        : bn={last_stamp[0]} date={last_stamp[1]} time={last_stamp[2]}")
     if dup_headers:

@@ -67,8 +67,8 @@ import gzip
 import hashlib
 import os
 import sys
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from collections.abc import Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     from pl_transpiler.runtime.instrument_config import InstrumentConfig
@@ -124,7 +124,7 @@ BUY_SIDE = "EntryLong"
 SELL_SIDE = "ExitLong"
 
 
-def canonical_fill_line(fill):
+def canonical_fill_line(fill: Mapping[str, Any]) -> str:
     """One stable line for one FillEngine fill / get_mc_trades() dict.
 
     The first field is the buy/sell side (``EntryLong`` = buy side,
@@ -138,7 +138,7 @@ def canonical_fill_line(fill):
     )
 
 
-def fill_trade_types(fills):
+def fill_trade_types(fills: Iterable[Mapping[str, Any]]) -> list[str]:
     """Position-aware label for each fill: EntryLong, ExitLong, EntryShort or ExitShort.
 
     Not part of the digest. Each record is one contract; the position is
@@ -167,7 +167,8 @@ FILLS_CSV_COLUMNS = ("order_no", "trade_type", "side", "signal", "date", "time",
                      "price", "contracts", "position_after")
 
 
-def write_fills_csv(path, fills, tick=None):
+def write_fills_csv(path: Union[str, os.PathLike[str]], fills: Sequence[Mapping[str, Any]],
+                    tick: Optional[float] = None) -> None:
     """Write the human-facing fill log: one row per fill, with ``trade_type``.
 
     ``price`` is rounded to the decimals of ``tick`` when given (display only;
@@ -190,7 +191,7 @@ def write_fills_csv(path, fills, tick=None):
                              qty, position])
 
 
-def trade_summary(fills, bigpointvalue):
+def trade_summary(fills: Sequence[Mapping[str, Any]], bigpointvalue: float) -> dict[str, Any]:
     """Closed-trade statistics from the fill records (not part of the digest).
 
     Each exit record closes one contract against the oldest open entry on
@@ -198,6 +199,9 @@ def trade_summary(fills, bigpointvalue):
     contract, before commission and slippage. Max drawdown is the largest
     peak-to-trough fall of cumulative closed-trade P&L.
     """
+    longs: list[float]
+    shorts: list[float]
+    pnls: list[float]
     longs, shorts, pnls = [], [], []
     for fill, label in zip(fills, fill_trade_types(fills)):
         price = float(fill["price"])
@@ -229,7 +233,7 @@ def trade_summary(fills, bigpointvalue):
     }
 
 
-def format_summary(summary):
+def format_summary(summary: Mapping[str, Any]) -> str:
     """The ``--summary`` text block."""
     trades = summary["trades"]
     rate = f"{100.0 * summary['winners'] / trades:.1f}%" if trades else "n/a"
@@ -247,11 +251,11 @@ def format_summary(summary):
     )
 
 
-def _fmt_price(price, dp):
+def _fmt_price(price: Any, dp: Optional[int]) -> str:
     return repr(float(price)) if dp is None else f"{float(price):.{dp}f}"
 
 
-def hashed_payload(fills, version=2):
+def hashed_payload(fills: Iterable[Mapping[str, Any]], version: int = 2) -> str:
     """The exact text ``fills_sha256`` hashes (and ``--dump`` writes).
 
     v2 starts with a ``digest_version: 2`` line; v1 is the bare fill lines.
@@ -260,12 +264,12 @@ def hashed_payload(fills, version=2):
     return head + "".join(canonical_fill_line(f) + "\n" for f in fills)
 
 
-def fills_sha256(fills, version=2):
+def fills_sha256(fills: Iterable[Mapping[str, Any]], version: int = 2) -> str:
     """SHA-256 (utf-8) of ``hashed_payload(fills, version)``."""
     return hashlib.sha256(hashed_payload(fills, version).encode("utf-8")).hexdigest()
 
 
-def count_round_turns(fills):
+def count_round_turns(fills: Iterable[Mapping[str, Any]]) -> int:
     """Round turns = exit records: each closes one previously entered contract."""
     return sum(1 for t in fill_trade_types(fills) if t.startswith("Exit"))
 
@@ -280,7 +284,7 @@ def format_digest(*, fills: int, round_turns: int, sha256: str, version: int = 2
     )
 
 
-def data2_closes_from_bars(bars, data2_bars):
+def data2_closes_from_bars(bars: Bars, data2_bars: Bars) -> list[float]:
     """Derive a Data1-aligned Close-of-Data2 series from a Data2 bar tape.
 
     Aligns on exact ``(date, time)``, last-wins — the same join the native
@@ -294,7 +298,7 @@ def data2_closes_from_bars(bars, data2_bars):
     """
     d1 = ohlcv_columns(bars)
     d2 = ohlcv_columns(data2_bars)
-    by_key = {}
+    by_key: dict[tuple[int, int], float] = {}
     dates2, times2, closes2 = d2["date"], d2["time"], d2["close"]
     for j in range(d2["n"]):
         by_key[(int(dates2[j]), int(times2[j]))] = float(closes2[j])
@@ -306,7 +310,9 @@ def data2_closes_from_bars(bars, data2_bars):
     return out
 
 
-def window_bars(bars, from_date=None, to_date=None, extra=None):
+def window_bars(bars: Bars, from_date: Optional[int] = None,
+                to_date: Optional[int] = None, extra: Optional[Sequence[Any]] = None
+                ) -> tuple[Bars, Optional[Sequence[Any]]]:
     """Inclusive EL-date slice of ``bars`` and an optional parallel ``extra`` list.
 
     ``from_date`` / ``to_date`` are EL integers (YYYMMDD). None means unbounded
@@ -340,10 +346,14 @@ def window_bars(bars, from_date=None, to_date=None, extra=None):
     return out_bars, out_extra
 
 
-def _run_oracle_native(el_source, bars, config, *, data2_bars, from_date,
-                       to_date, from_bar, seed_warmup, digest_version=2,
-                       max_bars_back=0, max_entries_per_direction=0,
-                       drawings=False):
+def _run_oracle_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
+                       data2_bars: Optional[Bars], from_date: Optional[int],
+                       to_date: Optional[int], from_bar: Optional[int],
+                       seed_warmup: bool, digest_version: int = 2,
+                       max_bars_back: Union[int, str] = 0,
+                       max_entries_per_direction: Optional[int] = 0,
+                       drawings: bool = False
+                       ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """Attempt the native kernel path for one ``run_oracle`` call.
 
     The native path serves exactly the full-tape, non-windowed shape — the
@@ -520,7 +530,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     tick=drawing_meta[3],
                     producer_kind="pb-native",
                 )
-            return cast("dict[str, Any]", native_digest)
+            return native_digest
 
     if from_date is not None and from_bar is not None:
         raise ValueError("from_date and from_bar are mutually exclusive")
@@ -573,13 +583,13 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     if data2_closes is not None:
         d2 = data2_closes
 
-        def extra(i):
+        def extra(i: int) -> dict[str, float]:
             return {"data2_close": d2[i]}
 
-    def emit_row(_i, _barnumber, _trace):
+    def emit_row(_i: int, _barnumber: int, _trace: Any) -> None:
         return None
 
-    def get_ohlcv(i):
+    def get_ohlcv(i: int) -> tuple[Any, Any, Any, Any, Any]:
         return (o_arr[i], h_arr[i], l_arr[i], c_arr[i], v_arr[i])
 
     # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
@@ -647,7 +657,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     return digest
 
 
-def _build_parser():
+def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_oracle",
         description="Exact trade-list digest: persist=True min-emit run of EL "
@@ -744,13 +754,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.lenient:
         set_strict_mode(False)
     try:
-        return cast(int, _cli.run("pl_oracle", _main, ap, args))
+        return _cli.run("pl_oracle", _main, ap, args)
     except UnimplementedBuiltinError as exc:
         print(unimplemented_stop_message("pl_oracle", exc, args.el_file), file=sys.stderr)
         return 2
 
 
-def _file_sha256(path):
+def _file_sha256(path: Union[str, os.PathLike[str]]) -> str:
     """sha256 of a bars file. ``.gz`` is hashed after decompression."""
     with open(path, "rb") as fh:
         raw = fh.read()
@@ -759,7 +769,7 @@ def _file_sha256(path):
     return hashlib.sha256(raw).hexdigest()
 
 
-def _drawing_tape_arg(args):
+def _drawing_tape_arg(args: argparse.Namespace) -> dict[str, str]:
     name = args.tape_name
     if not name:
         stem = os.path.basename(args.bars_csv)
@@ -776,7 +786,7 @@ _EXPLAIN_NOTE = ("compile-time check only; a native run can still be "
                  "refused at run time")
 
 
-def _explain_native(el_file):
+def _explain_native(el_file: str) -> int:
     """``--explain-native``: print each native refusal, run nothing."""
     el_source = open(el_file, encoding="utf-8").read()
     try:
@@ -793,7 +803,7 @@ def _explain_native(el_file):
     return 0
 
 
-def _main(ap, args):
+def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     if args.explain_native:
         return _explain_native(args.el_file)
     if args.bars_csv is None:
