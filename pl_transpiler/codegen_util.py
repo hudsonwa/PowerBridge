@@ -20,11 +20,11 @@ _PL_TARGETS_CACHE = None
 
 
 def _available_pl_targets():
-    """Set of every callable pl_* name resolvable in pl_transpiler.builtins (which
-    auto-imports every pl_* callable from the runtime). Cached after first use."""
+    """Set of every callable pl_* name in the runtime (the names generated code can
+    call). Cached after first use."""
     global _PL_TARGETS_CACHE
     if _PL_TARGETS_CACHE is None:
-        from . import builtins as _b
+        from .runtime import pl_runtime as _b
         _PL_TARGETS_CACHE = {
             n for n in dir(_b)
             if n.startswith('pl_') and callable(getattr(_b, n))

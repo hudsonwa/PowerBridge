@@ -18,6 +18,7 @@ there is enough new content to justify one.
 
 ### Changed
 
+- `pl_transpiler/builtins.py` imports its runtime functions by name instead of injecting them through `globals()`, so mypy and ruff check the builtin table again, and mypy runs with stricter flags (#198).
 - A plain `pytest` run now ends with skips grouped by category (native extension not built, licensed captures not shipped, optional tool missing, not applicable by design), says which are expected on a fresh clone, and points at `pip install -e '.[dev]'` and docs/ACCEL.md (#186).
 - The lexer now runs in linear time, so long programs tokenise much faster (a 3,200-line program in about 0.04 s instead of 2 s), with identical output (#180).
 - `Sell` / `BuyToCover ... from entry("X")` stops with an error (exit 2) only when an entry with a different name is open on its side; with entry X alone open, even pyramided, it now closes the position as before 0.9.0 instead of stopping. Programs that would silently flatten other entries still stop (#24).

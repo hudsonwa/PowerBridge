@@ -18,7 +18,7 @@ import re
 
 class UnimplementedKeywordError(Exception):
     """Raised at transpile time when the codegen would emit one or more generic
-    `pl_<name>` targets that have no implementation in pl_transpiler.builtins.
+    `pl_<name>` targets that have no implementation in the runtime.
 
     Surfacing this at codegen time names the original EL keyword spelling and
     source line, instead of letting the run hit a NameError on a lowercased
