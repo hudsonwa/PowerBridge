@@ -28,8 +28,11 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 ### Added
 
 - Each GitHub Release now carries a `SHA256SUMS` file over every sdist and wheel and a build provenance attestation for each file, so a download can be checked with `sha256sum -c` and `gh attestation verify`; see SECURITY.md (#251).
+- `Print` output is shown: `pl_run` and `pl_oracle` write a strategy's `Print` lines to stderr, or to a file with the new `--print FILE`, and `run_el` / `run_oracle` return them as `prints`. The native kernel prints the same lines as the Python engine. Fills, digests and stdout are unchanged. Generated Python calls `pl_print(...)` instead of `print(...)` (#254).
 
 ### Changed
+
+- When the native kernel is installed but cannot run a program, the note on stderr is now one line saying the Python engine ran and why (`[pl_oracle] note: ran on the Python engine because the native kernel does not support bar_ref series yet; ...`); `-v` adds the kernel's own refusal text (#254).
 
 - The release workflow now tests the built wheels before anything is attached or published: the `powerbridge` wheel runs the public tier from a clean venv, and each `powerbridge-accel` wheel runs a native-vs-Python digest check on the examples on its own platform runner (#246).
 

@@ -122,6 +122,7 @@ The result is a dict:
 | `unimplemented` | `dict[str, int]` | Builtins the runtime does not implement that the run evaluated as `0`/`''` (only when strict mode is off, e.g. `PL_STRICT=0`), with call counts. Empty in the default strict mode, which stops instead. |
 | `native` | `bool` | The Rust kernel produced the rows. |
 | `native_fallback_reason` | `str \| None` | Why a `use_native=True` run fell back to Python, else `None`. |
+| `prints` | `list[str]` | The strategy's `Print` lines in order, the same on either engine (format in [USAGE.md](USAGE.md#print-output)). |
 | `drawings` | `dict` | Only with `drawings=True`: the drawing dump. |
 
 Every cell in `rows` is a string: `str(value)` of the traced value, and `"0"`
@@ -185,8 +186,8 @@ The result has `text` (the digest as printed by `pl_oracle`), `sha256` (str),
 `fills` and `round_turns` (int), `n_bars` and `n_warmup` (int), `records`
 (the fill list, as `run_el`'s `trades`), `closed_positions` (list, or `None` on
 the native path), `native` (bool: the kernel produced the digest),
-`native_fallback_reason` (str or `None`), `fast_path_hits` and
-`unimplemented`.
+`native_fallback_reason` (str or `None`), `prints` (the `Print` lines, as in
+`run_el`), `fast_path_hits` and `unimplemented`.
 
 ```python
 from pl_transpiler import run_oracle, load_bars, get_config
@@ -369,6 +370,7 @@ display (see [`run_el`](#run_el)).
 | `--max-bars-back N\|auto` | First N bars are history only; `auto` uses the lookback found in the source. The default is `auto`, or 0 with a stderr note when the lookback cannot be found. |
 | `--max-entries-per-direction N` | Refuse same-direction entries while N are open. Default unlimited. |
 | `--full-precision` | Do not round money and price cells. |
+| `--print FILE` | Write the strategy's `Print` lines to FILE instead of stderr. |
 | `--lenient` | Keep going instead of stopping on something not supported yet: an unimplemented builtin returns `0` (`''` for a text builtin), a missing bar column such as `Ticks` reads as `0`, and a `from entry` exit with several named entries open closes the whole position. A `WARNING` at the end names each one. Same as `PL_STRICT=0`. |
 | `--partial` | As in `pl_transpile`; results are not faithful. |
 
@@ -397,6 +399,7 @@ kernel when it is installed.
 | `--compare FILE` | Exit 1 if the digest differs from this file. |
 | `--fills-csv FILE` | Write a readable fill log. |
 | `--dump FILE` | Write the hashed payload. |
+| `--print FILE` | As in `pl_run`. |
 | `--digest-v1` | Emit the older v1 digest (Python path only). |
 | `--lenient`, `-v` | As in `pl_run`; `-v` prints kernel diagnostics. |
 
