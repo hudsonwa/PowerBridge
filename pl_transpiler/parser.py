@@ -206,6 +206,19 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
     def at_end(self) -> bool:
         return self.peek()[0] == TT_EOF
 
+    def _end_stmt(self) -> None:
+        """Consume the ';' that ends a statement or declaration.
+
+        EasyLanguage requires it; the only place it may (and must) be left
+        out is before `Else`, so a missing ';' there is accepted."""
+        if self.match(TT_SEMICOLON) or self.peek() == (TT_KEYWORD, 'else'):
+            return
+        prev = max(self.pos - 1, 0)
+        self._err(
+            f"missing ';' at the end of the statement (found {self._describe(self.peek())} next)",
+            hint=f"add ';' after {self._describe(self.tokens[prev])}",
+            tok_index=prev)
+
     # ---- Program ----
     def parse_program(self) -> Node:
         stmts: list[Node] = []
@@ -290,19 +303,19 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         # Break
         if tt == TT_KEYWORD and val == 'break':
             self.advance()
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'break'}
 
         # Continue
         if tt == TT_KEYWORD and val == 'continue':
             self.advance()
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'continue'}
 
         # Abort (EL: aborts the calculation at run-time). Statement form, no args.
         if tt == TT_KEYWORD and val == 'abort':
             self.advance()
-            self.match(TT_SEMICOLON)
+            self._end_stmt()
             return {'type': 'abort'}
 
         # Order actions (lexer emits these as IDENT)

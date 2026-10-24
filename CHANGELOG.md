@@ -38,6 +38,15 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ### Changed
 
+- **Behaviour change:** a statement or declaration without its closing `;`
+  is now a syntax error (line, caret, exit 2) in `pl_transpile`, `pl_run`,
+  `pl_oracle` and the library: `missing ';' at the end of the
+  statement`. EasyLanguage requires the `;`; before, a file with none ran.
+  The documented omission before `Else` still parses, as do attributes like
+  `[IntrabarOrderGeneration = False]` without one. Some forms that were
+  reported as unimplemented keywords (`Close Data2`, `Close[1] of Data2`,
+  `Close of 0 bars ago`) now stop at the missing `;` instead. Generated code
+  is unchanged for every file that still parses.
 - The `AUDIT_REF_3_*` constants (the pinned digest of the reference strategy,
   whose tape is not shipped) moved from `pl_transpiler.oracle` and
   `pl_transpiler.tools.pl_oracle` to `tests/reference_pins.py`, since only

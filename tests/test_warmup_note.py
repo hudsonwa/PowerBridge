@@ -25,6 +25,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from pl_transpiler.lexer import PLSyntaxError  # noqa: E402
 from pl_transpiler.lookback import uses_lookback  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
 from pl_transpiler.tools import pl_oracle, pl_run  # noqa: E402
@@ -49,7 +50,6 @@ NO_LOOKBACK = 'If MarketPosition = 0 Then Buy ("LE") next bar at market;\n'
     ("Value1 = AvgTrueRange(14);", True),
     ("Value1 = Close of 1 bar ago;", True),
     ("Value1 = Close of 2 bars ago;", True),
-    ("Value1 = Close of 0 bars ago;", False),
     ("Value1 = MyIndexingFunc(Close);", True),
     ("Value1 = Average(Close, 1);", False),
     ("Value1 = Momentum(Close, 1);", True),
@@ -57,6 +57,13 @@ NO_LOOKBACK = 'If MarketPosition = 0 Then Buy ("LE") next bar at market;\n'
 ])
 def test_uses_lookback(src, expected):
     assert uses_lookback(src) is expected
+
+
+def test_of_zero_bars_ago_is_a_syntax_error():
+    """`of N bars ago` is not parsed; with N = 0 the token scan does not
+    short-circuit, so the parser reports the missing ';' after `Close`."""
+    with pytest.raises(PLSyntaxError, match="missing ';'"):
+        uses_lookback("Value1 = Close of 0 bars ago;")
 
 
 @pytest.mark.parametrize("tool,extra", [

@@ -17,12 +17,11 @@
 ``Close of Data2`` is the checked form (g-d2-001-close uses
 ``C2 = Close of Data2`` and then ``C2[29]``). ``Close[N] of Data2``,
 ``Close of Data2[N]`` and ``Close Data2`` have not been checked against
-MultiCharts, so they stay a parse or unimplemented-keyword error.
+MultiCharts, so they stay a parse error.
 """
 import pytest
 
 from pl_transpiler import transpile
-from pl_transpiler.errors import UnimplementedKeywordError
 from pl_transpiler.lexer import PLSyntaxError
 from pl_transpiler.runtime.instrument_config import get_config
 from pl_transpiler.tools.pl_run import run_el
@@ -35,9 +34,7 @@ _BARS = [
 ]
 _ES = get_config("ES")
 
-# (source, exception, message fragment). The call-argument form and the
-# assignment form of Close[29] of Data2 fail at different stages; both
-# are loud.
+# (source, exception, message fragment).
 _LOUD = (
     (
         'Vars: id(0);\n'
@@ -47,18 +44,18 @@ _LOUD = (
     ),
     (
         "Vars: A(0);\nA = Close[29] of Data2;\n",
-        UnimplementedKeywordError,
-        "unimplemented keywords",
+        PLSyntaxError,
+        "missing ';' at the end of the statement \\(found 'of' next\\)",
     ),
     (
         "Vars: A(0);\nA = Close of Data2[29];\n",
         PLSyntaxError,
-        "expected IDENT but found '29'",
+        "missing ';' at the end of the statement \\(found '\\[' next\\)",
     ),
     (
         "Vars: A(0);\nA = Close Data2;\n",
-        UnimplementedKeywordError,
-        "unimplemented EL keyword 'data2'",
+        PLSyntaxError,
+        "missing ';' at the end of the statement \\(found 'data2' next\\)",
     ),
 )
 
