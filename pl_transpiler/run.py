@@ -66,7 +66,7 @@ from pl_transpiler._types import Node
 # them directly from a bare wheel — no dependency on the private tests/ harness. The GT
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
 from pl_transpiler.engine import FillEngine, run_bar_loop
-from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time
+from pl_transpiler.engine_dates import parse_el_date, parse_el_time
 from pl_transpiler.errors import (
     UnimplementedKeywordError,
     el_runtime_error,
@@ -174,7 +174,7 @@ def load_bars_csv(path: Union[str, os.PathLike[str]],
     the EL integer form (YYYMMDD, HHMM); both are normalized to EL integers.
     ``date_format`` ('dmy', 'mdy' or 'ymd') sets the field order of slash dates;
     the default is day-first. Invalid dates/times raise ValueError naming the line
-    and value (see ``engine_dates._parse_el_date``).
+    and value (see ``engine_dates.parse_el_date``).
     """
     bars = []
     with open(path, newline='', encoding='utf-8') as f:
@@ -204,8 +204,8 @@ _CSV_COLUMNS = ('date', 'time', 'open', 'high', 'low', 'close', 'volume')
 def _csv_bar(row: list[str], idx: dict[str, int],
              date_format: Optional[str] = None) -> dict[str, Any]:
     return {
-        'date': _parse_el_date(row[idx['date']].strip(), date_format),
-        'time': _parse_el_time(row[idx['time']].strip()),
+        'date': parse_el_date(row[idx['date']].strip(), date_format),
+        'time': parse_el_time(row[idx['time']].strip()),
         'open': float(row[idx['open']]),
         'high': float(row[idx['high']]),
         'low': float(row[idx['low']]),

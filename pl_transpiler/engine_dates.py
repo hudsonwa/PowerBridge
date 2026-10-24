@@ -37,7 +37,7 @@ def _check_ymd(date_str: str, y: int, m: int, d: int) -> int:
 
 
 @functools.lru_cache(maxsize=4096)
-def _parse_el_date(date_str: str, date_format: Optional[str] = None) -> int:
+def parse_el_date(date_str: str, date_format: Optional[str] = None) -> int:
     """Parse a bar date -> EL integer date YYYMMDD.
 
     EL Date format = YYYMMDD = (year - 1900) * 10000 + month * 100 + day.
@@ -80,7 +80,7 @@ def _parse_el_date(date_str: str, date_format: Optional[str] = None) -> int:
     return _check_ymd(date_str, 1900 + v // 10000, (v // 100) % 100, v % 100)
 
 
-def _parse_el_time(time_str: str) -> int:
+def parse_el_time(time_str: str) -> int:
     """Parse HH:MM[:SS] or an EL integer HHMM -> EL integer time HHMM.
 
     EL bar times have minute resolution, so a non-zero seconds field is an
@@ -108,7 +108,7 @@ def _parse_el_time(time_str: str) -> int:
     return h * 100 + mi
 
 
-def _el_to_ole(el_date: Optional[float], el_time: Optional[float]) -> float:
+def el_to_ole(el_date: Optional[float], el_time: Optional[float]) -> float:
     """Convert an EL date (YYMMDD) + EL time (HHMM) to a MultiCharts DateTime serial
     (OLE automation date = days since 1899-12-30 + fraction-of-day). This is the value
     PosTradeEntry/ExitDateTime, EntryDateTime, ExitDateTime emit (pdf:12085 et al).
@@ -130,7 +130,7 @@ def _el_to_ole(el_date: Optional[float], el_time: Optional[float]) -> float:
     return days + (hh * 3600 + mn * 60) / 86400.0
 
 
-def _el_date_to_day_of_week(el_date: Union[float, str]) -> int:
+def el_date_to_day_of_week(el_date: Union[float, str]) -> int:
     """Return day-of-week (1=Mon..5=Fri) from an EL date integer (YYMMDD).
     
     EL CurrentSession(1) returns the day-of-week session number.
@@ -142,3 +142,10 @@ def _el_date_to_day_of_week(el_date: Union[float, str]) -> int:
     dy = d % 100
     dt = datetime.date(yr, mo, dy)
     return dt.isoweekday()  # 1=Mon..7=Sun; EL session values are 1..5
+
+
+# The old underscore names, kept for callers that imported them.
+_parse_el_date = parse_el_date
+_parse_el_time = parse_el_time
+_el_to_ole = el_to_ole
+_el_date_to_day_of_week = el_date_to_day_of_week

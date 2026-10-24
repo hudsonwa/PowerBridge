@@ -36,18 +36,18 @@ from .codegen_tables import DIALECT_VERSION as DIALECT_VERSION
 from .codegen_util import (  # noqa: F401
     _OHLCV_F32_LOCALS,
     _OHLCV_F32_NAMES,
-    _available_pl_targets,
     _expr_already_f32,
     _f32_literal_const,
     _is_numeric_literal_node,
     _runtime_bound_bare_names,
+    available_pl_targets,
     mangle_user_names,
 )
 from .errors import (
     GeneratedSource,
     UnimplementedKeywordError,  # noqa: F401
 )
-from .semantic import _collect_declared, add_scratch_decls
+from .semantic import add_scratch_decls, collect_declared
 
 
 class CodeGen(_ExprMixin, _StmtMixin):
@@ -158,10 +158,10 @@ class CodeGen(_ExprMixin, _StmtMixin):
         # bodies (if/for/while/switch cases) mid-program, and round-tripped/emitted EL
         # re-positions them. The bare-keyword flag uses this set as the "is a real
         # declared identifier" oracle; a shallow (top-level-only) pass would wrongly
-        # flag nested-declared vars as unimplemented. _collect_declared already walks
+        # flag nested-declared vars as unimplemented. collect_declared already walks
         # every nested body recursively, so it is the single source of truth here.
-        from pl_transpiler.semantic import _collect_declared
-        self._declared_all = _collect_declared(node)
+        from pl_transpiler.semantic import collect_declared
+        self._declared_all = collect_declared(node)
         # A bare ident that is ASSIGNED anywhere (at any depth) can be a legitimate
         # local — a plain `x = ...` statement DEFINES x for the emitted Python, exactly
         # as the forward path's `return name` always relied on. This matters for
@@ -891,7 +891,7 @@ class CodeGen(_ExprMixin, _StmtMixin):
             return set()
         from pl_transpiler import catalog
         from pl_transpiler.parser_tables import BUILTIN_FUNC_MAP  # noqa: F811
-        from pl_transpiler.semantic import _is_known_name
+        from pl_transpiler.semantic import is_known_name
         candidates: set[str] = set()
         for name in assigned_and_read:
             # FAIL-CLOSED: a name that is a RECOGNIZED EL keyword
@@ -904,9 +904,9 @@ class CodeGen(_ExprMixin, _StmtMixin):
             # catalog-known keyword so a write+read of one still fails loud.
             if (name in self._declared_all
                     or name in BUILTIN_FUNC_MAP
-                    or f'pl_{name}' in _available_pl_targets()
+                    or f'pl_{name}' in available_pl_targets()
                     or catalog.get(name) is not None
-                    or _is_known_name(name, self._declared_all)):
+                    or is_known_name(name, self._declared_all)):
                 continue  # otherwise-known keyword — never rescue as a local
             candidates.add(name)
         if not candidates:
@@ -939,5 +939,5 @@ def generate(ast: Node, trace: bool = False, partial: bool = False,
     transpile time; the strict default (partial=False) raises."""
     cg = CodeGen(trace=trace, partial=partial, persist=persist)
     ast = add_scratch_decls(ast)
-    ast, cg._el_names = mangle_user_names(ast, _collect_declared(ast))
+    ast, cg._el_names = mangle_user_names(ast, collect_declared(ast))
     return cg.gen_program(ast)

@@ -19,7 +19,7 @@ import sys
 
 import pytest
 
-from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time
+from pl_transpiler.engine_dates import parse_el_date, parse_el_time
 from pl_transpiler.tools.pl_run import load_bars_csv
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -43,7 +43,7 @@ HEADER = "date,time,open,high,low,close,volume\n"
     ("02/01/2024", "dmy", 1240102),
 ])
 def test_date_forms(text, fmt, want):
-    assert _parse_el_date(text, fmt) == want
+    assert parse_el_date(text, fmt) == want
 
 
 @pytest.mark.parametrize("text,fmt,needle", [
@@ -61,13 +61,13 @@ def test_date_forms(text, fmt, want):
 ])
 def test_bad_dates(text, fmt, needle):
     with pytest.raises(ValueError) as exc:
-        _parse_el_date(text, fmt)
+        parse_el_date(text, fmt)
     assert needle in str(exc.value) and repr(text) in str(exc.value)
 
 
 def test_explicit_dmy_has_no_mdy_hint():
     with pytest.raises(ValueError) as exc:
-        _parse_el_date("01/13/2024", "dmy")
+        parse_el_date("01/13/2024", "dmy")
     assert "--date-format" not in str(exc.value)
 
 
@@ -76,7 +76,7 @@ def test_explicit_dmy_has_no_mdy_hint():
     ("09:30:00", 930), ("9:05:00", 905), ("23:59:00", 2359),
 ])
 def test_time_forms(text, want):
-    assert _parse_el_time(text) == want
+    assert parse_el_time(text) == want
 
 
 @pytest.mark.parametrize("text,needle", [
@@ -86,7 +86,7 @@ def test_time_forms(text, want):
 ])
 def test_bad_times(text, needle):
     with pytest.raises(ValueError) as exc:
-        _parse_el_time(text)
+        parse_el_time(text)
     assert needle in str(exc.value)
 
 

@@ -18,7 +18,7 @@ from collections.abc import Set
 from typing import Any, NoReturn
 
 from ._types import Node
-from .lexer import PLSyntaxError, _source_line
+from .lexer import PLSyntaxError, source_line_at
 from .parser_tables import (
     BUILTIN_ARITY,
     BUILTIN_FUNC_MAP,
@@ -64,7 +64,7 @@ _RESERVED_IDENTS = _SCRATCH_VARS | {
 }
 
 
-def _collect_declared(ast: Any) -> set[str]:
+def collect_declared(ast: Any) -> set[str]:
     """Names introduced by Input/Variable/Array declarations and for-loop vars."""
     declared: set[str] = set()
 
@@ -125,7 +125,7 @@ def add_scratch_decls(ast: Node) -> Node:
     return {**ast, 'body': [{'type': 'var_decl', 'decls': decls}, *ast['body']]}
 
 
-def _is_known_name(name: str, declared: Set[str]) -> bool:
+def is_known_name(name: str, declared: Set[str]) -> bool:
     """True if `name` is a legitimate identifier (declared or a known builtin)."""
     if name in declared:
         return True
@@ -154,13 +154,13 @@ def semantic_check(ast: Node, source: str = '', strict_undefined: bool = False) 
     strict_undefined=True to raise on the first one instead. This keeps valid
     code untouched while still surfacing typos for the LLM to self-correct.
     """
-    declared = _collect_declared(ast)
+    declared = collect_declared(ast)
     warnings: list[str] = []
 
     def err(message: str, node: Node, hint: str = '') -> NoReturn:
         line = node.get('_line', 0)
         col = node.get('_col', 0)
-        raise PLSyntaxError(message, line, col, _source_line(source, line), hint)
+        raise PLSyntaxError(message, line, col, source_line_at(source, line), hint)
 
     def walk(n: Any) -> None:
         if isinstance(n, dict):
@@ -177,7 +177,7 @@ def semantic_check(ast: Node, source: str = '', strict_undefined: bool = False) 
                             hint=f"check the call's arguments — {name} takes {want}")
             elif t == 'ident':
                 name = n.get('name', '')
-                if not _is_known_name(name, declared):
+                if not is_known_name(name, declared):
                     line = n.get('_line', 0)
                     col = n.get('_col', 0)
                     msg = (f"undefined identifier '{name}' — not declared as an "

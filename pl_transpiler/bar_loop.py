@@ -20,7 +20,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
-from pl_transpiler.engine_dates import _el_date_to_day_of_week
+from pl_transpiler.engine_dates import el_date_to_day_of_week
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError
 from pl_transpiler.runtime._rt_history import SeriesState
 
@@ -582,10 +582,10 @@ def _drive_bars(
                 day_high = h
                 day_low = l
                 prev_day_close = -1
-                current_session = _el_date_to_day_of_week(dt)
+                current_session = el_date_to_day_of_week(dt)
             elif cur_date != prev_date:
                 prev_day_close = day_close
-                current_session = _el_date_to_day_of_week(dt)
+                current_session = el_date_to_day_of_week(dt)
                 day_open = o
                 day_high = h
                 day_low = l

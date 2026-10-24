@@ -16,7 +16,7 @@
 """Native-vs-Python parity for CurrentSession and the session-count words.
 
 On the Python path ``bar_loop`` passes ``CurrentSession`` as the ISO weekday
-of the bar's date (``engine_dates._el_date_to_day_of_week``); the kernel
+of the bar's date (``engine_dates.el_date_to_day_of_week``); the kernel
 computes the same value. ``SessionCount``, ``SessionCountMS``,
 ``SessionEndDay`` and ``SessionEndDayMS`` are template constants in
 ``_rt_session``. The sample tape is re-dated across a full week (Monday to
