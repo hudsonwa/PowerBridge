@@ -295,7 +295,9 @@ builtin 1 ['numeric'] verified:capture-strategy
   zero, or any other exception from the generated code. `.line` is the EL line
   of the failing statement (`None` if unknown), the message is one line such as
   `array index 4 out of range for 'a' (max index 3) at line 2`, and the
-  original Python exception is its `__cause__`.
+  original Python exception is its `__cause__`. It is also an instance of
+  that exception's type, so existing `except IndexError` /
+  `except ZeroDivisionError` handlers keep working.
 - `ConfigFileError` (a `ValueError`, in `pl_transpiler.runtime.instrument_config`):
   a malformed instrument config file.
 - `ValueError` for bad bar files, unknown trace columns and invalid options.

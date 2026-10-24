@@ -117,11 +117,36 @@ class ELRuntimeError(Exception):
     ``line`` is the EL source line of the statement that failed (``None`` when
     it is not known); ``str(exc)`` is a one-line message such as
     ``array index 4 out of range for 'a' (max index 3) at line 2``. The
-    original Python exception is chained as ``__cause__``."""
+    original Python exception is chained as ``__cause__``.
+
+    The raised object is also an instance of the original exception's type
+    (``IndexError``, ``ZeroDivisionError``, ...), so ``except IndexError``
+    keeps catching it."""
 
     def __init__(self, message: str, line: Optional[int] = None) -> None:
-        super().__init__(message)
+        Exception.__init__(self, message)
+        self.message = message
         self.line = line
+
+    def __str__(self) -> str:  # not the mixed-in base's own formatting
+        return self.message
+
+
+_combined: dict[type, type[ELRuntimeError]] = {}
+
+
+def _el_error_class(exc_type: type) -> type[ELRuntimeError]:
+    """``ELRuntimeError`` mixed with ``exc_type``, or plain ``ELRuntimeError``
+    when the two cannot be combined."""
+    cls = _combined.get(exc_type)
+    if cls is None:
+        try:
+            cls = type(exc_type.__name__, (ELRuntimeError, exc_type),
+                       {'__module__': __name__, '__qualname__': 'ELRuntimeError'})
+        except TypeError:
+            cls = ELRuntimeError
+        _combined[exc_type] = cls
+    return cls
 
 
 # `A[i]` is emitted as `a[-(int(i) + 1)]` (or `a[-(3 + 1)]` for a literal index).
@@ -210,8 +235,12 @@ def el_runtime_error(exc: BaseException, source: str, filename: str,
         problem = problem or "array index out of range"
     elif isinstance(exc, ZeroDivisionError):
         problem = "division by zero"
-    if problem is not None:
-        return ELRuntimeError(problem + where, line)
-    return ELRuntimeError(
-        f"internal error{where}: {type(exc).__name__}: {exc} "
-        "(set PB_DEBUG=1 for the full traceback)", line)
+    if problem is None:
+        problem = (f"internal error{where}: {type(exc).__name__}: {exc} "
+                   "(set PB_DEBUG=1 for the full traceback)")
+    else:
+        problem += where
+    try:
+        return _el_error_class(type(exc))(problem, line)
+    except TypeError:  # a base whose __new__ needs other arguments
+        return ELRuntimeError(problem, line)

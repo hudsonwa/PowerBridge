@@ -38,7 +38,8 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
   `pl_run` and `pl_oracle` with one line naming the EL line, such as
   `pl_oracle: error: array index 4 out of range for 'a' (max index 3) at line 2`,
   and exit 2, instead of a Python traceback and exit 1. The library raises the new
-  `ELRuntimeError` (with `.line`). `PB_DEBUG=1` shows the traceback. Programs
+  `ELRuntimeError` (with `.line`), which is also an instance of the original
+  exception type, so `except IndexError` keeps working. `PB_DEBUG=1` shows the traceback. Programs
   that ran before give the same fills and digests.
 - `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
   `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that

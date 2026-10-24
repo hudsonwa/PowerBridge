@@ -86,6 +86,7 @@ def test_library_raises_el_runtime_error(use_native):
         pl_oracle.run_oracle(LITERAL_INDEX, bars, get_config("NQ"), use_native=use_native)
     assert info.value.line == 2
     assert isinstance(info.value.__cause__, IndexError)
+    assert isinstance(info.value, IndexError)  # `except IndexError` still works
     with pytest.raises(ELRuntimeError) as info:
         pl_run.run_el(DIVISION, bars, get_config("NQ"))
     assert info.value.line == 2
@@ -108,6 +109,23 @@ def test_generic_error_names_the_line(monkeypatch):
     assert str(err) == ("internal error at line 3: ValueError: bad value "
                         "(set PB_DEBUG=1 for the full traceback)")
     assert err.line == 3
+
+
+def test_unmixable_exception_types_fall_back(monkeypatch):
+    src = transpile("Vars: x(0);\nx = Average(Close, 3);\n", persist=True)
+    ns = {}
+    exec(compile(src, "<gen>", "exec"), ns)
+
+    def boom(*args, **kwargs):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "bad byte")
+    for name in list(ns):
+        if name.startswith("pl_average"):
+            ns[name] = boom
+    with pytest.raises(UnicodeDecodeError) as info:
+        ns["strategy"]([1.0], [1.0], [1.0], [1.0], [1.0], [1], [1])
+    err = el_runtime_error(info.value, src, "<gen>")
+    assert isinstance(err, ELRuntimeError) and err.line == 2
+    assert "internal error at line 2: UnicodeDecodeError" in str(err)
 
 
 def test_errors_outside_generated_code_pass_through():
