@@ -22,7 +22,7 @@ Detailed API, CLI and invariant reference for agents and scripts. The short guid
 
 The private strategy this project is benchmarked against is called **the
 reference strategy** in docs, comments, issues and pull requests; its pinned
-constants keep the `AUDIT_REF_3_` prefix. No other name for it appears in this
+constants keep the `AUDIT_REF_3_` prefix and live in `tests/reference_pins.py`. No other name for it appears in this
 repository or on its tracker.
 
 ## Package layout
