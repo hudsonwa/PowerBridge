@@ -265,3 +265,12 @@ def test_status_line_engine_tag_folds():
     assert matches(doc, doc)
     assert not matches(doc, ["[pl_run] 140 bars, 129 rows, 5 fills, 3 round-turns [native] -> out/t.csv"])
     assert matches(["[pl_run] 140 bars, 119 rows [python]"], ["[pl_run] 140 bars, 119 rows [native]"])
+
+
+def test_usage_blocks_need_only_pl_examples_files():
+    """USAGE.md's runnable blocks work after a wheel install plus `pl_examples`,
+    so they must not read files that exist only in a clone (ground_truth/)."""
+    usage = os.path.join(REPO, "docs", "USAGE.md")
+    bad = [b["line"] for b in parse_readme(open(usage, encoding="utf-8").read())
+           if not b["skip"] and any("ground_truth/" in l for l in b["body"])]
+    assert not bad, f"docs/USAGE.md blocks at lines {bad} read ground_truth/"

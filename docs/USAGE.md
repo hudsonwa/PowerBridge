@@ -16,6 +16,10 @@
 
 # Usage guide
 
+> These docs on `main` track the latest release (0.10.0), the version
+> `pip install` gives you. Anything marked *new in the next release* is on
+> `main` but not released yet; the text next to it gives the 0.10.0 way.
+
 The [README](../README.md#quickstart) has the short quickstart. This
 page goes through the same example step by step, then covers the Python to
 EasyLanguage direction, the library API, your own bar data and other
@@ -125,10 +129,11 @@ with open("examples/NQ_sample_bars.csv") as f:
 
 These are raw signals: the first `LX` arrives while flat and fills nothing.
 For fills, positions and P&L use `pl_run` or `pl_oracle` below.
-`pl_transpile --dialect mirror` emits the clean mirror dialect for `el_emit`
-instead; that file is not runnable on its own. The dialect names match the
-library call `transpile(src, dialect="runnable" | "mirror")`; the older
-`--no-persist` flag still works as an alias for `--dialect mirror`.
+`pl_transpile --no-persist` emits the clean mirror dialect for `el_emit`
+instead; that file is not runnable on its own. *New in the next release:*
+`pl_transpile --dialect mirror` does the same, with the dialect names of the
+library call `transpile(src, dialect="runnable" | "mirror")`; on 0.10.0 use
+`--no-persist`, which stays as an alias.
 
 **3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
 generated Python on your machine, so only run files you trust (transpiling
@@ -305,7 +310,7 @@ checked EasyLanguage:
 
 ```bash
 mkdir -p out
-pl_transpile examples/ma_cross.el --dialect mirror -o out/ma_mirror.py
+pl_transpile examples/ma_cross.el --no-persist -o out/ma_mirror.py
 ```
 
 ```
@@ -324,26 +329,30 @@ NOTE: argument types are checked only where the catalog declares a verified nume
 
 `el_emit` exits non-zero if any builtin is not known to compile in
 MultiCharts. To write a strategy by hand instead of transpiling one, see
-[Writing a strategy in Python](PYTHON_STRATEGIES.md). The same works for a
-larger strategy, from the library API:
+[Writing a strategy in Python](PYTHON_STRATEGIES.md). The same round trip
+from the library API, on the file `pl_examples` writes:
 
 ```python
 import os
 from pl_transpiler import transpile
-el = open("ground_truth/GT2_strategy_orders_position.txt").read()
+el = open("examples/ma_cross.el").read()
 os.makedirs("out", exist_ok=True)
-open("out/GT2_mirror.py", "w").write(transpile(el, dialect="mirror"))
+open("out/ma_cross_mirror.py", "w").write(transpile(el, dialect="mirror"))
 ```
 
 ```bash
-el_emit out/GT2_mirror.py -o out/GT2_from_python.txt
+el_emit out/ma_cross_mirror.py -o out/ma_cross_from_python.el
 ```
 
 ```
-out/GT2_from_python.txt: 26 builtins used | 26 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD
+out/ma_cross_from_python.el: 3 builtins used | 3 PROVEN | 0 NOT-PROVEN | 0 ARITY-BAD | 0 RETURN-TYPE-BAD | 0 ARG-TYPE-BAD
 OK -- every builtin used is known to compile in MultiCharts (names, argument counts, return types).
 NOTE: argument types are checked only where the catalog declares a verified numeric parameter and the argument is a literal or a string/true-false variable; compiling in the MultiCharts editor is the final check.
 ```
+
+In a clone, the larger strategies under `ground_truth/` go through the same
+way; `ground_truth/GT2_strategy_orders_position.txt` uses 26 builtins, all
+PROVEN.
 
 `el_emit` fails closed: every builtin must be in the shipped list of names
 known to compile in MultiCharts, with the right argument count and return
@@ -369,9 +378,10 @@ the final check.
 ```python
 from pl_transpiler import transpile, run_el, load_bars_csv, get_config
 
-py = transpile(open("ground_truth/GT2_strategy_orders_position.txt").read())
+el = open("examples/ma_cross.el").read()
+py = transpile(el)
 out = run_el(
-    open("ground_truth/GT2_strategy_orders_position.txt").read(),
+    el,
     load_bars_csv("examples/NQ_sample_bars.csv"),
     get_config("NQ"),
     trace_columns=["MarketPosition", "NetProfit"],
@@ -389,8 +399,8 @@ Every public function, its options and return values, and each CLI's flags are
 described in [docs/API.md](API.md).
 
 ```
-65 lines; 140 bars; 7 trades
-['MarketPosition', 'NetProfit'] ['1', '4742.20703125']
+42 lines; 140 bars; 3 trades
+['MarketPosition', 'NetProfit'] ['1', '1343.7984375000087']
 ```
 
 `out["trades"]` is the fill log: one entry per fill, so a reversal counts as
