@@ -406,8 +406,9 @@ def _inv_expr_stmt(stmt: ast.Expr, out: list[Node]) -> None:
     if setplot is not None:
         out.append(setplot)
         return
-    # print(...) -> print ; print(pl_file(path), msg) included
-    if _is_call(val, 'print'):
+    # pl_print(...) -> print ; pl_print(pl_file(path), msg) included. Bare
+    # print(...) is the spelling of older emitted code.
+    if _is_call(val, 'pl_print') or _is_call(val, 'print'):
         out.append({'type': 'print', 'args': [inv_expr(a) for a in val.args]})
         return
     # _commentary = ... is an Assign, not here; Commentary() would be a bare call.

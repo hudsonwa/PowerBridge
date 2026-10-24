@@ -61,6 +61,7 @@ from pl_transpiler.runtime.accel import (
     AccelUnavailable,
     accel_available,
     explain_native,
+    refusal_detail,
     warn_python_path,
 )
 from pl_transpiler.runtime.bar_tape import ohlcv_columns
@@ -150,8 +151,10 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="write digest here as well as stdout.")
     ap.add_argument("--compare", default=None,
                     help="exit 1 if the produced digest differs from this file.")
+    _cli.add_print_arg(ap)
     ap.add_argument("-v", "--verbose", action="count", default=0,
-                    help="-v: also print the 'accel not installed' note and how many "
+                    help="-v: also print the 'accel not installed' note, the native "
+                         "kernel's own reason when it cannot run a program, and how many "
                          "bars skipped fill processing to stderr. -vv: also print "
                          "native-kernel internals ([accel] lines, e.g. the skip-region "
                          "plan); PB_DEBUG=1 does the same for those.")
@@ -294,8 +297,14 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
                 warn_python_path()
         elif not (result.get("native_fallback_reason") or "").startswith(
                 "native path refused"):
-            # A refusal was already reported once by run_oracle.
             warn_python_path(result.get("native_fallback_reason") or "native kernel refused")
+        elif args.verbose:
+            # run_oracle already printed the one-line note.
+            print(refusal_detail("pl_oracle", result["native_fallback_reason"]),
+                  file=sys.stderr)
+    with _cli.print_sink(args.print_file) as on_print:
+        for line in result["prints"]:
+            on_print(line)
     text = result["text"]
 
     sys.stdout.write(text)

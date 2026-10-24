@@ -71,8 +71,11 @@ def test_native_refusal_reported_once(monkeypatch, capsys):
     monkeypatch.setattr("pl_transpiler.runtime.accel._ACCEL_MISSING_WARNED", False)
     assert pl_oracle.main([EL, BARS]) == 0
     err = capsys.readouterr().err
-    assert err.count("native path refused") == 1, err
-    assert "using the pure-Python engine" in err
+    assert err.count("ran on the Python engine") == 1, err
+    assert ("[pl_oracle] note: ran on the Python engine because the native kernel "
+            "cannot run it (unsupported construct)") in err
+    # The kernel's own text is a -v detail.
+    assert "native path refused" not in err
 
 
 def test_run_el_logs_python_path_note_instead_of_printing(monkeypatch, capsys, caplog):

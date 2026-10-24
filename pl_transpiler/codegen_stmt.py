@@ -519,4 +519,4 @@ class _StmtMixin:
     # ---- Print ----
     def gen_print(self, node: Node) -> None:
         args = ', '.join(self.gen_expr(a) for a in node['args'])
-        self.emit(f"print({args})")
+        self.emit(f"pl_print({args})")

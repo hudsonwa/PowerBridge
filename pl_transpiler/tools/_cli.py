@@ -21,9 +21,10 @@ run-time error such as an array index out of range) print ``<tool>: error: <mess
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
 import argparse
+import contextlib
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Callable, NoReturn, Optional, Union
 
 from pl_transpiler.errors import ELRuntimeError, UnimplementedKeywordError
@@ -68,6 +69,22 @@ def add_version(ap: argparse.ArgumentParser, prog: str) -> None:
 def output_path(path: Optional[str]) -> Optional[str]:
     """``-o -`` means stdout, same as omitting ``-o``."""
     return None if path == "-" else path
+
+
+def add_print_arg(ap: argparse.ArgumentParser) -> None:
+    ap.add_argument("--print", dest="print_file", metavar="FILE", default=None,
+                    help="write the strategy's Print lines to FILE instead of "
+                         "stderr. The digest / CSV output is unchanged.")
+
+
+@contextlib.contextmanager
+def print_sink(path: Optional[str]) -> Iterator[Callable[[str], Any]]:
+    """A sink for Print lines: one line each, to *path* or (None) stderr."""
+    if path is None:
+        yield lambda line: print(line, file=sys.stderr)
+        return
+    with open(path, "w", encoding="utf-8") as fh:
+        yield lambda line: print(line, file=fh)
 
 
 def config_or_error(name: str) -> 'InstrumentConfig':

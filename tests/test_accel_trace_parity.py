@@ -216,8 +216,10 @@ def test_pl_run_cli_kernel_refusal_falls_back_loudly(monkeypatch, tmp_path, caps
     want, _ = _cli([el, BARS_CSV, "--python"], tmp_path, "py.csv", capsys)
     got, err = _cli([el, BARS_CSV], tmp_path, "nat.csv", capsys)
     assert got == want
-    assert ("[pl_run] native path refused: synthetic refusal; "
-            "using the pure-Python engine (slower)") in err
+    assert ("[pl_run] note: ran on the Python engine because the native kernel "
+            "cannot run it (synthetic refusal); results are the same, only slower "
+            "(-v for details)") in err
+    assert "native path refused" not in err
     assert "[python]" in err
 
 

@@ -125,12 +125,14 @@ def _build_parser() -> argparse.ArgumentParser:
                          "cannot find the lookback (other "
                          "warnings still print).")
     _cli.add_max_entries_per_direction_arg(ap)
+    _cli.add_print_arg(ap)
     ap.add_argument("--full-precision", dest="full_precision", action="store_true",
                     help="write every float at full precision instead of rounding "
                          "money to cents and prices to the instrument tick.")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="also print the note that the optional native kernel "
-                         "is not installed (other fallback notes always print).")
+                         "is not installed, and the kernel's own reason when it "
+                         "cannot run a program (the one-line note always prints).")
     ap.add_argument("--native", dest="use_native", action="store_true", default=None,
                     help="use the Rust kernel's per-bar trace (the DEFAULT when it is "
                          "installed); falls back to Python loudly when it cannot "
@@ -161,6 +163,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 
 def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    with _cli.print_sink(args.print_file) as on_print:
+        return _run(ap, args, on_print)
+
+
+def _run(ap: argparse.ArgumentParser, args: argparse.Namespace,
+         on_print: Callable[[str], Any]) -> int:
     if args.bars_csv is None:
         ap.error("a bars CSV is required: pl_run <el_file> <bars_csv> ...")
 
@@ -173,15 +181,20 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     config = _cli.config_or_error(args.config)
     out_path = _cli.output_path(args.output)
 
-    from pl_transpiler.runtime.accel import accel_available
+    from pl_transpiler.runtime.accel import (
+        accel_available,
+        refusal_detail,
+        refusal_note,
+    )
     use_native = accel_available() if args.use_native is None else args.use_native
 
     def notify(reason: Optional[str] = None) -> None:
         if args.use_native is False:
             return  # --python: explicitly requested
         if reason is not None and reason.startswith("native path refused"):
-            print(f"[pl_run] {reason}; using the pure-Python engine (slower)",
-                  file=sys.stderr)
+            print(refusal_note("pl_run", reason), file=sys.stderr)
+            if args.verbose:
+                print(refusal_detail("pl_run", reason), file=sys.stderr)
         elif reason is not None and (use_native or accel_available()):
             warn_python_path(reason)
         elif args.verbose:
@@ -209,7 +222,8 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
                              seed_warmup=not args.slice_tape,
                              max_bars_back=args.max_bars_back,
                              max_entries_per_direction=args.max_entries_per_direction,
-                             use_native=use_native, python_path_notify=notify)
+                             use_native=use_native, python_path_notify=notify,
+                             print_sink=on_print)
         except UnknownTraceColumnError as exc:
             if out_path:
                 out_f.close()
@@ -224,7 +238,8 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
                          seed_warmup=not args.slice_tape,
                          max_bars_back=args.max_bars_back,
                          max_entries_per_direction=args.max_entries_per_direction,
-                         use_native=use_native, python_path_notify=notify)
+                         use_native=use_native, python_path_notify=notify,
+                         print_sink=on_print)
     if out_path:
         out_f.close()
 

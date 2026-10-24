@@ -134,7 +134,7 @@ INLINE_CALLS: dict[str, InlineCall] = {
     '__plotpb__': lambda _n, a: (
         f"_plots.setdefault('plotpb', []).append(({a[0]}, {a[1]}, {a[2]}, {a[3]}))"
         if len(a) == 4 else None),
-    '__printlog__': lambda _n, a: f"print({_join(a)})",
+    '__printlog__': lambda _n, a: f"pl_print({_join(a)})",
     '__setplotcolor__': _plot_attr('color'),
     '__setplotwidth__': _plot_attr('width'),
     '__setplotstyle__': _plot_attr('style'),

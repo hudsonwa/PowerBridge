@@ -350,17 +350,19 @@ def _run_oracle_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
         return None, "run is windowed (not the native shape)"
     if digest_version < 2:
         return None, "--digest-v1 is served by the Python path only"
+    prints: list[str] = []
     try:
         objects = None
         if drawings:
             fills, objects = run_native_drawings(
                 el_source, bars, config, data2_bars=data2_bars,
                 max_bars_back=max_bars_back,
-                max_entries_per_direction=max_entries_per_direction)
+                max_entries_per_direction=max_entries_per_direction, prints=prints)
         else:
             fills = run_native(el_source, bars, config, data2_bars=data2_bars,
                                max_bars_back=max_bars_back,
-                               max_entries_per_direction=max_entries_per_direction)
+                               max_entries_per_direction=max_entries_per_direction,
+                               prints=prints)
     except (AccelUnavailable, AccelRefused) as exc:
         return None, f"native path refused: {exc}"
     n = ohlcv_columns(bars)["n"]
@@ -376,6 +378,7 @@ def _run_oracle_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
         "n_warmup": 0,
         "records": fills,
         "native": True,
+        "prints": prints,
         "_native_drawings": objects,
     }
     digest["text"] = format_digest(
@@ -453,7 +456,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     Returns a dict with keys:
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,
-      records, native, native_fallback_reason
+      records, native, native_fallback_reason, prints
       and, when ``drawings`` is true, ``drawings``.
     ``records`` is the get_mc_trades() list (ordered). ``round_turns`` is
     ``count_round_turns(records)`` (v1: ``len(records) // 2``).
@@ -464,7 +467,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     ``use_native`` was requested but the Python path ran, else ``None``. On
     the native path ``records`` are the kernel fills (no ``order_no``) and
     ``closed_positions`` is ``None`` (the FFI returns fills, not the
-    closed-position ledger — neither is in the digest text).
+    closed-position ledger — neither is in the digest text). ``prints`` is
+    the strategy's ``Print`` lines in order, the same on either path.
     """
     max_bars_back = check_max_bars_back(max_bars_back, el_source)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
@@ -500,7 +504,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         bars, data2_closes, trade_from = _window_python_run(
             bars, data2_closes, data2_bars, from_date=from_date, to_date=to_date,
             from_bar=from_bar, seed_warmup=seed_warmup)
-        fill_engine, recorder, cols = _run_oracle_python(
+        fill_engine, recorder, cols, prints = _run_oracle_python(
             el_source, bars, config, data2_closes, trade_from=trade_from,
             max_bars_back=max_bars_back,
             max_entries_per_direction=max_entries_per_direction,
@@ -508,10 +512,8 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
     # Reported after the run, so a program that stops on a user error
     # prints only that error.
     if fallback_reason is not None and fallback_reason.startswith("native path refused"):
-        print(
-            f"[pl_oracle] {fallback_reason}; using the pure-Python engine (slower)",
-            file=sys.stderr,
-        )
+        from pl_transpiler.runtime.accel import refusal_note
+        print(refusal_note("pl_oracle", fallback_reason), file=sys.stderr)
 
     v1 = digest_version < 2
     records = fill_engine.get_mc_trades(v1=v1)
@@ -529,6 +531,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         "records": records,
         "native": False,
         "native_fallback_reason": fallback_reason,
+        "prints": prints,
         "unimplemented": pl_unimplemented_warn('pl_oracle', state=run_st),
     }
     digest["text"] = format_digest(
@@ -608,11 +611,13 @@ def _run_oracle_python(el_source: str, bars: Bars, config: InstrumentConfig,
                        data2_closes: Optional[Sequence[float]], *,
                        trade_from: int, max_bars_back: int,
                        max_entries_per_direction: int,
-                       drawing_tick: Any) -> tuple[FillEngine, Any, dict[str, Any]]:
+                       drawing_tick: Any
+                       ) -> tuple[FillEngine, Any, dict[str, Any], list[str]]:
     """Transpile (persist) and run the bar loop on the pure-Python engine.
 
     ``drawing_tick`` is None unless drawings are recorded. Returns the fill
-    engine, the drawing recorder (or None) and the ``ohlcv_columns`` of *bars*.
+    engine, the drawing recorder (or None), the ``ohlcv_columns`` of *bars*
+    and the Print lines.
     """
     reset_indicator_caches()
     py_code = transpile(el_source, persist=True)
@@ -635,14 +640,13 @@ def _run_oracle_python(el_source: str, bars: Bars, config: InstrumentConfig,
     def emit_row(_i: int, _barnumber: int, _trace: Any) -> None:
         return None
 
-    # Strategy Print(File(...)) would otherwise land on stdout and corrupt the
-    # digest; the loop discards it, as for run_el.
+    # The loop captures the strategy's Print lines (never stdout), as for run_el.
     recorder = None
     if drawing_tick is not None:
         from pl_transpiler.runtime._rt_drawing import DrawingRecorder
         recorder = DrawingRecorder(cols["date"], cols["time"], tick=drawing_tick)
-    _run_strategy_loop(
+    prints = _run_strategy_loop(
         strategy_fn, py_code, el_source, "<oracle>", cols, config, fill_engine,
         emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
         recorder=recorder, per_bar_extra=extra, emit_trace=False)
-    return fill_engine, recorder, cols
+    return fill_engine, recorder, cols, prints
