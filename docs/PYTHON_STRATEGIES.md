@@ -79,9 +79,9 @@ with a stderr note.) Run `pl_transpile --no-persist`
 on a line of EasyLanguage to see the helper name for any builtin.
 
 **Warm-up.** MultiCharts skips its MaxBarsBack bars before evaluating a
-strategy. *New in the next release:* `pl_oracle` / `pl_run` do the same by
+strategy. `pl_oracle` / `pl_run` do the same by
 default (`--max-bars-back auto`, the longest lookback found in the source).
-With `--max-bars-back 0` (the 0.10.0 default) every bar is evaluated from
+With `--max-bars-back 0` (the default before 0.11.0) every bar is evaluated from
 bar 1, so `average(close, 20)` returns 0 for the first 19 bars and `close[5]`
 on bar 1 reads that bar's open; see [LIMITATIONS.md](LIMITATIONS.md).
 
@@ -132,8 +132,7 @@ sha256: 3537d0ba687746fd8846ec2127d8b472b75e1328b257949925e0a04d4fceb4c0
 ```
 
 This strategy reads up to 20 past bars, so the default `--max-bars-back auto`
-skips the first 20 (stderr says `max-bars-back 20 (auto)`). *New in the next
-release;* on 0.10.0, or with `--max-bars-back 0`, the digest is
+skips the first 20 (stderr says `max-bars-back 20 (auto)`). With `--max-bars-back 0`, the digest is
 `9f11e024f4832be65e4c22641085e47c7ec731357162a801a885de95663f61aa` and stderr
 shows one `warning: lookback past available history` line. The digest is the same on the Rust and Python
 paths, and the emitted EasyLanguage survives a round trip:

@@ -16,9 +16,9 @@
 
 # Usage guide
 
-> These docs on `main` track the latest release (0.10.0), the version
+> These docs on `main` track the latest release (0.11.0), the version
 > `pip install` gives you. Anything marked *new in the next release* is on
-> `main` but not released yet; the text next to it gives the 0.10.0 way.
+> `main` but not released yet; the text next to it gives the 0.11.0 way.
 
 The [README](../README.md#quickstart) has the short quickstart. This
 page goes through the same example step by step, then covers the Python to
@@ -130,10 +130,9 @@ with open("examples/NQ_sample_bars.csv") as f:
 These are raw signals: the first `LX` arrives while flat and fills nothing.
 For fills, positions and P&L use `pl_run` or `pl_oracle` below.
 `pl_transpile --no-persist` emits the clean mirror dialect for `el_emit`
-instead; that file is not runnable on its own. *New in the next release:*
-`pl_transpile --dialect mirror` does the same, with the dialect names of the
-library call `transpile(src, dialect="runnable" | "mirror")`; on 0.10.0 use
-`--no-persist`, which stays as an alias.
+instead; that file is not runnable on its own. `pl_transpile --dialect
+mirror` does the same, with the dialect names of the library call
+`transpile(src, dialect="runnable" | "mirror")`.
 
 **3. Run a backtest** on the bundled synthetic bars. `pl_run` executes the
 generated Python on your machine, so only run files you trust (transpiling
@@ -221,7 +220,7 @@ can still be refused at run time. Details are in
 To see the trades themselves, add `--fills-csv FILE`; it writes one row per fill:
 
 ```bash
-pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --fills-csv fills.csv
+pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv --fills-csv fills.csv
 ```
 
 `fills.csv`:
@@ -307,9 +306,9 @@ Every statement and declaration (`Inputs:`, `Vars:`, `Arrays:`) ends with
 `;`, as EasyLanguage documents it, including the last statement before `End`
 and the `End;` that closes a block. Leave it out only before `Else`
 (`... Then x = 1 Else x = 2;`, `End Else Begin`). Attributes such as
-`[IntrabarOrderGeneration = False]` take none. *New in the next release:*
-a missing `;` is a syntax error with the line and a caret, exit code 2
-(`missing ';' at the end of the statement`); 0.10.0 accepted it.
+`[IntrabarOrderGeneration = False]` take none. A missing `;` is a syntax error
+with the line and a caret, exit code 2
+(`missing ';' at the end of the statement`).
 
 ## Python (mirror dialect) to EasyLanguage
 
@@ -448,23 +447,19 @@ Extra columns are ignored. One row is one bar, oldest first.
 
 Rules:
 
-- *New in the next release:* the order of slash dates is read from the file.
+- The order of slash dates is read from the file.
   A first field above 12 anywhere (`13/01/2024`) means day-first, a second
   field above 12 (`01/13/2024`) month-first. When no field is above 12, so
   `01/02/2024` could be 2 January or 1 February, the run stops with one
   `error:` line asking for `--date-format mdy` (M/D/YYYY) or `dmy`
   (D/M/YYYY); a file holding both orders stops too. `--date-format` always
-  wins, and `--date-format ymd` reads `YYYY/MM/DD`. On 0.10.0 slash dates are
-  read day-first unless `--date-format` is given, and only a second field
-  above 12 stops the run.
+  wins, and `--date-format ymd` reads `YYYY/MM/DD`.
 - Months must be 1-12, days must exist in that month, and times must be
   00:00-23:59. Bar times have minute resolution, so a time with non-zero
   seconds (`09:31:05`) is an error rather than being rounded.
-- Bars must be oldest first. *New in the next release:* a bar dated before
-  the one above it stops the run (`bars out of order at line 4: 2024-01-02
-  09:29 comes after 2024-01-02 09:31`); on 0.10.0 such a file runs without a
-  warning, so check the order yourself. Two bars with the same date and time
-  are accepted.
+- Bars must be oldest first: a bar dated before the one above it stops the
+  run (`bars out of order at line 4: 2024-01-02 09:29 comes after 2024-01-02
+  09:31`). Two bars with the same date and time are accepted.
 - Any bad value stops the run with one `error:` line naming the file, the CSV
   line and the value, and exit code 2.
 
@@ -544,25 +539,23 @@ value; profit figures do.
 
 MultiCharts skips its MaxBarsBack bars before evaluating a strategy, and by
 default it finds that number itself (auto-detect, as MultiCharts documents
-it; not verified against a capture here). *New in the next release:*
+it; not verified against a capture here).
 `pl_oracle` and `pl_run` default to `--max-bars-back auto` too (below), and
 the status line on stderr shows the number used (`max-bars-back 21 (auto)`).
 When `auto` cannot bound the lookback, the default falls back to 0 and prints
 a `note:` on stderr saying so; `-q` hides only the note, which never changes
 the output on stdout. Pass `--max-bars-back N` for a chart with a fixed
 setting (such as 50), or `--max-bars-back 0` to evaluate every bar from bar 1,
-so that `Average(Close, 21)` returns 0 for the first 20 bars (the 0.10.0
-default; on 0.10.0 the note prints whenever a strategy reads past bars).
+so that `Average(Close, 21)` returns 0 for the first 20 bars (the default
+before 0.11.0).
 
 On the bars before MaxBarsBack history exists, a price lookback past the
 start of the tape (`Close[5]` on bar 1) reads the current bar's Open, and
 `Date[n]` / `Time[n]` read 0, for any `n`.
 
-In the README quickstart, `--max-bars-back 21` is `ma_cross.el`'s own lookback
+In the README quickstart, `auto` finds 21 for `ma_cross.el`: its own lookback
 (a 21-bar average, compared with its previous value by `crosses`), so the demo
-prints no note. It is the number the new default `auto` finds for it, so the
-same command without the flag gives the same output apart from the status
-line.
+prints no note.
 
 `--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`) uses the longest lookback PowerBridge finds in the strategy source, the same
 number the warm-up note reports. `X[k]` counts k bars plus whatever `X` reads,
@@ -596,7 +589,7 @@ bar, so that average is not full on the first bars. Builtins such as `File`,
 The default (no `--max-bars-back`, or `max_bars_back=None` in the library)
 falls back to 0 in those cases instead of stopping. With an explicit
 `--max-bars-back 0`, stdout, trade digests and traces are the same as on
-0.10.0 without the flag.
+0.10.0 and earlier without the flag.
 
 `auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
 time, raising it and restarting the calculation when a study reads further back

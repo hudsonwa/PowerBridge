@@ -22,7 +22,7 @@ All public names import from the package root and are listed in
 from pl_transpiler import (transpile, run_el, run_oracle, load_bars_csv, load_bars,
                            get_config, load_config_file, catalog,
                            UnimplementedKeywordError)
-from pl_transpiler import ELRuntimeError  # new in the next release
+from pl_transpiler import ELRuntimeError
 ```
 
 ### Bars and dates
@@ -81,9 +81,8 @@ run_el(el_source: str, bars, config, *,
 Transpiles `el_source`, runs it over `bars` with the instrument `config`, and
 returns the per-bar trace and the trade list. This is the library form of
 `pl_run`. Import it from the package root, or as
-`from pl_transpiler.tools.pl_run import run_el`, which works on 0.10.0 and
-later. *New in the next release:* the code lives in `pl_transpiler.run`; the
-old paths keep working.
+`from pl_transpiler.run import run_el`, where the code lives;
+`from pl_transpiler.tools.pl_run import run_el` keeps working.
 
 | Keyword | Default | Meaning |
 |---|---|---|
@@ -95,7 +94,7 @@ old paths keep working.
 | `from_date` | `None` | Inclusive window start as an EL date (`YYYMMDD`). Default is the full tape. |
 | `from_bar` | `None` | 0-based window start index. Mutually exclusive with `from_date`. |
 | `seed_warmup` | `True` | With a window, run the bars before it with fills suppressed so `Once`, lookbacks and Variables are primed. `False` slices them off instead. |
-| `max_bars_back` | `None` | Treat the first N bars as history only: no evaluation, no orders, no rows, and BarNumber starts at 1 on bar N+1. `"auto"` uses the lookback inferred from the source and raises `ValueError` when it cannot. *New in the next release:* the default `None` is `"auto"` falling back to 0 when the lookback cannot be inferred; on 0.10.0 the default is `0`, so pass `max_bars_back=0` to keep 0.10.0 results. |
+| `max_bars_back` | `None` | Treat the first N bars as history only: no evaluation, no orders, no rows, and BarNumber starts at 1 on bar N+1. `"auto"` uses the lookback inferred from the source and raises `ValueError` when it cannot. The default `None` is `"auto"` falling back to 0 when the lookback cannot be inferred; pass `max_bars_back=0` for the results of 0.10.0 and earlier. |
 | `max_entries_per_direction` | `None` | `None`/`0`: every Buy/SellShort adds to the position. N ≥ 1: an entry in the open position's direction is refused while N entries are open. Reversals always fill. |
 
 The result is a dict:
@@ -153,9 +152,8 @@ Runs the strategy without per-bar tracing and returns a canonical digest of
 its trade list: the fastest way to check that two runs (or two engines)
 produce exactly the same trades. This is the library form of `pl_oracle`.
 Import it from the package root, or as
-`from pl_transpiler.tools.pl_oracle import run_oracle`, which works on 0.10.0
-and later. *New in the next release:* the code lives in `pl_transpiler.oracle`;
-the old paths keep working.
+`from pl_transpiler.oracle import run_oracle`, where the code lives;
+`from pl_transpiler.tools.pl_oracle import run_oracle` keeps working.
 `from_date` / `to_date` / `from_bar` window the tape (by slicing, unless
 `seed_warmup=True`). `data2_bars` (or `data2_closes`, a Close series aligned
 with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel
@@ -198,10 +196,10 @@ load_bars(path, prefer_pbar: bool = True, date_format: str | None = None)
 (any order, case-insensitive; extra columns are ignored). Dates are either EL
 integers (`1240102`) or slash dates (`2/1/2024`), and times are `HHMM` or
 `HH:MM[:SS]`; both are normalised to EL integers. `date_format` (`"dmy"`,
-`"mdy"` or `"ymd"`) sets the order of slash dates. *New in the next release:*
-the default `None` infers it from the whole file (a first field above 12 is
+`"mdy"` or `"ymd"`) sets the order of slash dates.
+The default `None` infers it from the whole file (a first field above 12 is
 day-first, a second field above 12 month-first) and raises `ValueError` when
-no field is above 12 or both orders occur; on 0.10.0 `None` reads day-first.
+no field is above 12 or both orders occur.
 A bad row raises `ValueError` naming the line.
 
 `load_bars` also reads `.pbar` files, a memory-mapped binary form that opens
@@ -301,8 +299,7 @@ builtin 1 ['numeric'] verified:capture-strategy
 - `UnimplementedKeywordError`: the source uses EL the
   transpiler does not implement. The message lists each keyword with its line;
   `.errors` holds the details.
-- `ELRuntimeError` (*new in the next release*; on 0.10.0 the original Python
-  exception propagates instead): raised by `run_el` and `run_oracle` when the program
+- `ELRuntimeError`: raised by `run_el` and `run_oracle` when the program
   fails while it runs: an array index out of range, a division (or `Mod`) by
   zero, or any other exception from the generated code. `.line` is the EL line
   of the failing statement (`None` if unknown), the message is one line such as
@@ -329,7 +326,7 @@ EasyLanguage → Python. Writes the runnable dialect (the same as `transpile()`)
 | `-o FILE` | Write Python here (default: stdout). |
 | `--trace` | Emit trace-mode Python (per-bar variable capture). |
 | `--no-persist` | Emit the mirror dialect, the input for `el_emit`; not runnable as a backtest. |
-| `--dialect {runnable,mirror}` | *New in the next release; on 0.10.0 use `--no-persist`.* Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest (the same as `--no-persist`, which stays as an alias). `--trace` always emits `runnable`. |
+| `--dialect {runnable,mirror}` | Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest (the same as `--no-persist`, which stays as an alias). `--trace` always emits `runnable`. |
 | `--partial` | Unimplemented constructs become execution-time stubs under a NOT-FAITHFUL watermark. |
 
 ```sh
@@ -348,10 +345,10 @@ display (see [`run_el`](#run_el)).
 | `--config NAME\|FILE` | Built-in instrument (`NQ`, `ES`) or a JSON config file. Default `NQ`. |
 | `-o FILE` | Write the CSV here (default: stdout). |
 | `--columns A,B,...` | Trace columns to emit. |
-| `--date-format dmy\|mdy\|ymd` | Field order of slash dates in the CSV. *New in the next release:* the default infers it from the file and stops with an error (exit 2) when it cannot tell; on 0.10.0 the default is `dmy`. |
+| `--date-format dmy\|mdy\|ymd` | Field order of slash dates in the CSV. The default infers it from the file and stops with an error (exit 2) when it cannot tell. |
 | `--from-date YYYMMDD` / `--from-bar N` | Start the output at a date or bar index, with seeded warmup. |
 | `--slice` | Drop the bars before the window instead of seeding warmup. |
-| `--max-bars-back N\|auto` | First N bars are history only; `auto` uses the lookback found in the source. *New in the next release:* the default is `auto`, or 0 with a stderr note when the lookback cannot be found; on 0.10.0 the default is 0. |
+| `--max-bars-back N\|auto` | First N bars are history only; `auto` uses the lookback found in the source. The default is `auto`, or 0 with a stderr note when the lookback cannot be found. |
 | `--max-entries-per-direction N` | Refuse same-direction entries while N are open. Default unlimited. |
 | `--full-precision` | Do not round money and price cells. |
 | `--lenient` | Keep going instead of stopping on something not supported yet: an unimplemented builtin returns `0` (`''` for a text builtin), a missing bar column such as `Ticks` reads as `0`, and a `from entry` exit with several named entries open closes the whole position. A `WARNING` at the end names each one. Same as `PL_STRICT=0`. |
