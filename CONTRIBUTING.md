@@ -110,8 +110,12 @@ What public CI covers (`.github/workflows/ci.yml` and `accel.yml`):
 
 - the public tier on Linux, macOS and Windows, Python 3.9, 3.13 and 3.14;
 - the default pytest run above on Linux, Python 3.9, 3.13 and 3.14;
-- every `needs_native` test with the kernel built: `accel-parity` on macOS
-  arm64 for Python 3.9, 3.12 and 3.14, and the full suite in `accel-macos-arm64`;
+- every `needs_native` test with the kernel built: `accel-parity` (ci.yml)
+  builds it with `tools/build_accel.sh` on macOS arm64 for Python 3.9, 3.12
+  and 3.14, and `accel-macos-arm64` (accel.yml) builds the wheel with maturin
+  and runs the full suite with it loaded. In those jobs no `needs_native`
+  test skips (a full run there skips only the 12 by-design cases), so the
+  `needs_native` skips in the fresh-clone table above are covered;
 - ruff, mypy, `cargo fmt`, `clippy` and `cargo test`, and the installed-wheel
   `el_emit` check.
 
