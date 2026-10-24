@@ -537,71 +537,47 @@ value; profit figures do.
 
 ## Warm-up and MaxBarsBack
 
-MultiCharts skips its MaxBarsBack bars before evaluating a strategy, and by
-default it finds that number itself (auto-detect, as MultiCharts documents
-it; not verified against a capture here).
-`pl_oracle` and `pl_run` default to `--max-bars-back auto` too (below), and
-the status line on stderr shows the number used (`max-bars-back 21 (auto)`).
-When `auto` cannot bound the lookback, the default falls back to 0 and prints
-a `note:` on stderr saying so; `-q` hides only the note, which never changes
-the output on stdout. Pass `--max-bars-back N` for a chart with a fixed
-setting (such as 50), or `--max-bars-back 0` to evaluate every bar from bar 1,
-so that `Average(Close, 21)` returns 0 for the first 20 bars (the default
-before 0.11.0).
+MultiCharts skips its MaxBarsBack bars before evaluating a strategy.
+`pl_oracle` and `pl_run` do the same by default (`--max-bars-back auto`, or
+`max_bars_back="auto"` / `None` in `run_oracle` / `run_el`): they skip the
+longest lookback PowerBridge finds in the strategy source, and the status line
+on stderr shows the number used (`max-bars-back 21 (auto)` for `ma_cross.el`).
 
-On the bars before MaxBarsBack history exists, a price lookback past the
-start of the tape (`Close[5]` on bar 1) reads the current bar's Open, and
-`Date[n]` / `Time[n]` read 0, for any `n`.
+- `--max-bars-back N` uses a fixed setting, such as the 50 shown in a
+  MultiCharts chart's strategy properties. Pass that number to match a chart
+  exactly.
+- `--max-bars-back 0` opts out: every bar is evaluated from bar 1, so
+  `Average(Close, 21)` returns 0 for the first 20 bars. Stdout, digests and
+  traces then match 0.10.0 and earlier run without the flag.
+- When the lookback cannot be found, the default falls back to 0 and prints a
+  `note:` on stderr (`-q` hides it; stdout never changes), while an explicit
+  `--max-bars-back auto` stops with an error naming the construct and its line.
 
-In the README quickstart, `auto` finds 21 for `ma_cross.el`: its own lookback
-(a 21-bar average, compared with its previous value by `crosses`), so the demo
-prints no note.
+Details:
 
-`--max-bars-back auto` (or `max_bars_back="auto"` in `run_oracle` / `run_el`) uses the longest lookback PowerBridge finds in the strategy source, the same
-number the warm-up note reports. `X[k]` counts k bars plus whatever `X` reads,
-and a windowed builtin counts the bars the runtime needs before its window is
-full, taken by argument position: `StdDev(Close, 20, 1)` counts 20,
-`LinearRegValue(Close, 10, 5)` counts 15 (its target bar reads 5 bars
-further back), and `ADX(7)` counts 14 (its smoothing gives 0 and then 50
-until then). An index or length may be a number or an input's default, so
-`Close[Len]` and `Average(Close, Len)` with `Inputs: Len(10)` both count 10.
-An array element such as `Buf[Idx]` is not a past-bar read: it counts only
-what its index reads (`Buf[Close[3]]` counts 3) and what was stored in the
-array, and an assignment's target never counts.
-`Highest(High, 10)[1]` gives 11 and `ma_cross.el` gives 21. The status line on
-stderr shows the value it chose (`max-bars-back 21 (auto)`).
-
-When the scan cannot bound the lookback, an explicit `--max-bars-back auto`
-(or `max_bars_back="auto"`) stops with an error that
-names the construct and its line, and asks for a number instead of guessing
-(a silent 0 would give the warm-up fills `auto` exists to avoid). It does so
-for a non-constant index such as `Close[Value2]`, a length that is an
-expression, `of N bars ago`, a call to your own function, a function
-PowerBridge does not run (such as `ParabolicSAR` or `Median`), and a variable
-that reads past bars and is then read back itself (`X = Close[3]; ... X[2]`,
-or `Average(X, 5)`). A variable's history starts on the first evaluated bar,
-so no MaxBarsBack fills those reads. A plain variable passed to a windowed
-builtin (`Mid = (High + Low) / 2; ... Average(Mid, 10)`) counts the window
-length, but the variable's own history still starts on the first evaluated
-bar, so that average is not full on the first bars. Builtins such as `File`,
-`NumToStr` and the string functions read no past bars and never stop `auto`.
-
-The default (no `--max-bars-back`, or `max_bars_back=None` in the library)
-falls back to 0 in those cases instead of stopping. With an explicit
-`--max-bars-back 0`, stdout, trade digests and traces are the same as on
-0.10.0 and earlier without the flag.
-
-`auto` is not MultiCharts' auto-detect. MultiCharts finds MaxBarsBack at run
-time, raising it and restarting the calculation when a study reads further back
-than it has; `auto` is a static estimate made before the run, and it can differ
-(it may count one bar more than the strict minimum, and a recursive average
-such as `XAverage` never stops changing with more history). To match a
-MultiCharts chart exactly, pass the MaxBarsBack shown in its strategy
-properties.
-
-The default stays 0 rather than `auto` so that a run means exactly what its
-flags say: every existing command, digest and test keeps its output, and a
-strategy whose lookback cannot be inferred still runs.
+- How `auto` counts: `X[k]` counts k bars plus whatever `X` reads; a windowed
+  builtin counts the bars it needs before its window is full
+  (`StdDev(Close, 20, 1)` counts 20, `LinearRegValue(Close, 10, 5)` 15,
+  `ADX(7)` 14, `Highest(High, 10)[1]` 11). A length may be a number or an
+  input's default (`Average(Close, Len)` with `Inputs: Len(10)` counts 10).
+  An array element such as `Buf[Idx]` counts only what its index reads, and an
+  assignment's target never counts.
+- What `auto` cannot bound: a non-constant index (`Close[Value2]`), a length
+  that is an expression, `of N bars ago`, a call to your own function, a
+  function PowerBridge does not run (such as `ParabolicSAR` or `Median`), and
+  a variable that reads past bars and is then read back itself
+  (`X = Close[3]; ... X[2]`, or `Average(X, 5)`). `File`, `NumToStr` and the
+  string functions read no past bars and never stop `auto`.
+- A variable's history starts on the first evaluated bar, so
+  `Mid = (High + Low) / 2; ... Average(Mid, 10)` counts 10 but that average is
+  not full on the first evaluated bars.
+- Before MaxBarsBack history exists, a price lookback past the start of the
+  tape (`Close[5]` on bar 1) reads the current bar's Open, and `Date[n]` /
+  `Time[n]` read 0.
+- `auto` is a static estimate made before the run, not MultiCharts' run-time
+  auto-detect (which raises MaxBarsBack and restarts the calculation). It can
+  differ: it may count one bar more than the strict minimum, and a recursive
+  average such as `XAverage` keeps changing with more history.
 
 ## What the engine assumes
 
