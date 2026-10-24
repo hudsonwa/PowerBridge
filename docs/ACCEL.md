@@ -208,7 +208,7 @@ refuse the run, and the Python path runs instead. A program that uses strings
 keeps every instruction and evaluates every bar, so such an error is reached
 on the same bar on both paths. Still refused: string arrays, `StrToNum`,
 `InStr`, `MidStr`, `LeftStr` / `RightStr`, `UpperStr` / `LowerStr`,
-`FormatTime`, `Print`, `Text_SetString` and the other `Text_*` setters, and
+`FormatTime`, `Text_SetString` and the other `Text_*` setters, and
 the drawing getters such as `TL_GetValue`.
 
 ## Fallback and platforms
