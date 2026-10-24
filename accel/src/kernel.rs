@@ -2139,4 +2139,367 @@ mod tests {
             ]
         );
     }
+
+    // Scenarios ported from the removed `engine/` module's tests. That engine
+    // kept a closed-position ledger this one does not, so ledger assertions
+    // are restated through `fills`, `position()` and `closed_trades`.
+
+    fn fill_log(fills: &[Fill]) -> Vec<(&'static str, &str, i64)> {
+        fills
+            .iter()
+            .map(|fill| (fill.fill_type, fill.signal.as_str(), fill.time))
+            .collect()
+    }
+
+    #[test]
+    fn explicit_close_realizes_the_whole_position() {
+        let bars = tape(&[
+            bar(99.0, 100.0, 98.0, 99.0, 1240102, 930),
+            bar(100.0, 102.0, 99.0, 101.0, 1240102, 931),
+            bar(105.0, 106.0, 104.0, 105.0, 1240102, 932),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, position: PositionView| {
+            let orders = match bn {
+                1 => vec![Order::market(Action::Buy, 2.0, "LE")],
+                2 if position.market_position == 1 => {
+                    vec![Order::market(Action::Sell, 0.0, "LX")]
+                }
+                _ => Vec::new(),
+            };
+            Ok(StrategyOutput {
+                orders,
+                risk: RiskUpdate::default(),
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.fills.len(), 4);
+        assert_eq!(outcome.position.market_position, 0);
+        assert_eq!(outcome.position.net_profit, 200.0);
+        assert_eq!(outcome.total_trades, 1);
+    }
+
+    #[test]
+    fn scale_out_keeps_one_position_until_the_last_exit() {
+        let mut engine = FillEngine::new(Instrument::default());
+        let bars = [
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 930),
+            bar(100.0, 101.0, 99.0, 100.0, 1240102, 931),
+            bar(100.0, 102.0, 99.0, 101.0, 1240102, 932),
+            bar(103.0, 103.0, 102.0, 103.0, 1240102, 933),
+            bar(104.0, 105.0, 103.0, 104.0, 1240102, 934),
+        ];
+        let steps = [
+            Order::market(Action::Buy, 2.0, "LE1"),
+            Order::market(Action::Buy, 1.0, "LE2"),
+            Order::market(Action::Sell, 1.0, "LX1"),
+            Order::market(Action::Sell, 0.0, "LX2"),
+        ];
+        for (i, order) in steps.into_iter().enumerate() {
+            queue(
+                &mut engine,
+                vec![order],
+                RiskUpdate::default(),
+                bars[i],
+                i + 1,
+            );
+            if i == 3 {
+                assert!(engine.closed_trades.is_empty());
+            }
+            engine.before_bar(bars[i + 1], i + 2).unwrap();
+        }
+
+        assert_eq!(engine.fills.len(), 6);
+        assert_eq!(engine.market_position, 0);
+        assert_eq!(engine.net_profit, 220.0);
+        assert_eq!(engine.closed_trades.len(), 1);
+        assert_eq!(engine.closed_trades[0].contracts, 3);
+    }
+
+    #[test]
+    fn session_rollover_exit_is_stamped_on_the_last_session_bar() {
+        let bars = tape(&[
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 1514),
+            bar(100.0, 105.0, 100.0, 105.0, 1240102, 1515),
+            bar(110.0, 110.0, 110.0, 110.0, 1240103, 831),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, _position: PositionView| {
+            Ok(StrategyOutput {
+                orders: if bn == 1 {
+                    vec![Order::market(Action::Buy, 1.0, "LE")]
+                } else {
+                    Vec::new()
+                },
+                risk: RiskUpdate {
+                    exit_on_close: Some(true),
+                    ..RiskUpdate::default()
+                },
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.position.market_position, 0);
+        assert_eq!(outcome.position.net_profit, 100.0);
+        let exit = outcome.fills.last().unwrap();
+        assert_eq!(exit.signal, "End of Day Exit");
+        assert_eq!((exit.date, exit.time), (1240102, 1515));
+    }
+
+    #[test]
+    fn on_close_reversal_precedes_session_flatten() {
+        let bars = tape(&[
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 1514),
+            bar(100.0, 105.0, 95.0, 102.0, 1240102, 1515),
+            bar(110.0, 110.0, 110.0, 110.0, 1240103, 831),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, _position: PositionView| {
+            let orders = if bn == 1 {
+                vec![Order::market(Action::Buy, 1.0, "LE")]
+            } else if bn == 2 {
+                let mut reversal = Order::market(Action::SellShort, 3.0, "SE_CLOSE");
+                reversal.order_type = OrderType::Close;
+                reversal.timing = Timing::ThisBar;
+                vec![reversal]
+            } else {
+                Vec::new()
+            };
+            Ok(StrategyOutput {
+                orders,
+                risk: RiskUpdate {
+                    exit_on_close: Some(true),
+                    ..RiskUpdate::default()
+                },
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.position.market_position, 0);
+        assert_eq!(outcome.total_trades, 2);
+        let signals: Vec<&str> = outcome.fills.iter().map(|f| f.signal.as_str()).collect();
+        let reversal = signals.iter().position(|s| *s == "SE_CLOSE").unwrap();
+        let flatten = signals
+            .iter()
+            .position(|s| *s == "End of Day Exit")
+            .unwrap();
+        assert!(reversal < flatten, "{signals:?}");
+    }
+
+    #[test]
+    fn reversal_and_cover_log_every_position_change() {
+        // Buy, SellShort (long 1 -> short 1), BuyToCover: the reversal logs its
+        // close leg and its open leg, so four records with the order sides.
+        let flat = |time| bar(100.0, 100.0, 100.0, 100.0, 1240102, time);
+        let bars = tape(&[flat(930), flat(931), flat(932), flat(933), flat(934)]);
+        let mut strategy = |_bar: Bar, bn: usize, _position: PositionView| {
+            let order = match bn {
+                1 => Order::market(Action::Buy, 1.0, "LE"),
+                2 => Order::market(Action::SellShort, 1.0, "SE"),
+                3 => Order::market(Action::BuyToCover, 1.0, "SX"),
+                _ => return Ok(StrategyOutput::default()),
+            };
+            Ok(StrategyOutput {
+                orders: vec![order],
+                risk: RiskUpdate::default(),
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.position.market_position, 0);
+        assert_eq!(
+            fill_log(&outcome.fills),
+            [
+                ("EntryLong", "LE", 931),
+                ("ExitLong", "SE", 932),
+                ("ExitLong", "SE", 932),
+                ("EntryLong", "SX", 933),
+            ]
+        );
+    }
+
+    #[test]
+    fn signed_negative_quantity_survives_to_position_state() {
+        let bars = tape(&[
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 930),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, _position: PositionView| {
+            Ok(StrategyOutput {
+                orders: if bn == 1 {
+                    vec![Order::market(Action::Buy, -3.0, "LE_NEG")]
+                } else {
+                    Vec::new()
+                },
+                risk: RiskUpdate::default(),
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.position.market_position, 1);
+        assert_eq!(outcome.position.contracts, -3);
+        assert_eq!(outcome.fills.len(), 3);
+    }
+
+    #[test]
+    fn conditional_exit_arbitration_is_low_first_on_tie() {
+        let mut engine = FillEngine::new(Instrument::default());
+        let first = bar(100.0, 100.0, 100.0, 100.0, 1240102, 930);
+        queue(
+            &mut engine,
+            vec![Order::market(Action::Buy, 1.0, "LE")],
+            RiskUpdate::default(),
+            first,
+            1,
+        );
+        engine
+            .before_bar(bar(100.0, 100.0, 100.0, 100.0, 1240102, 931), 2)
+            .unwrap();
+        queue(
+            &mut engine,
+            vec![
+                Order::conditional(Action::Sell, OrderType::Limit, 0.0, "PT", 105.0),
+                Order::conditional(Action::Sell, OrderType::Stop, 0.0, "SL", 95.0),
+            ],
+            RiskUpdate::default(),
+            first,
+            2,
+        );
+        engine
+            .before_bar(bar(100.0, 106.0, 94.0, 100.0, 1240102, 932), 3)
+            .unwrap();
+
+        assert_eq!(engine.fills.len(), 2);
+        assert_eq!(engine.fills[1].signal, "SL");
+        assert_eq!(engine.market_position, 0);
+        assert_eq!(engine.net_profit, -100.0);
+    }
+
+    #[test]
+    fn this_bar_close_is_visible_on_the_following_bar() {
+        let bars = tape(&[
+            bar(100.0, 101.0, 99.0, 100.25, 1240102, 930),
+            bar(110.0, 110.0, 110.0, 110.0, 1240102, 931),
+        ]);
+        let mut seen = Vec::new();
+        let mut strategy = |_: Bar, bn: usize, position: PositionView| {
+            seen.push((bn, position.market_position));
+            let mut order = Order::market(Action::Buy, 1.0, "LE_CLOSE");
+            order.order_type = OrderType::Close;
+            order.timing = Timing::ThisBar;
+            Ok(StrategyOutput {
+                orders: if bn == 1 { vec![order] } else { Vec::new() },
+                risk: RiskUpdate::default(),
+            })
+        };
+
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(seen, vec![(1, 0), (2, 1)]);
+        assert_eq!(outcome.fills[0].date, 1240102);
+        assert_eq!(outcome.fills[0].time, 930);
+        assert_eq!(outcome.fills[0].price, 100.25);
+    }
+
+    #[test]
+    fn non_finite_quantity_fails_loud_at_fill_time() {
+        let bars = tape(&[
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 930),
+            bar(100.0, 100.0, 100.0, 100.0, 1240102, 931),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, _position: PositionView| {
+            Ok(StrategyOutput {
+                orders: if bn == 1 {
+                    vec![Order::market(Action::Buy, f64::NAN, "BAD")]
+                } else {
+                    Vec::new()
+                },
+                risk: RiskUpdate::default(),
+            })
+        };
+
+        let error = run_native(&bars, Instrument::default(), &mut strategy).unwrap_err();
+        assert_eq!(
+            error,
+            KernelError::unsupported("non-finite order quantity NaN")
+        );
+    }
+
+    #[test]
+    fn no_work_state_flips_on_position_orders_and_risk() {
+        let flat_bar = bar(100.0, 101.0, 99.0, 100.0, 1240102, 930);
+        let entry = || vec![Order::market(Action::Buy, 1.0, "LE")];
+
+        let mut engine = FillEngine::new(Instrument::default());
+        assert!(engine.no_work_state());
+        queue(&mut engine, entry(), RiskUpdate::default(), flat_bar, 1);
+        assert!(!engine.no_work_state());
+
+        let mut positioned = FillEngine::new(Instrument::default());
+        queue(&mut positioned, entry(), RiskUpdate::default(), flat_bar, 1);
+        positioned.before_bar(flat_bar, 2).unwrap();
+        assert!(!positioned.no_work_state());
+
+        let mut onclose = FillEngine::new(Instrument::default());
+        let mut close = Order::market(Action::Buy, 1.0, "LE_CLS");
+        close.order_type = OrderType::Close;
+        close.timing = Timing::ThisBar;
+        queue(
+            &mut onclose,
+            vec![close],
+            RiskUpdate::default(),
+            flat_bar,
+            1,
+        );
+        assert!(!onclose.no_work_state());
+
+        let mut risked = FillEngine::new(Instrument::default());
+        risked.risk.update(RiskUpdate {
+            stop_loss: Some(500.0),
+            ..RiskUpdate::default()
+        });
+        assert!(!risked.no_work_state());
+    }
+
+    #[test]
+    fn no_work_fastpath_counts_all_flat_bars() {
+        let bars = tape(&[
+            bar(100.0, 101.0, 99.0, 100.5, 1240102, 930),
+            bar(100.5, 101.5, 99.5, 101.0, 1240102, 931),
+            bar(101.0, 102.0, 100.0, 101.5, 1240102, 932),
+        ]);
+        let mut strategy =
+            |_bar: Bar, _bn: usize, _position: PositionView| Ok(StrategyOutput::default());
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert_eq!(outcome.fast_path_hits, 3);
+        assert_eq!(outcome.fills.len(), 0);
+        assert_eq!(outcome.max_id_drawdown, 0.0);
+    }
+
+    #[test]
+    fn no_work_drawdown_survives_losing_round_trip() {
+        // A long entered high and closed lower folds the realized loss into
+        // max_id_drawdown on the exit bar and keeps it across flat no-work bars.
+        let bars = tape(&[
+            bar(200.0, 201.0, 199.0, 200.5, 1240102, 930),
+            bar(199.0, 200.0, 198.0, 199.5, 1240102, 931),
+            bar(198.0, 199.0, 197.0, 198.5, 1240102, 932),
+            bar(197.0, 198.0, 196.0, 197.5, 1240102, 933),
+            bar(196.0, 197.0, 195.0, 196.5, 1240102, 934),
+        ]);
+        let mut strategy = |_bar: Bar, bn: usize, position: PositionView| {
+            let orders = match bn {
+                1 => vec![Order::market(Action::Buy, 1.0, "LE")],
+                2 if position.market_position == 1 => {
+                    vec![Order::market(Action::Sell, 0.0, "LX")]
+                }
+                _ => Vec::new(),
+            };
+            Ok(StrategyOutput {
+                orders,
+                risk: RiskUpdate::default(),
+            })
+        };
+        let outcome = run_native(&bars, Instrument::default(), &mut strategy).unwrap();
+        assert!(outcome.max_id_drawdown < 0.0, "{}", outcome.max_id_drawdown);
+        assert_eq!(outcome.fast_path_hits, 3);
+        assert_eq!(outcome.fills.len(), 2);
+    }
 }
