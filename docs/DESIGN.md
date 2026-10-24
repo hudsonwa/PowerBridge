@@ -57,8 +57,8 @@ mirror Python -> py_front -> AST -> codegen_el -> EL (checked by mc_ground_check
 | Engine | `bar_loop.py`, `engine.py`, `_engine_stops.py`, `_engine_report.py` | Drives the strategy one bar at a time; `FillEngine` owns position, orders and P&L. |
 | Reverse | `py_front.py`, `_py_front_common.py`, `_py_front_expr.py`, `codegen_el.py`, `_codegen_el_layout.py`, `reverse.py` | Mirror-dialect Python to AST to EL. |
 | Kernel | `accel/`, `ir.py`, `runtime/accel.py` | Optional Rust reimplementation of the loop and engine. |
-| Run | `run.py` (CLI: `tools/pl_run.py`) | `run_el`: runs a strategy over bars and returns the per-bar trace and trade list. |
-| Oracle | `oracle.py` (CLI: `tools/pl_oracle.py`) | Runs a strategy and prints a SHA-256 over the canonical fill list. |
+| Run | `run.py` (CLI: `tools/pl_run.py`; new in the next release, in 0.10.0 both are `tools/pl_run.py`) | `run_el`: runs a strategy over bars and returns the per-bar trace and trade list. |
+| Oracle | `oracle.py` (CLI: `tools/pl_oracle.py`; new in the next release, in 0.10.0 both are `tools/pl_oracle.py`) | Runs a strategy and prints a SHA-256 over the canonical fill list. |
 
 The AST is a plain dict rather than a class hierarchy. It diffs easily, serialises
 deterministically for the kernel (`ir.serialise_ir` validates it against a schema

@@ -33,8 +33,10 @@ repository or on its tracker.
   - `pl_transpiler.py_front` — the mirror-dialect Python front-end (Python → dict AST).
   - `pl_transpiler.catalog` — query API over the distilled EL keyword catalog.
   - `pl_transpiler.tools.el_emit` — reverse-transpiler CLI (`el_emit`).
-  - `pl_transpiler.run` — `run_el` / `load_bars*` library; CLI `pl_transpiler.tools.pl_run` (`pl_run`).
-  - `pl_transpiler.oracle` — `run_oracle` digest library; CLI `pl_transpiler.tools.pl_oracle` (`pl_oracle`).
+  - `pl_transpiler.tools.pl_run` — `run_el` / `load_bars*` and the `pl_run` CLI
+    (new in the next release: the library code lives in `pl_transpiler.run`; this path keeps working).
+  - `pl_transpiler.tools.pl_oracle` — `run_oracle` digest and the `pl_oracle` CLI
+    (new in the next release: the library code lives in `pl_transpiler.oracle`; this path keeps working).
   - `pl_transpiler.runtime.*` — the per-bar execution engine, instrument config, runtime,
     compact bar tape (`bar_tape`: opt-in `.pbar` mmap loader), the native-kernel caller
     (`accel`: the `pl_transpiler._accel` FFI crossing).
@@ -233,7 +235,7 @@ assert set(cov) == {"signatures", "verified_builtins", "verified_with_signature"
 print("catalog OK:", cov)
 ```
 
-### `pl_transpiler.run` (re-exported by `pl_transpiler.tools.pl_run`)
+### `pl_transpiler.tools.pl_run` (library code in `pl_transpiler.run`, new in the next release)
 
 ```text
 load_bars_csv(path: str, date_format: str | None = None) -> list[dict]
@@ -413,7 +415,7 @@ data2, config, inputs)`, `run_program_batch(program_ir, series, data2, config,
 variants)`, and `run_program_batch_parallel(program_ir, series, data2, config,
 variants, threads)`. The stable `run_program` contract is untouched.
 
-### `pl_transpiler.oracle` (re-exported by `pl_transpiler.tools.pl_oracle`)
+### `pl_transpiler.tools.pl_oracle` (library code in `pl_transpiler.oracle`, new in the next release)
 
 Exact trade-list digest. The merge gate for performance work: later changes
 must cite the before/after digest. **No digest, no merge.** Does not change the

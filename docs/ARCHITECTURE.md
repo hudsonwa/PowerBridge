@@ -52,7 +52,8 @@ list is worse than an error, because nobody notices it. So we:
 ## Repository layout
 
 `pl_transpiler/` is the package (`runtime/` holds the bar loop and fill engine,
-`run.py` and `oracle.py` the `run_el` / `run_oracle` library entry points,
+`run.py` and `oracle.py` the `run_el` / `run_oracle` library entry points
+(new in the next release; in 0.10.0 they live in `tools/pl_run.py` and `tools/pl_oracle.py`),
 `tools/` the console commands that wrap them), `accel/` the optional Rust kernel, `tests/` the
 suite and gates, `tools/` maintainer scripts, `examples/` and `ground_truth/`
 the sample bars and the EL conformance corpus. `tests/fixtures/emitted/ground_truth/` holds
