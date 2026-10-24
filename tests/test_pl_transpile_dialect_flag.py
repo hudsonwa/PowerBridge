@@ -71,3 +71,15 @@ def test_help_names_dialects():
     text = pl_transpile._build_parser().format_help()
     assert "--dialect {runnable,mirror}" in text
     assert "alias for --dialect mirror" in text
+
+
+GT_SOURCES = sorted(glob.glob(os.path.join(REPO, "ground_truth", "GT*.txt")))
+
+
+@pytest.mark.parametrize("el", EXAMPLES + GT_SOURCES, ids=os.path.basename)
+def test_mirror_has_no_state(el):
+    """The mirror dialect has no cross-bar `_state`, as --help says: a
+    Variable passed to CrossesAbove and friends is the bare name (#242)."""
+    with open(el, encoding="utf-8") as f:
+        src = f.read()
+    assert "_state" not in transpile(src, dialect="mirror")

@@ -96,8 +96,10 @@ class _ExprMixin:
                     return f"f32({name}[-1])"
                 return f"{name}[-1]"
             # In series context, user variables should pass their history list
-            # Include the current bar's computed value (state hasn't been appended yet)
-            if self._series_context and name in self._stateful_vars:
+            # Include the current bar's computed value (state hasn't been appended yet).
+            # The mirror dialect has no `_state`: it passes the bare variable.
+            if (self._series_context and name in self._stateful_vars
+                    and (self.persist or self.trace)):
                 return f"(_state['{name}'] + [{name}])"
             # Bare reserved words that compute values from bar data
             _BARE_COMPUTED = {
