@@ -308,8 +308,8 @@ EasyLanguage → Python. Writes the runnable dialect (the same as `transpile()`)
 |---|---|
 | `-o FILE` | Write Python here (default: stdout). |
 | `--trace` | Emit trace-mode Python (per-bar variable capture). |
-| `--dialect {runnable,mirror}` | Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest. `--trace` always emits `runnable`. |
-| `--no-persist` | Alias for `--dialect mirror` (kept for compatibility). |
+| `--no-persist` | Emit the mirror dialect, the input for `el_emit`; not runnable as a backtest. |
+| `--dialect {runnable,mirror}` | *New in the next release; on 0.10.0 use `--no-persist`.* Output dialect, named as in `transpile(src, dialect=...)`. `runnable` (default) runs as a backtest; `mirror` is the input for `el_emit` and is not runnable as a backtest (the same as `--no-persist`, which stays as an alias). `--trace` always emits `runnable`. |
 | `--partial` | Unimplemented constructs become execution-time stubs under a NOT-FAITHFUL watermark. |
 
 ```sh
