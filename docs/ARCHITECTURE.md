@@ -52,7 +52,8 @@ list is worse than an error, because nobody notices it. So we:
 ## Repository layout
 
 `pl_transpiler/` is the package (`runtime/` holds the bar loop and fill engine,
-`tools/` the console commands), `accel/` the optional Rust kernel, `tests/` the
+`run.py` and `oracle.py` the `run_el` / `run_oracle` library entry points,
+`tools/` the console commands that wrap them), `accel/` the optional Rust kernel, `tests/` the
 suite and gates, `tools/` maintainer scripts, `examples/` and `ground_truth/`
 the sample bars and the EL conformance corpus. `tests/fixtures/emitted/ground_truth/` holds
 EasyLanguage that `el_emit`'s emitter (`codegen_el.emit_el`) produced from the
