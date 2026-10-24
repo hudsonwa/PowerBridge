@@ -190,6 +190,63 @@ def write_fills_csv(path, fills, tick=None):
                              qty, position])
 
 
+def trade_summary(fills, bigpointvalue):
+    """Closed-trade statistics from the fill records (not part of the digest).
+
+    Each exit record closes one contract against the oldest open entry on
+    that side (FIFO). P&L is in dollars, ``bigpointvalue`` per point per
+    contract, before commission and slippage. Max drawdown is the largest
+    peak-to-trough fall of cumulative closed-trade P&L.
+    """
+    longs, shorts, pnls = [], [], []
+    for fill, label in zip(fills, fill_trade_types(fills)):
+        price = float(fill["price"])
+        for _ in range(int(fill["contracts"])):
+            if label == "EntryLong":
+                longs.append(price)
+            elif label == "EntryShort":
+                shorts.append(price)
+            elif label == "ExitLong":
+                pnls.append((price - longs.pop(0)) * bigpointvalue)
+            else:
+                pnls.append((shorts.pop(0) - price) * bigpointvalue)
+    equity = peak = drawdown = 0.0
+    for pnl in pnls:
+        equity += pnl
+        peak = max(peak, equity)
+        drawdown = max(drawdown, peak - equity)
+    winners = [p for p in pnls if p > 0]
+    losers = [p for p in pnls if p < 0]
+    return {
+        "trades": len(pnls),
+        "winners": len(winners),
+        "losers": len(losers),
+        "net_profit": sum(pnls),
+        "gross_profit": sum(winners),
+        "gross_loss": sum(losers),
+        "max_drawdown": drawdown,
+        "open_contracts": len(longs) + len(shorts),
+    }
+
+
+def format_summary(summary):
+    """The ``--summary`` text block."""
+    trades = summary["trades"]
+    rate = f"{100.0 * summary['winners'] / trades:.1f}%" if trades else "n/a"
+    return (
+        "performance summary (closed trades, before commission and slippage)\n"
+        f"  net profit:     {summary['net_profit']:.2f}\n"
+        f"  gross profit:   {summary['gross_profit']:.2f}\n"
+        f"  gross loss:     {summary['gross_loss']:.2f}\n"
+        f"  trades:         {trades}\n"
+        f"  winners:        {summary['winners']}\n"
+        f"  losers:         {summary['losers']}\n"
+        f"  win rate:       {rate}\n"
+        f"  max drawdown:   {summary['max_drawdown']:.2f}\n"
+        f"  open contracts: {summary['open_contracts']}\n"
+    )
+
+
 def _fmt_price(price, dp):
     return repr(float(price)) if dp is None else f"{float(price):.{dp}f}"
 
@@ -663,6 +720,11 @@ def _build_parser():
     ap.add_argument("--fills-csv", dest="fills_csv", default=None,
                     help="write a readable fill log CSV with a position-aware "
                          "trade_type column (EntryLong/ExitLong/EntryShort/ExitShort).")
+    ap.add_argument("--summary", action="store_true",
+                    help="after the run, print a performance summary of the "
+                         "closed trades (net profit, trades, winners/losers, "
+                         "win rate, gross profit/loss, max drawdown) to stderr; "
+                         "the digest on stdout is unchanged.")
     ap.add_argument("--digest-v1", dest="digest_v1", action="store_true",
                     help="emit the pre-v2 digest (for pinned v1 digests): no "
                          "reversal open legs or risk exits. Python path only.")
@@ -805,6 +867,9 @@ def _main(ap, args):
     if args.verbose and result.get("fast_path_hits") is not None:
         print(f"[pl_oracle] {result['fast_path_hits']} bars had no pending orders, "
               "position or risk exits and skipped fill processing", file=sys.stderr)
+    if args.summary:
+        sys.stderr.write(format_summary(
+            trade_summary(result["records"], config.bigpointvalue)))
 
     if args.compare:
         want = open(args.compare, encoding="utf-8").read()
