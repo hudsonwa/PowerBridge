@@ -79,11 +79,8 @@ order_no,trade_type,side,signal,date,time,price,contracts,position_after
 3,EntryLong,buy,LE,1240102,1141,14972.51,1,1
 ```
 
-The digest goes to stdout. A status line goes to stderr, so it shows in your
-terminal but not in a redirected file:
-`[pl_oracle] 140 bars, 3 fills, 1 round-turns [python]` (`[native]` when the
-Rust kernel ran). The digest is the same either way. To see the run bar by
-bar (`pl_run` executes generated Python, so only run files you trust):
+To see the run bar by bar (`pl_run` executes generated Python, so only run
+files you trust):
 
 ```bash
 pl_run examples/ma_cross.el examples/NQ_sample_bars.csv --max-bars-back 21 --columns MarketPosition,NetProfit,TotalTrades
@@ -99,11 +96,9 @@ MarketPosition,NetProfit,TotalTrades
 1,1343.80,1
 ```
 
-The first line is the status line on stderr; it ends `[native]` instead
-when the Rust kernel wrote the rows (the CSV is byte-identical either way).
-
-`--max-bars-back 21` is the strategy's own lookback; why it matters is in
-[Warm-up and MaxBarsBack](docs/USAGE.md#warm-up-and-maxbarsback).
+The `[pl_run]` line is a status line on stderr. Which output goes where, the
+`[python]` / `[native]` engine tag and why `--max-bars-back 21` matters are in
+[the usage guide](docs/USAGE.md#walkthrough).
 
 ## Your own strategy
 
@@ -235,7 +230,8 @@ compatibility.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), which also covers running the tests.
+See [CONTRIBUTING.md](CONTRIBUTING.md), which also covers running the tests and
+why a fresh clone skips the native-kernel tests that CI runs.
 Open an issue before a large change. Small fixes can be a pull request on their own.
 
 Development started in a private repository; this public repository begins at
