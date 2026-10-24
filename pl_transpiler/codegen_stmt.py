@@ -49,6 +49,7 @@ class _StmtMixin:
         _partial: bool
         _need_f32_import: bool
         _cur_stmt_line: Optional[int]
+        _emit_line: Optional[int]
         _trace_vars: set[str]
         _stateful_vars: set[str]
         _numeric_vars: set[str]
@@ -77,12 +78,15 @@ class _StmtMixin:
         start = len(self.lines)          # first physical line this statement emits
         if node.get('_line'):
             self._cur_stmt_line = node['_line']
+        outer_line = self._emit_line
+        self._emit_line = node.get('_line') or outer_line
         ntype = node['type']
         method = getattr(self, f'gen_{ntype}', None)
         if method:
             method(node)
         else:
             raise ValueError(f"Unknown statement type: {ntype}")
+        self._emit_line = outer_line
         # Trailing comment (anchored to this statement's own source line): emit it as a
         # same-line `#|` suffix on the statement's FIRST emitted line (which corresponds
         # to the EL statement's start line), so py_front recovers its trailing-ness and

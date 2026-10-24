@@ -16,7 +16,8 @@
 
 User mistakes (an EL syntax error, an unimplemented EL keyword or undeclared
 variable, a missing input file, an unknown --config or a malformed --config JSON file,
-a malformed bars CSV, Python input outside the mirror dialect) print ``<tool>: error: <message>`` to stderr and exit 2
+a malformed bars CSV, Python input outside the mirror dialect, an EL
+run-time error such as an array index out of range) print ``<tool>: error: <message>`` to stderr and exit 2
 instead of dumping a traceback. Set ``PB_DEBUG=1`` to get the traceback back.
 """
 import argparse
@@ -25,7 +26,7 @@ import sys
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Callable, NoReturn, Optional, Union
 
-from pl_transpiler.errors import UnimplementedKeywordError
+from pl_transpiler.errors import ELRuntimeError, UnimplementedKeywordError
 from pl_transpiler.lexer import PLSyntaxError
 from pl_transpiler.py_front import PyFrontError
 
@@ -176,7 +177,7 @@ def run(prog: str, fn: Callable[..., int], *args: Any) -> int:
     try:
         return fn(*args)
     except (PLSyntaxError, PyFrontError, OSError, CliError,
-            UnimplementedKeywordError) as exc:
+            UnimplementedKeywordError, ELRuntimeError) as exc:
         if debug_enabled():
             raise
         print("%s: error: %s" % (prog, _describe(exc)), file=sys.stderr)

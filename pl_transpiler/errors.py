@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Transpile-time diagnostic exceptions for the PowerLanguage code generator."""
+"""Diagnostic exceptions: transpile-time errors from the PowerLanguage code
+generator, and run-time errors raised by the generated strategy code."""
+import ast
 import re
+from types import TracebackType
 from typing import Any, Optional
 
 
@@ -97,3 +100,159 @@ def restore_spelling(errors: list[dict[str, Any]], source: str) -> None:
                       lines[line - 1], re.IGNORECASE)
         if m:
             e['spelling'] = m.group(0)
+
+
+class GeneratedSource(str):
+    """Generated Python source (a plain ``str``) that also carries
+    ``el_line_map``: generated line number -> EL source line, for the
+    statements that have one. Used to name the EL line of a run-time error."""
+    el_line_map: dict[int, int] = {}
+    el_names: dict[str, str] = {}
+
+
+class ELRuntimeError(Exception):
+    """An EL program failed while it ran (for example an array index out of
+    range or a division by zero), as opposed to failing to transpile.
+
+    ``line`` is the EL source line of the statement that failed (``None`` when
+    it is not known); ``str(exc)`` is a one-line message such as
+    ``array index 4 out of range for 'a' (max index 3) at line 2``. The
+    original Python exception is chained as ``__cause__``.
+
+    The raised object is also an instance of the original exception's type
+    (``IndexError``, ``ZeroDivisionError``, ...), so ``except IndexError``
+    keeps catching it."""
+
+    def __init__(self, message: str, line: Optional[int] = None) -> None:
+        Exception.__init__(self, message)
+        self.message = message
+        self.line = line
+
+    def __str__(self) -> str:  # not the mixed-in base's own formatting
+        return self.message
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # The mixed-in classes are made at run time, so pickle by base type.
+        for base, cls in _combined.items():
+            if cls is type(self) and cls is not ELRuntimeError:
+                return (_rebuild_el_error, (base, self.message, self.line))
+        return (type(self), (self.message, self.line))
+
+
+_combined: dict[type, type[ELRuntimeError]] = {}
+
+
+def _el_error_class(exc_type: type) -> type[ELRuntimeError]:
+    """``ELRuntimeError`` mixed with ``exc_type``, or plain ``ELRuntimeError``
+    when the two cannot be combined."""
+    cls = _combined.get(exc_type)
+    if cls is None:
+        try:
+            cls = type(exc_type.__name__, (ELRuntimeError, exc_type),
+                       {'__module__': __name__, '__qualname__': 'ELRuntimeError'})
+        except TypeError:
+            cls = ELRuntimeError
+        _combined[exc_type] = cls
+    return cls
+
+
+def _rebuild_el_error(base: type, message: str,
+                      line: Optional[int]) -> ELRuntimeError:
+    return _el_error_class(base)(message, line)
+
+
+# `A[i]` is emitted as `a[-(int(i) + 1)]` (or `a[-(3 + 1)]` for a literal index).
+def _el_index(node: ast.expr) -> Optional[ast.expr]:
+    if not (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)
+            and isinstance(node.operand, ast.BinOp) and isinstance(node.operand.op, ast.Add)
+            and isinstance(node.operand.right, ast.Constant) and node.operand.right.value == 1):
+        return None
+    inner = node.operand.left
+    if (isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name)
+            and inner.func.id == 'int' and len(inner.args) == 1):
+        return inner.args[0]
+    return inner
+
+
+def _pure(node: ast.expr) -> bool:
+    """True when ``node`` uses only names, constants and arithmetic, so it can
+    be evaluated again without side effects."""
+    ok = (ast.Expression, ast.Name, ast.Load, ast.Constant, ast.BinOp, ast.UnaryOp,
+          ast.operator, ast.unaryop)
+    return all(isinstance(n, ok) for n in ast.walk(node))
+
+
+def _array_bounds(source_line: str, local_vars: dict[str, Any],
+                  el_names: dict[str, str]) -> Optional[str]:
+    """Name the out-of-range array access on ``source_line``, if it can be found."""
+    try:
+        tree = ast.parse(source_line.strip())
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)):
+            continue
+        arr = local_vars.get(node.value.id)
+        index = _el_index(node.slice)
+        if not isinstance(arr, list) or index is None or not _pure(index):
+            continue
+        try:
+            i = int(eval(compile(ast.Expression(index), '<index>', 'eval'),
+                         {'__builtins__': {}}, dict(local_vars)))
+        except Exception:  # noqa: BLE001 - not this access
+            continue
+        if not -len(arr) <= -(i + 1) < len(arr):
+            name = el_names.get(node.value.id, node.value.id)
+            return f"array index {i} out of range for '{name}' (max index {len(arr) - 1})"
+    return None
+
+
+def _respell(problem: str, el_source: str, line: int) -> str:
+    """Use the source spelling of the quoted array name on EL line ``line``."""
+    m = re.search(r"'([^']+)'", problem)
+    lines = el_source.splitlines()
+    if m and line <= len(lines):
+        found = re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])' % re.escape(m.group(1)),
+                          lines[line - 1], re.IGNORECASE)
+        if found:
+            return problem[:m.start(1)] + found.group(0) + problem[m.end(1):]
+    return problem
+
+
+def el_runtime_error(exc: BaseException, source: str, filename: str,
+                     el_source: str = "") -> Optional[ELRuntimeError]:
+    """Translate ``exc``, raised while running generated ``source`` compiled as
+    ``filename``, into an :class:`ELRuntimeError`. ``el_source`` (optional)
+    restores the spelling of an array name. Returns ``None`` when the
+    exception did not come from the generated code."""
+    tb: Optional[TracebackType] = exc.__traceback__
+    frame_tb = None
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename == filename:
+            frame_tb = tb
+        tb = tb.tb_next
+    if frame_tb is None:
+        return None
+    lineno = frame_tb.tb_lineno
+    line = getattr(source, 'el_line_map', {}).get(lineno)
+    where = f" at line {line}" if line is not None else ""
+    problem = None
+    if isinstance(exc, IndexError):
+        lines = source.splitlines()
+        text = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+        problem = _array_bounds(text, frame_tb.tb_frame.f_locals,
+                                 getattr(source, 'el_names', {}))
+        if problem and line is not None:
+            problem = _respell(problem, el_source, line)
+        problem = problem or "array index out of range"
+    elif isinstance(exc, ZeroDivisionError):
+        problem = "division by zero"
+    if problem is None:
+        problem = (f"internal error{where}: {type(exc).__name__}: {exc} "
+                   "(set PB_DEBUG=1 for the full traceback)")
+    else:
+        problem += where
+    try:
+        return _el_error_class(type(exc))(problem, line)
+    except TypeError:  # a base whose __new__ needs other arguments
+        return ELRuntimeError(problem, line)

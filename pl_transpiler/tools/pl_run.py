@@ -71,7 +71,11 @@ from pl_transpiler._types import Node
 # capture harness (tests/run_gt.py) re-exports the same objects, so behaviour is identical.
 from pl_transpiler.engine import FillEngine, run_bar_loop
 from pl_transpiler.engine_dates import _parse_el_date, _parse_el_time
-from pl_transpiler.errors import UnimplementedKeywordError, format_error_lines
+from pl_transpiler.errors import (
+    UnimplementedKeywordError,
+    el_runtime_error,
+    format_error_lines,
+)
 from pl_transpiler.lexer import tokenise
 from pl_transpiler.lookback import (
     check_max_bars_back,
@@ -563,7 +567,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     else:
         py_code = transpile(el_source, trace=True)
     ns: dict[str, Any] = {}
-    exec(py_code, ns)
+    exec(compile(py_code, "<pl_run>", "exec"), ns)
     strategy_fn = ns['strategy']
 
     trade_from = 0
@@ -645,20 +649,28 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     with open(os.devnull, 'w', encoding='utf-8') as _devnull, \
             contextlib.redirect_stdout(_devnull), \
             (recorder if recorder is not None else contextlib.nullcontext()):
-        run_bar_loop(
-            strategy_fn,
-            n_bars=n,
-            get_ohlcv=get_ohlcv,
-            dates=dates,
-            times=times,
-            config=config,
-            fill_engine=fill_engine,
-            emit_row=emit_row,
-            strict=True,
-            trade_from=trade_from,
-            max_bars_back=max_bars_back,
-            on_bar=None if recorder is None else recorder.set_bar,
-        )
+        try:
+            run_bar_loop(
+                strategy_fn,
+                n_bars=n,
+                get_ohlcv=get_ohlcv,
+                dates=dates,
+                times=times,
+                config=config,
+                fill_engine=fill_engine,
+                emit_row=emit_row,
+                strict=True,
+                trade_from=trade_from,
+                max_bars_back=max_bars_back,
+                on_bar=None if recorder is None else recorder.set_bar,
+            )
+        except (UnimplementedBuiltinError, UnimplementedKeywordError):
+            raise
+        except Exception as exc:
+            el_exc = el_runtime_error(exc, py_code, '<pl_run>', el_source)
+            if el_exc is None:
+                raise
+            raise el_exc from exc
 
     # Reported after the run, so a program that stops on a user error prints
     # only that error.
