@@ -37,8 +37,12 @@ from pl_transpiler.tools import _cli, mc_ground_check
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Emit canonical EL from Python or EL")
-    ap.add_argument("input", help="input file (.py => py_to_el; else parse+emit)")
+    ap = argparse.ArgumentParser(
+        prog="el_emit",
+        description="Write EasyLanguage back out in a standard layout: from a "
+                    "Python file made by pl_transpile, or from an EasyLanguage "
+                    "file (to tidy it).")
+    ap.add_argument("input", help="a .py file made by pl_transpile, or an EasyLanguage file")
     ap.add_argument("-o", "--output", default=None,
                     help="output EL file (default: stdout)")
     _cli.add_version(ap, "el_emit")

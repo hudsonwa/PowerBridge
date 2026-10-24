@@ -342,7 +342,7 @@ display (see [`run_el`](#run_el)).
 | `--max-bars-back N` | First N bars are history only. Default 0. |
 | `--max-entries-per-direction N` | Refuse same-direction entries while N are open. Default unlimited. |
 | `--full-precision` | Do not round money and price cells. |
-| `--lenient` | Treat unimplemented builtins as `0`/`''` with a warning instead of stopping. |
+| `--lenient` | Keep going instead of stopping on something not supported yet: an unimplemented builtin returns `0` (`''` for a text builtin), a missing bar column such as `Ticks` reads as `0`, and a `from entry` exit with several named entries open closes the whole position. A `WARNING` at the end names each one. Same as `PL_STRICT=0`. |
 | `--partial` | As in `pl_transpile`; results are not faithful. |
 
 ```sh

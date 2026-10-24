@@ -83,7 +83,8 @@ def _print_partial_manifest(in_path: str, errors: list[dict[str, Any]]) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_transpile",
-        description="Forward transpiler: EL/PowerLanguage source -> Python.")
+        description="Translate an EasyLanguage (PowerLanguage) strategy into "
+                    "readable Python code.")
     ap.add_argument("in_file", help="EL/PowerLanguage source file.")
     ap.add_argument("-o", "--output", dest="output", default=None,
                     help="write Python here (default: stdout).")

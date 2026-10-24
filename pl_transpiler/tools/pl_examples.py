@@ -46,8 +46,9 @@ def _data_dir() -> str:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         prog="pl_examples",
-        description="Write the README quickstart's example strategy and synthetic bars "
-                    "into DIR (never overwrites existing files).")
+        description="Copy a small example strategy and made-up price bars into "
+                    "DIR so you can try the README quickstart. Existing files are "
+                    "never overwritten.")
     ap.add_argument("dir", nargs="?", default="examples",
                     help="Destination directory (default: examples).")
     args = ap.parse_args(argv)

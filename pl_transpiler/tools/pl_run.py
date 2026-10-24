@@ -787,8 +787,10 @@ def _run_el_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
 def _build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="pl_run",
-        description="General EL -> trades entrypoint: run transpiled EL over "
-                    "supplied OHLCV bars + an instrument config.")
+        description="Run an EasyLanguage strategy over a file of price bars and "
+                    "write, for each bar, the strategy's values and position as "
+                    "CSV. The instrument (tick size, point value) comes from "
+                    "--config.")
     ap.add_argument("el_file", help="EL/PowerLanguage source file.")
     # bars_csv is a positional but optional so a lone el_file gets the rc2
     # 'need a bars CSV' error instead of an argparse usage error.
@@ -806,8 +808,14 @@ def _build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--columns", default=None,
                     help="comma-separated trace columns to emit (default: all).")
     ap.add_argument("--lenient", action="store_true",
-                    help="treat EasyLanguage builtins the runtime does not implement "
-                         "as 0/'' and warn, instead of stopping (same as PL_STRICT=0).")
+                    help="keep going instead of stopping when the strategy needs "
+                         "something PowerBridge does not support yet (same as "
+                         "PL_STRICT=0): an unimplemented builtin returns 0 (or '' "
+                         "for a text builtin), a missing bar column such as Ticks "
+                         "reads as 0, and a 'from entry' exit with several named "
+                         "entries open closes the whole position. A WARNING at the "
+                         "end names each one; results that depend on them may not "
+                         "match MultiCharts.")
     ap.add_argument("--partial", action="store_true",
                     help="opt-in partial mode: unimplemented constructs become "
                          "execution-time stubs (raise only if evaluated); the stub "
