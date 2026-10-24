@@ -71,17 +71,15 @@ pl_examples = "pl_transpiler.tools.pl_examples:main"
 [tool.setuptools]
 # Only the library package and its subpackages ship in the wheel; tests/ and
 # scripts/ are NOT packaged. pl_transpiler._examples is a data-only package
-# built straight from the repo's examples/ folder (the single source of truth),
-# so `pl_examples` can write the README quickstart files after a wheel install.
+# holding copies of the README quickstart files from examples/ (kept identical
+# by tests/test_pl_examples.py), so `pl_examples` can write them after a wheel
+# install.
 packages = ["pl_transpiler", "pl_transpiler.runtime", "pl_transpiler.tools", "pl_transpiler._examples"]
-
-[tool.setuptools.package-dir]
-"pl_transpiler._examples" = "examples"
 
 [tool.setuptools.package-data]
 # py.typed marks the package as typed (PEP 561).
 "pl_transpiler" = ["py.typed"]
-# Exactly the two README quickstart files; nothing else from examples/ ships.
+# Exactly the two README quickstart files.
 "pl_transpiler._examples" = ["ma_cross.el", "NQ_sample_bars.csv"]
 # The keyword catalog, verified-builtins list and proven-token data load __file__-relative
 # from the tools subpackage, so they must ride along inside the wheel.
