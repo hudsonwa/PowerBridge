@@ -449,7 +449,7 @@ def _match_setplot(val: ast.expr) -> Optional[Node]:
     if suffix == '_noplot':
         return {'type': 'expr_stmt',
                 'expr': {'type': 'call', 'name': 'noplot', 'args': [n]}}
-    m = {'_color': 'setplotcolor', '_width': 'setplotwidth', '_style': 'setplotstyle'}
+    m: dict[Any, str] = {'_color': 'setplotcolor', '_width': 'setplotwidth', '_style': 'setplotstyle'}
     if suffix in m:
         return {'type': 'expr_stmt',
                 'expr': {'type': 'call', 'name': m[suffix],

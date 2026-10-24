@@ -875,6 +875,8 @@ def _main(ap: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 
     out_f = open(out_path, 'w', newline='', encoding='utf-8') if out_path else sys.stdout
     writer = csv.writer(out_f)
+    header_sink: Callable[[Iterable[Any]], Any]
+    row_sink: Callable[[Iterable[Any]], Any]
     if args.full_precision:
         header_sink = row_sink = writer.writerow
     else:

@@ -117,11 +117,11 @@ def add_scratch_decls(ast: Node) -> Node:
     missing = sorted(used - declared)
     if not missing:
         return ast
-    decls = [{'name': name,
-              'init': ({'type': 'number', 'value': '0'}
-                       if name.startswith('value')
-                       else {'type': 'boolean', 'value': False})}
-             for name in missing]
+    decls: list[dict[str, Any]] = [{'name': name,
+                                    'init': ({'type': 'number', 'value': '0'}
+                                             if name.startswith('value')
+                                             else {'type': 'boolean', 'value': False})}
+                                   for name in missing]
     return {**ast, 'body': [{'type': 'var_decl', 'decls': decls}, *ast['body']]}
 
 
