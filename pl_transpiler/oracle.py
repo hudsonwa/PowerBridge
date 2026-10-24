@@ -493,19 +493,18 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
 
     if from_date is not None and from_bar is not None:
         raise ValueError("from_date and from_bar are mutually exclusive")
-    from pl_transpiler.runtime.pl_runtime import (
-        pl_unimplemented_reset,
-        pl_unimplemented_warn,
-    )
-    pl_unimplemented_reset()
-    bars, data2_closes, trade_from = _window_python_run(
-        bars, data2_closes, data2_bars, from_date=from_date, to_date=to_date,
-        from_bar=from_bar, seed_warmup=seed_warmup)
-    fill_engine, recorder, cols = _run_oracle_python(
-        el_source, bars, config, data2_closes, trade_from=trade_from,
-        max_bars_back=max_bars_back,
-        max_entries_per_direction=max_entries_per_direction,
-        drawing_tick=drawing_meta[3] if drawings else None)
+    from pl_transpiler.runtime._rt_core import _run_state
+    from pl_transpiler.runtime.pl_runtime import pl_unimplemented_warn
+    # This run's own strictness and unimplemented-call counts.
+    with _run_state() as run_st:
+        bars, data2_closes, trade_from = _window_python_run(
+            bars, data2_closes, data2_bars, from_date=from_date, to_date=to_date,
+            from_bar=from_bar, seed_warmup=seed_warmup)
+        fill_engine, recorder, cols = _run_oracle_python(
+            el_source, bars, config, data2_closes, trade_from=trade_from,
+            max_bars_back=max_bars_back,
+            max_entries_per_direction=max_entries_per_direction,
+            drawing_tick=drawing_meta[3] if drawings else None)
     # Reported after the run, so a program that stops on a user error
     # prints only that error.
     if fallback_reason is not None and fallback_reason.startswith("native path refused"):
@@ -530,7 +529,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
         "records": records,
         "native": False,
         "native_fallback_reason": fallback_reason,
-        "unimplemented": pl_unimplemented_warn('pl_oracle'),
+        "unimplemented": pl_unimplemented_warn('pl_oracle', state=run_st),
     }
     digest["text"] = format_digest(
         fills=digest["fills"],
@@ -624,7 +623,7 @@ def _run_oracle_python(el_source: str, bars: Bars, config: InstrumentConfig,
     cols = ohlcv_columns(bars)
     fill_engine = FillEngine(config=config,
                              max_entries_per_direction=max_entries_per_direction)
-    fill_engine._emit_gta6 = False
+    fill_engine.set_capture_stats(False)
 
     extra = None
     if data2_closes is not None:

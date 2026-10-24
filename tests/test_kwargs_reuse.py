@@ -38,7 +38,7 @@ NQ = get_config('NQ')
 
 def _run(n, extra_fn, recorder):
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
 
     def strategy(*_series, **kwargs):
         recorder.append(dict(kwargs))
@@ -97,7 +97,7 @@ def test_extra_overrides_engine_date_and_len():
 
 def test_position_kwargs_present_and_get_kwargs_matches():
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     fe.market_position = 1
     fe.contracts = 2
     fe.entry_price = 18000.25
@@ -167,7 +167,7 @@ def test_persist_path_computes_datetime_when_read():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=1,
@@ -197,7 +197,7 @@ def test_persist_path_unread_datetime_does_not_break_date():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=1,
@@ -227,7 +227,7 @@ def test_persist_path_daily_ohlc_when_named():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     # Two days: 3 bars then 2 bars. Day-1 open=1, high=3, low=0.5, close last=2.
     # Day-2 open=10, high=12, low=9, close last=11. CloseD(1) on day 2 is 2.
     ohlcv = [
@@ -269,7 +269,7 @@ def test_persist_path_session_last_bar_when_named():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     dates = [1240102, 1240102, 1240103]
     times = [930, 1600, 1600]
     run_bar_loop(
@@ -298,7 +298,7 @@ def test_persist_path_unread_daily_still_writes_named_pos():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     fe.market_position = 1
     fe.contracts = 2
     run_bar_loop(
@@ -325,7 +325,7 @@ def test_starstar_kwargs_still_writes_daily_and_all_pos():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     fe.market_position = 1
     fe.contracts = 3
     fe.entry_price = 100.5
@@ -375,7 +375,7 @@ def test_persist_path_barid_when_named():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=2,
@@ -411,7 +411,7 @@ def test_persist_path_unread_barid_stays_at_init():
         return {'orders': [], 'risk': {}}
 
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
     run_bar_loop(
         strategy,
         n_bars=2,
@@ -446,7 +446,7 @@ def test_emit_trace_default_injects_and_false_skips():
 
     def _count(emit_trace):
         fe = FillEngine(config=NQ)
-        fe._emit_gta6 = False
+        fe.set_capture_stats(False)
         n_inject = [0]
         orig = fe.inject_trace
 

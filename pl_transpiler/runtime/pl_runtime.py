@@ -37,9 +37,9 @@ import os as _os  # noqa: F401  (same module object _rt_core uses)
 
 # Private helpers and state that tests, builtins and tools reach through here.
 from ._rt_core import (  # noqa: F401
-    _CFloat, _PL_STRICT, _UNIMPL_CALLS, _UNIMPL_COSMETIC,
+    _CFloat, _UNIMPL_COSMETIC,
     _UNIMPL_COSMETIC_PREFIXES, _UNIMPL_STR_RETURNING, _UNIMPL_WHITELIST,
-    _unimplemented, _strict_from_env,
+    _current_run_state, _run_state, _unimplemented, _strict_from_env,
 )
 from ._rt_indicators import (  # noqa: F401
     _adx_engine, _calc_dmi, _compute_adx_series, _cross_prior_relation, _ema,

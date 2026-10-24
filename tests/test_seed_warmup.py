@@ -198,7 +198,7 @@ def test_run_el_default_unchanged_and_seed_window():
 
 def test_engine_trade_from_rejects_bad_index():
     fe = FillEngine(config=NQ)
-    fe._emit_gta6 = False
+    fe.set_capture_stats(False)
 
     def strategy(*_a, **_k):
         return {"orders": [], "risk": {}}

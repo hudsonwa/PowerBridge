@@ -638,21 +638,18 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
     n = cols['n']
     dates, times = cols['date'], cols['time']
 
+    # Trace keys come from the strategy's own Trace calls, so the per-bar
+    # trade-stat/introspection keys stay off here.
     fill_engine = FillEngine(config=config,
-                             max_entries_per_direction=max_entries_per_direction)
-    # General single-data path: GTA6 multi-file stat/introspection injection is a
-    # capture-specific concern and stays off here.
-    fill_engine._emit_gta6 = False
+                             max_entries_per_direction=max_entries_per_direction,
+                             capture_stats=False)
 
     collector = _RowCollector(
         trace_columns, row_sink=row_sink, header_sink=header_sink,
         retain_rows=row_sink is None if retain_rows is None else retain_rows)
 
-    from pl_transpiler.runtime.pl_runtime import (
-        pl_unimplemented_reset,
-        pl_unimplemented_warn,
-    )
-    pl_unimplemented_reset()
+    from pl_transpiler.runtime._rt_core import _run_state
+    from pl_transpiler.runtime.pl_runtime import pl_unimplemented_warn
     warn_short_history(el_source, max_bars_back, n, 'pl_run')
     drawing_meta: tuple[Any, ...] = ()  # (case_id, tape name, sha256, tick) when drawings
     recorder = None
@@ -664,10 +661,12 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         drawing_meta = resolve_drawing_request(
             drawing_case_id, drawing_tape, config.tick)
         recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
-    _run_strategy_loop(
-        strategy_fn, py_code, el_source, '<pl_run>', cols, config, fill_engine,
-        collector.emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
-        recorder=recorder)
+    # This run's own strictness and unimplemented-call counts.
+    with _run_state() as run_st:
+        _run_strategy_loop(
+            strategy_fn, py_code, el_source, '<pl_run>', cols, config, fill_engine,
+            collector.emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
+            recorder=recorder)
 
     # Reported after the run, so a program that stops on a user error prints
     # only that error.
@@ -680,7 +679,7 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         # The seeded prefix; 0 when the tape is sliced or no window is set.
         'n_warmup': trade_from,
         # {keyword: calls} of unimplemented builtins this run used as 0/'' (warned on stderr).
-        'unimplemented': pl_unimplemented_warn('pl_run'),
+        'unimplemented': pl_unimplemented_warn('pl_run', state=run_st),
         'native': False,
         'native_fallback_reason': fallback_reason,
     }

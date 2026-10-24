@@ -37,7 +37,7 @@ BARS = load_bars_csv(BARS_CSV)[:20]
 
 @pytest.fixture
 def strict(monkeypatch):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", True)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", True)
 
 
 def _write(tmp_path, src):
@@ -100,7 +100,7 @@ def test_bar_column_supplied_by_data_is_used(strict):
 
 
 def test_bar_column_lenient_reads_zero_and_warns(monkeypatch, capsys):
-    monkeypatch.setattr(_rt_core, "_PL_STRICT", False)
+    monkeypatch.setattr(_rt_core._DEFAULT_STATE, "strict", False)
     _rt_core.pl_unimplemented_reset()
     assert pl_bar_column({}, "openint", "OpenInt") == 0
     assert _rt_core.pl_unimplemented_warn("t") == {"openint": 1}
