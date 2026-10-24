@@ -33,8 +33,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 ### Changed
 
 - When the native kernel is installed but cannot run a program, the note on stderr is now one line saying the Python engine ran and why (`[pl_oracle] note: ran on the Python engine because the native kernel does not support bar_ref series yet; ...`); `-v` adds the kernel's own refusal text (#254).
-
 - The release workflow now tests the built wheels before anything is attached or published: the `powerbridge` wheel runs the public tier from a clean venv, and each `powerbridge-accel` wheel runs a native-vs-Python digest check on the examples on its own platform runner (#246).
+- `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
+- The maintainer-only capture reader `analyze_capture.py` moved from `pl_transpiler/tools/` to the repository's `tools/`, so the wheel no longer ships it; the unused `tools/measure_audit_packet.py` is gone, and `ground_truth/captures/MANIFEST.md` is now a short data card (#248).
+- Internal: strict mode and the unimplemented-call counts are kept per run, and the EL emitter's comment maps per call, so two `run_el` / `run_oracle` runs with different strictness no longer interfere. (Emits in threads could still mix up comments until #256.) The engine's trade-stat trace hook is `FillEngine(capture_stats=...)` / `set_capture_stats()` instead of a fixture-named private flag. Output and digests are unchanged (#244).
 
 ### Fixed
 
@@ -42,12 +44,7 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 - `pl_run` / `pl_oracle --help` no longer point at `examples/configs/ES.json` or `csv_to_pbar`, which a wheel install does not have (#242).
 - docs/API.md shows the full `run_el` / `run_oracle` signatures (`drawings`, `drawing_case_id`, `drawing_tape`, `use_native`), says why `seed_warmup` defaults to `True` in `run_el` and `False` in `run_oracle`, and a test now fails when a documented signature drifts from the code. USAGE.md and PYTHON_STRATEGIES.md use `--dialect mirror` and drop the redundant `--max-bars-back auto` (#242).
 - LIMITATIONS.md and USAGE.md no longer call MaxBarsBack opt-in or say the default stays 0: they describe `auto` as the default and `0` as the opt-out, and the USAGE.md section is shorter. ACCEL.md no longer lists `Print` as refused by the native kernel. A test now fails if those stale phrases return (#250).
-
-### Changed
-
-- `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
-- The maintainer-only capture reader `analyze_capture.py` moved from `pl_transpiler/tools/` to the repository's `tools/`, so the wheel no longer ships it; the unused `tools/measure_audit_packet.py` is gone, and `ground_truth/captures/MANIFEST.md` is now a short data card (#248).
-- Internal: strict mode and the unimplemented-call counts are kept per run, and the EL emitter's comment maps per call, so two `run_el` / `run_oracle` runs with different strictness, or emits in threads, no longer interfere. The engine's trade-stat trace hook is `FillEngine(capture_stats=...)` / `set_capture_stats()` instead of a fixture-named private flag. Output and digests are unchanged (#244).
+- `emit_el`, `parse` and `transpile` called from several threads at once no longer mix up comments between sources: the lexer returns comments with its tokens (`tokenise_with_comments`) instead of through the module-level `lexer.last_comments` list, which is gone, and the parser's shared lex/parse cache is locked. Output is unchanged (#256).
 
 ## 0.11.0 — 2026-10-24
 
