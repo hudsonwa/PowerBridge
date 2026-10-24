@@ -373,6 +373,94 @@ def _exit_on_close(fill_engine: "FillEngine", prev_close: Any, barnumber: int,
                                    exit_name='End of Day Exit', exit_cat=4)
 
 
+class _DailyOHLC:
+    """Running day OHLC for OpenD/HighD/LowD/CloseD and CurrentSession.
+
+    Updated once per bar (history-only bars too) when the strategy reads the
+    daily or CurrentSession kwargs.
+    """
+
+    __slots__ = ('open', 'high', 'low', 'close', 'prev_close', 'session')
+
+    def __init__(self) -> None:
+        self.open: Any = 0.0
+        self.high: Any = 0.0
+        self.low: Any = 0.0
+        self.close: Any = 0.0
+        self.prev_close: Any = -1  # CloseD(1): yesterday's close; -1 when no prior day
+        self.session = 2  # dummy; recomputed on the first bar
+
+    def update(self, prev_date: Any, dt: Any, o: Any, h: Any, l: Any, c: Any) -> None:
+        """Fold one bar in; *prev_date* is None on the first bar."""
+        if prev_date is None:
+            self.open = o
+            self.high = h
+            self.low = l
+            self.prev_close = -1
+            self.session = el_date_to_day_of_week(dt)
+        elif dt != prev_date:
+            self.prev_close = self.close
+            self.session = el_date_to_day_of_week(dt)
+            self.open = o
+            self.high = h
+            self.low = l
+        else:
+            self.high = max(self.high, h)
+            self.low = min(self.low, l)
+        self.close = c
+
+
+def _el_datetime(dt: Any, tm: Any) -> Any:
+    """DateTime (YYYYMMDD.frac) for DateTime-decomposition functions."""
+    yyyy = 1900 + (dt // 10000)
+    mm = (dt // 100) % 100
+    dd = dt % 100
+    date_part = yyyy * 10000 + mm * 100 + dd
+    hh = tm // 100
+    mm_t = tm % 100
+    return date_part + (hh * 3600 + mm_t * 60) / 86400.0
+
+
+def _session_last_bar(dates: Any, i: int, n_bars: int, dt: Any, tm: Any,
+                      session_end_tm: Optional[int]) -> int:
+    """SessionLastBar: 1 when the next bar belongs to a new day.
+
+    The final bar has no successor, so it is classified by time-of-day.
+    """
+    if i + 1 < n_bars:
+        return 1 if dates[i + 1] != dt else 0
+    return 1 if (session_end_tm is not None and tm == session_end_tm) else 0
+
+
+def _apply_bar_extra(call_kwargs: dict[str, Any], extra: Optional[dict[str, Any]],
+                     engine_keys: frozenset[str], const_defaults: dict[str, Any],
+                     hook_only: list[str],
+                     restore_consts: tuple[str, ...]) -> tuple[str, ...]:
+    """Merge this bar's ``per_bar_extra`` dict; return the consts it overrode.
+
+    First undo the previous bar's extra: restore only the const keys it
+    overrode (so an omitted extra still matches a rebuilt dict; generated
+    persist never pops, ``**kwargs`` pops a copy and cannot hole
+    *call_kwargs*), and drop its hook-only keys so a value from a capture
+    column missing on this bar does not carry over. Then merge *extra*
+    (tick fields, Data2, Len/Prec); generic values already set win for keys
+    the hook does not provide.
+    """
+    for k in restore_consts:
+        call_kwargs[k] = const_defaults[k]
+    if hook_only:
+        for k in hook_only:
+            call_kwargs.pop(k, None)
+        hook_only.clear()
+    if not extra:
+        return ()
+    call_kwargs.update(extra)
+    for k in extra:
+        if k not in engine_keys:
+            hook_only.append(k)
+    return tuple(k for k in extra if k in const_defaults)
+
+
 def run_bar_loop(
     strategy_fn: Callable[..., Any],
     *,
@@ -502,8 +590,10 @@ def _drive_bars(
 ) -> tuple[int, int, Optional[str]]:
     """The per-bar loop: history, fills, kwargs, strategy call, emit.
 
-    Hot path: every flag and buffer is bound to a local up front, and the
-    body stays inline (no per-bar helper calls) to keep the loop fast.
+    Hot path: flags and buffers are bound to locals up front, and the common
+    per-bar work (including the position kwargs) stays inline; only work a
+    strategy opts into (DateTime, daily OHLC, SessionLastBar,
+    ``per_bar_extra``) goes through small helpers.
     """
     o_hist, h_hist, l_hist, c_hist, v_hist, d_hist, t_hist = hist
     _pass_kw_dict = pass_kw_dict
@@ -522,7 +612,7 @@ def _drive_bars(
     _need_outpath = needs.outpath
     _need_first_bar = needs.first_bar
     _track_daily = _need_daily or _need_currentsession
-    _const_defaults = const_defaults
+    _engine_keys = frozenset(call_kwargs)
 
     barnumber = 0
     first_bar = True
@@ -534,16 +624,7 @@ def _drive_bars(
     prev_dt_for_exit = 0
     prev_tm_for_exit = 0
     prev_date = None
-
-    # Daily OHLC tracking for OpenD/HighD/LowD/CloseD.
-    day_open = 0.0
-    day_high = 0.0
-    day_low = 0.0
-    day_close = 0.0
-    prev_day_close: float = -1  # CloseD(1): yesterday's close; -1 when no prior day
-    current_session = 2  # dummy; recomputed on first bar below
-
-    _engine_keys = frozenset(call_kwargs)
+    daily = _DailyOHLC()
     _hook_only: list[str] = []
     _restore_consts: tuple[str, ...] = ()
 
@@ -567,33 +648,16 @@ def _drive_bars(
 
         # SetExitOnClose: close the position at the previous bar's close when the
         # date changes (EL closes all positions on the last bar of the session).
-        cur_date = dt
-        if (trading and prev_date is not None and cur_date != prev_date and
+        if (trading and prev_date is not None and dt != prev_date and
                 fill_engine._risk.get('exit_on_close', False) and
                 prev_close_for_exit is not None):
             _exit_on_close(fill_engine, prev_close_for_exit, barnumber,
                            prev_dt_for_exit, prev_tm_for_exit)
 
-        # Track daily OHLC for OpenD/HighD/LowD/CloseD / CurrentSession.
-        # Persist 8-arg path skips this when the body never names those keys.
+        # Persist 8-arg path skips daily tracking when the body never names those keys.
         if _track_daily:
-            if prev_date is None:
-                day_open = o
-                day_high = h
-                day_low = l
-                prev_day_close = -1
-                current_session = el_date_to_day_of_week(dt)
-            elif cur_date != prev_date:
-                prev_day_close = day_close
-                current_session = el_date_to_day_of_week(dt)
-                day_open = o
-                day_high = h
-                day_low = l
-            else:
-                day_high = max(day_high, h)
-                day_low = min(day_low, l)
-            day_close = c
-        prev_date = cur_date
+            daily.update(prev_date, dt, o, h, l, c)
+        prev_date = dt
         if history_only:
             continue
 
@@ -605,69 +669,28 @@ def _drive_bars(
             call_kwargs['current_date'] = dt
         if _need_current_time:
             call_kwargs['current_time'] = tm
-        # DateTime (YYYYMMDD.frac) for DateTime-decomposition functions.
         if _need_datetime:
-            yyyy = 1900 + (dt // 10000)
-            mm = (dt // 100) % 100
-            dd = dt % 100
-            date_part = yyyy * 10000 + mm * 100 + dd
-            hh = tm // 100
-            mm_t = tm % 100
-            call_kwargs['datetime'] = date_part + (hh * 3600 + mm_t * 60) / 86400.0
-
+            call_kwargs['datetime'] = _el_datetime(dt, tm)
         # Daily OHLC (computed from bar data, not from any capture column).
         if _need_daily:
-            call_kwargs['opend_0'] = day_open
-            call_kwargs['highd_0'] = day_high
-            call_kwargs['lowd_0'] = day_low
-            call_kwargs['closed_0'] = day_close
-            call_kwargs['closed_1'] = prev_day_close
-
+            call_kwargs['opend_0'] = daily.open
+            call_kwargs['highd_0'] = daily.high
+            call_kwargs['lowd_0'] = daily.low
+            call_kwargs['closed_0'] = daily.close
+            call_kwargs['closed_1'] = daily.prev_close
         if _need_currentsession:
-            call_kwargs['currentsession'] = current_session
+            call_kwargs['currentsession'] = daily.session
         if _need_currentbar:
             call_kwargs['currentbar'] = barnumber
-        # SessionLastBar: this bar is the session's last bar when the next bar
-        # belongs to a new day; the final bar is classified by time-of-day.
         if _need_session_last:
-            if i + 1 < n_bars:
-                call_kwargs['session_last_bar'] = 1 if dates[i + 1] != dt else 0
-            else:
-                call_kwargs['session_last_bar'] = (
-                    1 if (session_end_tm is not None and tm == session_end_tm) else 0)
-
-        # Restore only const keys extra overrode last bar, so an omitted extra
-        # still matches a rebuilt dict. Generated persist never pops; **kwargs
-        # pops a copy and cannot hole call_kwargs.
-        if _restore_consts:
-            _cd = _const_defaults
-            _ck = call_kwargs
-            for _k in _restore_consts:
-                _ck[_k] = _cd[_k]
-            _restore_consts = ()
-
-        # Drop hook-only keys from the previous bar so a value from a capture
-        # column missing on this bar does not carry over.
-        if _hook_only:
-            for k in _hook_only:
-                call_kwargs.pop(k, None)
-            _hook_only.clear()
-
-        # Capture-specific extras (tick fields, Data2, Len/Prec). Generic values
-        # set above always win for keys the hook does not provide.
+            call_kwargs['session_last_bar'] = _session_last_bar(
+                dates, i, n_bars, dt, tm, session_end_tm)
         if per_bar_extra is not None:
-            extra = per_bar_extra(i)
-            if extra:
-                call_kwargs.update(extra)
-                ek = _engine_keys
-                for k in extra:
-                    if k not in ek:
-                        _hook_only.append(k)
-                _restore_consts = tuple(k for k in extra if k in _const_defaults)
-
-        # Position kwargs last so they win over extra on overlap. Persist 8-arg
-        # path writes only
-        # the keys the body names.
+            _restore_consts = _apply_bar_extra(
+                call_kwargs, per_bar_extra(i), _engine_keys, const_defaults,
+                _hook_only, _restore_consts)
+        # Position kwargs, then bar-id keys, are written after extra so they
+        # win over it. Persist 8-arg path writes only the keys the body names.
         if _need_all_pos:
             fill_engine.fill_pos_kwargs(call_kwargs)
         else:
@@ -675,14 +698,8 @@ def _drive_bars(
                 call_kwargs['market_position'] = fill_engine.market_position
             if _need_cc:
                 call_kwargs['current_contracts'] = fill_engine.contracts
-            if _pos_extra:
-                _ck = call_kwargs
-                _fp = fill_engine
-                for _k, _a in _pos_extra:
-                    _ck[_k] = getattr(_fp, _a)
-
-        # Bar-id keys are written after extra, so they win over it.
-        # Persist 8-arg path skips keys the body never names.
+            for _k, _a in _pos_extra:
+                call_kwargs[_k] = getattr(fill_engine, _a)
         if _need_barnumber:
             call_kwargs['barnumber'] = barnumber
         if _need_outpath:
