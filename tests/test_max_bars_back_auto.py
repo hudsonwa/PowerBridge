@@ -78,7 +78,8 @@ def _write(tmp_path, src):
     return str(path)
 
 
-@pytest.mark.parametrize("engine", ["--native", "--python"])
+@pytest.mark.parametrize("engine", [pytest.param("--native", marks=pytest.mark.needs_native),
+                                    "--python"])
 def test_oracle_auto_equals_explicit(engine, capsys):
     if engine == "--native" and not accel_available():
         pytest.skip("native kernel not built")
@@ -92,6 +93,7 @@ def test_oracle_auto_equals_explicit(engine, capsys):
     assert "max-bars-back" not in explicit.err.strip().splitlines()[-1]
 
 
+@pytest.mark.needs_native
 def test_oracle_native_and_python_agree_on_auto(capsys):
     if not accel_available():
         pytest.skip("native kernel not built")
@@ -102,7 +104,8 @@ def test_oracle_native_and_python_agree_on_auto(capsys):
     assert outs[0] == outs[1]
 
 
-@pytest.mark.parametrize("engine", ["--native", "--python"])
+@pytest.mark.parametrize("engine", [pytest.param("--native", marks=pytest.mark.needs_native),
+                                    "--python"])
 def test_run_auto_equals_explicit(engine, tmp_path, capsys):
     if engine == "--native" and not accel_available():
         pytest.skip("native kernel not built")
@@ -281,6 +284,7 @@ def test_recursive_past_warmup_at_inferred(name):
         assert adx[n - 6] not in (0.0, 50.0)
 
 
+@pytest.mark.needs_native
 def test_inferred_runtime_native_matches_python():
     if not accel_available():
         pytest.skip("native kernel not built")
