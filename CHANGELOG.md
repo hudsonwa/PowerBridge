@@ -25,100 +25,34 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+## 0.11.0 — 2026-10-24
+
+Highlights:
+
+- `--max-bars-back` defaults to `auto`, so a strategy's warm-up bars no longer trade where MultiCharts' would not, and the quickstart needs no flag (#237).
+- Bars CSVs are checked: the slash-date order is inferred (or the run asks for `--date-format`), and bars that go back in time stop the run (#229, #237).
+- EL run-time errors and a missing `;` stop with one line naming the EL line, instead of a traceback or a silent run (#223, #235).
+- The `run_el` / `run_oracle` library lives in `pl_transpiler.run` and `pl_transpiler.oracle`, and `pl_transpile --dialect` names the output dialect (#217, #227).
+- **Some runs give different results or now stop**; see the behaviour changes under Changed.
+
 ### Added
 
-- `pl_transpile --dialect {runnable,mirror}` selects the output dialect with the
-  same names as `transpile(src, dialect=...)`. `--no-persist` keeps working as an
-  alias for `--dialect mirror`, and output for existing flags is unchanged.
-- `InstrumentConfig.round_turn_cost` ($ per contract, default 25.0) sets the
-  cost the native audit packet subtracts from each closed trade's gross profit.
-  Before, the kernel used a fixed $25. A config file may set it (a finite
-  number >= 0). The built-in NQ and ES configs keep 25.0, so their packets are
-  byte-identical; fills and digests do not depend on it.
+- `pl_transpile --dialect {runnable,mirror}` selects the output dialect with the same names as `transpile(src, dialect=...)`; `--no-persist` stays as an alias for `--dialect mirror` (#217).
+- `InstrumentConfig.round_turn_cost` ($ per contract, default 25.0) sets the cost the native audit packet subtracts from each closed trade, instead of a fixed $25. The built-in NQ and ES configs keep 25.0, so their packets are byte-identical; fills and digests do not depend on it (#233).
 
 ### Changed
 
-- **Behaviour change:** a statement or declaration without its closing `;`
-  is now a syntax error (line, caret, exit 2) in `pl_transpile`, `pl_run`,
-  `pl_oracle` and the library: `missing ';' at the end of the
-  statement`. EasyLanguage requires the `;`; before, a file with none ran.
-  The documented omission before `Else` still parses, as do attributes like
-  `[IntrabarOrderGeneration = False]` without one. Some forms that were
-  reported as unimplemented keywords (`Close Data2`, `Close[1] of Data2`,
-  `Close of 0 bars ago`) now stop at the missing `;` instead. Generated code
-  is unchanged for every file that still parses.
-- The `AUDIT_REF_3_*` constants (the pinned digest of the reference strategy,
-  whose tape is not shipped) moved from `pl_transpiler.oracle` and
-  `pl_transpiler.tools.pl_oracle` to `tests/reference_pins.py`, since only
-  the tests use them.
-- **Behaviour change:** `--max-bars-back` on `pl_run` and `pl_oracle` now
-  defaults to `auto`, and `max_bars_back` in `run_el` / `run_oracle` to `None`
-  (auto). MultiCharts auto-detects MaxBarsBack by default, and with 0 a
-  strategy's warm-up bars traded where MultiCharts' would not, so every run
-  printed a warm-up note and the quickstart needed `--max-bars-back 21`. When
-  the lookback cannot be inferred, the default falls back to 0 and prints that
-  note (an explicit `--max-bars-back auto` still stops with an error); the
-  note is no longer printed otherwise. The status line shows the number used
-  (`max-bars-back 21 (auto)`). Pass `--max-bars-back 0` (`max_bars_back=0`)
-  for the old results: digests with an explicit value are unchanged, on the
-  Python and native engines. `ma_cross.el` infers 21, so the README
-  quickstart output is unchanged.
-- **Behaviour change:** without `--date-format` (`date_format=None` in
-  `load_bars_csv` / `load_bars`), the order of slash dates in a bars CSV is
-  inferred from the whole file: a first field above 12 means day-first, a
-  second field above 12 month-first. When no field is above 12 (and the two
-  orders give different dates), or both orders occur, the run stops with one
-  line asking for `--date-format mdy` or `dmy`, and exit 2. Before, slash dates
-  were read day-first, so a US month-first file holding only days 1-12 was
-  silently read with day and month swapped. An explicit `--date-format`
-  always wins; EL integer dates (as in the bundled sample) load as before.
-- **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars`
-  (CSV input) now stop on bars that go back in time, with one line naming the
-  CSV line, such as `bars out of order at line 4: 2024-01-02 09:29 comes after
-  2024-01-02 09:31`, and exit 2. Before, a file in descending or shuffled order
-  ran silently and gave meaningless fills. The library raises `ValueError`, as
-  for other bad bar files. Two bars with the same date and time are still
-  accepted, since a minute-resolution export can stamp several bars with the
-  same minute. Files in date order load exactly as before.
-- The library code behind `pl_run` and `pl_oracle` moved out of the CLI
-  modules: `run_el`, `load_bars_csv`, `load_bars` and their helpers now live in
-  `pl_transpiler.run`, and `run_oracle` and the digest helpers in
-  `pl_transpiler.oracle`. `pl_transpiler/tools/pl_run.py` and `pl_oracle.py`
-  are now thin argument parsers. The old import paths
-  (`from pl_transpiler.tools.pl_run import run_el`, `pl_transpiler.run_el`, ...)
-  still work, and output is unchanged.
-- A run-time error in the EL program (an array index out of range, a division
-  or `Mod` by zero, any other exception from the generated code) now stops
-  `pl_run` and `pl_oracle` with one line naming the EL line, such as
-  `pl_oracle: error: array index 4 out of range for 'a' (max index 3) at line 2`,
-  and exit 2, instead of a Python traceback and exit 1. The library raises the new
-  `ELRuntimeError` (with `.line`), which is also an instance of the original
-  exception type, so `except IndexError` keeps working. `PB_DEBUG=1` shows the traceback. Programs
-  that ran before give the same fills and digests.
-- The `--help` descriptions of `pl_oracle`, `pl_run`, `pl_transpile`, `el_emit` and
-  `pl_examples` are now written in plain language for first-time users. The
-  `--lenient` help now says exactly what it does: an unimplemented builtin returns
-  0 (or '' for a text builtin), a missing bar column reads as 0, and a
-  `from entry` exit with several named entries open closes the whole position.
-  Option names and behaviour are unchanged.
-- `pl_oracle --help` and `pl_run --help` drop the remaining jargon: the window
-  options talk about the bars file, bar numbers (0 = first bar) and EL dates
-  written `1YYMMDD`, instead of a "tape slice", a "0-based tape-index" and
-  `YYYMMDD`. Maintainer and drawing-check options (`--dump`, `--drawings-json`,
-  `--drawing-case`, `--tape-name`, `--tape-sha`, `--digest-v1`,
-  `--explain-native`, and `pl_run --partial`) are listed last under "advanced
-  options". Option names and behaviour are unchanged.
-- `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`,
-  `_parse_el_time`, `_el_to_ole`, `NQ`, ...); import them from the modules that
-  define them (`engine_dates`, `runtime.instrument_config`). These were never part
-  of the documented API.
-- Internal: the native kernel (`accel/`) now has one Rust fill engine. The
-  unused second copy in `accel/src/engine/` and the types only it used are
-  removed, its test scenarios are kept as kernel tests, and the `kernel` module
-  no longer carries a module-wide `#[allow(dead_code)]`. No behaviour change:
-  fills and digests are identical.
-- The dev tools are pinned in the `dev` extra (`ruff`, `mypy`, `pytest`, `pytest-timeout`), and CI installs that extra, so `pip install -e '.[dev]'` gives contributors the same lint, type-check and test results as CI. Python 3.9 gets the last mypy and pytest releases that support it; CI runs mypy on 3.9 and 3.13.
-- The parser, code generator, fill engine, bar loop and CLIs are fully type-annotated, and mypy now runs with `check_untyped_defs` (plus `disallow_untyped_defs` for the annotated modules). No behaviour change: fills and digests are identical.
+- **Behaviour change:** `--max-bars-back` on `pl_run` and `pl_oracle` defaults to `auto`, and `max_bars_back` in `run_el` / `run_oracle` to `None` (auto), as MultiCharts auto-detects MaxBarsBack. When the lookback cannot be inferred, the default falls back to 0 with a stderr note (an explicit `auto` still stops with an error). The status line shows the number used (`max-bars-back 21 (auto)`). Pass `--max-bars-back 0` (`max_bars_back=0`) for the old results; digests with an explicit value are unchanged on both engines (#237).
+- **Behaviour change:** without `--date-format` (`date_format=None` in `load_bars_csv` / `load_bars`), the slash-date order of a bars CSV is inferred from the whole file. When it cannot tell, or both orders occur, the run stops with one line asking for `--date-format mdy` or `dmy` (exit 2). Before, slash dates were read day-first, so a month-first file holding only days 1-12 was silently misread. EL integer dates load as before (#237).
+- **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars` stop on bars that go back in time, naming the CSV line (`bars out of order at line 4: 2024-01-02 09:29 comes after 2024-01-02 09:31`), with exit 2 (`ValueError` in the library). Bars with the same date and time are still accepted (#229).
+- **Behaviour change:** a statement or declaration without its closing `;` is a syntax error (`missing ';' at the end of the statement`, line, caret, exit 2). The documented omission before `Else` and attributes like `[IntrabarOrderGeneration = False]` still parse, and `Close Data2`-style forms once reported as unimplemented keywords now stop at the missing `;`. Generated code is unchanged for every file that still parses (#235).
+- A run-time error in the EL program (array index out of range, division or `Mod` by zero, any other exception from the generated code) stops `pl_run` and `pl_oracle` with one line naming the EL line and exit 2, instead of a traceback and exit 1. The library raises the new `ELRuntimeError` (with `.line`), which is also an instance of the original exception type; `PB_DEBUG=1` shows the traceback (#223).
+- The library code behind `pl_run` and `pl_oracle` moved to `pl_transpiler.run` and `pl_transpiler.oracle`; the CLI modules are thin argument parsers and the old import paths still work (#227).
+- The `--help` text of every command is in plain language, with maintainer options listed last under "advanced options"; option names and behaviour are unchanged (#225, #229).
+- `pl_transpiler.engine` no longer re-exports private helpers (`_parse_el_date`, `NQ`, ...); import them from `engine_dates` and `runtime.instrument_config` (#217).
+- The `AUDIT_REF_3_*` pinned-digest constants moved to `tests/reference_pins.py`, since only the tests use them.
+- Internal: the native kernel has one Rust fill engine; the unused copy in `accel/src/engine/` is gone. Fills and digests are identical (#231).
+- The dev tools are pinned in the `dev` extra and CI installs it, so `pip install -e '.[dev]'` gives the same lint, type-check and test results as CI (#221). The core modules are fully type-annotated and mypy runs with `check_untyped_defs` (#215).
 
 ## 0.10.0 — 2026-10-24
 
