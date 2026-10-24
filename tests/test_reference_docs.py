@@ -19,8 +19,10 @@
   sample bars.
 - The pages on disk equal tools/gen_reference.py output (its --check mode).
 - _notes.json describes exactly the generator's selection, and an entry whose run
-  stops says so in its description."""
+  stops says so in its description.
+- The coverage sentence in README.md matches the reference's totals."""
 import os
+import re
 import sys
 
 import pytest
@@ -73,3 +75,15 @@ def test_stops_status_is_described():
         for block in text.split("\n### ")[1:]:
             if gen_reference.STATUS_STOPS in block:
                 assert "stops with an error" in block, block.splitlines()[0]
+
+
+def test_readme_coverage_matches_reference():
+    with open(os.path.join(REPO, "docs", "reference", "README.md"), encoding="utf-8") as f:
+        ref = f.read()
+    with open(os.path.join(REPO, "README.md"), encoding="utf-8") as f:
+        readme = " ".join(f.read().split())
+    total = int(re.search(r"It covers (\d+) builtins", ref).group(1))
+    runs = int(re.search(r"^\| runs \| (\d+) \|$", ref, re.M).group(1))
+    stops = int(re.search(r"^\| transpiles; the run stops [^|]*\| (\d+) \|$", ref, re.M).group(1))
+    assert (f"lists the {total} builtins PowerBridge covers: {runs} run, "
+            f"and {stops} transpile but stop at run time") in readme

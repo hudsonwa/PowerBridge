@@ -12,6 +12,8 @@ network; an optional Rust kernel runs the same backtests about 5x faster.
 **Status: beta.** It would rather stop than guess: unsupported keywords are
 reported, not approximated ([status and scope](docs/USAGE.md#status-and-scope),
 [limitations](docs/LIMITATIONS.md)).
+The [keyword reference](docs/reference/README.md) lists the 261 builtins
+PowerBridge covers: 254 run, and 7 transpile but stop at run time.
 
 ## Install
 
