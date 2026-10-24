@@ -17,11 +17,12 @@
 import copy
 import re
 from collections import OrderedDict
-from typing import Any
+from typing import Any, NoReturn, Optional
 
 from . import lexer as _lexer
 from ._parser_expr import _ExpressionsMixin
 from ._parser_stmts import _reconstruct_tokens, _StatementsMixin  # noqa: F401  (re-exported)
+from ._types import Node, Token
 from .lexer import (  # noqa: F401  (re-exported)
     TT_COMMA,
     TT_EOF,
@@ -68,7 +69,8 @@ _DECL_KEYWORDS = frozenset(('inputs', 'input', 'variables', 'variable', 'vars',
 
 
 class Parser(_StatementsMixin, _ExpressionsMixin):
-    def __init__(self, tokens, positions=None, source=''):
+    def __init__(self, tokens: list[Token], positions: Optional[list[tuple[int, int]]] = None,
+                 source: str = '') -> None:
         self.tokens = tokens
         self.positions = positions or []
         self.source = source
@@ -77,19 +79,19 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         # (line, col) position can be mapped back to the verbatim source text of an
         # identifier (the lexer lowercases idents; the ORIGINAL spelling is recovered
         # here per-occurrence for the '_ident' side-channel — see _spelling_at).
-        self._line_starts = None
+        self._line_starts: Optional[list[int]] = None
         # Inputs/Vars/Arrays declared so far. A declared name shadows a reserved
         # position/MC keyword of the same spelling (an input `ExitTime`), as in MC.
-        self._user_names = set()
+        self._user_names: set[str] = set()
         # Every Inputs/Vars/Arrays name in the program, collected up front so a
         # declaration later in the source still shadows a price abbreviation.
         self._declared_names = self._collect_declared_names()
 
-    def _collect_declared_names(self):
+    def _collect_declared_names(self) -> set[str]:
         """Cheap token pre-pass: the names declared by every Inputs/Vars/Arrays
         statement (identifiers at nesting depth 0 that start a comma-separated
         item, up to the terminating semicolon)."""
-        names = set()
+        names: set[str] = set()
         toks = self.tokens
         i, n = 0, len(toks)
         while i < n:
@@ -114,7 +116,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
                 i += 1
         return names
 
-    def _spelling_at(self, tok_index):
+    def _spelling_at(self, tok_index: int) -> Optional[str]:
         """The verbatim source spelling of the identifier token at `tok_index`, or
         None when source/positions are unavailable. Reads the original (non-lowered)
         text straight from `self.source` at the token's recorded (line, col) — the
@@ -137,7 +139,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         m = re.match(r'[A-Za-z_#][A-Za-z0-9_.]*', self.source[off:])
         return m.group() if m else None
 
-    def _ident_spelling(self, name, tok_index):
+    def _ident_spelling(self, name: str, tok_index: int) -> Optional[str]:
         """The original spelling to stamp under '_ident' for a USER identifier token,
         or None if it should not be stamped: builtins/keywords keep their canonical
         casing (tools/pl_signatures.jsonl) so they are excluded, and an already-
@@ -151,22 +153,22 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
             return None
         return spelling
 
-    def peek(self):
+    def peek(self) -> Token:
         return self.tokens[self.pos] if self.pos < len(self.tokens) else (TT_EOF, '')
 
-    def advance(self):
+    def advance(self) -> Token:
         tok = self.tokens[self.pos]
         self.pos += 1
         return tok
 
-    def _pos_of(self, tok_index):
+    def _pos_of(self, tok_index: int) -> tuple[int, int]:
         """(line, col) for the token at tok_index (clamped to the position list)."""
         if not self.positions:
             return (0, 0)
         idx = min(max(tok_index, 0), len(self.positions) - 1)
         return self.positions[idx]
 
-    def _err(self, message, hint='', tok_index=None):
+    def _err(self, message: str, hint: str = '', tok_index: Optional[int] = None) -> NoReturn:
         """Raise a PLSyntaxError located at the given (default: current) token."""
         if tok_index is None:
             tok_index = self.pos
@@ -175,7 +177,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
                             _source_line(self.source, line), hint)
 
     @staticmethod
-    def _describe(tok):
+    def _describe(tok: Token) -> str:
         """Human-readable description of a token for error messages."""
         tt, val = tok
         if tt == TT_EOF:
@@ -186,7 +188,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
             return f"'{val}'"
         return tt
 
-    def expect(self, tt, val=None):
+    def expect(self, tt: str, val: Any = None) -> Token:
         tok = self.peek()
         if tok[0] != tt or (val is not None and tok[1] != val):
             want = repr(val) if val is not None else tt
@@ -195,18 +197,18 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
                 hint=f"insert {want} here" if val is not None else '')
         return self.advance()
 
-    def match(self, tt, val=None):
+    def match(self, tt: str, val: Any = None) -> Optional[Token]:
         tok = self.peek()
         if tok[0] == tt and (val is None or tok[1] == val):
             return self.advance()
         return None
 
-    def at_end(self):
+    def at_end(self) -> bool:
         return self.peek()[0] == TT_EOF
 
     # ---- Program ----
-    def parse_program(self):
-        stmts = []
+    def parse_program(self) -> Node:
+        stmts: list[Node] = []
         while not self.at_end():
             # skip stray semicolons
             if self.match(TT_SEMICOLON):
@@ -217,7 +219,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         return {'type': 'program', 'body': stmts}
 
     # ---- Statement ----
-    def parse_statement(self):
+    def parse_statement(self) -> Optional[Node]:
         # Stamp the 1-based source line of the statement's first token on the
         # returned node under the `_line` key (additive statement-line metadata;
         # the reverse emitter uses gaps between consecutive statements' `_line` to
@@ -239,7 +241,7 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
             node['_line'] = line
         return node
 
-    def _parse_statement_dispatch(self):
+    def _parse_statement_dispatch(self) -> Optional[Node]:
         tok = self.peek()
         tt, val = tok
 
@@ -336,7 +338,8 @@ class Parser(_StatementsMixin, _ExpressionsMixin):
         return self.parse_assignment_or_expr()
 
 
-def parse(tokens, positions=None, source=''):
+def parse(tokens: list[Token], positions: Optional[list[tuple[int, int]]] = None,
+          source: str = '') -> Node:
     """Parse token list into AST, then run the semantic validation pass.
 
     `positions`/`source` enable EL-aware (line:col + caret) error messages and
@@ -348,7 +351,8 @@ def parse(tokens, positions=None, source=''):
                   collect_comments(source) if source else [])
 
 
-def _parse(tokens, positions, source, comments):
+def _parse(tokens: list[Token], positions: Optional[list[tuple[int, int]]], source: str,
+           comments: list[dict[str, Any]]) -> Node:
     """`parse` with the comment side-list supplied (``collect_comments(source)``,
     or what the `tokenise(source)` that produced `tokens` left behind)."""
     p = Parser(tokens, positions=positions, source=source)
@@ -385,7 +389,7 @@ _SOURCE_CACHE_SIZE = 8
 _source_cache: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
 
 
-def _source_entry(source):
+def _source_entry(source: str) -> dict[str, Any]:
     entry = _source_cache.get(source)
     if entry is None:
         tokens, positions = tokenise(source)
@@ -401,13 +405,13 @@ def _source_entry(source):
     return entry
 
 
-def tokenise_source(source):
+def tokenise_source(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
     """``tokenise(source)``, lexed at most once per distinct source text."""
     entry = _source_entry(source)
     return list(entry['tokens']), list(entry['positions'])
 
 
-def parse_source(source):
+def parse_source(source: str) -> Node:
     """``parse(*tokenise(source), source=source)``, lexed and parsed at most once
     per distinct source text. Returns a private deep copy of the AST, so callers
     may mutate it."""
@@ -418,6 +422,6 @@ def parse_source(source):
     return copy.deepcopy(entry['ast'])
 
 
-def clear_source_cache():
+def clear_source_cache() -> None:
     """Forget every cached lex/parse (for tests that patch the front end)."""
     _source_cache.clear()

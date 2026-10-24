@@ -15,6 +15,9 @@
 
 """Expression-level recursive-descent methods of `parser.Parser` (a mixin)."""
 
+from typing import TYPE_CHECKING, Any, NoReturn, Optional
+
+from ._types import Node, Token
 from .lexer import (
     TT_COMMA,
     TT_IDENT,
@@ -38,11 +41,37 @@ from .parser_tables import (
 
 
 class _ExpressionsMixin:
+    if TYPE_CHECKING:
+        # Host interface supplied by `parser.Parser` (type-checking only).
+        tokens: list[Token]
+        positions: list[tuple[int, int]]
+        source: str
+        pos: int
+        _user_names: set[str]
+        _declared_names: set[str]
+
+        def peek(self) -> Token: ...
+
+        def advance(self) -> Token: ...
+
+        def _pos_of(self, tok_index: int) -> tuple[int, int]: ...
+
+        def _err(self, message: str, hint: str = '', tok_index: Optional[int] = None) -> NoReturn: ...
+
+        @staticmethod
+        def _describe(tok: Token) -> str: ...
+
+        def expect(self, tt: str, val: Any = None) -> Token: ...
+
+        def match(self, tt: str, val: Any = None) -> Optional[Token]: ...
+
+        def _ident_spelling(self, name: str, tok_index: int) -> Optional[str]: ...
+
     # ---- Expression: or ----
-    def parse_expression(self):
+    def parse_expression(self) -> Node:
         return self.parse_or()
 
-    def parse_or(self):
+    def parse_or(self) -> Node:
         left = self.parse_and()
         while self.peek() == (TT_KEYWORD, 'or'):
             self.advance()
@@ -50,7 +79,7 @@ class _ExpressionsMixin:
             left = {'type': 'binop', 'op': 'or', 'left': left, 'right': right}
         return left
 
-    def parse_and(self):
+    def parse_and(self) -> Node:
         left = self.parse_not()
         while self.peek() == (TT_KEYWORD, 'and'):
             self.advance()
@@ -58,14 +87,14 @@ class _ExpressionsMixin:
             left = {'type': 'binop', 'op': 'and', 'left': left, 'right': right}
         return left
 
-    def parse_not(self):
+    def parse_not(self) -> Node:
         if self.peek() == (TT_KEYWORD, 'not'):
             self.advance()
             operand = self.parse_not()
             return {'type': 'unaryop', 'op': 'not', 'operand': operand}
         return self.parse_comparison()
 
-    def parse_comparison(self):
+    def parse_comparison(self) -> Node:
         left = self.parse_addition()
         while True:
             tok = self.peek()
@@ -81,7 +110,7 @@ class _ExpressionsMixin:
                 break
         return left
 
-    def parse_addition(self):
+    def parse_addition(self) -> Node:
         left = self.parse_multiplication()
         while self.peek()[0] == TT_OP and self.peek()[1] in ('+', '-'):
             op = self.advance()[1]
@@ -89,7 +118,7 @@ class _ExpressionsMixin:
             left = {'type': 'binop', 'op': op, 'left': left, 'right': right}
         return left
 
-    def parse_multiplication(self):
+    def parse_multiplication(self) -> Node:
         left = self.parse_unary()
         while True:
             tok = self.peek()
@@ -105,7 +134,7 @@ class _ExpressionsMixin:
                 break
         return left
 
-    def parse_unary(self):
+    def parse_unary(self) -> Node:
         if self.peek()[0] == TT_OP and self.peek()[1] == '-':
             self.advance()
             operand = self.parse_unary()
@@ -123,7 +152,7 @@ class _ExpressionsMixin:
             node = {'type': 'binop', 'op': '*', 'left': node, 'right': tick}
         return node
 
-    def parse_primary(self):
+    def parse_primary(self) -> Node:
         tok = self.peek()
         tt, val = tok
 
@@ -158,7 +187,7 @@ class _ExpressionsMixin:
         # MarketPosition
         if tt == TT_IDENT and val == 'marketposition':
             self.advance()
-            node = {'type': 'ident', 'name': '_market_position'}
+            node: Node = {'type': 'ident', 'name': '_market_position'}
             if self.peek()[0] == TT_LBRACKET:
                 node = self._parse_bar_ref(node)
             return node
@@ -432,7 +461,7 @@ class _ExpressionsMixin:
             f"unexpected {self._describe(tok)} where an expression was expected",
             hint="check for a missing operator, operand, or a typo'd keyword")
 
-    def _parse_ident_or_call(self, name=None):
+    def _parse_ident_or_call(self, name: Optional[str] = None) -> Node:
         name_index = self.pos
         tok = self.advance()
         if name is None:
@@ -468,7 +497,7 @@ class _ExpressionsMixin:
 
         return node
 
-    def _parse_func_call(self):
+    def _parse_func_call(self) -> Node:
         """Parse a keyword-based function call like crossesabove(a, b)."""
         name = self.advance()[1]
         self.expect(TT_LPAREN)
@@ -480,7 +509,7 @@ class _ExpressionsMixin:
         self.expect(TT_RPAREN)
         return {'type': 'call', 'name': name, 'args': args}
 
-    def _parse_bar_ref(self, node):
+    def _parse_bar_ref(self, node: Node) -> Node:
         self.advance()  # consume [
         index = self.parse_expression()
         self.expect(TT_RBRACKET)

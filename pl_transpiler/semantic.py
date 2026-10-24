@@ -14,6 +14,10 @@
 
 """Post-parse semantic validation for the PowerLanguage AST."""
 
+from collections.abc import Set
+from typing import Any, NoReturn
+
+from ._types import Node
 from .lexer import PLSyntaxError, _source_line
 from .parser_tables import (
     BUILTIN_ARITY,
@@ -60,11 +64,11 @@ _RESERVED_IDENTS = _SCRATCH_VARS | {
 }
 
 
-def _collect_declared(ast):
+def _collect_declared(ast: Any) -> set[str]:
     """Names introduced by Input/Variable/Array declarations and for-loop vars."""
-    declared = set()
+    declared: set[str] = set()
 
-    def walk(n):
+    def walk(n: Any) -> None:
         if isinstance(n, dict):
             t = n.get('type')
             if t in ('var_decl', 'input_decl', 'array_decl'):
@@ -82,7 +86,7 @@ def _collect_declared(ast):
     return declared
 
 
-def add_scratch_decls(ast):
+def add_scratch_decls(ast: Node) -> Node:
     """Declare the undeclared `Value0..99` / `Condition0..99` the program uses.
 
     EL predeclares them: numeric (`ValueN`) or boolean (`ConditionN`) variables
@@ -91,9 +95,10 @@ def add_scratch_decls(ast):
     when nothing is missing, else a shallow copy whose body starts with that
     `var_decl` (names sorted). A for-loop counter still needs the declaration.
     """
-    declared, used = set(), set()
+    declared: set[str] = set()
+    used: set[str] = set()
 
-    def walk(n):
+    def walk(n: Any) -> None:
         if isinstance(n, dict):
             t = n.get('type')
             if t in ('var_decl', 'input_decl', 'array_decl'):
@@ -120,7 +125,7 @@ def add_scratch_decls(ast):
     return {**ast, 'body': [{'type': 'var_decl', 'decls': decls}, *ast['body']]}
 
 
-def _is_known_name(name, declared):
+def _is_known_name(name: str, declared: Set[str]) -> bool:
     """True if `name` is a legitimate identifier (declared or a known builtin)."""
     if name in declared:
         return True
@@ -137,7 +142,7 @@ def _is_known_name(name, declared):
     return False
 
 
-def semantic_check(ast, source='', strict_undefined=False):
+def semantic_check(ast: Node, source: str = '', strict_undefined: bool = False) -> list[str]:
     """Post-parse semantic validation.
 
     Catches, with precise line:col locations:
@@ -150,14 +155,14 @@ def semantic_check(ast, source='', strict_undefined=False):
     code untouched while still surfacing typos for the LLM to self-correct.
     """
     declared = _collect_declared(ast)
-    warnings = []
+    warnings: list[str] = []
 
-    def err(message, node, hint=''):
+    def err(message: str, node: Node, hint: str = '') -> NoReturn:
         line = node.get('_line', 0)
         col = node.get('_col', 0)
         raise PLSyntaxError(message, line, col, _source_line(source, line), hint)
 
-    def walk(n):
+    def walk(n: Any) -> None:
         if isinstance(n, dict):
             t = n.get('type')
             if t == 'call':

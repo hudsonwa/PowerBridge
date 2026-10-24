@@ -22,6 +22,8 @@ import re
 from bisect import bisect_left
 from typing import Any
 
+from ._types import Token
+
 # Token types
 TT_KEYWORD   = 'KEYWORD'
 TT_IDENT     = 'IDENT'
@@ -63,7 +65,8 @@ class PLSyntaxError(SyntaxError):
     so it can self-correct the generated EasyLanguage.
     """
 
-    def __init__(self, message, line, col, source_line='', hint=''):
+    def __init__(self, message: str, line: int, col: int, source_line: str = '',
+                 hint: str = '') -> None:
         self.pl_message = message
         self.line = line
         self.col = col
@@ -71,7 +74,7 @@ class PLSyntaxError(SyntaxError):
         self.hint = hint
         super().__init__(self._render())
 
-    def _render(self):
+    def _render(self) -> str:
         loc = f"line {self.line}:{self.col}" if self.line else "end of input"
         parts = [f"EasyLanguage syntax error at {loc}: {self.pl_message}"]
         if self.source_line:
@@ -85,7 +88,7 @@ class PLSyntaxError(SyntaxError):
         return "\n".join(parts)
 
 
-def _line_col(source, offset):
+def _line_col(source: str, offset: int) -> tuple[int, int]:
     """Convert a 0-based character offset into 1-based (line, col)."""
     line = source.count('\n', 0, offset) + 1
     last_nl = source.rfind('\n', 0, offset)
@@ -99,7 +102,7 @@ _NUMBER_RE = re.compile(r'\d+(\.\d+)?')
 _WORD_RE = re.compile(r'[A-Za-z_#][A-Za-z0-9_.]*')
 
 
-def tokenise(source: str):
+def tokenise(source: str) -> tuple[list[Token], list[tuple[int, int]]]:
     """Tokenise PL source. PL is case-insensitive — all tokens lowercased.
 
     Returns (tokens, positions) where `tokens` is a list of (type, value) pairs
@@ -107,25 +110,25 @@ def tokenise(source: str):
     of (line, col) 1-based source positions, one per token (the EOF token gets
     the position just past the end of the source).
     """
-    tokens = []
-    positions = []
-    comments = []
+    tokens: list[Token] = []
+    positions: list[tuple[int, int]] = []
+    comments: list[dict[str, Any]] = []
     i = 0
     src = source
     # Offsets of every '\n', computed once, so each position lookup is a bisect
     # instead of a scan from the start of the source (keeps tokenise linear).
     newlines = [m.start() for m in re.finditer('\n', src)]
 
-    def _pos(offset):
+    def _pos(offset: int) -> tuple[int, int]:
         # Same result as _line_col(src, offset).
         n = bisect_left(newlines, offset)
         return n + 1, offset - (newlines[n - 1] if n else -1)
 
-    def emit(tok, start):
+    def emit(tok: Token, start: int) -> None:
         tokens.append(tok)
         positions.append(_pos(start))
 
-    def _add_comment(start, end):
+    def _add_comment(start: int, end: int) -> None:
         # Collect a stripped comment verbatim (delimiters included) into the side
         # channel. `trailing` iff the comment is preceded by non-whitespace on its
         # own line. This never touches `tokens`/`positions`.
@@ -273,7 +276,7 @@ def tokenise(source: str):
     return tokens, positions
 
 
-def collect_comments(source: str):
+def collect_comments(source: str) -> list[dict[str, Any]]:
     """Verbatim comment side-list for `source` (a pure function of the text).
 
     Runs the lexer purely for its comment side-channel and returns a fresh copy of
@@ -283,7 +286,7 @@ def collect_comments(source: str):
     return [dict(c) for c in last_comments]
 
 
-def _source_line(source, line):
+def _source_line(source: str, line: int) -> str:
     """Return the 1-based `line`-th line of source (without trailing newline)."""
     if line < 1:
         return ''
