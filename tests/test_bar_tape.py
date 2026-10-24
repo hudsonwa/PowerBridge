@@ -130,7 +130,9 @@ def test_synthetic_whole_tape_mixed_formats_and_not_f32():
         px = 1000.0 + i * 0.25
         rows.append((
             str(1240102 + (i // 400)),
-            str(930 + (i % 30)),
+            # Oldest first (the loader refuses bars out of order): minute
+            # 09:30 + (i % 400) of day i // 400.
+            str((570 + i % 400) // 60 * 100 + (570 + i % 400) % 60),
             "%.10f" % (px + 0.1),
             "%.10f" % (px + 0.5),
             "%.10f" % px,

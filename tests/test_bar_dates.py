@@ -163,3 +163,30 @@ def test_cli_date_format_same_digest(tmp_path, order):
 def test_cli_rejects_unknown_date_format():
     proc = _run("pl_oracle", EL, BARS, "--date-format", "ydm")
     assert proc.returncode == 2 and "invalid choice" in proc.stderr
+
+
+def test_loader_rejects_bars_out_of_order(tmp_path):
+    path = _csv(tmp_path, ["1240103,930,1,2,0,1,5",
+                           "1240102,931,1,2,0,1,5"])
+    with pytest.raises(ValueError, match=r"^bars out of order at line 3: "
+                                         r"2024-01-02 09:31 comes after 2024-01-03 09:30$"):
+        load_bars_csv(path)
+
+
+def test_loader_allows_equal_timestamps(tmp_path):
+    path = _csv(tmp_path, ["1240102,930,1,2,0,1,5",
+                           "1240102,930,1,2,0,1,6",
+                           "1240102,931,1,2,0,1,5"])
+    assert len(load_bars_csv(path)) == 3
+
+
+@pytest.mark.parametrize("tool", ["pl_run", "pl_oracle"])
+def test_cli_bars_out_of_order(tool, tmp_path):
+    path = _csv(tmp_path, ["02/01/2024,09:30:00,1,2,0,1,5",
+                           "02/01/2024,09:31:00,1,2,0,1,5",
+                           "02/01/2024,09:29:00,1,2,0,1,5"])
+    proc = _run(tool, EL, path)
+    assert proc.returncode == 2, proc.stderr
+    lines = proc.stderr.strip().splitlines()
+    assert lines == [tool + ": error: bad bars file " + path + ": bars out of order at line 4: "
+                     "2024-01-02 09:29 comes after 2024-01-02 09:31"], proc.stderr

@@ -33,6 +33,14 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ### Changed
 
+- **Behaviour change:** `pl_run`, `pl_oracle`, `load_bars_csv` and `load_bars`
+  (CSV input) now stop on bars that go back in time, with one line naming the
+  CSV line, such as `bars out of order at line 4: 2024-01-02 09:29 comes after
+  2024-01-02 09:31`, and exit 2. Before, a file in descending or shuffled order
+  ran silently and gave meaningless fills. The library raises `ValueError`, as
+  for other bad bar files. Two bars with the same date and time are still
+  accepted, since a minute-resolution export can stamp several bars with the
+  same minute. Files in date order load exactly as before.
 - The library code behind `pl_run` and `pl_oracle` moved out of the CLI
   modules: `run_el`, `load_bars_csv`, `load_bars` and their helpers now live in
   `pl_transpiler.run`, and `run_oracle` and the digest helpers in
