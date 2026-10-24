@@ -239,7 +239,7 @@ def write_pbar(path, bars):
     return n
 
 
-def load_pbar(path):
+def load_pbar(path) -> BarTape:
     """Memory-map a ``.pbar`` into a BarTape (zero-copy columns).
 
     The returned tape holds the ``mmap`` object; keep it alive while using

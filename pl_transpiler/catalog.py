@@ -70,7 +70,7 @@ from __future__ import annotations
 import json
 import sys
 from importlib import resources
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 _TOOLS_PACKAGE = "pl_transpiler.tools"
 _SIGNATURES_RESOURCE = "pl_signatures.jsonl"
@@ -155,7 +155,7 @@ def returns(name: str) -> str:
     """Return the declared return type of ``name`` (case-insensitive).
 
     Raises KeyError with a helpful message if the keyword is not in the catalog."""
-    return _record(name)["returns"]
+    return cast(str, _record(name)["returns"])
 
 
 def arg_types(name: str) -> Optional[list[str]]:
@@ -168,13 +168,13 @@ def arg_types(name: str) -> Optional[list[str]]:
 def max_arity(name: str) -> Optional[int]:
     """Return the largest argument count ``name`` accepts, or None when unknown.
     Raises KeyError if the keyword is not in the catalog."""
-    return _record(name)["max_arity"]
+    return cast(Optional[int], _record(name)["max_arity"])
 
 
 def kind(name: str) -> str:
     """Return ``"syntax"`` for a language/reserved or filler word, else ``"builtin"``.
     Raises KeyError if the keyword is not in the catalog."""
-    return _record(name)["kind"]
+    return cast(str, _record(name)["kind"])
 
 
 def verification(name: str) -> str:
@@ -184,7 +184,7 @@ def verification(name: str) -> str:
     ``"verified:test"`` (EL embedded in a PowerBridge test calls it),
     ``"documented-unverified"``, or ``"n/a"`` for syntax words.
     Raises KeyError if the keyword is not in the catalog."""
-    return _record(name)["verification"]
+    return cast(str, _record(name)["verification"])
 
 
 def is_verified(name: str) -> bool:

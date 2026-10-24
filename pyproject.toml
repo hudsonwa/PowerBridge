@@ -92,11 +92,12 @@ follow_imports = "normal"
 warn_unused_ignores = true
 # Stricter checks that pass cleanly across the whole package (no per-module
 # exceptions). Not yet enabled because they need real typing work first:
-# warn_return_any, check_untyped_defs, disallow_any_generics, no_implicit_reexport.
+# check_untyped_defs.
 warn_redundant_casts = true
 warn_unreachable = true
 strict_equality = true
 extra_checks = true
+warn_return_any = true
 
 [[tool.mypy.overrides]]
 # Optional compiled extension; absent unless built with tools/build_accel.sh.

@@ -25,6 +25,8 @@ components:
 
 The public entrypoint for the loop/tools is this module + tools/el_emit.py.
 """
+from typing import cast
+
 from pl_transpiler import py_front, transpile
 from pl_transpiler.codegen_el import emit_el as _emit_el
 from pl_transpiler.lexer import tokenise
@@ -47,9 +49,9 @@ def el_to_py(el_text: str) -> str:
 
 def py_to_el(py_text: str) -> str:
     """Clean mirror-dialect Python -> EL text (py_front inverse, then emit)."""
-    return emit_el(py_front.py_to_ast(py_text))
+    return cast(str, emit_el(py_front.py_to_ast(py_text)))
 
 
 def el_roundtrip(el_text: str) -> str:
     """EL -> AST -> EL (the AST-only identity round-trip; codegen_el.emit_el)."""
-    return emit_el(parse_el(el_text))
+    return cast(str, emit_el(parse_el(el_text)))
