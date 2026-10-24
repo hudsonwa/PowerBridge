@@ -25,7 +25,7 @@ if REPO not in sys.path:
 
 from pl_transpiler.codegen_el import emit_el  # noqa: E402
 from pl_transpiler.lexer import tokenise  # noqa: E402
-from pl_transpiler.parser import parse  # noqa: E402
+from pl_transpiler.parser import parse, parse_source  # noqa: E402
 from pl_transpiler.runtime import _rt_core  # noqa: E402
 from pl_transpiler.runtime._rt_core import UnimplementedBuiltinError  # noqa: E402
 from pl_transpiler.runtime.instrument_config import get_config  # noqa: E402
@@ -101,18 +101,37 @@ def _emit(src: str) -> str:
 
 
 def test_concurrent_el_emits_keep_their_own_comments() -> None:
-    srcs = [f"Vars: x(0); {{c{i}}}\nx = {i}; // note {i}\n" for i in range(8)]
+    # Issue #256: the lexer used to hand comments to the parser through a
+    # module-level list, so concurrent parses could swap comments. More sources
+    # than the parse cache holds also exercise its eviction under threads.
+    srcs = [f"Vars: x(0); {{c{i}}}\nx = {i}; // note {i}\n" for i in range(12)]
     want = [_emit(s) for s in srcs]
     got: dict[int, list[str]] = {}
+    errors: list[BaseException] = []
 
     def emit(i: int) -> None:
-        got[i] = [_emit(srcs[i]) for _ in range(50)]
+        try:
+            out = []
+            for k in range(200):
+                out.append(_emit(srcs[i]))
+                j = (i + k) % len(srcs)
+                if emit_el(parse_source(srcs[j])) != want[j]:
+                    out.append(f"cached mismatch for {j}")
+            got[i] = out
+        except BaseException as exc:  # surfaced below
+            errors.append(exc)
 
-    threads = [threading.Thread(target=emit, args=(i,)) for i in range(8)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    for i, w in enumerate(want):
-        assert f"note {i}" in w
-        assert got[i] == [w] * 50
+    old_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)  # switch threads often so a race shows up
+    try:
+        threads = [threading.Thread(target=emit, args=(i,)) for i in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    finally:
+        sys.setswitchinterval(old_interval)
+    assert errors == []
+    for i in range(8):
+        assert f"note {i}" in want[i]
+        assert got[i] == [want[i]] * 200

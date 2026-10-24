@@ -26,7 +26,7 @@ NEEDS_NATIVE = pytest.mark.skipif(not accel_available(),
 def counts(monkeypatch):
     """Count real tokenise() and Parser.parse_program() calls, from a cold cache."""
     n = {"tokenise": 0, "parse": 0}
-    real_tokenise = lexer.tokenise
+    real_tokenise = lexer.tokenise_with_comments
     real_parse_program = parser.Parser.parse_program
 
     def tokenise(source):
@@ -37,8 +37,9 @@ def counts(monkeypatch):
         n["parse"] += 1
         return real_parse_program(self)
 
-    monkeypatch.setattr(lexer, "tokenise", tokenise)
-    monkeypatch.setattr(parser, "tokenise", tokenise)
+    # Every lex, whether through tokenise() or the parser's cache, ends here.
+    monkeypatch.setattr(lexer, "tokenise_with_comments", tokenise)
+    monkeypatch.setattr(parser, "tokenise_with_comments", tokenise)
     monkeypatch.setattr(parser.Parser, "parse_program", parse_program)
     parser.clear_source_cache()
     yield n
@@ -97,17 +98,14 @@ def test_parse_source_returns_private_copies():
     assert second is not first
 
 
-def test_parse_source_leaves_lexer_comments_as_tokenise_would():
+def test_parse_source_comments_match_the_lexer():
     a = "Vars: X(0);\n// first\nX = 1;\n"
     b = "Vars: Y(0);\n{ second }\nY = 2;\n"
     parser.parse_source(a)
     parser.parse_source(b)
-    parser.parse_source(a)  # cache hit
-    lexer.tokenise(a)
-    expected = [dict(c) for c in lexer.last_comments]
-    parser.parse_source(b)
-    parser.parse_source(a)
-    assert lexer.last_comments == expected
+    for src in (a, b):  # cache hits
+        assert parser.parse_source(src)["_comments"] == lexer.collect_comments(src)
+    assert not hasattr(lexer, "last_comments")
 
 
 def test_parse_errors_are_not_cached(counts):

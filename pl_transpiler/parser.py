@@ -16,10 +16,10 @@
 
 import copy
 import re
+import threading
 from collections import OrderedDict
 from typing import Any, NoReturn, Optional
 
-from . import lexer as _lexer
 from ._parser_expr import _ExpressionsMixin
 from ._parser_stmts import _reconstruct_tokens, _StatementsMixin  # noqa: F401  (re-exported)
 from ._types import Node, Token
@@ -40,6 +40,7 @@ from .lexer import (  # noqa: F401  (re-exported)
     collect_comments,
     source_line_at,
     tokenise,
+    tokenise_with_comments,
 )
 from .parser_tables import (  # noqa: F401  (re-exported)
     _PRICE_ABBREVIATIONS,
@@ -367,7 +368,7 @@ def parse(tokens: list[Token], positions: Optional[list[tuple[int, int]]] = None
 def _parse(tokens: list[Token], positions: Optional[list[tuple[int, int]]], source: str,
            comments: list[dict[str, Any]]) -> Node:
     """`parse` with the comment side-list supplied (``collect_comments(source)``,
-    or what the `tokenise(source)` that produced `tokens` left behind)."""
+    or the comments `tokenise_with_comments(source)` returned with `tokens`)."""
     p = Parser(tokens, positions=positions, source=source)
     ast = p.parse_program()
     # Attach the verbatim comment side-channel. Derived purely from `source`
@@ -397,24 +398,28 @@ def _parse(tokens: list[Token], positions: Optional[list[tuple[int, int]]], sour
 # from several places (lookback scans, the native serialiser, transpile, the
 # strict pre-pass of --partial); all are pure functions of the source, so they
 # share these results. Failures are never cached: a source that does not lex
-# or parse raises afresh, with the same error, at every call.
+# or parse raises afresh, with the same error, at every call. The lock keeps
+# the cache consistent when several threads lex or parse at once; the lex and
+# parse themselves run outside it.
 _SOURCE_CACHE_SIZE = 8
 _source_cache: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
+_source_cache_lock = threading.Lock()
 
 
 def _source_entry(source: str) -> dict[str, Any]:
-    entry = _source_cache.get(source)
-    if entry is None:
-        tokens, positions = tokenise(source)
-        entry = {'tokens': tokens, 'positions': positions,
-                 'comments': [dict(c) for c in _lexer.last_comments]}
-        _source_cache[source] = entry
+    with _source_cache_lock:
+        entry = _source_cache.get(source)
+        if entry is not None:
+            _source_cache.move_to_end(source)
+            return entry
+    tokens, positions, comments = tokenise_with_comments(source)
+    entry = {'tokens': tokens, 'positions': positions, 'comments': comments}
+    with _source_cache_lock:
+        # Another thread may have cached the same source meanwhile; keep theirs.
+        entry = _source_cache.setdefault(source, entry)
+        _source_cache.move_to_end(source)
         if len(_source_cache) > _SOURCE_CACHE_SIZE:
             _source_cache.popitem(last=False)
-    else:
-        _source_cache.move_to_end(source)
-        # Leave the lexer side channel as a fresh tokenise(source) would.
-        _lexer.last_comments[:] = [dict(c) for c in entry['comments']]
     return entry
 
 
@@ -429,12 +434,17 @@ def parse_source(source: str) -> Node:
     per distinct source text. Returns a private deep copy of the AST, so callers
     may mutate it."""
     entry = _source_entry(source)
-    if 'ast' not in entry:
-        entry['ast'] = _parse(list(entry['tokens']), list(entry['positions']),
-                              source, [dict(c) for c in entry['comments']])
-    return copy.deepcopy(entry['ast'])
+    ast = entry.get('ast')
+    if ast is None:
+        ast = _parse(list(entry['tokens']), list(entry['positions']),
+                     source, [dict(c) for c in entry['comments']])
+        # A parse is a pure function of the source, so if two threads race here
+        # both results are equal and either may be kept.
+        ast = entry.setdefault('ast', ast)
+    return copy.deepcopy(ast)
 
 
 def clear_source_cache() -> None:
     """Forget every cached lex/parse (for tests that patch the front end)."""
-    _source_cache.clear()
+    with _source_cache_lock:
+        _source_cache.clear()
