@@ -16,6 +16,7 @@
 
 from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
 
+from ._codegen_inline_calls import INLINE_CALLS, INLINE_NEEDS_F32, INLINE_NEEDS_MATH
 from ._types import Node
 from .codegen_tables import _SERIES_PARAMS, BUILTIN_FUNC_MAP, COMPARE_OPS
 from .codegen_util import (
@@ -558,192 +559,15 @@ class _ExprMixin:
             self.has_math = True
 
         py_name = BUILTIN_FUNC_MAP.get(name)
-
-        # Inline expansions for simple math functions
-        if py_name == '__intportion__' and len(args) == 1:
-            return f"int({args[0]})"
-        if py_name == '__fracportion__' and len(args) == 1:
-            return f"({args[0]} - int({args[0]}))"
-        if py_name == '__sign__' and len(args) == 1:
-            a = args[0]
-            return f"(1 if {a} > 0 else (-1 if {a} < 0 else 0))"
-        if py_name == '__square__' and len(args) == 1:
-            return f"({args[0]} ** 2)"
-        if py_name == '__numtostr__' and len(args) >= 2:
-            return f'f"{{{args[0]}:.{{{args[1]}}}f}}"'
-        if py_name == '__strtonum__' and len(args) == 1:
-            return f"float({args[0]})"
-
-        # Technical indicators that need high/low/close injected
-        if py_name == '__cci__' and len(args) == 1:
-            return f"pl_cci(high, low, close, {args[0]})"
-        if py_name == '__atr__' and len(args) == 1:
-            return f"pl_atr(high, low, close, {args[0]})"
-        if py_name == '__adx__' and len(args) == 1:
-            return f"pl_adx(high, low, close, {args[0]})"
-        if py_name == '__adxr__' and len(args) == 1:
-            return f"pl_adxr(high, low, close, {args[0]})"
-        if py_name == '__dmiplus__' and len(args) == 1:
-            return f"pl_dmiplus(high, low, close, {args[0]})"
-        if py_name == '__dmiminus__' and len(args) == 1:
-            return f"pl_dmiminus(high, low, close, {args[0]})"
-        # CountIf: count where condition is true over window
-        if py_name == '__countif__':
-            return f"pl_countif_window(close, open, {args[1]})"
-        # Stochastic: multi-output var-parameter
-        if py_name == '__stochastic__':
-            # Stochastic(High, Low, Close, Length, SmoothK, SmoothD, SmoothType, oFastK, oFastD, oSlowK, oSlowD)
-            # The output vars (oFastK, oFastD, oSlowK, oSlowD) are set by the function
-            return f"pl_stochastic({', '.join(args)})"
-        if py_name == '__fastk__' and len(args) == 1:
-            return f"pl_fast_k(high, low, close, {args[0]})"
-        if py_name == '__fastd__' and len(args) == 2:
-            return f"pl_fast_d(high, low, close, {args[0]}, {args[1]})"
-        if py_name == '__slowk__' and len(args) == 2:
-            return f"pl_slow_k(high, low, close, {args[0]}, {args[1]})"
-        if py_name == '__slowd__' and len(args) == 3:
-            return f"pl_slow_d(high, low, close, {args[0]}, {args[1]}, {args[2]})"
-
-        # Math functions
-        if py_name == '__ceiling__' and len(args) == 1:
-            self.has_math = True
-            return f"math.ceil({args[0]})"
-        if py_name == '__floor__' and len(args) == 1:
-            self.has_math = True
-            return f"math.floor({args[0]})"
-        if py_name == '__round__' and len(args) == 1:
-            self._need_f32_import = True
-            return f"el_round0({args[0]})"
-        if py_name == '__round__' and len(args) == 2:
-            self._need_f32_import = True
-            return f"el_round({args[0]}, {args[1]})"
-        if py_name == '__expvalue__' and len(args) == 1:
-            self.has_math = True
-            return f"math.exp({args[0]})"
-
-        # String functions
-        if py_name == '__leftstr__' and len(args) == 2:
-            return f"{args[0]}[:{args[1]}]"
-        if py_name == '__rightstr__' and len(args) == 2:
-            return f"{args[0]}[-{args[1]}:]"
-        if py_name == '__midstr__' and len(args) == 3:
-            # EL is 1-indexed: MidStr("abcdef",2,3)="bcd" → Python "abcdef"[1:4]
-            return f"{args[0]}[({args[1]} - 1):({args[1]} - 1) + {args[2]}]"
-        if py_name == '__strlen__' and len(args) == 1:
-            return f"__builtin_len({args[0]})"
-        if py_name == '__strcontains__' and len(args) == 2:
-            return f"({args[1]} in {args[0]})"
-        if py_name == '__strreplace__' and len(args) == 3:
-            return f"{args[0]}.replace({args[1]}, {args[2]})"
-        if py_name == '__strfind__' and len(args) == 2:
-            return f"{args[0]}.find({args[1]})"
-        if py_name == '__lowerstr__' and len(args) == 1:
-            return f"{args[0]}.lower()"
-        if py_name == '__upperstr__' and len(args) == 1:
-            return f"{args[0]}.upper()"
-        if py_name == '__stringformat__' and len(args) >= 1:
-            fmt_args = ', '.join(args[1:])
-            return f"{args[0]}.format({fmt_args})"
-
-        # Date/time functions
-        if py_name == '__hour__' and len(args) == 1:
-            return f"({args[0]} // 100)"
-        if py_name == '__minute__' and len(args) == 1:
-            return f"({args[0]} % 100)"
-        if py_name == '__second__' and len(args) == 1:
-            return f"({args[0]} % 100)"
-
-        # Output functions
-        if py_name == '__plotpb__' and len(args) == 4:
-            return f"_plots.setdefault('plotpb', []).append(({args[0]}, {args[1]}, {args[2]}, {args[3]}))"
-        if py_name == '__printlog__':
-            return f"print({', '.join(args)})"
-        if py_name == '__setplotcolor__' and len(args) == 2:
-            return f"_plots.__setitem__(f'plot{{{args[0]}}}_color', {args[1]})"
-        if py_name == '__setplotwidth__' and len(args) == 2:
-            return f"_plots.__setitem__(f'plot{{{args[0]}}}_width', {args[1]})"
-        if py_name == '__setplotstyle__' and len(args) == 2:
-            return f"_plots.__setitem__(f'plot{{{args[0]}}}_style', {args[1]})"
-
-        # MC extensions
-        if py_name == '__basedatanumber__':
-            return "kwargs.get('base_data_number', 1)"
-        if py_name == '__currentdatanumber__':
-            return "kwargs.get('current_data_number', 1)"
-        if py_name == '__recalculate__':
-            return "kwargs.__setitem__('_needs_recalc', True)"
-        if py_name == '__setstopposition__' and len(args) == 1:
-            return f"_risk.__setitem__('stop_position', {args[0]})"
-        if py_name == '__barnumberofdata__' and len(args) == 1:
-            return f"kwargs.get('bar_number_of_data_{{{args[0]}}}', 0)"
-
-        # Date/time no-arg functions
-        if py_name == '__currentdate__':
-            return "kwargs.get('current_date', 0)"
-        if py_name == '__currenttime__':
-            return "kwargs.get('current_time', 0)"
-        if py_name == '__timetostring__' and len(args) == 1:
-            return f"pl_timetostring({args[0]})"
-        if py_name == '__datetostring__' and len(args) == 1:
-            return f"pl_datetostring({args[0]})"
-        if py_name == '__eldatetodatetime__' and len(args) == 1:
-            # EL ELDateToDateTime(ELDate): convert an EL date (YYYMMDD,
-            # years-since-1900) to a MC DateTime serial (days since 1899-12-30,
-            # Excel-style). Identical day-serial base as DateToJulian.
-            return f"pl_datetojulian({args[0]})"
-        if py_name == '__eldatetodatetime__' and len(args) == 2:
-            return f"({args[0]} * 10000 + {args[1]})"
-        if py_name == '__eltimetodatetime__' and len(args) == 1:
-            # ELTimeToDateTime(HHmm) -> time-of-day fraction (pdf:4499
-            # ELTimeToDateTime(1015)=0.42708333).
-            return f"(((int({args[0]}) // 100) * 3600 + (int({args[0]}) % 100) * 60) / 86400.0)"
-        if py_name == '__datetimetoeldate__' and len(args) == 1:
-            return f"int({args[0]} // 10000)"
-        if py_name == '__datetimetoeltime__' and len(args) == 1:
-            return f"int({args[0]} % 10000)"
-
-        # Period data functions (OpenD, HighD, etc.)
-        if py_name == '__period_data__':
-            offset = int(args[0]) if args else 0
-            return f"kwargs.get('{name}_{offset}', 0)"
-
-        # Output extensions
-        if py_name == '__setplotbgcolor__' and len(args) == 2:
-            return f"_plots.__setitem__(f'plot{{{args[0]}}}_bgcolor', {args[1]})"
-        if py_name == '__noplot__' and len(args) == 1:
-            return f"_plots.__setitem__(f'plot{{{args[0]}}}_noplot', True)"
-
-        # Order extensions
-        if py_name == '__setbreakeven__' and len(args) == 1:
-            return f"_risk.__setitem__('breakeven', {args[0]})"
-        if py_name == '__entryname__' and len(args) >= 1:
-            return "kwargs.get('entry_name', '')"
-        if py_name == '__exitname__' and len(args) >= 1:
-            return "kwargs.get('exit_name', '')"
-
-        # CurrentSession: allow runner to override via kwarg (runner computes from bar date/time).
-        if py_name == 'pl_currentsession':
-            return f"kwargs.get('currentsession', pl_currentsession({', '.join(args)}))"
-
-        # SessionLastBar: runner derives "last bar of the trading session" from the bar
-        # date series (next bar is a new day) and supplies it via 'session_last_bar',
-        # mirroring CurrentSession. Not capture-fed — derived from the date series.
-        if py_name == 'pl_sessionlastbar':
-            return f"kwargs.get('session_last_bar', pl_sessionlastbar({', '.join(args)}))"
-
-        # LastCalc*: date/time of the FINAL bar of the data series (the moment of the
-        # last calculation in a historical export). The runner derives these from the
-        # last bar's date/time series (fundamental inputs, NOT the lc* output columns),
-        # mirroring CurrentSession/SessionLastBar. Constant across all bars.
-        _LASTCALC_KW = {
-            'pl_lastcalcdatetime': 'lastcalcdatetime',
-            'pl_lastcalcjdate': 'lastcalcjdate',
-            'pl_lastcalcmmtime': 'lastcalcmmtime',
-            'pl_lastcalcmstime': 'lastcalcmstime',
-            'pl_lastcalcsstime': 'lastcalcsstime',
-        }
-        if py_name in _LASTCALC_KW:
-            return f"kwargs.get('{_LASTCALC_KW[py_name]}', {py_name}({', '.join(args)}))"
+        if py_name is not None:
+            inline = INLINE_CALLS.get(py_name)
+            expanded = inline(name, args) if inline is not None else None
+            if expanded is not None:
+                if py_name in INLINE_NEEDS_MATH:
+                    self.has_math = True
+                elif py_name in INLINE_NEEDS_F32:
+                    self._need_f32_import = True
+                return expanded
 
         # Removed the _KWARGS_PREFER hook for session/config funcs — it
         # existed only to consume capture-fed kwargs (circular self-feed). Session/contract-spec
@@ -751,17 +575,15 @@ class _ExprMixin:
         if py_name and not py_name.startswith('__'):
             return f"{py_name}({', '.join(args)})"
 
-        if py_name:
-            # A BUILTIN_FUNC_MAP keyword whose internal `__marker__` py_name had no
-            # faithful inline expansion here (e.g. wrong arg count, or a bare
-            # zero-arg reference like `Value1 = FastD;`). Emitting the marker
-            # (`__fastd__()`) would be an undefined name — strict returns broken
-            # output and partial stamps a runnable header on unrunnable code. Route
-            # through the unimplemented path instead (recording the EL name, not the
-            # marker): strict collects+raises, partial emits an argless stub.
-            return self._impl_call(name, node, args)
-
-        # Unknown function: use pl_ prefix (validated to be implemented in builtins)
+        # A BUILTIN_FUNC_MAP keyword whose internal `__marker__` py_name had no
+        # faithful inline expansion (e.g. wrong arg count, or a bare zero-arg
+        # reference like `Value1 = FastD;`). Emitting the marker (`__fastd__()`)
+        # would be an undefined name — strict returns broken output and partial
+        # stamps a runnable header on unrunnable code. Route through the
+        # unimplemented path instead (recording the EL name, not the marker):
+        # strict collects+raises, partial emits an argless stub. An unknown
+        # function takes the same path (pl_ prefix, validated to be implemented
+        # in builtins).
         return self._impl_call(name, node, args)
 
     def _gen_bar_ref(self, node: Node) -> str:

@@ -123,6 +123,7 @@ disallow_any_generics = true
 module = [
     "pl_transpiler",
     "pl_transpiler._codegen_el_layout",
+    "pl_transpiler._codegen_inline_calls",
     "pl_transpiler._engine_report",
     "pl_transpiler._engine_stops",
     "pl_transpiler._parser_expr",
