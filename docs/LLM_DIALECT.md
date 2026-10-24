@@ -89,7 +89,7 @@ surface, not an aspiration:
   `min`, `math.log/sqrt/ceil/floor/exp`, plus the `pl_*` runtime helpers and the string and
   date/time inline forms the forward codegen emits (`inv_expr`, `_inv_call`, `_inv_pl_call`).
 - **Effects:** orders via `_orders.append((...))`, plots via `_plots.setdefault(...)
-  .append(...)`, risk via `_risk['key'] = ...`, `print(...)`, `_alerts.append(...)`, and
+  .append(...)`, risk via `_risk['key'] = ...`, `pl_print(...)` (older output's `print(...)` is read the same way), `_alerts.append(...)`, and
   `pass  # Abort` (`_inv_expr_stmt`, `_inv_order`, `_inv_risk_assign`).
 
 Anything else — a comprehension, a `numpy`/`pandas` call, a lambda, a `with`/`try` block, an

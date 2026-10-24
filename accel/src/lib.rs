@@ -189,6 +189,32 @@ fn run_program_drawings(
     data2: Option<&Bound<'_, PyAny>>,
     config: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<(Vec<Py<PyAny>>, String)> {
+    let (fills, drawings, _) = drawings_run(program_ir, series, data2, config, false)?;
+    Ok((fills, drawings))
+}
+
+/// `run_program_drawings` plus the run's `Print` lines, in order.
+///
+/// Returns `(fills, objects_json, prints)`.
+#[pyfunction]
+#[pyo3(signature = (program_ir, series, data2=None, config=None))]
+fn run_program_drawings_prints(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(Vec<Py<PyAny>>, String, Vec<String>)> {
+    drawings_run(program_ir, series, data2, config, true)
+}
+
+/// The body of [`run_program_drawings`] and [`run_program_drawings_prints`].
+fn drawings_run(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+    record_prints: bool,
+) -> PyResult<(Vec<Py<PyAny>>, String, Vec<String>)> {
     let config = config.ok_or_else(|| {
         PyValueError::new_err("accel run_program_drawings requires a 'config' dict")
     })?;
@@ -199,14 +225,53 @@ fn run_program_drawings(
         None => None,
     };
     let inputs = HashMap::<String, strategy::Value>::new();
-    let (fills, drawings) =
-        strategy::run_program_drawings(program_ir, &tape, data2_tape.as_ref(), &config, &inputs)
-            .map_err(kernel_error_to_py)?;
+    let (fills, drawings, prints) = strategy::run_program_drawings(
+        program_ir,
+        &tape,
+        data2_tape.as_ref(),
+        &config,
+        &inputs,
+        record_prints,
+    )
+    .map_err(kernel_error_to_py)?;
     let py_fills = fills
         .into_iter()
         .map(|fill| fill_to_python(series.py(), fill))
         .collect::<PyResult<_>>()?;
-    Ok((py_fills, drawings))
+    Ok((py_fills, drawings, prints))
+}
+
+/// `run_program` plus the run's `Print` lines, in order.
+///
+/// Returns `(fills, prints)`: the same fills as `run_program`, and each line
+/// as Python's `pl_print` shows it.
+#[pyfunction]
+#[pyo3(signature = (program_ir, series, data2=None, config=None))]
+fn run_program_prints(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(Vec<Py<PyAny>>, Vec<String>)> {
+    let config = config.ok_or_else(|| {
+        PyValueError::new_err("accel run_program_prints requires a 'config' dict")
+    })?;
+    let config = extract_config(config)?;
+    let tape = extract_tape(series)?;
+    let data2_tape = match data2 {
+        Some(d2) => Some(extract_tape(d2)?),
+        None => None,
+    };
+    let inputs = HashMap::<String, strategy::Value>::new();
+    let (outcome, prints) =
+        strategy::run_program_prints(program_ir, &tape, data2_tape.as_ref(), &config, &inputs)
+            .map_err(kernel_error_to_py)?;
+    let fills = outcome
+        .fills
+        .into_iter()
+        .map(|fill| fill_to_python(series.py(), fill))
+        .collect::<PyResult<_>>()?;
+    Ok((fills, prints))
 }
 
 /// The pure-Rust seam behind the [`run_program`] pyfunction: marshal-free, so
@@ -454,6 +519,44 @@ fn run_program_trace(
     data2: Option<&Bound<'_, PyAny>>,
     config: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<(Vec<String>, Vec<Vec<Py<PyAny>>>, Vec<Py<PyAny>>)> {
+    let (columns, rows, fills, _) = trace_run(program_ir, series, data2, config, false)?;
+    Ok((columns, rows, fills))
+}
+
+/// `run_program_trace` plus the run's `Print` lines, in order.
+///
+/// Returns ``(columns, rows, fills, prints)``.
+#[pyfunction]
+#[pyo3(signature = (program_ir, series, data2=None, config=None))]
+#[allow(clippy::type_complexity)]
+fn run_program_trace_prints(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(
+    Vec<String>,
+    Vec<Vec<Py<PyAny>>>,
+    Vec<Py<PyAny>>,
+    Vec<String>,
+)> {
+    trace_run(program_ir, series, data2, config, true)
+}
+
+/// The body of [`run_program_trace`] and [`run_program_trace_prints`].
+#[allow(clippy::type_complexity)]
+fn trace_run(
+    program_ir: &str,
+    series: &Bound<'_, PyAny>,
+    data2: Option<&Bound<'_, PyAny>>,
+    config: Option<&Bound<'_, PyDict>>,
+    record_prints: bool,
+) -> PyResult<(
+    Vec<String>,
+    Vec<Vec<Py<PyAny>>>,
+    Vec<Py<PyAny>>,
+    Vec<String>,
+)> {
     let config = config
         .ok_or_else(|| PyValueError::new_err("accel run_program_trace requires a 'config' dict"))?;
     let config = extract_config(config)?;
@@ -462,9 +565,14 @@ fn run_program_trace(
         Some(d2) => Some(extract_tape(d2)?),
         None => None,
     };
-    let (trace, fills) =
-        strategy::run_program_trace(program_ir, &tape, data2_tape.as_ref(), &config)
-            .map_err(kernel_error_to_py)?;
+    let (trace, fills, prints) = strategy::run_program_trace(
+        program_ir,
+        &tape,
+        data2_tape.as_ref(),
+        &config,
+        record_prints,
+    )
+    .map_err(kernel_error_to_py)?;
     let py = series.py();
     let rows: Vec<Vec<Py<PyAny>>> = trace
         .rows
@@ -479,7 +587,7 @@ fn run_program_trace(
         .into_iter()
         .map(|fill| fill_to_python(py, fill))
         .collect::<PyResult<_>>()?;
-    Ok((trace.columns, rows, fills))
+    Ok((trace.columns, rows, fills, prints))
 }
 
 /// Every construct the native compiler would refuse in `program_ir`.
@@ -833,6 +941,9 @@ fn _accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_program_batch, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_batch_parallel, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_trace, m)?)?;
+    m.add_function(wrap_pyfunction!(run_program_prints, m)?)?;
+    m.add_function(wrap_pyfunction!(run_program_drawings_prints, m)?)?;
+    m.add_function(wrap_pyfunction!(run_program_trace_prints, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_audit_packet, m)?)?;
     m.add_function(wrap_pyfunction!(audit_skip_eval_from, m)?)?;
     m.add_function(wrap_pyfunction!(run_program_audit_packet_inputs, m)?)?;

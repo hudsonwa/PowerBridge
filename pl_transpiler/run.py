@@ -513,7 +513,7 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
            max_entries_per_direction: Optional[int] = None,
            drawings: bool = False, drawing_case_id: Optional[str] = None,
            drawing_tape: Optional[dict[str, Any]] = None,
-           use_native: bool = False) -> dict[str, Any]:
+           use_native: bool = False, prints: bool = False) -> dict[str, Any]:
     """Transpile and run EL over supplied bars + instrument config.
 
     el_source     : EL/PowerLanguage source string.
@@ -571,10 +571,16 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     Python rows.
                     Any other run, or a program the kernel refuses, runs on the
                     Python path and ``native_fallback_reason`` says why.
+    prints        : False (default): 'prints' is []. True: 'prints' holds the
+                    strategy's ``Print`` lines in order (see pl_print for the
+                    format), the same lines on either engine. Recording them
+                    costs the native kernel a line per Print per bar, so it
+                    is opt-in.
 
     Returns {'columns': [...], 'rows': [[str, ...], ...], 'trades': [...],
     'n_rows': int, 'n_warmup': int, 'native': bool,
-    'native_fallback_reason': str | None}, where rows are formatted exactly as the GT
+    'native_fallback_reason': str | None, 'prints': [str, ...]}, where rows are
+    formatted exactly as the GT
     harness formats predicted CSV cells and trades come from
     FillEngine.get_mc_trades(). When retain_rows is False, 'rows' is [] and
     n_rows is still the emit count. n_warmup is the seeded-prefix length (0
@@ -587,7 +593,8 @@ def run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                    max_bars_back=max_bars_back,
                    max_entries_per_direction=max_entries_per_direction,
                    drawings=drawings, drawing_case_id=drawing_case_id,
-                   drawing_tape=drawing_tape, use_native=use_native)
+                   drawing_tape=drawing_tape, use_native=use_native,
+                   prints=prints)
 
 
 def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
@@ -601,9 +608,13 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
             drawings: bool = False, drawing_case_id: Optional[str] = None,
             drawing_tape: Optional[dict[str, Any]] = None,
             use_native: bool = False,
-            python_path_notify: Optional[Callable[..., Any]] = None) -> dict[str, Any]:
-    """run_el, plus the CLI's hook for the Python-path note (see
-    _notify_python_path); not part of the public signature."""
+            python_path_notify: Optional[Callable[..., Any]] = None,
+            print_sink: Optional[Callable[[str], Any]] = None,
+            prints: bool = False) -> dict[str, Any]:
+    """run_el, plus the CLI's hooks for the Python-path note (see
+    _notify_python_path) and for each Print line (*print_sink*, which implies
+    *prints*); not part of the public signature."""
+    prints = prints or print_sink is not None
     max_bars_back = check_max_bars_back(max_bars_back, el_source)
     max_entries_per_direction = check_max_entries_per_direction(max_entries_per_direction)
     fallback_reason = None
@@ -616,8 +627,12 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
                 el_source, bars, config, max_bars_back=max_bars_back,
                 max_entries_per_direction=max_entries_per_direction,
                 trace_columns=trace_columns,
-                row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows)
+                row_sink=row_sink, header_sink=header_sink, retain_rows=retain_rows,
+                prints=prints)
             if out is not None:
+                if print_sink is not None:
+                    for line in out['prints']:
+                        print_sink(line)
                 return out
         else:
             fallback_reason = reason
@@ -663,10 +678,10 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         recorder = DrawingRecorder(dates, times, tick=drawing_meta[3])
     # This run's own strictness and unimplemented-call counts.
     with _run_state() as run_st:
-        _run_strategy_loop(
+        lines = _run_strategy_loop(
             strategy_fn, py_code, el_source, '<pl_run>', cols, config, fill_engine,
             collector.emit_row, trade_from=trade_from, max_bars_back=max_bars_back,
-            recorder=recorder)
+            recorder=recorder, print_sink=print_sink)
 
     # Reported after the run, so a program that stops on a user error prints
     # only that error.
@@ -682,6 +697,7 @@ def _run_el(el_source: str, bars: Bars, config: InstrumentConfig, *,
         'unimplemented': pl_unimplemented_warn('pl_run', state=run_st),
         'native': False,
         'native_fallback_reason': fallback_reason,
+        'prints': lines if prints else [],
     }
     if drawings:
         from pl_transpiler.runtime._rt_drawing import make_dump
@@ -700,16 +716,19 @@ def _run_strategy_loop(strategy_fn: Callable[..., Any], py_code: str, el_source:
                        emit_row: Callable[[int, int, dict[str, Any]], Any], *,
                        trade_from: int, max_bars_back: int, recorder: Any,
                        per_bar_extra: Optional[Callable[[int], dict[str, Any]]] = None,
-                       emit_trace: bool = True) -> None:
+                       emit_trace: bool = True,
+                       print_sink: Optional[Callable[[str], Any]] = None) -> list[str]:
     """Run the strict bar loop over *cols* (``ohlcv_columns``) for run_el / run_oracle.
 
     Fail-loud: a general entrypoint has no throw-sidecar gate, so any EL surface
     the runtime cannot reproduce must RAISE (strict) rather than be silently
-    counted. The transpiled strategy's own Print(File(...)) lands on stdout; it
-    is discarded here so it can never corrupt the returned data or the CLI's
-    stdout. A runtime error is re-raised against the EL source line when it can
-    be mapped. *recorder* (or None) is the drawing recorder, entered for the run.
+    counted. The strategy's ``Print`` lines are returned (and passed to
+    *print_sink* as they are printed); anything else written to stdout is
+    discarded so it can never corrupt the CLI's stdout. A runtime error is
+    re-raised against the EL source line when it can be mapped. *recorder* (or
+    None) is the drawing recorder, entered for the run.
     """
+    from pl_transpiler.runtime._rt_datetime import _capture_prints
     o_arr, h_arr, l_arr = cols['open'], cols['high'], cols['low']
     c_arr, v_arr = cols['close'], cols['volume']
 
@@ -718,6 +737,7 @@ def _run_strategy_loop(strategy_fn: Callable[..., Any], py_code: str, el_source:
 
     with open(os.devnull, 'w', encoding='utf-8') as _devnull, \
             contextlib.redirect_stdout(_devnull), \
+            _capture_prints(print_sink) as prints, \
             (recorder if recorder is not None else contextlib.nullcontext()):
         try:
             run_bar_loop(
@@ -743,6 +763,7 @@ def _run_strategy_loop(strategy_fn: Callable[..., Any], py_code: str, el_source:
             if el_exc is None:
                 raise
             raise el_exc from exc
+    return prints
 
 
 def _transpile_for_run(el_source: str, partial: bool) -> str:
@@ -842,7 +863,8 @@ def _run_el_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
                    trace_columns: Optional[Sequence[str]],
                    row_sink: Optional[Callable[[list[str]], Any]],
                    header_sink: Optional[Callable[[list[str]], Any]],
-                   retain_rows: Optional[bool]
+                   retain_rows: Optional[bool],
+                   prints: bool
                    ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """The native typed trace, rendered the way ``emit_row`` renders it.
 
@@ -856,10 +878,11 @@ def _run_el_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
         AccelUnavailable,
         run_native_trace,
     )
+    lines: Optional[list[str]] = [] if prints else None
     try:
         native_cols, native_rows, fills = run_native_trace(
             el_source, bars, config, max_bars_back=max_bars_back,
-            max_entries_per_direction=max_entries_per_direction)
+            max_entries_per_direction=max_entries_per_direction, prints=lines)
     except AccelUnavailable as exc:
         return None, str(exc)
     except AccelRefused as exc:
@@ -898,4 +921,5 @@ def _run_el_native(el_source: str, bars: Bars, config: InstrumentConfig, *,
         'unimplemented': {},
         'native': True,
         'native_fallback_reason': None,
+        'prints': lines or [],
     }, None

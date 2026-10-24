@@ -34,8 +34,8 @@ use crate::types::{
 use super::arrays::{py_index_int, ElArray};
 use super::clock::{clock_value, python_clock, Clock};
 use super::compile::{
-    compile, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PosAgoField, PositionKw, Program, RiskOp,
-    Series, SeriesSrc, Unary,
+    compile_with, Binop, CallOp, Cmp, ElemKind, Instr, McKw, PosAgoField, PositionKw, Program,
+    RiskOp, Series, SeriesSrc, Unary,
 };
 use super::datefmt::format_date;
 use super::drawing::{
@@ -45,7 +45,9 @@ use super::pynum::{
     binop_num, py_datetojulian, py_extreme, py_floor, py_int, py_round, py_sign, py_square,
 };
 use super::specialize::{specialize_with, Specialized, Stats as SpecializeStats};
-use super::value::{num_to_str, pl_average, pl_crosses_above, pl_crosses_below, SeriesView, Value};
+use super::value::{
+    num_to_str, pl_average, pl_crosses_above, pl_crosses_below, NonNumeric, SeriesView, Value,
+};
 
 pub(crate) struct Interpreter<'a> {
     program: Program,
@@ -105,6 +107,21 @@ pub(crate) struct Interpreter<'a> {
     pricescale: f64,
     /// Time source of the computer-clock words (see [`super::clock`]).
     clock: Clock,
+    /// Every `Print` line of the run, in order.
+    prints: Vec<String>,
+}
+
+/// One `Print` value as Python's `pl_print` shows it: a string as it is, a
+/// number with two decimals, a boolean as `TRUE` / `FALSE`.
+fn print_part(value: Value) -> Result<String, KernelError> {
+    match value {
+        Value::Num(n) => num_to_str(n, 2.0),
+        Value::Bool(b) => Ok(if b { "TRUE" } else { "FALSE" }.to_string()),
+        Value::NonNum(boxed) => match *boxed {
+            NonNumeric::Str(s) => Ok(s),
+            NonNumeric::Series(_) => Err(KernelError::unsupported("Print of a series value")),
+        },
+    }
 }
 
 /// Largest `for` bound the kernel runs. Python keeps the loop variable as an
@@ -118,7 +135,18 @@ impl<'a> Interpreter<'a> {
         input_overrides: &HashMap<String, Value>,
         data2: Option<Arc<Data2Aligned<'a>>>,
     ) -> Result<Self, KernelError> {
-        let program = compile(&ast, input_overrides)?;
+        Self::new_with(ast, input_overrides, data2, false)
+    }
+
+    /// [`Self::new`]; with `record_prints`, the run keeps its `Print` lines
+    /// (see [`compile_with`]).
+    pub(crate) fn new_with(
+        ast: Json,
+        input_overrides: &HashMap<String, Value>,
+        data2: Option<Arc<Data2Aligned<'a>>>,
+        record_prints: bool,
+    ) -> Result<Self, KernelError> {
+        let program = compile_with(&ast, input_overrides, record_prints)?;
         Self::from_program(program, data2)
     }
 
@@ -199,6 +227,7 @@ impl<'a> Interpreter<'a> {
             minmove: 0.0,
             pricescale: 0.0,
             clock: python_clock,
+            prints: Vec::new(),
         };
         interp.seed_state();
         Ok(interp)
@@ -377,6 +406,14 @@ impl<'a> Interpreter<'a> {
                 Instr::SetFirstBarFalse => self.first_bar = false,
                 Instr::Drop => {
                     self.stack.pop();
+                }
+                Instr::Print(n) => {
+                    let at = self.stack.len() - usize::from(*n);
+                    let mut line = String::new();
+                    for value in self.stack.drain(at..) {
+                        line.push_str(&print_part(value)?);
+                    }
+                    self.prints.push(line);
                 }
                 Instr::Binop(op) => {
                     let right = self.stack.pop().unwrap();
@@ -1191,6 +1228,11 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn drawings_json(&self) -> Json {
         self.drawings.to_json()
+    }
+
+    /// The run's `Print` lines so far, in order (see [`print_part`]).
+    pub(crate) fn take_prints(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.prints)
     }
 
     /// Project one strategy variable slot into a typed trace cell. Returns

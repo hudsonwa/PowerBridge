@@ -401,6 +401,9 @@ pub(crate) enum Instr {
     JumpIfNotFirstBar(usize),
     SetFirstBarFalse,
     Drop,
+    /// `Print`: pops the line's `n` values (first argument deepest) and
+    /// records the line.
+    Print(u8),
 
     Binop(Binop),
     Compare(Cmp),
@@ -633,8 +636,19 @@ pub(crate) fn compile(
     ast: &Json,
     input_overrides: &HashMap<String, Value>,
 ) -> Result<Program, KernelError> {
+    compile_with(ast, input_overrides, false)
+}
+
+/// [`compile`]; with `record_prints`, each `Print` records its line
+/// ([`Instr::Print`]) instead of dropping its values.
+pub(crate) fn compile_with(
+    ast: &Json,
+    input_overrides: &HashMap<String, Value>,
+    record_prints: bool,
+) -> Result<Program, KernelError> {
     let body = body_of(ast)?.to_vec();
     let mut compiler = Compiler::new();
+    compiler.record_prints = record_prints;
     compiler.collect_decls(&body, input_overrides)?;
     compiler.collect_block_decls(&body);
     compiler.collect_double_accums(&body);
@@ -826,6 +840,11 @@ struct Compiler {
     /// `OutPath` reads in a string position of a file sink (see
     /// [`Compiler::allow_outpath`]); every other read is refused.
     outpath_ok: HashSet<*const Json>,
+    /// `OutPath` reads in a recorded `Print` line: they push `""`, the value
+    /// Python reads (see [`Compiler::push_input_at`]).
+    outpath_blank: HashSet<*const Json>,
+    /// Whether `Print` records its line (see [`compile_with`]).
+    record_prints: bool,
     /// Pending `break` / `continue` jumps of the enclosing `for` loops.
     loops: Vec<LoopJumps>,
     /// Variables assigned by any `for` statement (their Python type is `int`
@@ -886,6 +905,8 @@ impl Compiler {
             n_loops: 0,
             uses_strings: false,
             outpath_ok: HashSet::new(),
+            outpath_blank: HashSet::new(),
+            record_prints: false,
             loops: Vec::new(),
             for_vars: HashSet::new(),
             int_loop_vars: Vec::new(),
@@ -1212,6 +1233,10 @@ impl Compiler {
                  as '' (its sandbox), not the input",
             ));
         }
+        if node.is_some_and(|n| self.outpath_blank.contains(&std::ptr::from_ref(n))) {
+            self.instrs.push(Instr::PushStr(String::new()));
+            return Ok(());
+        }
         if trace_types::BAR_LOOP_KWARGS.contains(&name)
             || trace_types::PER_BAR_EXTRA_KEYS.contains(&name)
         {
@@ -1222,6 +1247,24 @@ impl Compiler {
         }
         self.instrs.push(Instr::PushInput(slot));
         Ok(())
+    }
+
+    /// Mark the `OutPath` reads that [`Self::allow_outpath`] allowed in `arg`
+    /// to push `""`.
+    fn mark_outpath_blank(&mut self, arg: &Json) {
+        match node_type(arg) {
+            Some("ident") => {
+                let ptr = std::ptr::from_ref(arg);
+                if self.outpath_ok.contains(&ptr) {
+                    self.outpath_blank.insert(ptr);
+                }
+            }
+            Some("binop") => {
+                self.mark_outpath_blank(arg.get("left").unwrap_or(&Json::Null));
+                self.mark_outpath_blank(arg.get("right").unwrap_or(&Json::Null));
+            }
+            _ => {}
+        }
     }
 
     /// Mark the `OutPath` reads of file-sink argument `arg` that sit in a
@@ -1548,13 +1591,42 @@ impl Compiler {
             Some("order") => self.compile_order(stmt),
             Some("risk") => self.compile_risk(stmt),
             Some("print") => {
-                if let Some(Json::Array(args)) = stmt.get("args") {
+                let args = match stmt.get("args") {
+                    Some(Json::Array(args)) => args.as_slice(),
+                    _ => &[],
+                };
+                if !self.record_prints {
                     for arg in args {
                         self.allow_outpath(arg);
                         self.compile_expr(arg, false)?;
                         self.instrs.push(Instr::Drop);
                     }
+                    return Ok(());
                 }
+                // Arguments are evaluated left to right, as Python does. A
+                // `File(...)` argument is the destination, not text: it is
+                // evaluated (and can refuse) but left out of the line. An
+                // `OutPath` in a string position of the text prints `""`, as
+                // Python reads it.
+                let mut parts: u8 = 0;
+                for arg in args {
+                    let is_file = node_type(arg) == Some("call")
+                        && arg.get("name").and_then(Json::as_str) == Some("file");
+                    let before = self.outpath_ok.len();
+                    self.allow_outpath(arg);
+                    if !is_file && self.outpath_ok.len() > before {
+                        self.mark_outpath_blank(arg);
+                    }
+                    self.compile_expr(arg, false)?;
+                    if is_file {
+                        self.instrs.push(Instr::Drop);
+                    } else {
+                        parts = parts
+                            .checked_add(1)
+                            .ok_or_else(|| KernelError::unsupported("Print of over 255 values"))?;
+                    }
+                }
+                self.instrs.push(Instr::Print(parts));
                 Ok(())
             }
             Some("alert") => {

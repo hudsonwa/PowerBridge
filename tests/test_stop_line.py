@@ -80,7 +80,10 @@ def test_named_exit_stop_names_the_exit_line(tool, path, strict, tmp_path, capsy
 @pytest.mark.parametrize("tool", [pl_run, pl_oracle])
 @pytest.mark.parametrize("path", PATHS)
 def test_missing_column_stop_names_the_reading_line(tool, path, strict, tmp_path, capsys):
-    err = _stop(tool, path, BAR_COLUMN, tmp_path, capsys)
+    # --print keeps the strategy's Print line (streamed by pl_run before the
+    # stop) out of stderr.
+    err = _stop(tool, path, BAR_COLUMN, tmp_path, capsys,
+                extra=("--print", str(tmp_path / "print.txt")))
     assert "(s.el line 4): " in err and "'openint' column" in err
 
 

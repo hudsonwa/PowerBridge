@@ -191,6 +191,29 @@ The digest goes to stdout. The `[pl_oracle] … fills` summary line (and,
 with `-v`, a `note:` line when the native kernel is not installed) go to stderr, so
 `pl_oracle … > digest.txt` captures only the block above.
 
+When the native kernel is installed but cannot run a program, both tools use
+the Python engine and say so in one `note:` line on stderr, for example
+`[pl_oracle] note: ran on the Python engine because the native kernel does not
+support bar_ref series yet; results are the same, only slower (-v for details)`.
+This is expected, not an error. `-v` adds the kernel's own reason, and
+`pl_oracle --explain-native FILE` lists every construct it refuses.
+
+### Print output
+
+A strategy's `Print(...)` lines go to stderr, after the run for `pl_oracle` and
+as they are printed for `pl_run` on the Python engine. `--print FILE` writes them
+to FILE instead. The digest, the CSV and the fills are the same with or without
+`Print`. In Python, pass `prints=True` to `run_el` or `run_oracle`, and the
+result's `prints` holds the lines.
+
+Each `Print` call is one line: its arguments joined with no separator, strings
+as they are, numbers with two decimals (`Print("bar ", CurrentBar)` gives
+`bar 1.00`) and true/false as `TRUE` / `FALSE`. A `File(...)` argument is left
+out and no file is written, so `Print(File(OutPath), Line)` shows `Line`. The
+Python engine and the native kernel print the same lines. Width and decimals
+formats such as `Close:0:4` are not supported (a syntax error); use
+`NumToStr(Close, 4)`.
+
 Add `--summary` to also print a performance summary of the closed trades to
 stderr (the digest is unchanged):
 

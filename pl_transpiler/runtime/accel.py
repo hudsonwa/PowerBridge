@@ -202,6 +202,32 @@ def python_path_note(reason: Optional[str] = None) -> str:
     return "note: using the pure-Python engine (slower): %s" % reason
 
 
+_REFUSED = "native path refused: "
+_UNSUPPORTED = "unsupported native construct: "
+
+
+def refusal_note(tool: str, reason: str) -> str:
+    """The one-line stderr note for a run the native kernel refused.
+
+    ``reason`` is a ``native path refused: ...`` fallback reason. The line
+    says the Python engine ran and why; :func:`refusal_detail` is the ``-v``
+    line. No trailing newline.
+    """
+    detail = reason[len(_REFUSED):] if reason.startswith(_REFUSED) else reason
+    if detail.startswith(_UNSUPPORTED):
+        why = f"the native kernel does not support {detail[len(_UNSUPPORTED):]} yet"
+    else:
+        why = f"the native kernel cannot run it ({detail})"
+    return (f"[{tool}] note: ran on the Python engine because {why}; "
+            "results are the same, only slower (-v for details)")
+
+
+def refusal_detail(tool: str, reason: str) -> str:
+    """The ``-v`` line after :func:`refusal_note`: the kernel's own refusal."""
+    return (f"[{tool}] {reason}; `pl_oracle --explain-native EL_FILE` lists "
+            "every construct the native kernel refuses")
+
+
 # Fill-log semantics this core implements (fill log v2; the oracle digest is
 # ``pl_oracle.DIGEST_VERSION``). The kernel exports its own value as
 # ``_accel.FILL_LOG_VERSION``; a kernel that is missing it or reports a
@@ -378,7 +404,8 @@ def _config_dict(config: "InstrumentConfig", max_bars_back: Union[int, str] = 0,
 
 def run_native(el_source: str, bars: Any, config: "InstrumentConfig", *,
                data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
-               max_entries_per_direction: Optional[int] = 0) -> list[Fill]:
+               max_entries_per_direction: Optional[int] = 0,
+               prints: Optional[list[str]] = None) -> list[Fill]:
     """Execute ``el_source`` over ``bars`` through the native kernel.
 
     Exactly one FFI crossing (``run_program``): serialise the EL to ``program_ir``,
@@ -402,6 +429,12 @@ def run_native(el_source: str, bars: Any, config: "InstrumentConfig", *,
     N > 0 such a kernel is refused (``AccelRefused``) rather than trusted.
     ``max_entries_per_direction`` (default 0 = unlimited) caps same-direction
     entries; an older kernel without that support is refused the same way.
+
+    ``prints``, when given a list, receives the run's ``Print`` lines (the
+    same lines as the Python path's ``pl_print``). Recording them costs a
+    line per ``Print`` per bar and the prefix skip, so leave it ``None``
+    unless the lines are wanted; a kernel built before Print output is then
+    refused only when they are.
     """
     accel = _import_accel()
     if max_bars_back and not getattr(accel, "MAX_BARS_BACK", False):
@@ -419,10 +452,42 @@ def run_native(el_source: str, bars: Any, config: "InstrumentConfig", *,
     series, data2 = marshalled_series(bars, data2_bars)
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
-        return cast("list[Fill]", accel.run_program(program_ir, series, data2, config_map))
+        return cast("list[Fill]", _call_with_prints(
+            accel, "run_program", ast, prints, program_ir, series, data2, config_map))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc
+
+
+def _has_print(node: Any) -> bool:
+    """Whether the parsed program has a ``Print`` statement anywhere."""
+    if isinstance(node, dict):
+        return node.get("type") == "print" or any(_has_print(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_has_print(v) for v in node)
+    return False
+
+
+def _call_with_prints(accel: Any, name: str, ast: Any,
+                      prints: Optional[list[str]], *args: Any) -> Any:
+    """``accel.<name>(*args)``. For a program that prints, given a ``prints``
+    list, the ``<name>_prints`` variant instead, whose last result (the Print
+    lines) is appended to ``prints``.
+
+    A kernel built before Print output is refused for a program that prints,
+    so its lines are never silently lost.
+    """
+    if prints is None or not _has_print(ast):
+        return getattr(accel, name)(*args)
+    with_prints = getattr(accel, name + "_prints", None)
+    if with_prints is None:
+        _record_fallback()
+        raise AccelRefused(
+            "this accel build predates Print output; rebuild accel "
+            "(tools/build_accel.sh) to run it natively")
+    *result, lines = with_prints(*args)
+    prints.extend(lines)
+    return result[0] if len(result) == 1 else tuple(result)
 
 
 NativeRefusal = namedtuple("NativeRefusal", "kind name line message")
@@ -479,13 +544,15 @@ def explain_native(el_source: str) -> "list[NativeRefusal]":
 
 def run_native_drawings(el_source: str, bars: Any, config: "InstrumentConfig", *,
                         data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
-                        max_entries_per_direction: Optional[int] = 0
+                        max_entries_per_direction: Optional[int] = 0,
+                        prints: Optional[list[str]] = None
                         ) -> tuple[list[Fill], list[Any]]:
     """Native fills plus the drawing objects that run recorded.
 
     Returns ``(fills, objects)``. ``objects`` is the drawing-dump object list
     (``seq`` still 0). The caller builds the v1 envelope. Same refusal rules
-    as :func:`run_native`. A kernel built before drawing support is refused.
+    as :func:`run_native`, and ``prints`` as there. A kernel built before
+    drawing support is refused.
     """
     accel = _import_accel()
     if not hasattr(accel, "run_program_drawings"):
@@ -508,7 +575,8 @@ def run_native_drawings(el_source: str, bars: Any, config: "InstrumentConfig", *
     series, data2 = marshalled_series(bars, data2_bars)
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
-        fills, raw = accel.run_program_drawings(
+        fills, raw = _call_with_prints(
+            accel, "run_program_drawings", ast, prints,
             program_ir, series, data2, config_map)
     except NotImplementedError as exc:
         _record_fallback()
@@ -518,7 +586,8 @@ def run_native_drawings(el_source: str, bars: Any, config: "InstrumentConfig", *
 
 def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
                      data2_bars: Any = None, max_bars_back: Union[int, str] = 0,
-                     max_entries_per_direction: Optional[int] = 0
+                     max_entries_per_direction: Optional[int] = 0,
+                     prints: Optional[list[str]] = None
                      ) -> tuple[list[str], list[list[Any]], list[Fill]]:
     """Run ``el_source`` natively and return the typed per-bar trace + fills.
 
@@ -540,13 +609,15 @@ def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
     ``max_bars_back`` / ``max_entries_per_direction`` behave as in
     :func:`run_native`: the first N bars are history only (no row; the
     ``_barnumber`` column starts at 1 after them). A kernel whose trace entry
-    predates them is refused for a non-zero value.
+    predates them is refused for a non-zero value. ``prints`` is as in
+    :func:`run_native`.
 
     Raises ``AccelUnavailable`` / ``AccelRefused`` — never a partial trace.
     """
-    accel, program_ir, series, data2 = _serialise_and_marshal(
-        el_source, bars, data2_bars
-    )
+    accel = _import_accel()
+    ast = parse_source(el_source)
+    program_ir = serialise_ir(ast)
+    series, data2 = marshalled_series(bars, data2_bars)
     if ((max_bars_back or max_entries_per_direction)
             and not getattr(accel, "TRACE_RUN_OPTIONS", False)):
         _record_fallback()
@@ -555,7 +626,9 @@ def run_native_trace(el_source: str, bars: Any, config: "InstrumentConfig", *,
             "max_entries_per_direction; rebuild accel (tools/build_accel.sh)")
     config_map = _config_dict(config, max_bars_back, max_entries_per_direction)
     try:
-        return cast("tuple[list[str], list[list[Any]], list[Fill]]", accel.run_program_trace(program_ir, series, data2, config_map))
+        return cast("tuple[list[str], list[list[Any]], list[Fill]]", _call_with_prints(
+            accel, "run_program_trace", ast, prints,
+            program_ir, series, data2, config_map))
     except NotImplementedError as exc:
         _record_fallback()
         raise AccelRefused(str(exc)) from exc

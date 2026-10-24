@@ -17,6 +17,12 @@ math/string leftovers).
 
 Re-exported by pl_runtime; see that module."""
 
+from collections.abc import Callable as _Callable
+from collections.abc import Iterator as _Iterator
+from contextlib import contextmanager as _contextmanager
+from contextvars import ContextVar as _ContextVar
+from numbers import Real as _Real
+
 from ._rt_color import UnmeasuredColorError  # noqa: F401  (re-export)
 from ._rt_core import f32
 from ._rt_indicators import pl_roc
@@ -551,9 +557,67 @@ def pl_yearfromdatetime(*args, **kwargs):
 def pl_yesterday(*args, **kwargs):
     return 0
 
+class _PrintFile(str):
+    """``File(path)``: a Print destination. ``pl_print`` leaves it out of the line."""
+
+    __slots__ = ()
+
+
 def pl_file(path):
-    """File handle constructor for Print output. Returns path string."""
-    return path
+    """File handle constructor for Print output: the path, marked as a destination."""
+    return _PrintFile(path)
+
+
+# The open run's Print capture: (kept lines, sink or None), or None outside a run.
+_PRINT_CAPTURE: _ContextVar['tuple[list[str], _Callable[[str], object] | None] | None'] = (
+    _ContextVar('pl_print_capture', default=None))
+
+
+@_contextmanager
+def _capture_prints(sink: '_Callable[[str], object] | None' = None) -> '_Iterator[list[str]]':
+    """Collect every ``Print`` line of the body into the yielded list, and
+    pass each line to *sink* as it is printed."""
+    lines: list[str] = []
+    token = _PRINT_CAPTURE.set((lines, sink))
+    try:
+        yield lines
+    finally:
+        _PRINT_CAPTURE.reset(token)
+
+
+def _print_part(value) -> str:
+    """One ``Print`` value as text; never raises, so printing cannot stop a run."""
+    if isinstance(value, _PrintFile):
+        return ''
+    if isinstance(value, str):
+        return value
+    # numpy's bool_ is neither a bool nor a numbers.Real.
+    if isinstance(value, bool) or getattr(getattr(value, 'dtype', None), 'kind', None) == 'b':
+        return 'TRUE' if value else 'FALSE'
+    if isinstance(value, _Real):
+        return f"{float(value):.2f}"
+    try:
+        return str(value)
+    except Exception:  # noqa: BLE001 - a broken __str__ must not stop the run
+        return object.__repr__(value)
+
+
+def pl_print(*args):
+    """EL ``Print``: one line, the arguments joined with no separator.
+
+    Strings print as they are, numbers with two decimals, true/false as
+    TRUE/FALSE; a ``File(...)`` argument is left out (no file is written).
+    Inside a run the line is captured; otherwise it goes to stdout.
+    """
+    line = ''.join(_print_part(a) for a in args)
+    capture = _PRINT_CAPTURE.get()
+    if capture is None:
+        print(line)
+        return
+    lines, sink = capture
+    lines.append(line)
+    if sink is not None:
+        sink(line)
 
 def pl_rateofchange(series, length):
     """Rate of Change alias for pl_roc."""

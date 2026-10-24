@@ -57,6 +57,14 @@ pub(crate) fn plan(program: &Program, dates: &[i64]) -> SkipPlan {
             "drawing or colour calls have side effects; cannot skip a prefix",
         );
     }
+    // A `Print` line is output on every bar it runs, trading or not.
+    if program
+        .instrs
+        .iter()
+        .any(|instr| matches!(instr, Instr::Print(_)))
+    {
+        return SkipPlan::unproven("Print writes a line on every bar; cannot skip a prefix");
+    }
     // Arrays keep state across bars that the proof does not model, and an
     // out-of-range element access fails the run even on a bar that cannot
     // trade; loops jump backwards. Evaluate every bar (checked before the
@@ -308,6 +316,9 @@ fn series_lookback(program: &Program) -> Result<usize, &'static str> {
                     _ => return Err("bar-ref index is not a proven constant; cannot skip"),
                 }
                 stack.push(None);
+            }
+            Instr::Print(n) => {
+                stack.truncate(stack.len().saturating_sub(usize::from(*n)));
             }
             Instr::JumpIfFalse(_)
             | Instr::Jump(_)
@@ -772,6 +783,10 @@ fn interpret_bar(
             }
             Instr::Drop => {
                 stack.pop();
+                succs.push((pc + 1, Frame { stack, vars }));
+            }
+            Instr::Print(n) => {
+                stack.truncate(stack.len().saturating_sub(usize::from(*n)));
                 succs.push((pc + 1, Frame { stack, vars }));
             }
             Instr::Binop(_) => {
