@@ -52,18 +52,18 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install maturin and pytest
+      - name: Install maturin
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "maturin>=1.0,<2.0" pytest pytest-timeout
+          python -m pip install "maturin>=1.0,<2.0"
 
       - name: Build the accel wheel (release)
         run: maturin build --release
         working-directory: accel
 
-      - name: Install core, then install the built wheel (the extra)
+      - name: Install core with the pinned dev tools, then install the built wheel (the extra)
         run: |
-          python -m pip install .
+          python -m pip install '.[dev]'
           python -m pip install accel/target/wheels/powerbridge_accel-*.whl
 
       - name: The extra MUST load (fail loudly if it silently does not)
@@ -159,5 +159,5 @@ jobs:
 
       - name: Differential conformance harness (extra absent -> differential gate skips)
         run: |
-          python -m pip install pytest
+          python -m pip install '.[dev]'
           python3 -m pytest tests/test_accel_conformance.py tests/test_accel_wheel.py tests/test_accel_digest_gate.py -q

@@ -56,7 +56,19 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 accel = ["powerbridge-accel==0.10.0"]
 
 # Development tools only (tests, lint, type check, wheel build); never imported by the package.
-dev = ["pytest", "pytest-timeout", "build", "setuptools>=77", "ruff", "mypy"]
+# ruff, mypy, pytest and pytest-timeout are pinned so a contributor gets the same results as
+# CI, which installs this extra. mypy 2 and pytest 9 need Python 3.10, so 3.9 gets the last
+# release of each that supports it; mypy is clean on both pins.
+dev = [
+    "pytest==8.4.2; python_version < '3.10'",
+    "pytest==9.1.1; python_version >= '3.10'",
+    "pytest-timeout==2.4.0",
+    "build",
+    "setuptools>=77",
+    "ruff==0.17.2",
+    "mypy==1.19.1; python_version < '3.10'",
+    "mypy==2.4.0; python_version >= '3.10'",
+]
 
 [project.scripts]
 # `python3 -m pl_transpiler.tools.el_emit` / `.pl_run` / `.pl_transpile` / `.pl_oracle`
