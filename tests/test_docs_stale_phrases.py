@@ -35,6 +35,10 @@ STALE = [
      "MaxBarsBack default is auto"),
     (re.compile(r"Still refused:[^.]*`Print`", re.I | re.S),
      "the native kernel runs Print"),
+    (re.compile(r"skips\s+the\s+native-kernel\s+tests", re.I),
+     "native-kernel tests are not collected without the kernel"),
+    (re.compile(r"fill\s+counts\s+quoted\s+in\s+the\s+README", re.I),
+     "the README quotes no fill counts"),
 ]
 
 
