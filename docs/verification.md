@@ -24,11 +24,8 @@ need the [README Quickstart](../README.md#quickstart).
 
 Everything below runs on a fresh clone with only the shipped source and the
 synthetic sample bars in `examples/`. No captures and no network are needed.
-Install the test tools first:
-
-```bash
-pip install pytest pytest-timeout ruff
-```
+Set up first as described in
+[CONTRIBUTING.md](../CONTRIBUTING.md#set-up-a-development-environment).
 
 | Check | Command |
 | --- | --- |
@@ -56,14 +53,14 @@ Python path; build it with `./tools/build_accel.sh` to compare the two (see
 not built.
 
 A clean public tier shows only skips for checks that need MultiCharts
-captures, and each skip names the missing input. Full `pytest` also skips the
-native-kernel tests until you build the kernel (each skip says
-"native kernel not built: run `./tools/build_accel.sh`"), and
+captures, and each skip names the missing input. Full `pytest` leaves the
+native-kernel tests out (they are not collected) until you build the kernel;
+one summary line says how many. It also skips
 the reference audit-tape tests, which need a tape that is not shipped (set
 `PB_AUDIT_EL`, `PB_AUDIT_BARS` and `PB_AUDIT_D2` to run them).
 
 **What you cannot verify from this repo.** MultiCharts parity (the per-bar
-captures and the fill counts quoted in the README) is checked against
+captures) is checked against
 MultiCharts output that is licensed and cannot be redistributed. Those
 captures are not in this repository, and the tests that use them skip here.
 To check parity yourself, export your own captures from MultiCharts and
