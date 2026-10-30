@@ -24,6 +24,13 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+## 0.13.0 — 2026-10-31
+
+Highlights:
+
+- A negative array index now stops the run with a clear error on both engines, instead of silently reading or writing an element counted from the end. Strategies that relied on the wrap give a different result: they now stop.
+- The release workflow runs the full native-vs-Python test suite against the kernel in every platform's wheel before attaching it.
+
 ### Changed
 
 - A negative array index (`A[-1]`, read or written, literal or computed) now
