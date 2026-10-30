@@ -5,7 +5,12 @@ GitHub issue.
 
 Report it privately through GitHub's private vulnerability reporting:
 [open a draft security advisory](https://github.com/hudsonwa/PowerBridge/security/advisories/new).
-Only the maintainer can see it, and we will reply there.
+Only the maintainer can see it, and we will reply there. We aim to acknowledge
+a report within 7 days.
+
+## Supported versions
+
+Only the latest minor release gets security fixes.
 
 ## What you are trusting when you run PowerBridge
 
