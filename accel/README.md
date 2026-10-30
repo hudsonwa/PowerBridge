@@ -1,92 +1,69 @@
-# accel — PowerBridge native kernel extra
+# powerbridge-accel — native kernel for PowerBridge
 
-Optional PyO3 extension. Stable names (do not change):
+`powerbridge-accel` is the optional native (Rust) kernel for
+[PowerBridge](https://github.com/hudsonwa/PowerBridge), the
+EasyLanguage / PowerLanguage strategy backtester. It runs supported strategies
+about 5x faster than PowerBridge's Python engine and gives the same trades:
+any difference from the Python path is a bug.
 
-| thing | name |
-|---|---|
-| extra | `accel` |
-| native extension module | `_accel` |
-| import | `pl_transpiler._accel` |
+You do not need it. Without it PowerBridge runs everything on the Python path
+with identical results.
 
-The crate lives in this directory (`accel/` at the repo root), not inside
-`pl_transpiler/`.
+## Install
 
-The crate contains a native bar loop and `FillEngine` core: next-bar market,
-limit, and stop orders; this-bar-on-close queuing; long/short position state;
-PnL; open-relative intrabar ordering; money-management stop, target,
-breakeven, percent-trailing, and session-exit path walks. Rust unit tests
-exercise those pieces without crossing into Python.
+Install it next to `powerbridge`, with the same version:
 
-## Strategy-semantics policy: fail-loud fallback
+```bash
+pip install powerbridge-accel==0.13.0
+```
 
-The crate deliberately chooses the allowed **fail-loud fallback** approach.
-`run` validates and marshals all seven columns in one FFI call, then raises
-`NotImplementedError` with an `ACCEL_FALLBACK_REQUIRED` prefix. It never
-returns an empty or partial trade list.
+Prebuilt wheels cover macOS (arm64, x86_64), Linux (x86_64, aarch64) and
+Windows (x64), Python 3.9 and later. The same wheels, with `SHA256SUMS`, are
+attached to each [GitHub Release](https://github.com/hudsonwa/PowerBridge/releases).
 
-The stable call has no EL source, AST, strategy identifier, instrument
-configuration, or Data2 column. The reference strategy itself needs aligned Data2 closes.
-Consequently, this call cannot distinguish two strategies over the same tape.
-Hard-coding the reference strategy or silently running no strategy would violate the
-fail-loud contract. The Python wiring owner must catch this refusal and run
-the existing Python path. A future owner-approved strategy-bearing contract
-can connect a generated Rust strategy to the already-native loop.
+Check that PowerBridge sees it:
 
-## Build
+```bash
+pl_oracle --version
+# pl_oracle 0.13.0
+# native kernel: powerbridge-accel 0.13.0 (available)
+```
 
-System Python is PEP 668-blocked. Use a venv; do not `pip install` into
-system Python.
+## What it runs
+
+The kernel runs a strategy only when it can do so exactly as the Python path
+does. Anything it cannot run faithfully is refused before the run, and
+PowerBridge runs the Python path instead and says so on stderr. It never
+gives a silently different answer. `pl_oracle --explain-native FILE` lists
+every construct in a strategy that the kernel would refuse.
+
+Coverage, speed figures and the full list of refused constructs are in
+[docs/ACCEL.md](https://github.com/hudsonwa/PowerBridge/blob/main/docs/ACCEL.md).
+
+## Building from source
+
+The crate lives in `accel/` in the PowerBridge repository and builds the
+extension module `pl_transpiler._accel` (the module and the `accel` extra
+names are stable). From a clone, in a virtual environment with Rust and
+maturin on `PATH`:
 
 ```bash
 cd accel
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-# cargo / rustc / maturin on PATH (~/.cargo/bin)
 maturin develop --release
-# Import from a cwd that is NOT the repo root: the real `pl_transpiler`
-# package on the repo path would otherwise shadow this extra unless the .so
-# is installed next to it.
-python -c "import pl_transpiler._accel as a; print(a.ping())"  # 42
+cd ..   # or: tools/build_accel.sh, which installs it into the source tree
+python -c "import pl_transpiler._accel as a; print(a.ping())"   # 42
 ```
 
-`cargo build --release` from `accel/` also compiles the `cdylib`. On macOS
-that needs the `dynamic_lookup` rustflags in `.cargo/config.toml` (maturin
-passes the same flags).
+Import it from a directory other than the repository root: there, the
+`pl_transpiler` source package shadows the installed one, and the extension
+is only found if it was copied into the source tree (`tools/build_accel.sh`
+does that). On macOS a plain `cargo build` needs the `dynamic_lookup`
+rustflags in `.cargo/config.toml`; maturin passes them itself.
 
-`python/pl_transpiler/` is a PEP 420 namespace marker so maturin 1.15 places
-the extension at `pl_transpiler/_accel*.so`. It has no `__init__.py` and
-must not grow a second Python implementation.
+`cargo test --release` runs the Rust unit and parity tests; the
+native-vs-Python tests are the `needs_native` pytest tests (see
+[CONTRIBUTING.md](https://github.com/hudsonwa/PowerBridge/blob/main/CONTRIBUTING.md)).
 
-## Exports
+## License
 
-- `ping() -> int` — trivial FFI probe. Always returns `42`.
-- `run(open, high, low, close, volume, date, time) -> list[dict]` — stable
-  bars-in / trades-out signature. It validates equal-length numeric columns,
-  then raises the fail-loud fallback described above because no strategy is
-  present. It never returns a computed result under the current contract.
-  The implemented native fill conversion matches `FillEngine.fills` exactly /
-  `pl_oracle`: `{type, signal, date, time, price, contracts}`.
-
-One FFI call per run is the only viable shape. A per-bar callback is
-forbidden: it destroys the gain this extra exists to capture.
-
-## Native numeric model
-
-Kernel arithmetic is stored as Rust `f64`. In the implemented trade/fill
-fields, `narrow_f32` is called only at the corresponding Python `f32()` sites:
-fill normalization, weighted-entry intermediates/results, conditional and
-on-close fill prices, remaining FIFO average entry, short-close price, tick
-snapping, and a newly stored maximum drawdown. Rust unit tests include a
-regression vector where naïve all-`f32` arithmetic differs from these explicit
-call sites.
-
-## Still required for an active native strategy
-
-- An owner-approved way to supply strategy semantics and required auxiliary
-  data without changing or ambiguously overloading the stable call.
-- Python-side fallback wiring and packaging, owned outside this crate.
-- Closed-position/GTA6 introspection ledgers, which are not needed by the
-  currently implemented explicit-order fill list but would be required by a
-  native strategy that reads those reserved words.
-- Differential trade-list fidelity for any strategy implementation before
-  enabling it. The reference strategy's full-tape oracle has not been run against this call.
+Apache-2.0, like PowerBridge.
