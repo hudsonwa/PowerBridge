@@ -220,6 +220,28 @@ jobs:
             echo "OK: $el digests match"
           done
 
+      - name: Native-vs-Python test suite with this wheel's kernel
+        # The digest loop above covers one example. Also run the native
+        # parity tests (the same ones accel-parity runs on macOS arm64 in
+        # ci.yml) on every platform: the kernel is copied out of this leg's
+        # wheel into the checkout, so the tests load exactly what ships.
+        shell: bash
+        run: |
+          if [ -x "$RUNNER_TEMP/venv/Scripts/python.exe" ]; then py="$RUNNER_TEMP/venv/Scripts/python.exe"; else py="$RUNNER_TEMP/venv/bin/python"; fi
+          "$py" -m pip install pytest pytest-timeout
+          "$py" - <<'PY'
+          import glob, zipfile
+          whl, = glob.glob("dist/powerbridge_accel-*.whl")
+          with zipfile.ZipFile(whl) as z:
+              names = [n for n in z.namelist() if n.startswith("pl_transpiler/_accel")]
+              assert names, "no pl_transpiler/_accel* in " + whl
+              z.extractall(".", names)
+          print("extracted", names)
+          PY
+          "$py" -c 'import pl_transpiler._accel as a; assert a.ping() == 42'
+          "$py" -m pytest -q --timeout=60 tests/test_accel_*.py
+          "$py" -m pytest -q --timeout=60 -m needs_native
+
   # SHA256SUMS covers every sdist and wheel. It is written on every build
   # (a dry run keeps it as a workflow artifact so it can be checked).
   checksums:
