@@ -74,7 +74,7 @@ Capture-gated tests skip (never fail) when the MultiCharts captures are absent; 
 
 - The separate `powerbridge-accel` wheel provides `pl_transpiler._accel`. Install it
   from the GitHub Release (or build `accel/` with maturin); see [docs/ACCEL.md](docs/ACCEL.md#install).
-  It is not on PyPI yet, so the `powerbridge[accel]` extra only resolves once it is. Do not rename the extra or the module; the
+  It is also on PyPI (from 0.13.0), which the `powerbridge[accel]` extra resolves to. Do not rename the extra or the module; the
   core install stays `dependencies = []`.
 - Extra absent: `import pl_transpiler._accel` raises `ImportError` and callers run
   the Python path. Extra present: the kernel's trade list must equal the Python
