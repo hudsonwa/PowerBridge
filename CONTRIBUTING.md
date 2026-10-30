@@ -1,6 +1,7 @@
 # Contributing
 
-Thank you for looking at PowerBridge.
+Thank you for looking at PowerBridge. Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Propose something first
 
