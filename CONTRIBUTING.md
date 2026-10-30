@@ -95,7 +95,7 @@ kernel built, no `PB_*` variables) does not run, by reason:
 
 | Reason | Tests | Default run | Needs | Public CI runs it |
 | --- | ---: | --- | --- | --- |
-| `needs_native` | 606 | deselected | the native kernel; `tools/build_accel.sh`, then a plain run | yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml) |
+| `needs_native` | 619 | deselected | the native kernel; `tools/build_accel.sh`, then a plain run | yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml) |
 | `needs_captures` | 24 | deselected | MultiCharts captures, audit tapes or the drawing corpus (licensed, not in the repo); `pytest -m needs_captures` with your data attached | no |
 | input name is an engine kwargs key | 2 | skipped | nothing: a parametrized case that does not apply (by design) | n/a |
 | `needs_native` | 2 | skipped | the native kernel; `tools/build_accel.sh`, then a plain run | yes: `accel-parity` (ci.yml) and `accel-macos-arm64` (accel.yml) |
@@ -103,7 +103,7 @@ kernel built, no `PB_*` variables) does not run, by reason:
 | `perf` | 1 | deselected | a quiet machine; `PB_PERF=1 pytest -m perf` | no |
 | could not import 'numpy' | 1 | skipped | numpy (`pip install numpy`; not in the dev extra) | no |
 
-Generated with Python 3.13 on Darwin, no native kernel.
+Generated with Python 3.9 on Darwin, no native kernel.
 
 <!-- skip-report: end -->
 
