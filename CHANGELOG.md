@@ -2,10 +2,9 @@
 
 ## About the early releases
 
-Versions 0.1 to 0.9 were the first public releases of a tool that had been
-developed privately. They were cut over a few days, one as each batch of
-verified features landed. From here, releases are spaced out and made when
-there is enough new content to justify one.
+0.2.0 to 0.11.0 were cut within about a week of the public export (0.1.0 was
+never public). Their GitHub Release pages for 0.2.0 to 0.6.0 were created
+afterwards, so their dates differ from the dates below.
 
 ## Versioning and stability
 
@@ -46,7 +45,7 @@ Highlights:
 - The release workflow now tests the built wheels before anything is attached or published: the `powerbridge` wheel runs the public tier from a clean venv, and each `powerbridge-accel` wheel runs a native-vs-Python digest check on the examples on its own platform runner (#246).
 - `run_el` no longer takes the private `_python_path_notify` keyword; `pl_run` uses an internal helper instead (#242).
 - The maintainer-only capture reader `analyze_capture.py` moved from `pl_transpiler/tools/` to the repository's `tools/`, so the wheel no longer ships it; the unused `tools/measure_audit_packet.py` is gone, and `ground_truth/captures/MANIFEST.md` is now a short data card (#248).
-- Internal: strict mode and the unimplemented-call counts are kept per run, and the EL emitter's comment maps per call, so two `run_el` / `run_oracle` runs with different strictness no longer interfere. (Emits in threads could still mix up comments until #256.) The engine's trade-stat trace hook is `FillEngine(capture_stats=...)` / `set_capture_stats()` instead of a fixture-named private flag. Output and digests are unchanged (#244).
+- Internal: strict mode and the unimplemented-call counts are kept per run, and the EL emitter's comment maps per call, so two `run_el` / `run_oracle` runs with different strictness no longer interfere. The engine's trade-stat trace hook is `FillEngine(capture_stats=...)` / `set_capture_stats()` instead of a fixture-named private flag. Output and digests are unchanged (#244).
 
 ### Fixed
 
