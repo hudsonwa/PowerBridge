@@ -207,8 +207,9 @@ proves.
   MaxBarsBack warm-up is a static estimate (`--max-bars-back`, default `auto`), and the session
   end is fixed. These are documented in
   [USAGE.md](USAGE.md#what-the-engine-assumes) rather than half-modelled.
-- **Kernel coverage.** The kernel does not yet run strategies that declare
-  arrays (they fall back to Python), and `pl_run`'s per-bar trace rows use
+- **Kernel coverage.** The kernel refuses string arrays, a few array
+  functions and `while` / `repeat` loops (they fall back to Python; see
+  [ACCEL.md](ACCEL.md)), and `pl_run`'s per-bar trace rows use
   Python for windowed and `--partial` runs.
 - **Mirror-only reverse direction.** Python → EL works only on our own mirror
   dialect.

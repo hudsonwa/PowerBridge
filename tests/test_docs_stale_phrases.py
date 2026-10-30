@@ -16,7 +16,7 @@
 """test_docs_stale_phrases.py — docs must not describe behaviour that changed.
 
 Since 0.11.0 `--max-bars-back` defaults to `auto`, and the native kernel runs
-`Print`. Phrases from the older docs that contradict this fail the test.
+`Print` and numeric arrays. Phrases from the older docs that contradict this fail the test.
 """
 
 import re
@@ -39,6 +39,8 @@ STALE = [
      "native-kernel tests are not collected without the kernel"),
     (re.compile(r"fill\s+counts\s+quoted\s+in\s+the\s+README", re.I),
      "the README quotes no fill counts"),
+    (re.compile(r"does\s+not\s+yet\s+run\s+strategies\s+that\s+declare\s+\**arrays", re.I),
+     "the native kernel runs numeric and true/false arrays"),
 ]
 
 

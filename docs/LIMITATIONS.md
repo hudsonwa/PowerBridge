@@ -86,8 +86,10 @@ trust a backtest from partial output.
   fresh clone.
 - The `accel` fast path is optional: install the prebuilt wheel from a
   release (macOS, Linux and Windows) or build it from source; see
-  [ACCEL.md](ACCEL.md). It does not yet
-  run strategies that declare **arrays**; those fall back to Python, loudly.
+  [ACCEL.md](ACCEL.md). It runs numeric and true/false arrays with literal
+  sizes; string arrays, `Array_Sort`, `Array_GetType`, `VarianceArray`,
+  `Array_Compare` and `while` / `repeat` loops fall back to Python, loudly
+  (the full list is in ACCEL.md).
   `pl_run` (per-bar trace rows) uses it only for full-tape runs without
   `--partial` (`--max-bars-back` and `--max-entries-per-direction` are
   supported); other runs use the Python path and say so on stderr.
