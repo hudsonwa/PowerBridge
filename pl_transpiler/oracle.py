@@ -401,7 +401,12 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                drawings: bool = False, drawing_case_id: Optional[str] = None,
                drawing_tape: Optional[dict[str, Any]] = None,
                prints: bool = False) -> dict[str, Any]:
-    """Transpile persist=True, run min-emit, return a digest dict.
+    """Run a strategy over bars and return its trade digest.
+
+    The digest is a short canonical summary of the trade list (fill count,
+    round-turns and a sha256): two runs, or the Python path and the native
+    kernel, made the same trades exactly when their digests match. This is
+    the library form of ``pl_oracle``.
 
     el_source     : EL/PowerLanguage source string.
     bars          : list of bar dicts (date, time, open, high, low, close, volume)
@@ -429,8 +434,7 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     suppressed so Once / lookback / Variables stay primed.
                     A windowed run that disagrees on trades is a
                     bug, not a speed win.
-    use_native    : False (default): the pure-Python path, byte-identical to
-                    before. True: try the optional native kernel first (one FFI
+    use_native    : False (default): the pure-Python reference path. True: try the optional native kernel first (one FFI
                     crossing) for the full-tape shape; a Data2 program is
                     served by forwarding ``data2_bars``. If the kernel refuses
                     the program or is not built, fall back to the Python path
@@ -453,7 +457,14 @@ def run_oracle(el_source: str, bars: Bars, config: InstrumentConfig, *,
                     is the caller's tape identity (the golden corpus uses the
                     MultiCharts ASCII tape, not the PowerBridge CSV). Omit
                     both and the digest text is unchanged.
-    drawing_case_id, drawing_tape : stored in that dump.
+    prints        : False (default). True records the strategy's ``Print``
+                    lines in the result (see ``prints`` below).
+
+    Maintainer-only (golden-corpus checks; most callers leave the defaults):
+
+    digest_version : 2 (default). 1 reproduces pinned pre-v2 digests on the
+                    Python path.
+    drawing_case_id, drawing_tape : stored in the drawing dump.
 
     Returns a dict with keys:
       text, fills, round_turns, closed_positions, sha256, n_bars, n_warmup,

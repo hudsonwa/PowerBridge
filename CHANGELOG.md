@@ -24,6 +24,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Changed
+
+- `pl_oracle --help` hides maintainer-only flags (they still work; see docs/dev/agent-guide-details.md) (#260).
+
 ## 0.12.0 — 2026-10-30
 
 Highlights:

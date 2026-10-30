@@ -167,28 +167,17 @@ def _build_parser() -> argparse.ArgumentParser:
                          "win rate, gross profit/loss, max drawdown) to stderr; "
                          "the digest on stdout is unchanged.")
     _cli.add_version(ap, "pl_oracle")
+    # Maintainer-only flags (golden-corpus dumps, drawing checks, pinned v1
+    # digests): hidden from --help, documented in docs/dev/agent-guide-details.md.
+    hidden = argparse.SUPPRESS
+    ap.add_argument("--dump", default=None, help=hidden)
+    ap.add_argument("--drawings-json", default=None, help=hidden)
+    ap.add_argument("--drawing-case", default=None, help=hidden)
+    ap.add_argument("--tape-name", default=None, help=hidden)
+    ap.add_argument("--tape-sha", default=None, help=hidden)
+    ap.add_argument("--digest-v1", dest="digest_v1", action="store_true", help=hidden)
     adv = ap.add_argument_group(
-        "advanced options",
-        "for maintainers and drawing checks; most users do not need these.")
-    adv.add_argument("--dump", default=None,
-                    help="write the hashed payload (version line + canonical fill lines) here. "
-                         "Their first field is the buy/sell side, not a position label.")
-    adv.add_argument("--drawings-json", default=None,
-                    help="write a powerbridge-drawing-dump v1 file. Requires "
-                         "--drawing-case. Does not change the digest on stdout.")
-    adv.add_argument("--drawing-case", default=None,
-                    help="case id stored in --drawings-json "
-                         "(g-<family>-<NNN>-<slug>).")
-    adv.add_argument("--tape-name", default=None,
-                    help="name of the bars stored in the drawing dump "
-                         "(default: the bars file name without its extension).")
-    adv.add_argument("--tape-sha", default=None,
-                    help="64-hex sha256 of the bars the dump is compared "
-                         "against (default: sha256 of the bars file bytes, "
-                         "decompressed when the path ends in .gz).")
-    adv.add_argument("--digest-v1", dest="digest_v1", action="store_true",
-                    help="emit the pre-v2 digest (for pinned v1 digests): no "
-                         "reversal open legs or risk exits. Python path only.")
+        "advanced options", "most users do not need these.")
     adv.add_argument("--explain-native", dest="explain_native", action="store_true",
                     help="list every construct the native kernel would refuse in "
                          "EL_FILE, one 'kind name line' per line sorted by line, "
