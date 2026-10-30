@@ -228,7 +228,7 @@ the drawing getters such as `TL_GetValue`.
 
 ## Fallback and platforms
 
-**Absent extra = identical behaviour.** Without the module, the auditable
+**Absent kernel = identical behaviour.** Without the module, the auditable
 Python path runs and produces the same trades. Programs the native kernel
 cannot execute faithfully raise `AccelRefused` (`AccelUnavailable` when the
 module is missing) so the caller runs the Python path instead; they

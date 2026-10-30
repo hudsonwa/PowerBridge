@@ -20,12 +20,12 @@ you trust. Transpiling a file does not execute it.
 ## The optional `accel` fast path is a different trust surface
 
 Today everything above refers to executing **generated Python** — source you
-can read before you run it. The optional `accel` extra (see
+can read before you run it. The optional `powerbridge-accel` wheel (see
 [docs/ACCEL.md](docs/ACCEL.md)) introduces a native
 kernel, the extension module `pl_transpiler._accel`. A compiled binary is not
 reviewable the way Python source is: you cannot read its arithmetic, its fill
 timing, or its rounding, and you cannot diff it against the Python path. That
-is a genuinely different trust decision, and installing the extra is you
+is a genuinely different trust decision, and installing that wheel is you
 choosing to make it.
 
 When you install the `powerbridge-accel` wheel you are trusting, on top of the trust
@@ -49,7 +49,7 @@ guessed"):
 > list is a defect to be reported, and the trade-list oracle
 > (`pl_oracle`, docs/ACCEL.md) is how you prove the two paths agree.
 
-And the mirror rule on the install side: **when the extra is absent, nothing
+And the mirror rule on the install side: **when the wheel is absent, nothing
 changes.** `import pl_transpiler._accel` raises `ImportError`, callers fall
 back to the Python path *and say so*, and results are identical — same trades,
 same digests, bit-for-bit to the default install. An absent or broken `accel`
