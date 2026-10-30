@@ -27,6 +27,7 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 ### Changed
 
 - `pl_oracle --help` hides maintainer-only flags (they still work; see docs/dev/agent-guide-details.md) (#260).
+- `mc_ground_check` reads the optional MultiCharts reference files (`reserved_words.txt`, `keyword_index.txt`) from `--reference-dir DIR` or `PB_MC_REFERENCE_DIR`, instead of a fixed folder inside the source tree; without them it skips those cross-checks as before (#280).
 
 ## 0.12.0 — 2026-10-30
 

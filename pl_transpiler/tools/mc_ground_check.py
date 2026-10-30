@@ -13,36 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""mc_ground_check.py — ground a MultiCharts PowerLanguage script before pasting it into MC.
+"""mc_ground_check — check a MultiCharts PowerLanguage script before compiling it in MultiCharts.
 
-Every token that is USED but not DECLARED in the script must be compile-safe, where
-"compile-safe" means PROVEN, not merely "appears somewhere in a doc":
-  PROVEN = (a) in the MC reserved-words list (a MultiCharts reference file, excluded from the public build), OR
-           (b) used AS CODE (comments + string literals stripped) in a script that already
-               COMPILED in MultiCharts (the PROVEN_SCRIPTS list below).
-Anything else is NOT-PROVEN and must be verified against a real keyword-reference ENTRY in
-the MultiCharts keyword reference (a definition, not a prose mention; the reference file is excluded from the public build) or replaced/inlined/dropped.
+Every identifier the script uses but does not declare must be PROVEN compile-safe:
+  (a) used as code (comments and strings stripped) in a script that already compiled in
+      MultiCharts (the shipped PROVEN_SCRIPTS data), OR
+  (b) listed in the verified allowlist mc_verified_builtins.txt, OR
+  (c) in the MultiCharts reserved-words list, if a reference directory is given.
+Anything else is reported NOT-PROVEN: confirm it has a real entry in the MultiCharts
+keyword reference, or replace it.
 
-Substring presence in the PDF, or presence only in the TradeStation help,
-is NOT sufficient — that is exactly how `Yesterday` (a TS-only reserved word MC lacks) slipped
-through and broke the GTA5 compile. See lessons.md.
+Checks:
+  names       every used-but-undeclared identifier is PROVEN (above).
+  0-arg arity a 0-arg property (e.g. MaxShares) must not be called with parentheses.
+  signatures  argument count, return type versus the destination variable's type, and
+              argument types where both the catalog type and the argument type are certain.
+The MultiCharts editor's Verify is still the final check.
 
-This gate checks NAMES + 0-arg ARITY. It is the FIRST of a THREE-PASS pre-compile audit; the other
-two passes are MANUAL (no MC compiler here, so the MC editor "Verify" is still the final oracle):
-  (1) NAMES — every used-but-undeclared token is a real MC keyword (index + reserved-words + proven
-      scripts + the verified allowlist).  [automated here]
-  (2) 0-ARITY — a real keyword that is a 0-arg PROPERTY must NOT be called with parentheses, else MC:
-      "Invalid number of parameters. 0 parameter(s) expected" (e.g. SessionCountMS, MaxShares are
-      0-arg; siblings SessionCount(SessionType), MaxContracts(PosBack) take args).  [automated here]
-  (3) SIGNATURES — arg-COUNT, return-type-vs-var-type and (Pass 4) arg-TYPES where both the
-      catalog type and the argument's type are certain are checked here; the rest is not, so verify
-      each against its PL-Ref `Usage` line. Pitfalls that bit GTA6 (see lessons.md):
-      Array_GetBooleanValue→TrueFalse (don't assign to a numeric var; use `If fn() Then v=1`);
-      string fns (DateToString, FormatDate, SymbolName, *Name, Array_GetStringValue) → String var +
-      bare concat, never NumToStr; Array_Sort's 4th arg is a TrueFalse (true=ascending), not 0/1.
+Optional reference directory (--reference-dir DIR, else env PB_MC_REFERENCE_DIR; the
+option wins). It may hold reserved_words.txt (the MultiCharts reserved-words list) and
+keyword_index.txt (the MultiCharts keyword index as text). When set and present they add
+the reserved words to PROVEN, filter the allowlist to indexed names, and enable the
+index-based 0-arg check; when unset or missing, those cross-checks are skipped.
 
-Usage:  python pl_transpiler/tools/mc_ground_check.py <script.txt>
-Exit:   0 if every used builtin is PROVEN and no 0-arg property is mis-called; 1 otherwise.
+Usage:  python -m pl_transpiler.tools.mc_ground_check [--reference-dir DIR] <script.txt>
+Exit:   0 if every check passes; 1 if any check fails; 2 on a usage error or missing
+        shipped data.
 """
 import json
 import os
@@ -50,17 +46,27 @@ import re
 import sys
 from typing import Optional
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SIGNATURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pl_signatures.jsonl')
-RESERVED = os.path.join(REPO, '_mc_reference_excluded', 'reserved_words.txt')
+REFERENCE_ENV = 'PB_MC_REFERENCE_DIR'
+# Optional MultiCharts reference files; None (no reference directory) skips their cross-checks.
+RESERVED: Optional[str] = None
+PDF: Optional[str] = None  # the keyword index
+
+
+def set_reference_dir(path: Optional[str]) -> None:
+    """Use the reference files in `path` (None or '' = no reference directory)."""
+    global RESERVED, PDF
+    RESERVED = os.path.join(path, 'reserved_words.txt') if path else None
+    PDF = os.path.join(path, 'keyword_index.txt') if path else None
+
+
 PROVEN_SCRIPTS = [  # scripts that have compiled + run in MultiCharts
     'ground_truth/GT1_functions_indicators.txt',
     'ground_truth/GT2_strategy_orders_position.txt',
     'ground_truth/GT3_coverage_indicator.txt',
     'ground_truth/GT4_coverage_indicator.txt',
     'ground_truth/GT_master_strategy.txt',
-    # GTA5/GTA6 compiled in MC and produce verify_all-GREEN captures (GTA5, GTA6_1, GTA6_2)
-    # — the literal definition of PROVEN. Registering them validates their call forms (e.g.
+    # These also compiled in MultiCharts; registering them validates their call forms (e.g.
     # `from entry("LE4")`, StringToDate("..."), MaxContracts(1)); the single-string-literal
     # arg is otherwise stripped before the Pass-3 arity count, mis-reading it as 0 args.
     'ground_truth/GTA5_strategy.txt',
@@ -152,21 +158,20 @@ def _declared(code):
 # Tokens manually confirmed to have a REAL keyword-reference ENTRY in the PowerLanguage keyword reference
 # (one token per line, '# citation' after it). Populated only with verified constructs.
 VERIFIED_LIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mc_verified_builtins.txt')
-PDF = os.path.join(REPO, '_mc_reference_excluded', 'keyword_index.txt')
+set_reference_dir(os.environ.get(REFERENCE_ENV))
 
 
 def index_set():
-    """The PDF's authoritative alphabetical keyword INDEX = the run of one-keyword-per-line
-    entries before the first detailed 'Usage' block. The index is the strongest signal of a
-    real MC keyword NAME. CAVEAT: it over-includes a few TS-only words (e.g. Yesterday), so
-    index PRESENCE is advisory, not proof — but index ABSENCE of a name that the body claims
-    is a keyword is a strong red flag. That is exactly how `SetDollarTrailing_pt` (a copy-paste
-    typo in a body Usage header, absent from the index) slipped past the allowlist and broke
-    the MC compile with 'Unknown Function' at GTA5 Ln 418. See lessons.md."""
+    """Names in the MultiCharts keyword index: the one-keyword-per-line entries before the
+    first 'Usage' block. Index presence is advisory (it includes a few TradeStation-only
+    words), but a name missing from the index is a strong sign it is not a keyword.
+    None when no keyword index is available (the cross-checks that use it are skipped)."""
+    if PDF is None:
+        return None
     try:
         lines = open(PDF, encoding='utf-8', errors='ignore').read().splitlines()
     except OSError:
-        return None  # PDF unavailable -> skip the cross-check (don't fail hard)
+        return None  # index unavailable -> skip the cross-check (don't fail hard)
     end = next((i for i, ln in enumerate(lines) if ln.strip() == 'Usage'), len(lines))
     return set(ln.strip().lower() for ln in lines[:end] if re.fullmatch(r'[A-Za-z_]\w*', ln.strip()))
 
@@ -174,6 +179,8 @@ def index_set():
 def proven_set():
     proven = set(load_proven_data()[0])
     try:
+        if RESERVED is None:
+            raise OSError
         html = open(RESERVED, encoding='utf-8', errors='ignore').read().lower()
         proven |= set(re.findall(r'[a-z_]\w+', re.sub(r'<[^>]+>', ' ', html)))
     except OSError:
@@ -185,9 +192,8 @@ def proven_set():
             tok = line.split('#', 1)[0].strip().lower()
             if not tok:
                 continue
-            # The allowlist must hold real MC keyword NAMES: every entry must also appear in
-            # the PDF alphabetical index. Reject (do NOT trust) any that don't — a body-text
-            # citation alone is insufficient (it can be a typo'd header).
+            # With a keyword index available, allowlist entries must also be indexed names;
+            # reject (do not trust) any that are not.
             if idx is not None and tok not in idx:
                 rejected.append(tok)
                 continue
@@ -200,21 +206,20 @@ def proven_set():
     return proven
 
 
-# Real functions whose PDF body Usage HEADER is a copy-paste typo of a DIFFERENT name, so
-# `name(` never appears in the body even though they DO take args. Whitelist (do not flag as 0-arg).
+# Real functions documented in the keyword reference under a different name's Usage header,
+# so `name(` never appears there even though they take args. Never flag these as 0-arg.
 KNOWN_TYPO_HEADER = {'settrailingstop_pt'}  # documented under the typo'd "SetDollarTrailing_pt(" header
 
 
 def zero_arg_violations(code):
     """SIGNATURE check (names are necessary, not sufficient): a real MC keyword that is a 0-arg
     PROPERTY but is CALLED WITH parentheses in the script -> MC compile error 'Invalid number of
-    parameters. 0 parameter(s) expected'. Heuristic (reliable): a token in the PDF alphabetical
-    INDEX whose functional form `name(` NEVER appears in the PDF body is a 0-arg property; if the
-    script calls it as `name(...)` that is a bug. (e.g. SessionCountMS, MaxShares, SessionLastBar are
-    0-arg; their siblings SessionCount(SessionType), MaxContracts(PosBack) DO take args.) User-var
-    declarations `Vars: Name(init)` are NOT flagged — only real PDF-index keywords are considered."""
+    parameters. 0 parameter(s) expected'. Heuristic: a name in the keyword index whose form
+    `name(` never appears in the keyword reference text is a 0-arg property (e.g. SessionCountMS,
+    MaxShares; their siblings SessionCount(SessionType), MaxContracts(PosBack) take args).
+    Declarations such as `Vars: Name(init)` are not flagged. Skipped without a keyword index."""
     idx = index_set()
-    if idx is None:
+    if idx is None or PDF is None:
         return []
     try:
         pdf_low = open(PDF, encoding='utf-8', errors='ignore').read().lower()
@@ -225,7 +230,7 @@ def zero_arg_violations(code):
     body = re.sub(r'(?i)\b(inputs?|vars?|variables?|arrays?|array)\s*:.*?;', ' ', code, flags=re.S)
     declared = _declared(code)
     # Names used WITH parens in a script that ALREADY COMPILED in MC = a validated call form -> never flag
-    # (covers builtins whose PDF body wraps `Name` and `(args)` onto separate lines).
+    # (covers builtins whose reference text wraps `Name` and `(args)` onto separate lines).
     proven_call = load_proven_data()[1]
     bad = set()
     for m in re.finditer(r'([A-Za-z_]\w*)\s*\(', body):
@@ -438,7 +443,7 @@ def check(path: str, label: Optional[str] = None) -> int:
     safe = proven_set()
     not_proven = [c for c in cands if c not in safe]
     sigs = load_signatures()
-    # PASS 3a (PDF-index 0-arg-with-parens heuristic) + PASS 3b (signature-table arity), deduped by name.
+    # PASS 3a (keyword-index 0-arg-with-parens heuristic) + PASS 3b (signature-table arity), deduped by name.
     arity_3a = [(n, "0-arg property called WITH parentheses") for n in zero_arg_violations(code)]
     seen_arity = {n for n, _ in arity_3a}
     arity_bad = arity_3a + [(n, r) for n, r in arity_signature_violations(code) if n not in seen_arity]
@@ -477,10 +482,25 @@ def check(path: str, label: Optional[str] = None) -> int:
     return 0
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("usage: python pl_transpiler/tools/mc_ground_check.py <script.txt>"); sys.exit(2)
+def main(argv: Optional[list[str]] = None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(
+        prog='mc_ground_check',
+        description='Check a PowerLanguage script for names, 0-arg arity and signatures '
+                    'MultiCharts would reject. Exit 0 = pass, 1 = fail, 2 = error.')
+    ap.add_argument('script', help='EL/PowerLanguage source file')
+    ap.add_argument('--reference-dir', metavar='DIR', default=None,
+                    help='directory holding reserved_words.txt and/or keyword_index.txt '
+                         f'(default: ${REFERENCE_ENV}, else none; missing files are skipped)')
+    args = ap.parse_args(argv)
+    if args.reference_dir is not None:
+        set_reference_dir(args.reference_dir)
     try:
-        sys.exit(check(sys.argv[1]))
+        return check(args.script)
     except ProvenDataError as exc:
-        print(f"mc_ground_check: error: {exc}", file=sys.stderr); sys.exit(2)
+        print(f"mc_ground_check: error: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())
