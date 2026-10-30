@@ -35,7 +35,7 @@ if Cnt = 4 then Grew = Array_SetMaxIndex(Dyn, 5);
 if Cnt = 9 then Array_SetMaxIndex(Dyn, 2);
 MaxIdx = Array_GetMaxIndex(Dyn);
 Dyn[0] = Dyn[0] + 1;
-Wrap = Dyn[-1] + Buf[-20] + Scratch[Band * 11.6] + Scratch[-0.5];
+Wrap = Dyn[MaxIdx] + Buf[1] + Scratch[Band * 11.6] + Scratch[-0.5];
 Frac = Buf[Band + 1.74];
 
 Flags[Mod(Cnt, 3)] = Close > Open;

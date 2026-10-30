@@ -26,6 +26,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ### Changed
 
+- A negative array index (`A[-1]`, read or written, literal or computed) now
+  stops the run with `array index -1 out of range ...`, like an index past the
+  end, on both the Python path and the native kernel. It used to wrap round
+  silently and read or write an element counted from the end (#282).
 - `pl_oracle --help` hides maintainer-only flags (they still work; see docs/dev/agent-guide-details.md) (#260).
 - `mc_ground_check` reads the optional MultiCharts reference files (`reserved_words.txt`, `keyword_index.txt`) from `--reference-dir DIR` or `PB_MC_REFERENCE_DIR`, instead of a fixed folder inside the source tree; without them it skips those cross-checks as before (#280).
 

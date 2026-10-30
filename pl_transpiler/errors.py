@@ -161,7 +161,8 @@ def _rebuild_el_error(base: type, message: str,
     return _el_error_class(base)(message, line)
 
 
-# `A[i]` is emitted as `a[-(int(i) + 1)]` (or `a[-(3 + 1)]` for a literal index).
+# `A[i]` is emitted as `a[-(el_array_index(i) + 1)]` (or `a[-(3 + 1)]` for a
+# literal index); a data series as `close[-(int(i) + 1)]`.
 def _el_index(node: ast.expr) -> Optional[ast.expr]:
     if not (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)
             and isinstance(node.operand, ast.BinOp) and isinstance(node.operand.op, ast.Add)
@@ -169,7 +170,7 @@ def _el_index(node: ast.expr) -> Optional[ast.expr]:
         return None
     inner = node.operand.left
     if (isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name)
-            and inner.func.id == 'int' and len(inner.args) == 1):
+            and inner.func.id in ('int', 'el_array_index') and len(inner.args) == 1):
         return inner.args[0]
     return inner
 
@@ -201,7 +202,7 @@ def _array_bounds(source_line: str, local_vars: dict[str, Any],
                          {'__builtins__': {}}, dict(local_vars)))
         except Exception:  # noqa: BLE001 - not this access
             continue
-        if not -len(arr) <= -(i + 1) < len(arr):
+        if not 0 <= i < len(arr):
             name = el_names.get(node.value.id, node.value.id)
             return f"array index {i} out of range for '{name}' (max index {len(arr) - 1})"
     return None

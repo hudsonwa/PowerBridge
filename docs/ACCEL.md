@@ -129,8 +129,8 @@ strategy before relying on a ratio.
 
 Arrays and loops run natively when they are numeric or true/false arrays with
 literal sizes and `for` loops; the kernel copies the Python path's list
-semantics, including its quirks (a negative index counts from the end, an
-index past the end stops the run). String arrays, `Array_Sort`,
+semantics, including its quirks (a fractional index truncates toward zero; a
+negative index, or one past the end, stops the run). String arrays, `Array_Sort`,
 `Array_GetType`, `VarianceArray`, `Array_Compare`, `while` / `repeat` loops and
 a typed trace of a program with arrays are refused and run on the Python path.
 On Python 3.12 and later `Array_Sum` adds floats the way that Python's `sum()`

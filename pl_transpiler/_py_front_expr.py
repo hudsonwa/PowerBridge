@@ -162,10 +162,13 @@ def _strip_int(node: ast.expr) -> ast.expr:
 
 def _guard_index(operand: ast.expr) -> ast.expr:
     """From the `-(IDX + 1)` slice operand, return the index expression (IDX),
-    stripping any `int(...)` wrapper. Raises if the shape is unexpected."""
+    stripping any `int(...)` or array `el_array_index(...)` wrapper. Raises if
+    the shape is unexpected."""
     if not (isinstance(operand, ast.BinOp) and isinstance(operand.op, ast.Add)
             and isinstance(operand.right, ast.Constant) and operand.right.value == 1):
         raise PyFrontError(f"unexpected bar-ref index shape: {ast.dump(operand)}{_ln(operand)}")
+    if _is_call(operand.left, 'el_array_index') and len(operand.left.args) == 1:
+        return operand.left.args[0]
     return _strip_int(operand.left)
 
 
