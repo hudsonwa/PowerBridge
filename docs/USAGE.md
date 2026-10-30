@@ -16,10 +16,10 @@
 
 # Usage guide
 
-> These docs on `main` track the latest release (0.12.0), the version
+> These docs on `main` track the latest release (0.13.0), the version
 > `pip install` gives you. Anything marked *new in the next release* is on
 > `main` but not released yet, with its pull request number; the text next
-> to it gives the 0.12.0 way.
+> to it gives the 0.13.0 way.
 
 The [README](../README.md#quickstart) has the short quickstart. This
 page goes through the same example step by step, then covers the Python to
