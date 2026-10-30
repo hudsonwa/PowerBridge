@@ -41,12 +41,11 @@ trust a backtest from partial output.
   syntax requires; only the omission before `Else` is accepted. This follows
   the documented EL syntax; the exact set of places where the MultiCharts
   compiler tolerates a missing `;` has not been checked against it.
-- **Negative array indexes** are not rejected. `A[-1]` reads `A[N]`, `A[-2]`
-  reads `A[N-1]`, and so on down to `A[-(N+1)]`, which reads `A[0]`; only an index
-  below that is an out-of-range error. MultiCharts documents array indexes as
-  `0` to `N` (documented behaviour, unverified), so a program that relies on a
-  negative index gives results MultiCharts would not. This is left as is so
-  programs that run today give the same results.
+- **Negative array indexes** stop the run, like an index past the end:
+  `A[-1]`, read or written, fails with `array index -1 out of range for 'A'
+  (max index N)` on both the Python path and the native kernel. MultiCharts
+  documents array indexes as `0` to `N` (documented behaviour, unverified); its
+  own handling of a negative index has not been checked against this.
 
 - The Python to EL direction only reads the **mirror dialect**: the clean Python
   this transpiler itself emits. Arbitrary hand-written Python is out of scope.

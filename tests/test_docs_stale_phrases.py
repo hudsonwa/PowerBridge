@@ -41,6 +41,8 @@ STALE = [
      "the README quotes no fill counts"),
     (re.compile(r"does\s+not\s+yet\s+run\s+strategies\s+that\s+declare\s+\**arrays", re.I),
      "the native kernel runs numeric and true/false arrays"),
+    (re.compile(r"negative\s+index\s+counts\s+from\s+the\s+end", re.I),
+     "a negative array index stops the run"),
 ]
 
 

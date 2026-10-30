@@ -701,7 +701,8 @@ class _ExprMixin:
         series_expr = self.gen_expr(series)
         self._series_context = old_ctx
 
-        if index['type'] == 'number':
+        is_array = series['type'] == 'ident' and series['name'] in self._array_vars
+        if index['type'] == 'number' and not (is_array and int(index['value']) < 0):
             n_str = index['value']
             n = int(n_str)
             if n > 0 and series_expr in ('close', 'high', 'low', 'open', 'volume', 'ticks', 'upticks', 'downticks'):
@@ -720,4 +721,7 @@ class _ExprMixin:
             return f"({series_expr}[-({idx_int} + 1)] if __builtin_len({series_expr}) > 1 + ({idx_expr}) else open[-1])"
         if series_expr in ('date', 'time'):
             return f"({series_expr}[-({idx_int} + 1)] if __builtin_len({series_expr}) > {idx_int} else 0)"
+        if is_array:
+            # A negative EL index must fail like one past the end, not wrap.
+            return f"{series_expr}[-(el_array_index({idx_expr}) + 1)]"
         return f"{series_expr}[-({idx_int} + 1)]"

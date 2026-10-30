@@ -38,6 +38,17 @@ def f32(x):
         except (OverflowError, ValueError, TypeError):
             return float(x)
 
+def el_array_index(i):
+    """int(i) for a generated EL array subscript ``a[-(el_array_index(i) + 1)]``.
+
+    Raises IndexError for a negative index, which the list position
+    -(i + 1) would otherwise wrap round to count from the end."""
+    i = int(i)
+    if i < 0:
+        raise IndexError(i)
+    return i
+
+
 def el_array_pos(arr, i):
     """List position of EL array element i.
 

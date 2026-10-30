@@ -18,8 +18,8 @@
 //! is `A[-(int(i) + 1)]` (`codegen_expr._gen_bar_ref`). This module keeps the
 //! elements in EL order and reproduces what that reversed indexing does,
 //! including the parts a "correct" EL array would not: a fractional index
-//! truncates toward zero, a negative index `-k` (`k <= len`) wraps to
-//! `A[len - k]`, and an index at or past the end fails the run.
+//! truncates toward zero. A negative index, or one at or past the end, fails
+//! the run (the codegen's `el_array_index` stops the reversed list wrapping).
 //!
 //! The `Array_*` functions are ports of `_rt_arrays_dates.py` /
 //! `_rt_builtins_az.py` / `_rt_datetime.py`; each method names its source.
@@ -121,16 +121,9 @@ fn py_index(value: &Value, what: &str) -> Result<i64, KernelError> {
     }
 }
 
-/// Element position of EL index `i` under `A[-(i + 1)]` on a reversed list.
-fn wrapped_pos(len: usize, i: i64) -> Option<usize> {
-    let n = i64::try_from(len).ok()?;
-    if (0..n).contains(&i) {
-        Some(i as usize)
-    } else if i < 0 && i >= -n {
-        Some((n + i) as usize)
-    } else {
-        None
-    }
+/// Element position of EL index `i`: `None` unless `0 <= i < len`.
+fn element_pos(len: usize, i: i64) -> Option<usize> {
+    usize::try_from(i).ok().filter(|&pos| pos < len)
 }
 
 /// Python slice `items[start:stop]` bounds (clamped, negatives from the end).
@@ -283,10 +276,10 @@ impl ElArray {
         ))
     }
 
-    /// `A[i]` (`A[-(int(i) + 1)]`), with the element's type.
+    /// `A[i]` (`A[-(el_array_index(i) + 1)]`), with the element's type.
     pub(crate) fn get(&self, index: &Value) -> Result<(Value, ElemKind), KernelError> {
         let i = py_index_int(index, format_args!("index of {}", self.name))?;
-        let pos = wrapped_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
+        let pos = element_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
         Ok((self.items[pos].clone(), self.kinds[pos]))
     }
 
@@ -304,7 +297,7 @@ impl ElArray {
             )));
         }
         let i = py_index_int(index, format_args!("index of {}", self.name))?;
-        let pos = wrapped_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
+        let pos = element_pos(self.items.len(), i).ok_or_else(|| self.index_error(i))?;
         self.items[pos] = value;
         self.kinds[pos] = kind;
         Ok(())
@@ -516,7 +509,7 @@ mod tests {
         }
     }
 
-    /// `A[-(int(i) + 1)]` on a 4-element reversed list.
+    /// `A[-(el_array_index(i) + 1)]` on a 4-element reversed list.
     #[test]
     fn element_index_table_matches_python_reversed_list() {
         let a = array(&[10.0, 11.0, 12.0, 13.0]);
@@ -525,10 +518,15 @@ mod tests {
         assert_eq!(get(3.0), Ok(13.0));
         assert_eq!(get(2.7), Ok(12.0), "int() truncates");
         assert_eq!(get(-0.5), Ok(10.0), "int(-0.5) is 0");
-        assert_eq!(get(-1.0), Ok(13.0), "-1 wraps to the last EL index");
-        assert_eq!(get(-4.0), Ok(10.0), "-len wraps to A[0]");
+        assert!(get(-1.0).is_err(), "a negative index does not wrap");
+        assert!(get(-4.0).is_err(), "-len does not wrap");
         assert!(get(4.0).is_err(), "len is out of range");
         assert!(get(-5.0).is_err(), "-len-1 is out of range");
+        assert_eq!(
+            get(-1.0).unwrap_err().to_string(),
+            get(4.0).unwrap_err().to_string().replace(" 4 ", " -1 "),
+            "a negative index fails like one past the end"
+        );
         assert!(get(f64::NAN).is_err());
         assert!(get(f64::INFINITY).is_err());
         assert_eq!(
@@ -536,6 +534,16 @@ mod tests {
             Value::Num(11.0),
             "int(True) is 1"
         );
+    }
+
+    #[test]
+    fn negative_write_fails_like_past_the_end() {
+        let mut a = array(&[10.0, 11.0]);
+        let mut set = |i: f64| a.set(&Value::Num(i), Value::Num(5.0), ElemKind::Float);
+        let neg = set(-1.0).unwrap_err().to_string();
+        assert!(neg.contains("array index -1 out of range"), "{neg}");
+        assert!(set(2.0).is_err(), "past the end still fails");
+        assert_eq!(a.items(), &[Value::Num(10.0), Value::Num(11.0)]);
     }
 
     #[test]
