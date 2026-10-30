@@ -24,6 +24,10 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+### Removed
+
+- The `accel` extra. It named `powerbridge-accel` on PyPI, which is not registered there, so `pip install "powerbridge[accel]"` could have installed someone else's package. Install the native wheel from the GitHub Release instead (docs/ACCEL.md "Install") (#276).
+
 ## 0.13.0 — 2026-10-31
 
 Highlights:

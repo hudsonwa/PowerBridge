@@ -40,20 +40,15 @@ Repository = "https://github.com/hudsonwa/PowerBridge"
 
 [project.optional-dependencies]
 # OPTIONAL FAST PATH — decision record: docs/ACCEL.md. Strictly additive.
-# Stable interface shared by the kernel, CI and tests (renaming breaks installs):
-#   extra name    -> `accel`        (resolves only once powerbridge-accel is on PyPI)
+# There is no `accel` extra: powerbridge-accel is not on PyPI, and an extra that
+# names an unregistered project lets anyone claim that name. Install the native
+# wheel from the GitHub Release or build accel/ (docs/ACCEL.md "Install").
 #   native module -> `pl_transpiler._accel`
-#   extra absent  -> `import pl_transpiler._accel` raises ImportError; callers fall
+#   module absent -> `import pl_transpiler._accel` raises ImportError; callers fall
 #                    back to the Python path LOUDLY and produce identical results
 #                    (fail-loud: never a silent different answer).
-#
 # The core `dependencies` list above stays [] and the default `pip install .`
-# remains pure-stdlib, zero-dependency, with no build step. This extra is
-# opt-in only. The native wheel, powerbridge-accel, is not on PyPI yet, so
-# `pip install .[accel]` fails today: install the wheel from the GitHub Release
-# or build accel/ from source (docs/ACCEL.md "Install"). release.yml will publish
-# it to PyPI; keep this pin equal to `version`.
-accel = ["powerbridge-accel==0.13.0"]
+# remains pure-stdlib, zero-dependency, with no build step.
 
 # Development tools only (tests, lint, type check, wheel build); never imported by the package.
 # ruff, mypy, pytest and pytest-timeout are pinned so a contributor gets the same results as
