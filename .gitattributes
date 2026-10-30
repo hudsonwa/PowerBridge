@@ -1,0 +1,3 @@
+# Generated data compared byte for byte with its generator: keep LF on every OS
+# (Windows checkouts otherwise convert it to CRLF).
+pl_transpiler/tools/mc_proven.json text eol=lf
