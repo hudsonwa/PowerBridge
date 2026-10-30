@@ -580,3 +580,25 @@ def test_summary_flag_stdout_unchanged_and_paths_agree():
         n_out, n_err = run("--native", "--summary")
         assert n_out == out
         assert n_err[n_err.index("performance summary"):] == block
+
+
+_MAINTAINER_FLAGS = ("--dump", "--drawings-json", "--drawing-case",
+                     "--tape-name", "--tape-sha", "--digest-v1")
+
+
+def test_pl_oracle_help_hides_maintainer_flags():
+    from pl_transpiler.tools.pl_oracle import _build_parser
+    text = _build_parser().format_help()
+    for flag in _MAINTAINER_FLAGS:
+        assert flag not in text, flag
+
+
+def test_pl_oracle_maintainer_flags_still_parse():
+    from pl_transpiler.tools.pl_oracle import _build_parser
+    args = _build_parser().parse_args([
+        "s.el", "b.csv", "--dump", "d.txt", "--drawings-json", "dr.json",
+        "--drawing-case", "g-x-001-y", "--tape-name", "t",
+        "--tape-sha", "0" * 64, "--digest-v1"])
+    assert (args.dump, args.drawings_json, args.drawing_case,
+            args.tape_name, args.tape_sha, args.digest_v1) == (
+        "d.txt", "dr.json", "g-x-001-y", "t", "0" * 64, True)

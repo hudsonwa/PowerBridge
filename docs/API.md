@@ -179,9 +179,10 @@ Import it from the package root, or as
 `seed_warmup=True`). `data2_bars` (or `data2_closes`, a Close series aligned
 with `bars`) supplies Data2. `use_native=True` tries the optional Rust kernel
 and falls back to Python with a stderr note when it cannot serve the run; the
-digest is the same either way. `digest_version=1` reproduces the older v1
-digest. `max_bars_back`, `max_entries_per_direction` and the three `drawing*`
-keywords, and `prints`, mean the same as in `run_el`. Note that `seed_warmup` defaults to
+digest is the same either way. `max_bars_back`, `max_entries_per_direction`,
+`drawings` and `prints` mean the same as in `run_el`. `digest_version`
+(`1` reproduces the older v1 digest), `drawing_case_id` and `drawing_tape` are
+maintainer-only. Note that `seed_warmup` defaults to
 `False` here but to `True` in `run_el` (see above).
 
 The result has `text` (the digest as printed by `pl_oracle`), `sha256` (str),
@@ -400,10 +401,12 @@ kernel when it is installed.
 | `-o FILE` | Also write the digest here. |
 | `--compare FILE` | Exit 1 if the digest differs from this file. |
 | `--fills-csv FILE` | Write a readable fill log. |
-| `--dump FILE` | Write the hashed payload. |
 | `--print FILE` | As in `pl_run`. |
-| `--digest-v1` | Emit the older v1 digest (Python path only). |
 | `--lenient`, `-v` | As in `pl_run`; `-v` prints kernel diagnostics. |
+
+Maintainer-only flags (`--dump`, `--digest-v1`, `--drawings-json`, `--drawing-case`,
+`--tape-name`, `--tape-sha`) are hidden from `--help`; see
+[Maintainer flags](dev/agent-guide-details.md#maintainer-flags).
 
 ```sh
 pl_oracle examples/ma_cross.el examples/NQ_sample_bars.csv

@@ -674,6 +674,24 @@ python3 -m pl_transpiler.tools.pl_oracle <el_file> <bars_csv> ...
   TRUST MODEL: pl_oracle EXECUTES GENERATED PYTHON — only run strategy files you trust.
 ```
 
+#### Maintainer flags
+
+These `pl_oracle` flags are hidden from `--help` (they serve the golden corpus and
+drawing checks) but work as documented here. None changes the digest on stdout
+except `--digest-v1`.
+
+| Flag | Meaning |
+|---|---|
+| `--dump FILE` | Write the hashed payload (version line + canonical fill lines). Their first field is the buy/sell side, not a position label. |
+| `--digest-v1` | Emit the pre-v2 digest (for pinned v1 digests): no reversal open legs or risk exits. Python path only. |
+| `--drawings-json FILE` | Write a powerbridge-drawing-dump v1 file. Requires `--drawing-case`. |
+| `--drawing-case ID` | Case id stored in the drawing dump (`g-<family>-<NNN>-<slug>`). |
+| `--tape-name NAME` | Bars name stored in the dump (default: bars file name without extension). |
+| `--tape-sha HEX` | 64-hex sha256 of the bars the dump is compared against (default: sha256 of the bars file bytes, decompressed for `.gz`). |
+
+The matching `run_oracle` keywords (`digest_version`, `drawing_case_id`,
+`drawing_tape`) are maintainer-only too.
+
 ```bash
 python3 -m pl_transpiler.tools.pl_oracle \
     ground_truth/GT2_strategy_orders_position.txt \
