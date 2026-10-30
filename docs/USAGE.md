@@ -16,10 +16,10 @@
 
 # Usage guide
 
-> These docs on `main` track the latest release (0.11.0), the version
+> These docs on `main` track the latest release (0.12.0), the version
 > `pip install` gives you. Anything marked *new in the next release* is on
 > `main` but not released yet, with its pull request number; the text next
-> to it gives the 0.11.0 way.
+> to it gives the 0.12.0 way.
 
 The [README](../README.md#quickstart) has the short quickstart. This
 page goes through the same example step by step, then covers the Python to
@@ -193,18 +193,13 @@ with `-v`, a `note:` line when the native kernel is not installed) go to stderr,
 `pl_oracle … > digest.txt` captures only the block above.
 
 When the native kernel is installed but cannot run a program, both tools use
-the Python engine and say so in one `note:` line on stderr (this wording is
-*new in the next release (#254)*; 0.11.0's note quotes the kernel's refusal
-instead), for example
+the Python engine and say so in one `note:` line on stderr, for example
 `[pl_oracle] note: ran on the Python engine because the native kernel does not
 support bar_ref series yet; results are the same, only slower (-v for details)`.
 This is expected, not an error. `-v` adds the kernel's own reason, and
 `pl_oracle --explain-native FILE` lists every construct it refuses.
 
 ### Print output
-
-*New in the next release (#254)*: 0.11.0 does not show `Print` output and has
-no `--print` option or `prints` result.
 
 A strategy's `Print(...)` lines go to stderr, after the run for `pl_oracle` and
 as they are printed for `pl_run` on the Python engine. `--print FILE` writes them

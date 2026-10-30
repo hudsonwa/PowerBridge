@@ -73,8 +73,8 @@ v0.11.0 and earlier have neither.
 The second line says whether the kernel will be used:
 
 ```text
-pl_oracle 0.11.0
-native kernel: powerbridge-accel 0.11.0 (available)
+pl_oracle 0.12.0
+native kernel: powerbridge-accel 0.12.0 (available)
 ```
 
 If it says `not available`, the reason follows in brackets: `not installed`,

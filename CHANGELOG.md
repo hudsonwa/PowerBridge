@@ -25,11 +25,19 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+## 0.12.0 — 2026-10-30
+
+Highlights:
+
+- Strategy `Print` output is shown: on stderr, in a file with `--print FILE`, or as `prints` from `run_el` / `run_oracle`, the same on both engines.
+- Each GitHub Release carries a `SHA256SUMS` file and a build provenance attestation per file, and the release workflow tests the built wheels before attaching them.
+- `pl_examples` also writes the example configs and `hand_written.py`, so the documented commands work after a wheel install.
+- When the native kernel cannot run a program, the fallback note is one line saying the Python engine ran and why.
+
 ### Added
 
 - Each GitHub Release now carries a `SHA256SUMS` file over every sdist and wheel and a build provenance attestation for each file, so a download can be checked with `sha256sum -c` and `gh attestation verify`; see SECURITY.md (#251).
 - `Print` output is shown: `pl_run` and `pl_oracle` write a strategy's `Print` lines to stderr, or to a file with the new `--print FILE`, and `run_el` / `run_oracle` return them as `prints`. The native kernel prints the same lines as the Python engine. Fills, digests and stdout are unchanged. Generated Python calls `pl_print(...)` instead of `print(...)` (#254).
-
 - `pl_examples` also writes `examples/configs/ES.json`, `examples/configs/NQ.json` and `examples/hand_written.py`, so the USAGE.md and PYTHON_STRATEGIES.md commands work after a wheel install; CI now runs the documented commands from an empty directory against the built wheel, and the docs mark unreleased features *new in the next release (#N)*, checked against this section (#258).
 
 ### Changed

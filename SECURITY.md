@@ -3,8 +3,9 @@
 If you think you have found a security issue, please do not open a public
 GitHub issue.
 
-Email the maintainer through the address on the GitHub profile
-([hudsonwa](https://github.com/hudsonwa)) and we will look at it privately.
+Report it privately through GitHub's private vulnerability reporting:
+[open a draft security advisory](https://github.com/hudsonwa/PowerBridge/security/advisories/new).
+Only the maintainer can see it, and we will reply there.
 
 ## What you are trusting when you run PowerBridge
 
