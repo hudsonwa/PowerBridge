@@ -23,8 +23,9 @@ fast path is a Rust crate in `accel/` that builds the module
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
 
-`powerbridge-accel` is not on PyPI yet (coming); install it from a release
-wheel or from source as below.
+`powerbridge-accel` is on PyPI from 0.13.0: `pip install powerbridge-accel==0.13.0`
+(use the same version as `powerbridge`). You can also install a release wheel
+or build it from source as below.
 
 ## Install
 

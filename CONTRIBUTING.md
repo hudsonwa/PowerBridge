@@ -117,7 +117,7 @@ with the dev extra installed. The "Generated with" line is not compared.
 What public CI covers (`.github/workflows/ci.yml` and `accel.yml`):
 
 - the public tier on Linux, macOS and Windows, Python 3.9, 3.13 and 3.14;
-- the default pytest run above on Linux, Python 3.9, 3.13 and 3.14;
+- the default pytest run above on Linux (Python 3.9, 3.13 and 3.14) and on macOS and Windows (Python 3.13);
 - every `needs_native` test with the kernel built: `accel-parity` (ci.yml)
   builds it with `tools/build_accel.sh` on macOS arm64 for Python 3.9, 3.12
   and 3.14, and `accel-macos-arm64` (accel.yml) builds the wheel with maturin

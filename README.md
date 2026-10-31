@@ -37,8 +37,9 @@ pip install "powerbridge @ git+https://github.com/hudsonwa/PowerBridge@v0.13.0"
 
 The optional native fast path is a separate wheel per platform,
 `powerbridge_accel-0.13.0-cp39-abi3-<platform>.whl` on the same release page;
-see [the platform table](docs/ACCEL.md#install). Releases are distributed
-through GitHub Releases, not PyPI.
+see [the platform table](docs/ACCEL.md#install). It is also on PyPI:
+`pip install powerbridge-accel==0.13.0`. The core `powerbridge` package is
+distributed through GitHub Releases.
 
 ## Quickstart
 
