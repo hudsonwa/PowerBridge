@@ -23,7 +23,7 @@ fast path is a Rust crate in `accel/` that builds the module
 one FFI call (`pl_transpiler.runtime.accel.run_native`), plus batched input
 sweeps (`run_native_sweep`) that compile and marshal the tape once.
 
-`powerbridge-accel` is on PyPI from 0.13.0: `pip install powerbridge-accel==0.13.0`
+`powerbridge-accel` is on PyPI from 0.13.0: `pip install powerbridge-accel==0.13.1`
 (use the same version as `powerbridge`). You can also install a release wheel
 or build it from source as below.
 
@@ -74,8 +74,8 @@ v0.11.0 and earlier have neither.
 The second line says whether the kernel will be used:
 
 ```text
-pl_oracle 0.13.0
-native kernel: powerbridge-accel 0.13.0 (available)
+pl_oracle 0.13.1
+native kernel: powerbridge-accel 0.13.1 (available)
 ```
 
 If it says `not available`, the reason follows in brackets: `not installed`,
