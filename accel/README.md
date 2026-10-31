@@ -14,7 +14,7 @@ with identical results.
 Install it next to `powerbridge`, with the same version:
 
 ```bash
-pip install powerbridge-accel==0.13.0
+pip install powerbridge-accel==0.13.1
 ```
 
 Prebuilt wheels cover macOS (arm64, x86_64), Linux (x86_64, aarch64) and
@@ -25,8 +25,8 @@ Check that PowerBridge sees it:
 
 ```bash
 pl_oracle --version
-# pl_oracle 0.13.0
-# native kernel: powerbridge-accel 0.13.0 (available)
+# pl_oracle 0.13.1
+# native kernel: powerbridge-accel 0.13.1 (available)
 ```
 
 ## What it runs
