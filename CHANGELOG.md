@@ -24,6 +24,15 @@ PowerBridge follows [Semantic Versioning](https://semver.org/). Before 1.0:
 
 ## Unreleased
 
+## 0.13.1 — 2026-10-31
+
+A documentation release: no code or behaviour changes, same digests as 0.13.0.
+
+### Changed
+
+- The `powerbridge-accel` package description (its PyPI page) is rewritten for users: what the kernel is, how to install and check it, and how to build it (#286).
+- The README and docs/ACCEL.md say `powerbridge-accel` is on PyPI (from 0.13.0) (#286).
+
 ## 0.13.0 — 2026-10-31
 
 Highlights:
